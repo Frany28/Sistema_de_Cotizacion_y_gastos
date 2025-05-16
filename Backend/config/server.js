@@ -32,21 +32,33 @@ import rolesPermisosRoutes from "../routes/rolesPermisos.routes.js";
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Resolver __dirname en ESM
+// Resolving __dirname in ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Servir /uploads (ficheros de firmas y otros)
+/* ─────────────  SERVE UPLOADS ───────────── */
 app.use("/uploads", express.static(path.resolve(__dirname, "../uploads")));
 
-/* ─────────────  CORS y SESSION ───────────── */
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
+/* ─────────────  CORS and SESSION ───────────── */
+// Allowed origins: local dev and production FRONTEND_URL
+const allowedOrigins = [
+  "http://localhost:5173", // dev
+  process.env.FRONTEND_URL, // set to your production frontend URL
+].filter(Boolean);
+
 app.use(
   cors({
-    origin: FRONTEND_URL,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS origin not allowed: ${origin}`));
+      }
+    },
     credentials: true,
   })
 );
+
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "clave_super_segura",
@@ -61,12 +73,12 @@ app.use(
   })
 );
 
-/* ─────────────  Parsers y logger ───────────── */
+/* ─────────────  Parsers and Logger ───────────── */
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(logger);
 
-/* ─────────────  End-points del sistema  ───────────── */
+/* ─────────────  System Endpoints ───────────── */
 app.use("/api/clientes", clientesRoutes);
 app.use("/api/servicios-productos", serviciosProductosRoutes);
 app.use("/api/cotizaciones", cotizacionesRoutes);
@@ -78,14 +90,14 @@ app.use("/api/cuentas-por-cobrar", cxcRoutes);
 app.use("/api/abonos", abonosRoutes);
 app.use("/api/solicitudes-pago", solicitudesPagoRoutes);
 
-/* ─────────────  End-points de seguridad  ──────────── */
+/* ─────────────  Security Endpoints ──────────── */
 app.use("/api/auth", authRoutes);
 app.use("/api/usuarios", usuariosRoutes);
 app.use("/api/roles", rolesRoutes);
 app.use("/api/permisos", permisosRoutes);
 app.use("/api/roles-permisos", rolesPermisosRoutes);
 
-// 404 para rutas API no existentes
+// 404 for API routes
 app.use((req, res, next) => {
   if (req.originalUrl.startsWith("/api/")) {
     return res.status(404).json({ message: "Ruta no encontrada" });
@@ -93,21 +105,24 @@ app.use((req, res, next) => {
   next();
 });
 
-// Mostrar endpoints registrados (solo desarrollo)
-console.log("ENDPOINTS:", listEndpoints(app));
+// Development only: list endpoints
+if (process.env.NODE_ENV !== "production") {
+  console.log("ENDPOINTS:", listEndpoints(app));
+}
 
-/* ─────────────  SERVIR BUILD DE REACT ──────────── */
+/* ─────────────  Serve React Build ──────────── */
 const clientDist = path.resolve(__dirname, "../../dist");
 if (fs.existsSync(clientDist)) {
+  console.log("Serving static files from:", clientDist);
   app.use(express.static(clientDist));
-  // fallback SPA sin path-to-regexp
+  // SPA fallback without path-to-regexp
   app.use((_req, res) => res.sendFile(path.join(clientDist, "index.html")));
 }
 
-// Manejador global de errores
+/* ─────────────  Global Error Handler ───────────── */
 app.use(errorHandler);
 
-/* ─────────────  Arrancar el servidor ───────────── */
+/* ─────────────  Start Server ───────────── */
 app.listen(PORT, () => {
-  console.log(`Servidor corriendo en el puerto ${PORT}`);
+  console.log(`Servidor corriendo en puerto ${PORT}`);
 });
