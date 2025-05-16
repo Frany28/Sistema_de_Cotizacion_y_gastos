@@ -17,6 +17,6 @@ router.get("/", obtenerProveedores);
 router.get("/check", verificarProveedorExistente);
 router.put("/:id", validarProveedor, actualizarProveedor);
 router.delete("/:id", eliminarProveedor);
-router.get("/api/proveedores/buscar", buscarProveedores);
+router.get("/buscar", buscarProveedores);
 
 export default router;
