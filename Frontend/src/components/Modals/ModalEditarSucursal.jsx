@@ -1,0 +1,392 @@
+import React, { useState, useEffect } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { X, Building2 } from "lucide-react";
+import axios from "axios";
+import ModalExito from "./ModalExito";
+import ModalError from "./ModalError";
+
+// Expresiones regulares para validación
+const regexCodigo = /^[A-Z0-9]{2,10}$/;
+const regexTelefono = /^\+?[0-9\s\-]{7,15}$/;
+const regexEmail = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
+export default function ModalEditarSucursal({
+  visible,
+  onClose,
+  sucursal,
+  onSucursalActualizada,
+}) {
+  const [form, setForm] = useState({
+    codigo: "",
+    nombre: "",
+    direccion: "",
+    ciudad: "",
+    estado_provincia: "",
+    pais: "",
+    telefono: "",
+    email: "",
+    responsable: "",
+  });
+
+  const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showExito, setShowExito] = useState(false);
+  const [showError, setShowError] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  // Carga inicial de datos
+  useEffect(() => {
+    if (sucursal) {
+      setForm({
+        codigo: sucursal.codigo || "",
+        nombre: sucursal.nombre || "",
+        direccion: sucursal.direccion || "",
+        ciudad: sucursal.ciudad || "",
+        estado_provincia: sucursal.estado_provincia || "",
+        pais: sucursal.pais || "",
+        telefono: sucursal.telefono || "",
+        email: sucursal.email || "",
+        responsable: sucursal.responsable || "",
+      });
+    }
+  }, [sucursal]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: "" }));
+    }
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!form.codigo.trim()) {
+      newErrors.codigo = "El código es requerido";
+    } else if (!regexCodigo.test(form.codigo)) {
+      newErrors.codigo = "Solo mayúsculas y números (2-10 caracteres)";
+    }
+
+    if (!form.nombre.trim()) {
+      newErrors.nombre = "El nombre es requerido";
+    }
+
+    if (!form.direccion.trim()) {
+      newErrors.direccion = "La dirección es requerida";
+    }
+
+    if (form.telefono && !regexTelefono.test(form.telefono)) {
+      newErrors.telefono = "Formato de teléfono inválido";
+    }
+
+    if (form.email && !regexEmail.test(form.email)) {
+      newErrors.email = "Email inválido";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const checkExistingCode = async () => {
+    try {
+      const response = await axios.get("/api/sucursales/check/codigo", {
+        params: { codigo: form.codigo.trim() },
+        withCredentials: true,
+      });
+      // Solo retorna true si el código existe y no pertenece a esta sucursal
+      return response.data.exists && form.codigo !== sucursal.codigo;
+    } catch (error) {
+      console.error("Error al verificar código:", error);
+      return false;
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setErrorMsg("");
+
+    if (!validateForm()) return;
+
+    setIsSubmitting(true);
+
+    try {
+      // Verificar si el código ya está en uso por otra sucursal
+      const codeExists = await checkExistingCode();
+      if (codeExists) {
+        setErrorMsg("El código de sucursal ya está en uso");
+        setShowError(true);
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Preparar datos para enviar (solo campos modificados)
+      const cambios = {};
+      Object.keys(form).forEach((key) => {
+        if (form[key] !== sucursal[key]) {
+          cambios[key] = form[key];
+        }
+      });
+
+      // Si no hay cambios
+      if (Object.keys(cambios).length === 0) {
+        setErrorMsg("No se detectaron cambios");
+        setShowError(true);
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Enviar actualización
+      await axios.put(`/api/sucursales/${sucursal.id}`, cambios, {
+        withCredentials: true,
+      });
+
+      setShowExito(true); // Mostrar modal de éxito
+    } catch (error) {
+      console.error("Error al actualizar sucursal:", error);
+      setErrorMsg(
+        error.response?.data?.error ||
+          "Error al actualizar la sucursal. Intente nuevamente."
+      );
+      setShowError(true);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleExitoClose = () => {
+    setShowExito(false);
+    onClose();
+    onSucursalActualizada();
+  };
+
+  const handleErrorClose = () => {
+    setShowError(false);
+  };
+
+  return (
+    <>
+      <ModalError
+        visible={showError}
+        onClose={handleErrorClose}
+        titulo="Error"
+        mensaje={errorMsg}
+        textoBoton="Entendido"
+      />
+
+      <ModalExito
+        visible={showExito}
+        onClose={handleExitoClose}
+        titulo="Sucursal actualizada"
+        mensaje="Los cambios se guardaron correctamente"
+        textoBoton="Continuar"
+      />
+
+      <AnimatePresence>
+        {visible && sucursal && !showExito && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/40"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => !isSubmitting && onClose()}
+          >
+            <motion.div
+              className="relative w-full max-w-lg p-6 bg-white dark:bg-gray-800 rounded-lg shadow"
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() => !isSubmitting && onClose()}
+                disabled={isSubmitting}
+                className="absolute top-3 right-3 text-gray-400 hover:text-gray-900 dark:hover:text-white disabled:opacity-50"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="text-center mb-4">
+                <Building2 className="mx-auto mb-2 text-blue-600 w-10 h-10" />
+                <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
+                  Editar Sucursal
+                </h3>
+              </div>
+
+              <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
+                {/* Código */}
+                <div className="col-span-2">
+                  <label className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
+                    Código *
+                  </label>
+                  <input
+                    type="text"
+                    name="codigo"
+                    value={form.codigo}
+                    onChange={handleChange}
+                    disabled={isSubmitting}
+                    className="block w-full p-2.5 bg-gray-50 border rounded-lg dark:bg-gray-600 dark:border-gray-500 dark:text-white"
+                  />
+                  {errors.codigo && (
+                    <p className="text-red-500 text-xs mt-1">{errors.codigo}</p>
+                  )}
+                </div>
+
+                {/* Nombre */}
+                <div className="col-span-2">
+                  <label className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
+                    Nombre *
+                  </label>
+                  <input
+                    type="text"
+                    name="nombre"
+                    value={form.nombre}
+                    onChange={handleChange}
+                    disabled={isSubmitting}
+                    className="block w-full p-2.5 bg-gray-50 border rounded-lg dark:bg-gray-600 dark:border-gray-500 dark:text-white"
+                  />
+                  {errors.nombre && (
+                    <p className="text-red-500 text-xs mt-1">{errors.nombre}</p>
+                  )}
+                </div>
+
+                {/* Dirección */}
+                <div className="col-span-2">
+                  <label className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
+                    Dirección *
+                  </label>
+                  <input
+                    type="text"
+                    name="direccion"
+                    value={form.direccion}
+                    onChange={handleChange}
+                    disabled={isSubmitting}
+                    className="block w-full p-2.5 bg-gray-50 border rounded-lg dark:bg-gray-600 dark:border-gray-500 dark:text-white"
+                  />
+                  {errors.direccion && (
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.direccion}
+                    </p>
+                  )}
+                </div>
+
+                {/* Ciudad */}
+                <div>
+                  <label className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
+                    Ciudad
+                  </label>
+                  <input
+                    type="text"
+                    name="ciudad"
+                    value={form.ciudad}
+                    onChange={handleChange}
+                    disabled={isSubmitting}
+                    className="block w-full p-2.5 bg-gray-50 border rounded-lg dark:bg-gray-600 dark:border-gray-500 dark:text-white"
+                  />
+                </div>
+
+                {/* Estado/Provincia */}
+                <div>
+                  <label className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
+                    Estado/Provincia
+                  </label>
+                  <input
+                    type="text"
+                    name="estado_provincia"
+                    value={form.estado_provincia}
+                    onChange={handleChange}
+                    disabled={isSubmitting}
+                    className="block w-full p-2.5 bg-gray-50 border rounded-lg dark:bg-gray-600 dark:border-gray-500 dark:text-white"
+                  />
+                </div>
+
+                {/* País */}
+                <div>
+                  <label className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
+                    País
+                  </label>
+                  <input
+                    type="text"
+                    name="pais"
+                    value={form.pais}
+                    onChange={handleChange}
+                    disabled={isSubmitting}
+                    className="block w-full p-2.5 bg-gray-50 border rounded-lg dark:bg-gray-600 dark:border-gray-500 dark:text-white"
+                  />
+                </div>
+
+                {/* Teléfono */}
+                <div>
+                  <label className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
+                    Teléfono
+                  </label>
+                  <input
+                    type="text"
+                    name="telefono"
+                    value={form.telefono}
+                    onChange={handleChange}
+                    disabled={isSubmitting}
+                    className="block w-full p-2.5 bg-gray-50 border rounded-lg dark:bg-gray-600 dark:border-gray-500 dark:text-white"
+                  />
+                  {errors.telefono && (
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.telefono}
+                    </p>
+                  )}
+                </div>
+
+                {/* Email */}
+                <div>
+                  <label className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={form.email}
+                    onChange={handleChange}
+                    disabled={isSubmitting}
+                    className="block w-full p-2.5 bg-gray-50 border rounded-lg dark:bg-gray-600 dark:border-gray-500 dark:text-white"
+                  />
+                  {errors.email && (
+                    <p className="text-red-500 text-xs mt-1">{errors.email}</p>
+                  )}
+                </div>
+
+                {/* Responsable */}
+                <div className="col-span-2">
+                  <label className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
+                    Responsable
+                  </label>
+                  <input
+                    type="text"
+                    name="responsable"
+                    value={form.responsable}
+                    onChange={handleChange}
+                    disabled={isSubmitting}
+                    className="block w-full p-2.5 bg-gray-50 border rounded-lg dark:bg-gray-600 dark:border-gray-500 dark:text-white"
+                  />
+                </div>
+
+                {/* Botón de guardar */}
+                <div className="col-span-2 flex justify-center pt-4">
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className={`w-full p-2.5 text-white font-medium rounded-lg ${
+                      isSubmitting
+                        ? "bg-gray-400 cursor-not-allowed"
+                        : "bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+                    }`}
+                  >
+                    {isSubmitting ? "Guardando..." : "Guardar cambios"}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+}

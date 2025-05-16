@@ -1,0 +1,42 @@
+# Variables de entorno
+.env
+.env.*          # variantes como .env.development, .env.production
+
+# Salida de compilación
+/build/
+/dist/
+/out/           # si usas Next.js u otros frameworks
+
+# Cobertura de tests
+/coverage/
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Paquetes lock de pnpm
+pnpm-lock.yaml
+
+# Cachés de npm y yarn
+.npm
+.yarn/*
+!.yarn/releases
+!.yarn/plugins
+!.yarn/patches
+!.yarn/plugins
+!.yarn/versions
+
+# Archivos temporales de prueba
+*.tmp
+*.temp
+
+# Subidas y datos de ejecución
+uploads/
+logs/
+*.log
+tmp/
+*.tmp
+
+# Dependencias
+node_modules/
