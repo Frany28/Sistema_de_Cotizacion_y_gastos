@@ -1,7 +1,9 @@
+// Backend/config/server.js
 import express from "express";
 import cors from "cors";
 import session from "express-session";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 
 import { errorHandler } from "../Middleware/errorHandler.js";
@@ -27,43 +29,51 @@ import permisosRoutes from "../routes/permisos.routes.js";
 import rolesPermisosRoutes from "../routes/rolesPermisos.routes.js";
 
 const app = express();
-const PORT = 3000;
+// Puerto dinámico para Render o local
+const PORT = process.env.PORT || 3000;
 
 // Resolver __dirname en ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+/* ─────────────  SERVIR BUILD DE REACT ──────────── */
+const clientDist = path.resolve(__dirname, "../../dist");
+if (fs.existsSync(clientDist)) {
+  app.use(express.static(clientDist));
+  app.get("/*", (_req, res) =>
+    res.sendFile(path.join(clientDist, "index.html"))
+  );
+}
+
 // Servir /uploads (ficheros de firmas y otros)
 app.use("/uploads", express.static(path.resolve(__dirname, "../uploads")));
 
-// CORS para React
+/* ─────────────  CORS y SESSION ───────────── */
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: FRONTEND_URL,
     credentials: true,
   })
 );
 
-// Session
 app.use(
   session({
-    secret: "clave_super_segura",
+    secret: process.env.SESSION_SECRET || "clave_super_segura",
     resave: false,
     saveUninitialized: false,
     cookie: {
       secure: false,
       httpOnly: true,
       maxAge: 2 * 60 * 60 * 1000, // 2 h
-      sameSite: "lax", // Asegura que las cookies solo se envían desde el mismo dominio
+      sameSite: "lax",
     },
   })
 );
 
-// **Parsers de body** — ¡primero!
+/* ─────────────  Parsers y logger ───────────── */
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// Logger (después de parsers y session)
 app.use(logger);
 
 /* ─────────────  End-points del sistema  ───────────── */
@@ -91,7 +101,7 @@ app.use((_req, res) => res.status(404).json({ message: "Ruta no encontrada" }));
 // Manejador global de errores
 app.use(errorHandler);
 
-// Arrancar el servidor
+/* ─────────────  Arrancar el servidor ───────────── */
 app.listen(PORT, () => {
-  console.log(`Servidor corriendo en http://localhost:${PORT}`);
+  console.log(`Servidor corriendo en el puerto ${PORT}`);
 });
