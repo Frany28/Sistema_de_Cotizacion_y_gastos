@@ -5,6 +5,7 @@ import session from "express-session";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
+import listEndpoints from "express-list-endpoints";
 
 import { errorHandler } from "../Middleware/errorHandler.js";
 import { logger } from "../Middleware/logger.js";
@@ -29,21 +30,11 @@ import permisosRoutes from "../routes/permisos.routes.js";
 import rolesPermisosRoutes from "../routes/rolesPermisos.routes.js";
 
 const app = express();
-// Puerto dinámico para Render o local
 const PORT = process.env.PORT || 3000;
 
 // Resolver __dirname en ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-/* ─────────────  SERVIR BUILD DE REACT ──────────── */
-const clientDist = path.resolve(__dirname, "../../dist");
-if (fs.existsSync(clientDist)) {
-  app.use(express.static(clientDist));
-  app.get("/.*/", (_req, res) =>
-    res.sendFile(path.join(clientDist, "index.html"))
-  );
-}
 
 // Servir /uploads (ficheros de firmas y otros)
 app.use("/uploads", express.static(path.resolve(__dirname, "../uploads")));
@@ -56,7 +47,6 @@ app.use(
     credentials: true,
   })
 );
-
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "clave_super_segura",
@@ -65,7 +55,7 @@ app.use(
     cookie: {
       secure: false,
       httpOnly: true,
-      maxAge: 2 * 60 * 60 * 1000, // 2 h
+      maxAge: 2 * 60 * 60 * 1000,
       sameSite: "lax",
     },
   })
@@ -95,8 +85,24 @@ app.use("/api/roles", rolesRoutes);
 app.use("/api/permisos", permisosRoutes);
 app.use("/api/roles-permisos", rolesPermisosRoutes);
 
-// 404 por defecto
-app.use((_req, res) => res.status(404).json({ message: "Ruta no encontrada" }));
+// 404 para rutas API no existentes
+app.use((req, res, next) => {
+  if (req.originalUrl.startsWith("/api/")) {
+    return res.status(404).json({ message: "Ruta no encontrada" });
+  }
+  next();
+});
+
+// Mostrar endpoints registrados (solo desarrollo)
+console.log("ENDPOINTS:", listEndpoints(app));
+
+/* ─────────────  SERVIR BUILD DE REACT ──────────── */
+const clientDist = path.resolve(__dirname, "../../dist");
+if (fs.existsSync(clientDist)) {
+  app.use(express.static(clientDist));
+  // fallback SPA sin path-to-regexp
+  app.use((_req, res) => res.sendFile(path.join(clientDist, "index.html")));
+}
 
 // Manejador global de errores
 app.use(errorHandler);
