@@ -1,4 +1,5 @@
 // main.jsx
+import "flowbite";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
