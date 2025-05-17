@@ -5,7 +5,6 @@ import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import listEndpoints from "express-list-endpoints";
-
 import { errorHandler } from "../Middleware/errorHandler.js";
 import { logger } from "../Middleware/logger.js";
 
@@ -15,7 +14,7 @@ import serviciosProductosRoutes from "../routes/servicios_productos.routes.js";
 import proveedoresRoutes from "../routes/proveedores.routes.js";
 import cotizacionesRoutes from "../routes/cotizaciones.routes.js";
 import gastosRoutes from "../routes/gastos.routes.js";
-import solicitudesPagoRoutes from "../routes/solicitudes_pago.routes.js";
+import solicitudesPagoRoutes from "../routes/solicitudesPago.routes.js";
 
 // Variables de entorno
 const __filename = fileURLToPath(import.meta.url);
@@ -27,18 +26,15 @@ const app = express();
 // Configuración de CORS y session
 const allowedOrigins = [
   "http://localhost:5173",
-  "http://localhost:10000", // Frontend local adicional
-  process.env.FRONTEND_URL, // e.g. "https://sistema-de-cotizacion-y-gastos.onrender.com"
+  "http://localhost:10000", // Frontend local
+  process.env.FRONTEND_URL, // URL en producción
 ].filter(Boolean);
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      // permitir solicitudes sin origin (herramientas REST, same-site)
       if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
+      if (allowedOrigins.includes(origin)) return callback(null, true);
       callback(new Error("CORS origin not allowed: " + origin));
     },
     credentials: true,
@@ -54,11 +50,18 @@ app.use(
   })
 );
 
-// Middleware para parsear JSON
+// Middleware global
+app.use(logger);
 app.use(express.json());
 
-// Rutas estáticas para assets (p. ej., build de Vite/React)
-app.use(express.static(path.join(__dirname, "../public")));
+// Servir archivos estáticos de frontend (build o dist)
+const staticPath = path.join(__dirname, "../dist");
+if (fs.existsSync(staticPath)) {
+  app.use(express.static(staticPath));
+  app.get("*", (req, res) => {
+    res.sendFile(path.join(staticPath, "index.html"));
+  });
+}
 
 // Rutas de la API
 app.use("/api/clientes", clientesRoutes);
@@ -68,15 +71,15 @@ app.use("/api/cotizaciones", cotizacionesRoutes);
 app.use("/api/gastos", gastosRoutes);
 app.use("/api/solicitudes-pago", solicitudesPagoRoutes);
 
-// Manejador global de errores
+// Manejador de errores
 app.use(errorHandler);
 
-// Mostrar endpoints solo en desarrollo
+// Mostrar endpoints en desarrollo
 if (process.env.NODE_ENV !== "production") {
   console.log("ENDPOINTS:", listEndpoints(app));
 }
 
-// Arrancar el servidor
+// Iniciar servidor
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en el puerto ${PORT}`);
 });
