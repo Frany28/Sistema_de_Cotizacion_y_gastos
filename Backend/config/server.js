@@ -6,90 +6,123 @@ import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import listEndpoints from "express-list-endpoints";
-import dotenv from "dotenv";
 
 import { errorHandler } from "../Middleware/errorHandler.js";
 import { logger } from "../Middleware/logger.js";
 
+/* ─────────────  Rutas funcionales  ───────────── */
 import clientesRoutes from "../routes/clientes.routes.js";
 import serviciosProductosRoutes from "../routes/servicios_productos.routes.js";
 import proveedoresRoutes from "../routes/proveedores.routes.js";
 import cotizacionesRoutes from "../routes/cotizaciones.routes.js";
 import gastosRoutes from "../routes/gastos.routes.js";
+import registrosRoutes from "../routes/registros.routes.js";
+import sucursalesRoutes from "../routes/sucursales.routes.js";
+import cxcRoutes from "../routes/cxc.routes.js";
+import abonosRoutes from "../routes/abonos.routes.js";
 import solicitudesPagoRoutes from "../routes/solicitudesPago.routes.js";
 
-// Cargar variables de entorno
-dotenv.config();
+/* ─────────────  Rutas de seguridad  ──────────── */
+import authRoutes from "../routes/auth.routes.js";
+import usuariosRoutes from "../routes/usuarios.routes.js";
+import rolesRoutes from "../routes/roles.routes.js";
+import permisosRoutes from "../routes/permisos.routes.js";
+import rolesPermisosRoutes from "../routes/rolesPermisos.routes.js";
 
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Resolving __dirname in ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Puerto dinámico y URL del frontend
-const PORT = process.env.PORT || 3000;
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
+/* ─────────────  SERVE UPLOADS ───────────── */
+app.use("/uploads", express.static(path.resolve(__dirname, "../uploads")));
 
-const app = express();
-
-// ─── Configuración CORS ─────────────────────────────────────────────────────────
-const allowedOrigins = [FRONTEND_URL];
-if (process.env.NODE_ENV !== "production") {
-  allowedOrigins.push("http://localhost:5173"); // dev-server de Vite
-}
+/* ─────────────  CORS and SESSION ───────────── */
+// Allowed origins: local dev and production FRONTEND_URL
+const allowedOrigins = [
+  "http://localhost:5173", // dev
+  process.env.FRONTEND_URL, // set to your production frontend URL
+].filter(Boolean);
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Permite peticiones sin origin (Postman, mobile apps, etc)
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) return callback(null, true);
-      callback(new Error("CORS origin not allowed: " + origin));
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS origin not allowed: ${origin}`));
+      }
     },
     credentials: true,
   })
 );
 
-// ─── Session (opcional, según tu lógica) ──────────────────────────────────────
 app.use(
   session({
-    secret: process.env.SESSION_SECRET || "secret",
+    secret: process.env.SESSION_SECRET || "clave_super_segura",
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: process.env.NODE_ENV === "production" },
+    cookie: {
+      secure: false,
+      httpOnly: true,
+      maxAge: 2 * 60 * 60 * 1000,
+      sameSite: "lax",
+    },
   })
 );
 
-// ─── Middlewares globales ──────────────────────────────────────────────────────
-app.use(logger);
+/* ─────────────  Parsers and Logger ───────────── */
 app.use(express.json());
-app.get("/health", (req, res) => res.status(200).send("OK"));
+app.use(express.urlencoded({ extended: true }));
+app.use(logger);
 
-
-// ─── Rutas de tu API ───────────────────────────────────────────────────────────
+/* ─────────────  System Endpoints ───────────── */
 app.use("/api/clientes", clientesRoutes);
 app.use("/api/servicios-productos", serviciosProductosRoutes);
-app.use("/api/proveedores", proveedoresRoutes);
 app.use("/api/cotizaciones", cotizacionesRoutes);
+app.use("/api/proveedores", proveedoresRoutes);
 app.use("/api/gastos", gastosRoutes);
-//app.use("/api/solicitudes-pago", solicitudesPagoRoutes);
+app.use("/api/registros", registrosRoutes);
+app.use("/api/sucursales", sucursalesRoutes);
+app.use("/api/cuentas-por-cobrar", cxcRoutes);
+app.use("/api/abonos", abonosRoutes);
+app.use("/api/solicitudes-pago", solicitudesPagoRoutes);
 
-// ─── Servir frontend construido (dist) ─────────────────────────────────────────
-const distPath = path.resolve(process.cwd(), "../../dist");
-if (fs.existsSync(distPath)) {
-  app.use(express.static(distPath));
-  app.get("*", (req, res) => {
-    res.sendFile(path.join(distPath, "index.html"));
-  });
-}
+/* ─────────────  Security Endpoints ──────────── */
+app.use("/api/auth", authRoutes);
+app.use("/api/usuarios", usuariosRoutes);
+app.use("/api/roles", rolesRoutes);
+app.use("/api/permisos", permisosRoutes);
+app.use("/api/roles-permisos", rolesPermisosRoutes);
 
-// ─── Manejador de errores ──────────────────────────────────────────────────────
-app.use(errorHandler);
+// 404 for API routes
+app.use((req, res, next) => {
+  if (req.originalUrl.startsWith("/api/")) {
+    return res.status(404).json({ message: "Ruta no encontrada" });
+  }
+  next();
+});
 
-// ─── Log de endpoints en dev ───────────────────────────────────────────────────
+// Development only: list endpoints
 if (process.env.NODE_ENV !== "production") {
   console.log("ENDPOINTS:", listEndpoints(app));
 }
 
-// ─── Arrancar servidor ─────────────────────────────────────────────────────────
+/* ─────────────  Serve React Build ──────────── */
+const clientDist = path.resolve(__dirname, "../../frontend/dist");
+if (fs.existsSync(clientDist)) {
+  console.log("Serving static files from:", clientDist);
+  app.use(express.static(clientDist));
+  // SPA fallback without path-to-regexp
+  app.use((_req, res) => res.sendFile(path.join(clientDist, "index.html")));
+}
+
+/* ─────────────  Global Error Handler ───────────── */
+app.use(errorHandler);
+
+/* ─────────────  Start Server ───────────── */
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
+  console.log(`Servidor corriendo en puerto ${PORT}`);
 });
