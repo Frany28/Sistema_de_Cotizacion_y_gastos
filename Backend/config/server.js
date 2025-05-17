@@ -68,7 +68,7 @@ app.use("/api/servicios-productos", serviciosProductosRoutes);
 app.use("/api/proveedores", proveedoresRoutes);
 app.use("/api/cotizaciones", cotizacionesRoutes);
 app.use("/api/gastos", gastosRoutes);
-app.use("/api/solicitudes-pago", solicitudesPagoRoutes);
+//app.use("/api/solicitudes-pago", solicitudesPagoRoutes);
 
 // ─── Servir frontend construido (dist) ─────────────────────────────────────────
 const distPath = path.resolve(process.cwd(), "dist");
