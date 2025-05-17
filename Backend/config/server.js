@@ -61,6 +61,8 @@ app.use(
 // ─── Middlewares globales ──────────────────────────────────────────────────────
 app.use(logger);
 app.use(express.json());
+app.get("/health", (req, res) => res.status(200).send("OK"));
+
 
 // ─── Rutas de tu API ───────────────────────────────────────────────────────────
 app.use("/api/clientes", clientesRoutes);
@@ -71,7 +73,7 @@ app.use("/api/gastos", gastosRoutes);
 //app.use("/api/solicitudes-pago", solicitudesPagoRoutes);
 
 // ─── Servir frontend construido (dist) ─────────────────────────────────────────
-const distPath = path.resolve(process.cwd(), "dist");
+const distPath = path.resolve(process.cwd(), "../../dist");
 if (fs.existsSync(distPath)) {
   app.use(express.static(distPath));
   app.get("*", (req, res) => {
