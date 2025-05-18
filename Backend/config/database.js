@@ -10,7 +10,7 @@ const db = mysql.createPool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
   password: process.env.DB_PASS,
-  database: process.env.DB_NAME,
+  database: process.env.DB_NAME || "sistemacg",
   port: Number(process.env.DB_PORT) || 3306,
   waitForConnections: true,
   connectionLimit: 10,
@@ -18,3 +18,5 @@ const db = mysql.createPool({
 });
 
 export default db;
+
+//mysql://root:hmJlPXEeoGOpRaNhsEJrcsAylszzmqNr@switchback.proxy.rlwy.net:59883/railway

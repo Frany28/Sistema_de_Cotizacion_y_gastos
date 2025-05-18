@@ -6,6 +6,7 @@ import path from "path";
 import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 import listEndpoints from "express-list-endpoints";
+import mysql from "mysql2/promise";
 
 import { errorHandler } from "../Middleware/errorHandler.js";
 import { logger } from "../Middleware/logger.js";
@@ -30,45 +31,53 @@ import permisosRoutes from "../routes/permisos.routes.js";
 import rolesPermisosRoutes from "../routes/rolesPermisos.routes.js";
 
 /* ─────────────  Config básica  ───────────── */
-dotenv.config(); // lee .env en local
-const PORT = process.env.PORT || 3000; // Railway inyecta PORT
+dotenv.config(); // lee .env en local / Railway
+const PORT = process.env.PORT || 3000; // Railway asigna PORT
 const app = express();
 
+/* ─────────────  Conexión MySQL (pool) ───────────── */
+export const db = mysql.createPool({
+  host: process.env.DB_HOST || "localhost",
+  port: process.env.DB_PORT || 3306,
+  user: process.env.DB_USER || "root",
+  password: process.env.DB_PASS || "",
+  database: process.env.DB_NAME || "sistema_cotizacion_gastos",
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
+});
+
 /* ─────────────  CORS ───────────── */
-// permitimos localhost en dev y la URL del front en prod
 const allowedOrigins = [
   "http://localhost:5173",
-  process.env.FRONT_URL, // ej.: https://sistema-front.up.railway.app
+  process.env.FRONT_URL, // p.ej. https://front.up.railway.app
 ].filter(Boolean);
 
 app.use(
   cors({
     origin: (origin, cb) => {
-      // origin será undefined en peticiones hechas desde el mismo dominio (SSR, curl, etc.)
-      if (!origin || allowedOrigins.includes(origin)) {
-        return cb(null, true);
-      }
+      if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
       return cb(new Error(`CORS origin not allowed: ${origin}`));
     },
     credentials: true,
   })
 );
 
-/* ─────────────  ESM __dirname helper ───────────── */
+/* ─────────────  ESM helper para __dirname ───────────── */
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-/* ─────────────  Archivos subidos ───────────── */
+/* ─────────────  Servir archivos subidos ───────────── */
 app.use("/uploads", express.static(path.resolve(__dirname, "../uploads")));
 
-/* ─────────────  Sesión ───────────── */
+/* ─────────────  Sesiones ───────────── */
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "clave_super_segura",
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: false, // true si usas https con proxy que añada `X-Forwarded-Proto`
+      secure: false, // true detrás de proxy HTTPS
       httpOnly: true,
       sameSite: "lax",
       maxAge: 2 * 60 * 60 * 1000, // 2 h
@@ -81,7 +90,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(logger);
 
-/* ─────────────  Endpoints del sistema ───────────── */
+/* ─────────────  Endpoints funcionales ───────────── */
 app.use("/api/clientes", clientesRoutes);
 app.use("/api/servicios-productos", serviciosProductosRoutes);
 app.use("/api/cotizaciones", cotizacionesRoutes);
@@ -108,7 +117,7 @@ app.use((req, res, next) => {
   next();
 });
 
-/* ─────────────  Listar endpoints en dev ───────────── */
+/* ─────────────  Listar endpoints en desarrollo ───────────── */
 if (process.env.NODE_ENV !== "production") {
   console.log("ENDPOINTS:", listEndpoints(app));
 }
