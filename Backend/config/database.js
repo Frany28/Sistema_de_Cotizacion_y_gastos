@@ -19,4 +19,4 @@ const db = mysql.createPool({
 
 export default db;
 
-//mysql://root:hmJlPXEeoGOpRaNhsEJrcsAylszzmqNr@switchback.proxy.rlwy.net:59883/railway
+
