@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import api from "../../api/index.js";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -14,11 +15,7 @@ const Login = () => {
     setError("");
 
     try {
-      const res = await axios.post(
-        `${import.meta.env.VITE_API_URL}/auth/login`,
-        { email, password },
-        { withCredentials: true }
-      );
+      const res = await api.post("/auth/login", { email, password });
 
       const usuario = res.data.usuario;
 
