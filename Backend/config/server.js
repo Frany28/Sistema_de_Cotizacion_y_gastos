@@ -48,10 +48,9 @@ export const db = mysql.createPool({
 });
 
 /* ─────────────  CORS ───────────── */
-const allowedOrigins = [
-  "http://localhost:5173",
-  process.env.FRONT_URL, // p.ej. https://front.up.railway.app
-].filter(Boolean);
+const allowedOrigins = ["http://localhost:5173", process.env.FRONT_URL].filter(
+  Boolean
+);
 
 app.use(
   cors({
