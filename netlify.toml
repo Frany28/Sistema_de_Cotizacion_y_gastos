@@ -1,0 +1,9 @@
+[build]
+  base    = "Frontend"           # aquí está tu package.json y tu código React
+  command = "npm install && npm run build" 
+  publish = "dist"               # relativo a “base”, genera Frontend/dist
+
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200
