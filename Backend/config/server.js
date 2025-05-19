@@ -31,8 +31,10 @@ import permisosRoutes from "../routes/permisos.routes.js";
 import rolesPermisosRoutes from "../routes/rolesPermisos.routes.js";
 
 /* ─────────────  Config básica  ───────────── */
-dotenv.config(); // lee .env en local / Railway
+dotenv.config(); // lee .env local / Railway
 const PORT = process.env.PORT || 3000; // Railway asigna PORT
+const FRONT_URL = process.env.FRONT_URL; // https://sistemacotizaciongastos.netlify.app
+
 const app = express();
 
 /* ─────────────  Conexión MySQL (pool) ───────────── */
@@ -48,17 +50,16 @@ export const db = mysql.createPool({
 });
 
 /* ─────────────  CORS ───────────── */
-const allowedOrigins = ["http://localhost:5173", process.env.FRONT_URL].filter(
-  Boolean
-);
+const allowedOrigins = ["http://localhost:5173"];
+if (FRONT_URL) allowedOrigins.push(FRONT_URL);
 
 app.use(
   cors({
     origin: (origin, cb) => {
       if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
-      return cb(new Error(`CORS origin not allowed: ${origin}`));
+      cb(new Error(`CORS origin not allowed: ${origin}`));
     },
-    credentials: true,
+    credentials: true, // ← imprescindible para cookies
   })
 );
 
@@ -70,15 +71,17 @@ const __dirname = path.dirname(__filename);
 app.use("/uploads", express.static(path.resolve(__dirname, "../uploads")));
 
 /* ─────────────  Sesiones ───────────── */
+app.set("trust proxy", 1); // Railway / Render terminan TLS antes del contenedor
+
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "clave_super_segura",
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: false, // true detrás de proxy HTTPS
+      secure: true, // requiere HTTPS (activo en prod)
       httpOnly: true,
-      sameSite: "lax",
+      sameSite: "none", // necesario para cross-site cookies
       maxAge: 2 * 60 * 60 * 1000, // 2 h
     },
   })

@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import api from "../../api/index.js";
 
@@ -15,16 +14,19 @@ const Login = () => {
     setError("");
 
     try {
-      const res = await api.post("/auth/login", { email, password });
+      // Enviamos con credenciales por si la instancia no lo trae
+      const { data } = await api.post(
+        "/auth/login",
+        { email, password },
+        { withCredentials: true }
+      );
 
-      const usuario = res.data.usuario;
+      // Guardamos usuario en localStorage o sessionStorage
+      const { usuario } = data;
+      const storage = recordar ? localStorage : sessionStorage;
+      storage.setItem("usuario", JSON.stringify(usuario));
 
-      if (recordar) {
-        localStorage.setItem("usuario", JSON.stringify(usuario));
-      } else {
-        sessionStorage.setItem("usuario", JSON.stringify(usuario));
-      }
-
+      // Redirigimos al dashboard
       navigate("/dashboard");
     } catch (err) {
       setError(err.response?.data?.message || "Error al iniciar sesión");
@@ -35,60 +37,67 @@ const Login = () => {
     <div className="flex flex-col items-center justify-center h-screen dark">
       <div className="w-full max-w-md bg-gray-800 rounded-lg shadow-md p-6">
         <h2 className="text-2xl font-bold text-gray-200 mb-4">Login</h2>
+
         <form className="flex flex-col" onSubmit={handleSubmit}>
           {error && <p className="text-red-500 mb-2">{error}</p>}
 
           <input
-            placeholder="Email address"
-            className="bg-gray-700 text-gray-200 border-0 rounded-md p-2 mb-4 focus:bg-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500 transition ease-in-out duration-150"
             type="email"
+            placeholder="Email address"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
+            className="bg-gray-700 text-gray-200 border-0 rounded-md p-2 mb-4
+                       focus:bg-gray-600 focus:outline-none focus:ring-1
+                       focus:ring-blue-500 transition ease-in-out duration-150"
           />
+
           <input
-            placeholder="Password"
-            className="bg-gray-700 text-gray-200 border-0 rounded-md p-2 mb-4 focus:bg-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500 transition ease-in-out duration-150"
             type="password"
+            placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
+            className="bg-gray-700 text-gray-200 border-0 rounded-md p-2 mb-4
+                       focus:bg-gray-600 focus:outline-none focus:ring-1
+                       focus:ring-blue-500 transition ease-in-out duration-150"
           />
 
           <div className="flex items-center justify-between flex-wrap">
             <label
-              className="text-sm text-gray-200 cursor-pointer"
               htmlFor="remember-me"
+              className="text-sm text-gray-200 cursor-pointer"
             >
               <input
-                className="mr-2"
                 id="remember-me"
                 type="checkbox"
                 checked={recordar}
                 onChange={(e) => setRecordar(e.target.checked)}
+                className="mr-2"
               />
               Remember me
             </label>
+
             <a
-              className="text-sm text-blue-500 hover:underline mb-0.5"
               href="#"
+              className="text-sm text-blue-500 hover:underline mb-0.5"
             >
               Forgot password?
             </a>
+
             <p className="text-white mt-4">
               Don't have an account?{" "}
-              <a
-                className="text-sm text-blue-500 hover:underline mt-4"
-                href="#"
-              >
+              <a href="#" className="text-sm text-blue-500 hover:underline">
                 Signup
               </a>
             </p>
           </div>
 
           <button
-            className="bg-gradient-to-r from-indigo-500 to-blue-500 text-white font-bold py-2 px-4 rounded-md mt-4 hover:bg-indigo-600 hover:to-blue-600 transition ease-in-out duration-150"
             type="submit"
+            className="bg-gradient-to-r from-indigo-500 to-blue-500 text-white
+                       font-bold py-2 px-4 rounded-md mt-4 hover:bg-indigo-600
+                       hover:to-blue-600 transition ease-in-out duration-150"
           >
             Login
           </button>
