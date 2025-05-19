@@ -9,7 +9,7 @@ export default defineConfig({
   base: "/",
   server: { host: "0.0.0.0", port: 5173 }, // evita chocar con tu backend en 3000
   build: {
-    outDir: path.resolve(__dirname, "dist"), // opcional: dónde dejar la build final
+    outDir: path.resolve(__dirname, "Frontend", "dist"),
     emptyOutDir: true,
   },
 });

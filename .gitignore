@@ -1,6 +1,7 @@
 # Variables de entorno
 .env
 .env.*          # variantes como .env.development, .env.production
+.env.local     # variables locales que no se deben compartir
 
 # Salida de compilación
 /build/
