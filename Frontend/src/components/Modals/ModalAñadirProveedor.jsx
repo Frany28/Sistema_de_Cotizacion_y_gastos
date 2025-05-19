@@ -1,6 +1,6 @@
 // src/components/Modals/ModalAñadirProveedor.jsx
 import { useState } from "react";
-import axios from "axios";
+import api from "../../api/index";
 import { Building2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -64,17 +64,14 @@ export default function ModalAñadirProveedor({
 
   const checkExistingProveedor = async () => {
     try {
-      const response = await axios.get(
-        "http://localhost:3000/api/proveedores/check",
-        {
-          params: {
-            nombre: form.nombre.trim(),
-            email: form.email.trim(),
-            telefono: form.telefono.trim(),
-          },
-          validateStatus: (status) => status < 500,
-        }
-      );
+      const response = await api.get("/proveedores/check", {
+        params: {
+          nombre: form.nombre.trim(),
+          email: form.email.trim(),
+          telefono: form.telefono.trim(),
+        },
+        validateStatus: (status) => status < 500,
+      });
       return response.data?.exists;
     } catch (error) {
       console.error("Error al verificar proveedor:", error);
@@ -106,11 +103,7 @@ export default function ModalAñadirProveedor({
         rif: form.rif.trim().toUpperCase(),
         estado: form.estado,
       };
-
-      const response = await axios.post(
-        "http://localhost:3000/api/proveedores",
-        proveedorData
-      );
+      const response = await api.post("/proveedores", proveedorData);
 
       if (response.status === 201) {
         onSubmit(response.data);

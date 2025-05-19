@@ -1,6 +1,6 @@
 // src/components/ListaClientes.jsx
 import React, { useEffect, useState, useCallback } from "react";
-import axios from "axios";
+import api from "../api/index";
 import ModalAñadirCliente from "../components/Modals/ModalAñadirCliente";
 import BotonIcono from "./general/BotonIcono";
 import BotonAgregar from "../components/general/BotonAgregar";
@@ -64,7 +64,7 @@ function ListaClientes() {
   const fetchClientes = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await axios.get("http://localhost:3000/api/clientes");
+      const response = await api.get(`/clientes?page=${page}&limit=${limit}`);
       const data = Array.isArray(response.data)
         ? response.data
         : response.data.clientes;
@@ -107,7 +107,7 @@ function ListaClientes() {
 
   const eliminarCliente = async (id) => {
     try {
-      await axios.delete(`http://localhost:3000/api/clientes/${id}`);
+      await api.delete(`/clientes/${id}`);
       const actualizados = clientes.filter((cliente) => cliente.id !== id);
       setClientes(actualizados);
     } catch (error) {
@@ -121,10 +121,7 @@ function ListaClientes() {
 
   const guardarClienteEditado = async (datos) => {
     try {
-      const response = await axios.put(
-        `http://localhost:3000/api/clientes/${editandoCliente.id}`,
-        datos
-      );
+      const response = await api.put(`/clientes/${editandoCliente.id}`, datos);
 
       await fetchClientes(); // ← fuerza recarga visual correcta
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
-import api from "../api/index"; // 👉 instancia Axios con baseURL y credenciales
+import api from "../api/index";
 
 export default function RutaPrivada({ children }) {
   const [verificando, setVerificando] = useState(true);

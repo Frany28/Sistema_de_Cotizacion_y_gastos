@@ -1,5 +1,5 @@
 import { useState } from "react";
-import axios from "axios";
+import api from "../../api/index";
 import { UserPlus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect } from "react";
@@ -35,7 +35,7 @@ export default function ModalAñadirCliente({ onCancel, onSubmit, onSuccess }) {
   useEffect(() => {
     const cargarSucursales = async () => {
       try {
-        const res = await axios.get("http://localhost:3000/api/sucursales");
+        const res = await api.get("/sucursales");
         setSucursales(res.data);
       } catch (error) {
         console.error("Error al cargar sucursales:", error);
@@ -86,16 +86,13 @@ export default function ModalAñadirCliente({ onCancel, onSubmit, onSuccess }) {
   const checkExistingClient = async () => {
     try {
       if (!form.nombre.trim() && !form.email.trim()) return { exists: false };
-      const response = await axios.get(
-        "http://localhost:3000/api/clientes/check",
-        {
-          params: {
-            nombre: form.nombre.trim(),
-            email: form.email.trim(),
-          },
-          validateStatus: (status) => status < 500,
-        }
-      );
+      const response = await api.get("/clientes/check", {
+        params: {
+          nombre: form.nombre.trim(),
+          email: form.email.trim(),
+        },
+        validateStatus: (status) => status < 500,
+      });
       if (!response.data || typeof response.data.exists === "undefined")
         return { exists: false };
       return response.data;
@@ -133,10 +130,7 @@ export default function ModalAñadirCliente({ onCancel, onSubmit, onSuccess }) {
       }
 
       // 2. Enviar datos al backend
-      const response = await axios.post(
-        "http://localhost:3000/api/clientes",
-        clienteData
-      );
+      const response = await api.post("/clientes", clienteData);
 
       // 3. Si es exitoso
       if (response.status === 201) {

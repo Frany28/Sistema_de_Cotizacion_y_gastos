@@ -25,9 +25,7 @@ export default function ModalAñadirGasto({ onCancel, onSubmit }) {
   useEffect(() => {
     const cargarProveedores = async () => {
       try {
-        const resp = await axios.get(
-          "http://localhost:3000/api/gastos/proveedores"
-        );
+        const response = await api.post("/gastos/proveedores");
         setProveedores(resp.data);
       } catch (error) {
         console.error("Error al cargar proveedores:", error);
@@ -35,7 +33,6 @@ export default function ModalAñadirGasto({ onCancel, onSubmit }) {
     };
     cargarProveedores();
 
-    // Sucursales hardcodeadas como ejemplo
     setSucursales([
       { id: 4, nombre: "Sucursal Central" },
       { id: 5, nombre: "Sucursal Norte" },
@@ -70,7 +67,7 @@ export default function ModalAñadirGasto({ onCancel, onSubmit }) {
     e.preventDefault();
     setServerError("");
     if (!validateForm()) {
-      console.log("❌ Validación fallida:", form);
+      console.log(" Validación fallida:", form);
       return;
     }
     setIsSubmitting(true);
@@ -82,12 +79,9 @@ export default function ModalAñadirGasto({ onCancel, onSubmit }) {
       };
       delete datosParaEnviar.monto;
 
-      console.log("📤 Enviando al backend:", datosParaEnviar);
+      console.log(" Enviando al backend:", datosParaEnviar);
 
-      const response = await axios.post(
-        "http://localhost:3000/api/gastos",
-        datosParaEnviar
-      );
+      const response = await api.post("/gastos", datosParaEnviar);
 
       if (response.status === 201) {
         onSubmit(response.data);
@@ -104,7 +98,7 @@ export default function ModalAñadirGasto({ onCancel, onSubmit }) {
         onCancel();
       }
     } catch (error) {
-      console.error("❌ Error al enviar gasto:", error);
+      console.error(" Error al enviar gasto:", error);
       setServerError(
         error.response?.data?.error ||
           "Error al agregar el gasto. Por favor intente nuevamente."
