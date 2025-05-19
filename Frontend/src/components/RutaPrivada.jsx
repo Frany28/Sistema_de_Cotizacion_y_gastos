@@ -1,17 +1,16 @@
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
-import axios from "axios";
+import api from "../api/index"; // 👉 instancia Axios con baseURL y credenciales
 
 export default function RutaPrivada({ children }) {
   const [verificando, setVerificando] = useState(true);
   const [autenticado, setAutenticado] = useState(false);
 
   useEffect(() => {
-    axios
-      .get("http://localhost:3000/api/auth/verificar-sesion", {
-        withCredentials: true, // 👈 MUY IMPORTANTE
-      })
-      .then((res) => {
+    // Llamamos al backend usando la instancia preconfigurada
+    api
+      .get("/auth/verificar-sesion") // baseURL + /auth/verificar-sesion
+      .then(() => {
         setAutenticado(true);
         setVerificando(false);
       })
@@ -21,9 +20,13 @@ export default function RutaPrivada({ children }) {
       });
   }, []);
 
-  if (verificando) return <p className="text-white">Verificando sesión...</p>;
+  if (verificando) {
+    return <p className="text-white">Verificando sesión…</p>;
+  }
 
-  if (!autenticado) return <Navigate to="/login" />;
+  if (!autenticado) {
+    return <Navigate to="/login" replace />;
+  }
 
   return children;
 }
