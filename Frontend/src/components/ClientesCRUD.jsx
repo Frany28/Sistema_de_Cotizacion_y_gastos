@@ -64,7 +64,7 @@ function ListaClientes() {
   const fetchClientes = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await api.get(`/clientes?page=${page}&limit=${limit}`);
+      const response = await api.get("/clientes");
       const data = Array.isArray(response.data)
         ? response.data
         : response.data.clientes;
