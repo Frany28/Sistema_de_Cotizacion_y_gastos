@@ -56,10 +56,21 @@ if (FRONT_URL) allowedOrigins.push(FRONT_URL);
 app.use(
   cors({
     origin: (origin, cb) => {
-      if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
-      cb(new Error(`CORS origin not allowed: ${origin}`));
+      if (!origin || allowedOrigins.includes(origin)) {
+        return cb(null, true);
+      }
+      console.error(`CORS origin not allowed: ${origin}`);
+      return cb(new Error(`CORS origin not allowed: ${origin}`));
     },
-    credentials: true, // ← imprescindible para cookies
+    credentials: true, // Permitir cookies para autenticación
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // Métodos permitidos
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Requested-With",
+      "Access-Control-Allow-Origin",
+      "Access-Control-Allow-Credentials",
+    ],
   })
 );
 
