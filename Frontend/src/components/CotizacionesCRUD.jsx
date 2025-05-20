@@ -12,7 +12,7 @@ import { useMemo } from "react";
 import ModalDetalleCotizacion from "../components/Modals/ModalDetalleCotizacion";
 import Loader from "../components/general/Loader";
 import ModalCambioEstado from "../components/Modals/ModalCambiosEstado";
-import { verificarPermisoFront } from "../../../Backend/utils/verificarPermisoFront.js";
+import { verificarPermisoFront } from "../../utils/verificarPermisoFront";
 import { useLocation, useNavigate } from "react-router-dom";
 
 function ListaCotizaciones() {
