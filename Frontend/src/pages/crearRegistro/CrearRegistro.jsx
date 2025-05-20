@@ -5,7 +5,7 @@ import AgregarCotizacion from "../../components/AgregarCotizacion";
 import ModalExito from "../../components/Modals/ModalExito";
 import ModalError from "../../components/Modals/ModalError";
 import Loader from "../../components/general/Loader";
-import { verificarPermisoFront } from "../../../../Backend/utils/verificarPermisoFront";
+import { verificarPermisoFront } from "../../../utils/verificarPermisoFront";
 
 const CrearRegistro = () => {
   const [servicios, setServicios] = useState([]);
