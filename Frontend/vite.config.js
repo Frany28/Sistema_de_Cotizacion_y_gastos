@@ -5,7 +5,7 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 
 export default defineConfig({
-  root: ".", // ahora el config vive dentro de Frontend
+  root: ".",
   plugins: [react(), tailwindcss()],
   server: {
     host: "0.0.0.0",
