@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "node --watch Backend/config/server.js",
-    "start": "node Backend/config/server.js",
+    "start": "node config/server.js",
     "lint": "eslint ."
   },
   "dependencies": {
