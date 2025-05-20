@@ -9,7 +9,7 @@ import ModalEditar from "../components/Modals/ModalEditar";
 import Paginacion from "../components/general/Paginacion";
 import Loader from "./general/Loader";
 import ModalCambioEstado from "../components/Modals/ModalCambiosEstado";
-import { verificarPermisoFront } from "../../utils/verificarPermisoFront.jsjs";
+import { verificarPermisoFront } from "../../utils/verificarPermisoFront.js";
 import ModalVerGasto from "../components/Modals/ModalVerGasto.jsx";
 import ModalEditarGasto from "../components/Modals/ModalEditarGasto.jsx";
 import ModalMotivoRechazo from "../components/Modals/ModalMotivoRechazo.jsx";
