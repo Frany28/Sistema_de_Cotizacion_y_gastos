@@ -50,8 +50,10 @@ export const db = mysql.createPool({
 });
 
 /* ─────────────  CORS ───────────── */
-const allowedOrigins = ["http://localhost:5173"];
-if (FRONT_URL) allowedOrigins.push(FRONT_URL);
+const allowedOrigins = [
+  "https://sistemacotizaciongastos.netlify.app",
+  "http://localhost:5173",
+];
 
 app.use(
   cors({
@@ -62,8 +64,8 @@ app.use(
       console.error(`CORS origin not allowed: ${origin}`);
       return cb(new Error(`CORS origin not allowed: ${origin}`));
     },
-    credentials: true, // Permitir cookies para autenticación
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // Métodos permitidos
+    credentials: true, // Permitir cookies
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: [
       "Content-Type",
       "Authorization",
@@ -71,8 +73,24 @@ app.use(
       "Access-Control-Allow-Origin",
       "Access-Control-Allow-Credentials",
     ],
+    exposedHeaders: ["Access-Control-Allow-Origin"],
   })
 );
+
+// Forzar que todas las respuestas incluyan el encabezado CORS (como medida adicional)
+app.use((req, res, next) => {
+  res.header(
+    "Access-Control-Allow-Origin",
+    allowedOrigins.includes(req.headers.origin) ? req.headers.origin : ""
+  );
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Content-Type,Authorization,X-Requested-With"
+  );
+  next();
+});
 
 /* ─────────────  ESM helper para __dirname ───────────── */
 const __filename = fileURLToPath(import.meta.url);
