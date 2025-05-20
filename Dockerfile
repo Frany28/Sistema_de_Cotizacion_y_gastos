@@ -1,17 +1,17 @@
 # Usa una imagen oficial de Node.js
 FROM node:20
 
-# Crea una carpeta de trabajo en el contenedor
+# Establece el directorio de trabajo dentro del contenedor
 WORKDIR /app
 
-# Copia el contenido del backend
+# Copia solo el contenido del backend
 COPY Backend/ .
 
-# Instala las dependencias
-RUN npm install
+# Instala solo dependencias de producción
+RUN npm install --omit=dev
 
-# Expone el puerto de tu servidor (usualmente 3000)
+# Expón el puerto
 EXPOSE 3000
 
-# Comando para iniciar el servidor
-CMD ["npm", "start"]
+# Comando para ejecutar el servidor
+CMD ["node", "config/server.js"]
