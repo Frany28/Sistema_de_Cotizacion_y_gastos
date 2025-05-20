@@ -12,7 +12,7 @@ export default defineConfig({
     port: 5173,
   },
   build: {
-    outDir: "dist", // genera Frontend/dist
+    outDir: "dist", 
     emptyOutDir: true,
   },
   resolve: {
