@@ -142,16 +142,16 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
             className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/40"
           >
             <div className="relative p-4 w-full max-w-md max-h-full">
-              <div className="relative bg-white rounded-lg shadow dark:bg-gray-800">
+              <div className="relative  rounded-lg shadow bg-gray-800">
                 <div className="flex flex-col items-center pt-6">
                   <UserPlus className="w-8 h-8 text-blue-500 mb-1" />
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  <h3 className="text-lg font-semibold  text-white">
                     Crear Usuario
                   </h3>
                   <button
                     type="button"
                     onClick={onCancel}
-                    className="absolute right-4 top-4 text-gray-400 hover:bg-gray-200 rounded-lg w-8 h-8 flex justify-center items-center dark:hover:bg-gray-600"
+                    className="absolute right-4 top-4 text-gray-400  rounded-lg w-8 h-8 flex justify-center items-center hover:bg-gray-600"
                   >
                     <svg
                       className="w-3 h-3"
@@ -172,7 +172,7 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                 <form onSubmit={handleSubmit} className="p-4 grid gap-4">
                   {/* Nombre */}
                   <div>
-                    <label className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
+                    <label className="block mb-1 text-sm font-medium  text-white">
                       Nombre
                     </label>
                     <input
@@ -180,7 +180,7 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                       name="nombre"
                       value={form.nombre}
                       onChange={handleChange}
-                      className="block w-full p-2.5 bg-gray-50 border rounded-lg dark:bg-gray-600 dark:border-gray-500 dark:text-white"
+                      className="block w-full p-2.5  border rounded-lg bg-gray-600 border-gray-500 text-white"
                     />
                     {errors.nombre && (
                       <p className="text-red-500 text-sm">{errors.nombre}</p>
@@ -189,7 +189,7 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
 
                   {/* Email */}
                   <div>
-                    <label className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
+                    <label className="block mb-1 text-sm font-medium  text-white">
                       Email
                     </label>
                     <input
@@ -197,7 +197,7 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                       name="email"
                       value={form.email}
                       onChange={handleChange}
-                      className="block w-full p-2.5 bg-gray-50 border rounded-lg dark:bg-gray-600 dark:border-gray-500 dark:text-white"
+                      className="block w-full p-2.5  border rounded-lg bg-gray-600 border-gray-500 text-white"
                     />
                     {errors.email && (
                       <p className="text-red-500 text-sm">{errors.email}</p>
@@ -206,7 +206,7 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
 
                   {/* Password */}
                   <div>
-                    <label className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
+                    <label className="block mb-1 text-sm font-medium  text-white">
                       Contraseña
                     </label>
                     <input
@@ -214,7 +214,7 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                       name="password"
                       value={form.password}
                       onChange={handleChange}
-                      className="block w-full p-2.5 bg-gray-50 border rounded-lg dark:bg-gray-600 dark:border-gray-500 dark:text-white"
+                      className="block w-full p-2.5  border rounded-lg bg-gray-600 border-gray-500 text-white"
                     />
                     {errors.password && (
                       <p className="text-red-500 text-sm">{errors.password}</p>
@@ -223,14 +223,14 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
 
                   {/* Rol */}
                   <div>
-                    <label className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
+                    <label className="block mb-1 text-sm font-medium  text-white">
                       Rol
                     </label>
                     <select
                       name="rol_id"
                       value={form.rol_id}
                       onChange={handleChange}
-                      className="block w-full p-2.5 bg-gray-50 border rounded-lg dark:bg-gray-600 dark:border-gray-500 dark:text-white"
+                      className="block w-full p-2.5  border rounded-lg bg-gray-600 border-gray-500 text-white"
                     >
                       <option value="">Seleccione un rol</option>
                       {roles.map((r) => (
@@ -247,7 +247,7 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                   {/* Firma */}
                   {/* Firma */}
                   <div className="col-span-2">
-                    <label className="block mb-1 text-sm font-medium dark:text-white">
+                    <label className="block mb-1 text-sm font-medium text-white">
                       Firma (imagen)
                     </label>
                     <input
@@ -256,13 +256,13 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                       name="firma"
                       onChange={handleFileChange}
                       className="
-                      block w-full p-2.5 text-white dark:text-gray-200 rounded
+                      block w-full p-2.5  text-gray-200 rounded
                       file:px-4 file:py-2
-                      file:bg-gray-200 dark:file:bg-gray-600
-                      file:text-gray-800 dark:file:text-gray-200
-                      file:border file:border-gray-300 dark:file:border-gray-500
+                      file:bg-gray-600
+                       file:text-gray-200
+                      file:border  file:border-gray-500
                       file:rounded file:cursor-pointer
-                      file:hover:bg-gray-300 dark:file:hover:bg-gray-500
+                    file:hover:bg-gray-500
                       transition
                       duration-200 ease-in-out"
                     />
@@ -280,7 +280,7 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                     className={`col-span-2 w-full text-white font-medium rounded-lg p-2.5 text-center ${
                       submitting
                         ? "bg-gray-400 cursor-not-allowed"
-                        : "bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+                        : " focus:ring-4  bg-blue-600 hover:bg-blue-700 focus:ring-blue-800"
                     }`}
                   >
                     {submitting ? "Creando..." : "Crear Usuario"}

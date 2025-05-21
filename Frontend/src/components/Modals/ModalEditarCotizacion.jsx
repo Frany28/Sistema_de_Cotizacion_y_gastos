@@ -76,20 +76,20 @@ export default function ModalEditarCotizacion({
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
-          className="relative w-full max-w-md p-6 bg-white dark:bg-gray-800 rounded-lg shadow"
+          className="relative w-full max-w-md p-6  bg-gray-800 rounded-lg shadow"
           onClick={(e) => e.stopPropagation()}
         >
           <button
             onClick={onClose}
             disabled={loading}
-            className="absolute top-3 right-3 text-gray-400 hover:text-gray-900 dark:hover:text-white disabled:opacity-50"
+            className="absolute top-3 right-3 text-gray-400 0 hover:text-white disabled:opacity-50"
           >
             <X className="w-5 h-5" />
           </button>
 
           <div className="text-center mb-4">
             <Pencil className="mx-auto mb-2 text-blue-600 w-10 h-10" />
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
+            <h3 className="text-lg font-semibold  text-white">
               {titulo}
             </h3>
           </div>
@@ -98,14 +98,14 @@ export default function ModalEditarCotizacion({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Sucursal */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium  text-gray-300 mb-1">
                   Sucursal
                 </label>
                 <select
                   name="sucursal_id"
                   value={form.sucursal_id}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                  className="w-full px-3 py-2 border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white"
                   disabled={loading}
                 >
                   <option value="">Seleccione una sucursal</option>
@@ -120,14 +120,14 @@ export default function ModalEditarCotizacion({
 
               {/* Confirmación cliente */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium  text-gray-300 mb-1">
                   Confirmación del Cliente
                 </label>
                 <select
                   name="confirmacion_cliente"
                   value={form.confirmacion_cliente}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                  className="w-full px-3 py-2 border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white"
                   disabled={loading}
                 >
                   <option value="1">Sí</option>
@@ -138,14 +138,14 @@ export default function ModalEditarCotizacion({
 
             {/* Observaciones */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium  text-gray-300 mb-1">
                 Observaciones
               </label>
               <textarea
                 name="observaciones"
                 value={form.observaciones}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                className="w-full px-3 py-2 border  border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white"
                 disabled={loading}
                 rows={3}
               />

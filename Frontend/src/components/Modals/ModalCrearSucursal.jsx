@@ -95,7 +95,7 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
             onClick={() => !isSubmitting && onCancel()}
           >
             <motion.div
-              className="bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full max-w-md p-6 relative"
+              className=" bg-gray-800 rounded-lg shadow-lg w-full max-w-md p-6 relative"
               initial={{ scale: 0.95 }}
               animate={{ scale: 1 }}
               exit={{ scale: 0.95 }}
@@ -105,13 +105,13 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
                 type="button"
                 onClick={() => !isSubmitting && onCancel()}
                 disabled={isSubmitting}
-                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                className="absolute top-4 right-4 text-gray-400  hover:text-gray-200"
               >
                 <X size={20} />
               </button>
               <div className="flex flex-col items-center mb-4">
                 <Building2 className="w-8 h-8 text-blue-500" />
-                <h3 className="mt-2 text-lg font-semibold text-gray-900 dark:text-white">
+                <h3 className="mt-2 text-lg font-semibold  text-white">
                   Crear Nueva Sucursal
                 </h3>
               </div>
@@ -123,7 +123,7 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
                 )}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <label className="block text-sm font-medium  text-gray-300">
                       Código *
                     </label>
                     <input
@@ -131,7 +131,7 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
                       value={form.codigo}
                       onChange={handleChange}
                       required
-                      className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-primary-500 focus:border-primary-500"
+                      className="mt-1 block w-full rounded-md  border-gray-600 bg-gray-700 focus:ring-primary-500 focus:border-primary-500"
                     />
                     {errors.codigo && (
                       <p className="mt-1 text-sm text-red-600">
@@ -140,7 +140,7 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
                     )}
                   </div>
                   <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <label className="block text-sm font-medium  text-gray-300">
                       Nombre *
                     </label>
                     <input
@@ -148,7 +148,7 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
                       value={form.nombre}
                       onChange={handleChange}
                       required
-                      className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-primary-500 focus:border-primary-500"
+                      className="mt-1 block w-full rounded-md  border-gray-600 bg-gray-700 focus:ring-primary-500 focus:border-primary-500"
                     />
                     {errors.nombre && (
                       <p className="mt-1 text-sm text-red-600">
@@ -157,7 +157,7 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
                     )}
                   </div>
                   <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <label className="block text-sm font-medium  text-gray-300">
                       Dirección *
                     </label>
                     <input
@@ -165,7 +165,7 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
                       value={form.direccion}
                       onChange={handleChange}
                       required
-                      className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-primary-500 focus:border-primary-500"
+                      className="mt-1 block w-full rounded-md  border-gray-600 bg-gray-700 focus:ring-primary-500 focus:border-primary-500"
                     />
                     {errors.direccion && (
                       <p className="mt-1 text-sm text-red-600">
@@ -174,51 +174,51 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <label className="block text-sm font-medium  text-gray-300">
                       Ciudad
                     </label>
                     <input
                       name="ciudad"
                       value={form.ciudad}
                       onChange={handleChange}
-                      className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-primary-500 focus:border-primary-500"
+                      className="mt-1 block w-full rounded-md  border-gray-600 bg-gray-700 focus:ring-primary-500 focus:border-primary-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <label className="block text-sm font-medium  text-gray-300">
                       Estado/Provincia
                     </label>
                     <input
                       name="estado_provincia"
                       value={form.estado_provincia}
                       onChange={handleChange}
-                      className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-primary-500 focus:border-primary-500"
+                      className="mt-1 block w-full rounded-md  border-gray-600 bg-gray-700 focus:ring-primary-500 focus:border-primary-500"
                     />
                   </div>
                   <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <label className="block text-sm font-medium  text-gray-300">
                       País
                     </label>
                     <input
                       name="pais"
                       value={form.pais}
                       onChange={handleChange}
-                      className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-primary-500 focus:border-primary-500"
+                      className="mt-1 block w-full rounded-md  border-gray-600 bg-gray-700 focus:ring-primary-500 focus:border-primary-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <label className="block text-sm font-medium  text-gray-300">
                       Teléfono
                     </label>
                     <input
                       name="telefono"
                       value={form.telefono}
                       onChange={handleChange}
-                      className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-primary-500 focus:border-primary-500"
+                      className="mt-1 block w-full rounded-md  border-gray-600 bg-gray-700 focus:ring-primary-500 focus:border-primary-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <label className="block text-sm font-medium  text-gray-300">
                       Email
                     </label>
                     <input
@@ -226,18 +226,18 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
                       name="email"
                       value={form.email}
                       onChange={handleChange}
-                      className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-primary-500 focus:border-primary-500"
+                      className="mt-1 block w-full rounded-md  border-gray-600 bg-gray-700 focus:ring-primary-500 focus:border-primary-500"
                     />
                   </div>
                   <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <label className="block text-sm font-medium  text-gray-300">
                       Responsable
                     </label>
                     <input
                       name="responsable"
                       value={form.responsable}
                       onChange={handleChange}
-                      className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-primary-500 focus:border-primary-500"
+                      className="mt-1 block w-full rounded-md  border-gray-600 bg-gray-700 focus:ring-primary-500 focus:border-primary-500"
                     />
                   </div>
                 </div>

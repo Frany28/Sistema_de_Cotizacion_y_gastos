@@ -117,16 +117,16 @@ export default function ModalAñadirGasto({ onCancel, onSubmit }) {
         className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/40"
       >
         <div className="relative p-4 w-full max-w-3xl max-h-full">
-          <div className="relative bg-white rounded-lg shadow-sm dark:bg-gray-800">
+          <div className="relative  rounded-lg shadow-sm bg-gray-800">
             <div className="flex flex-col items-center justify-center pt-6">
               <FilePlus className="w-8 h-8 text-blue-500 mb-1" />
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white text-center">
+              <h3 className="text-lg font-semibold  text-white text-center">
                 Añadir Gasto
               </h3>
               <button
                 type="button"
                 onClick={onCancel}
-                className="absolute right-4 top-4 text-gray-400 hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white"
+                className="absolute right-4 top-4 text-gray-400   rounded-lg text-sm w-8 h-8 inline-flex justify-center items-center hover:bg-gray-600 hover:text-white"
               >
                 <svg
                   className="w-3 h-3"
@@ -156,14 +156,14 @@ export default function ModalAñadirGasto({ onCancel, onSubmit }) {
 
                 {/* Tipo de Gasto */}
                 <div>
-                  <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                  <label className="block mb-2 text-sm font-medium  text-white">
                     Tipo de Gasto*
                   </label>
                   <select
                     name="tipo_gasto_id"
                     value={form.tipo_gasto_id}
                     onChange={handleChange}
-                    className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    className="  text-sm rounded-lg block w-full p-2.5 bg-gray-700 border-gray-600 text-white"
                   >
                     <option value="">Seleccione tipo</option>
                     <option value="1">Fijo</option>
@@ -178,14 +178,14 @@ export default function ModalAñadirGasto({ onCancel, onSubmit }) {
 
                 {/* Proveedor */}
                 <div className="col-span-2 md:col-span-1">
-                  <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                  <label className="block mb-2 text-sm font-medium  text-white">
                     Proveedor*
                   </label>
                   <select
                     name="proveedor_id"
                     value={form.proveedor_id}
                     onChange={handleChange}
-                    className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    className=" border  text-sm rounded-lg block w-full p-2.5 bg-gray-700 border-gray-600 text-white"
                   >
                     <option value="">Seleccione proveedor</option>
                     {proveedores.map((p) => (
@@ -202,14 +202,14 @@ export default function ModalAñadirGasto({ onCancel, onSubmit }) {
                 </div>
 
                 <div className="col-span-2 md:col-span-1">
-                  <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                  <label className="block mb-2 text-sm font-medium  text-white">
                     Sucursal*
                   </label>
                   <select
                     name="sucursal_id"
                     value={form.sucursal_id}
                     onChange={handleChange}
-                    className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    className="text-sm rounded-lg block w-full p-2.5 bg-gray-700 border-gray-600 text-white"
                   >
                     <option value="">Seleccione sucursal</option>
                     {sucursales.map((s) => (
@@ -224,7 +224,7 @@ export default function ModalAñadirGasto({ onCancel, onSubmit }) {
                 </div>
 
                 <div className="col-span-2 md:col-span-1">
-                  <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                  <label className="block mb-2 text-sm font-medium  text-white">
                     Concepto*
                   </label>
                   <input
@@ -233,7 +233,7 @@ export default function ModalAñadirGasto({ onCancel, onSubmit }) {
                     value={form.concepto}
                     onChange={handleChange}
                     placeholder="Ej: Compra de carpetas"
-                    className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    className="border text-sm rounded-lg block w-full p-2.5 bg-gray-700 border-gray-600 text-white"
                   />
                   {errors.concepto && (
                     <p className="text-red-500 text-sm">{errors.concepto}</p>
@@ -241,7 +241,7 @@ export default function ModalAñadirGasto({ onCancel, onSubmit }) {
                 </div>
 
                 <div>
-                  <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                  <label className="block mb-2 text-sm font-medium text-white">
                     Monto*
                   </label>
                   <input
@@ -249,7 +249,7 @@ export default function ModalAñadirGasto({ onCancel, onSubmit }) {
                     name="monto"
                     value={form.monto}
                     onChange={handleChange}
-                    className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    className=" text-sm rounded-lg block w-full p-2.5 bg-gray-700 border-gray-600 text-white"
                     placeholder="0.00"
                     step="0.01"
                     min="0"
@@ -261,7 +261,7 @@ export default function ModalAñadirGasto({ onCancel, onSubmit }) {
                 </div>
 
                 <div>
-                  <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                  <label className="block mb-2 text-sm font-medium text-white">
                     Fecha*
                   </label>
                   <input
@@ -269,7 +269,7 @@ export default function ModalAñadirGasto({ onCancel, onSubmit }) {
                     name="fecha"
                     value={form.fecha}
                     onChange={handleChange}
-                    className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    className="text-sm rounded-lg block w-full p-2.5 bg-gray-700 border-gray-600 text-white"
                     required
                   />
                   {errors.fecha && (
@@ -278,14 +278,14 @@ export default function ModalAñadirGasto({ onCancel, onSubmit }) {
                 </div>
 
                 <div>
-                  <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                  <label className="block mb-2 text-sm font-medium  text-white">
                     Estado
                   </label>
                   <select
                     name="estado"
                     value={form.estado}
                     onChange={handleChange}
-                    className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    className=" text-sm rounded-lg block w-full p-2.5 bg-gray-700 border-gray-600 text-white"
                   >
                     <option value="pendiente">Pendiente</option>
                     <option value="aprobado">Aprobado</option>
@@ -295,14 +295,14 @@ export default function ModalAñadirGasto({ onCancel, onSubmit }) {
                 </div>
 
                 <div>
-                  <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                  <label className="block mb-2 text-sm font-medium  text-white">
                     Sucursal*
                   </label>
                   <select
                     name="sucursal_id"
                     value={form.sucursal_id}
                     onChange={handleChange}
-                    className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    className="text-sm rounded-lg block w-full p-2.5 bg-gray-700 border-gray-600 text-white"
                   >
                     <option value="">Seleccione sucursal</option>
                     {sucursales.map((s) => (
@@ -317,7 +317,7 @@ export default function ModalAñadirGasto({ onCancel, onSubmit }) {
                 </div>
 
                 <div className="col-span-1 md:col-span-2">
-                  <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                  <label className="block mb-2 text-sm font-medium  text-white">
                     Descripción
                   </label>
                   <textarea
@@ -325,7 +325,7 @@ export default function ModalAñadirGasto({ onCancel, onSubmit }) {
                     value={form.descripcion}
                     onChange={handleChange}
                     rows="3"
-                    className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    className=" text-sm rounded-lg block w-full p-2.5 bg-gray-700 border-gray-600 text-white"
                     placeholder="Descripción del gasto..."
                   />
                 </div>
@@ -337,7 +337,7 @@ export default function ModalAñadirGasto({ onCancel, onSubmit }) {
                 className={`text-white inline-flex items-center font-medium rounded-lg text-sm px-5 py-2.5 text-center mt-2 w-full justify-center ${
                   isSubmitting
                     ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+                    : " focus:ring-4 focus:outline-none  bg-blue-600 hover:bg-blue-700 focus:ring-blue-800"
                 }`}
               >
                 <svg

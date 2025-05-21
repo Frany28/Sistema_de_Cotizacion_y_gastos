@@ -47,19 +47,19 @@ export default function ModalDetalleCotizacion({
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
-          className="relative w-full max-w-3xl p-6 bg-white dark:bg-gray-800 rounded-lg shadow"
+          className="relative w-full max-w-3xl p-6  bg-gray-800 rounded-lg shadow"
           onClick={(e) => e.stopPropagation()}
         >
           <button
             onClick={onClose}
-            className="absolute top-3 right-3 text-gray-400 hover:text-gray-900 dark:hover:text-white"
+            className="absolute top-3 right-3 text-gray-400  hover:text-white"
           >
             <X className="w-5 h-5" />
           </button>
 
           <div className="mb-4">
             <div className="flex justify-between items-center mr-6">
-              <h2 className="text-xl font-semibold text-gray-800 dark:text-white">
+              <h2 className="text-xl font-semibold  text-white">
                 Cotización {codigo}
               </h2>
               <span
@@ -74,26 +74,26 @@ export default function ModalDetalleCotizacion({
                 {estado}
               </span>
             </div>
-            <p className="text-sm text-gray-500 dark:text-gray-300">
+            <p className="text-sm text-gray-300">
               Cliente: {cliente_nombre} • Fecha:{" "}
               {new Date(fecha).toLocaleDateString("es-VE")}
             </p>
-            <p className="text-sm text-gray-500 dark:text-gray-300">
+            <p className="text-sm  text-gray-300">
               Sucursal: {sucursal || "-"}
             </p>
-            <p className="text-sm text-gray-500 dark:text-gray-300">
+            <p className="text-sm  text-gray-300">
               Confirmación por el cliente: {confirmacion_cliente ? "Sí" : "No"}
             </p>
             {observaciones && (
-              <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+              <p className="mt-2 text-sm  text-gray-400">
                 <strong>Observaciones:</strong> {observaciones}
               </p>
             )}
           </div>
 
           <div className="overflow-x-auto mb-4">
-            <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
-              <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+            <table className="w-full text-sm text-left 0 text-gray-400">
+              <thead className="text-xs  uppercase  bg-gray-700 text-gray-400">
                 <tr>
                   <th className="px-4 py-2">Servicio/Producto</th>
                   <th className="px-4 py-2">Cantidad</th>
@@ -106,7 +106,7 @@ export default function ModalDetalleCotizacion({
               </thead>
               <tbody>
                 {detalle.map((item, idx) => (
-                  <tr key={idx} className="border-b dark:border-gray-600">
+                  <tr key={idx} className="border-b border-gray-600">
                     <td className="px-4 py-2">{item.servicio}</td>
                     <td className="px-4 py-2">{item.cantidad}</td>
                     <td className="px-4 py-2">
@@ -132,7 +132,7 @@ export default function ModalDetalleCotizacion({
             </table>
           </div>
 
-          <div className="flex justify-end gap-6 mt-4 text-sm text-gray-700 dark:text-gray-300">
+          <div className="flex justify-end gap-6 mt-4 text-sm  text-gray-300">
             <div>
               <div className="flex justify-between">
                 <span>Subtotal: </span>

@@ -24,21 +24,21 @@ export default function ModalConfirmacion({
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
-            className="relative w-full max-w-md p-6 bg-white dark:bg-gray-800 rounded-lg shadow"
+            className="relative w-full max-w-md p-6 bg-gray-800 rounded-lg shadow"
           >
             <button
               onClick={onClose}
-              className="absolute top-3 right-3 text-gray-400 hover:text-gray-900 dark:hover:text-white"
+              className="absolute top-3 right-3 text-gray-400  hover:text-white"
             >
               <X className="w-5 h-5" />
             </button>
 
             <div className="text-center">
               <AlertCircle className="mx-auto mb-4 text-red-500 w-12 h-12" />
-              <h3 className="mb-2 text-lg font-semibold text-gray-800 dark:text-white">
+              <h3 className="mb-2 text-lg font-semibold  text-white">
                 {titulo}
               </h3>
-              <p className="mb-5 text-sm text-gray-500 dark:text-gray-300">
+              <p className="mb-5 text-sm  text-gray-300">
                 {mensaje}
               </p>
 
@@ -50,7 +50,7 @@ export default function ModalConfirmacion({
               </button>
               <button
                 onClick={onClose}
-                className="px-5 py-2.5 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
+                className="px-5 py-2.5 text-sm font-medium  rounded-lg  text-gray-300 border-gray-600 hover:bg-gray-700"
               >
                 {textoCancelar}
               </button>

@@ -220,7 +220,7 @@ function ListaServiciosProductos() {
           <div className="flex items-center gap-2">
             <label
               htmlFor="cantidad"
-              className="text-sm text-gray-600 dark:text-gray-300 font-medium"
+              className="text-sm  text-gray-300 font-medium"
             >
               Mostrar Registros:
             </label>
@@ -228,7 +228,7 @@ function ListaServiciosProductos() {
               id="cantidad"
               value={limit}
               onChange={(e) => cambiarLimite(Number(e.target.value))}
-              className="text-sm rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              className="text-sm rounded-md  border-gray-600 bg-gray-700 text-white"
             >
               <option value="5">5</option>
               <option value="10">10</option>
@@ -238,7 +238,7 @@ function ListaServiciosProductos() {
           <div className="relative w-full">
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
               <svg
-                className="w-5 h-5 text-gray-500 dark:text-gray-400"
+                className="w-5 h-5  text-gray-400"
                 fill="currentColor"
                 viewBox="0 0 20 20"
               >
@@ -254,7 +254,7 @@ function ListaServiciosProductos() {
               placeholder="Buscar..."
               value={busqueda}
               onChange={manejarBusqueda}
-              className="pl-10 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              className="pl-10   text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-600 text-white"
             />
           </div>
         </div>
@@ -271,7 +271,7 @@ function ListaServiciosProductos() {
         )}
       </div>
 
-      <div className="px-4 pb-2 text-sm text-gray-500 dark:text-gray-400">
+      <div className="px-4 pb-2 text-sm text-gray-400">
         <div className="flex gap-2 pb-3">
           {["todos", "servicio", "producto"].map((tipo) => (
             <button
@@ -292,8 +292,8 @@ function ListaServiciosProductos() {
         Mostrando {paginados.length} de {filtrados.length} resultados
       </div>
 
-      <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
-        <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+      <table className="w-full text-sm text-left  text-gray-400">
+        <thead className="text-xs  uppercase  bg-gray-700 text-gray-400">
           <tr>
             <th className="px-4 py-3">Código</th>
             <th className="px-4 py-3">Nombre</th>
@@ -308,11 +308,11 @@ function ListaServiciosProductos() {
         </thead>
         <tbody>
           {paginados.map((item) => (
-            <tr key={item.id} className="border-b dark:border-gray-700">
-              <td className="px-4 py-3 font-medium text-gray-900 whitespace-nowrap dark:text-white">
+            <tr key={item.id} className="border-b border-gray-700">
+              <td className="px-4 py-3 font-medium whitespace-nowrap text-white">
                 {item.codigo || "—"}
               </td>
-              <td className="px-4 py-3 font-medium text-gray-900 whitespace-nowrap dark:text-white">
+              <td className="px-4 py-3 font-medium whitespace-nowrap text-white">
                 {item.nombre}
               </td>
               <td className="px-4 py-3">{item.descripcion}</td>

@@ -134,7 +134,7 @@ export default function ModalEditarUsuario({
             onClick={() => !isSubmitting && onClose()}
           >
             <motion.div
-              className="relative w-full max-w-lg p-6 bg-white dark:bg-gray-800 rounded-lg shadow"
+              className="relative w-full max-w-lg p-6  bg-gray-800 rounded-lg shadow"
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
@@ -143,13 +143,13 @@ export default function ModalEditarUsuario({
               <button
                 onClick={() => !isSubmitting && onClose()}
                 disabled={isSubmitting}
-                className="absolute top-3 right-3 text-gray-400 hover:text-gray-900 dark:hover:text-white disabled:opacity-50"
+                className="absolute top-3 right-3 text-gray-400  hover:text-white disabled:opacity-50"
               >
                 <X className="w-5 h-5" />
               </button>
               <div className="text-center mb-4">
                 <Pencil className="mx-auto mb-2 text-blue-600 w-10 h-10" />
-                <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
+                <h3 className="text-lg font-semibold  text-white">
                   Editar Usuario
                 </h3>
               </div>
@@ -161,7 +161,7 @@ export default function ModalEditarUsuario({
               >
                 {/* Nombre */}
                 <div>
-                  <label className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
+                  <label className="block mb-1 text-sm font-medium  text-white">
                     Nombre
                   </label>
                   <input
@@ -170,13 +170,13 @@ export default function ModalEditarUsuario({
                     value={form.nombre}
                     onChange={handleChange}
                     disabled={isSubmitting}
-                    className="block w-full p-2.5 bg-gray-50 border rounded-lg dark:bg-gray-600 dark:border-gray-500 dark:text-white"
+                    className="block w-full p-2.5  border rounded-lg bg-gray-600 border-gray-500 text-white"
                   />
                 </div>
 
                 {/* Email */}
                 <div>
-                  <label className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
+                  <label className="block mb-1 text-sm font-medium  text-white">
                     Email
                   </label>
                   <input
@@ -185,13 +185,13 @@ export default function ModalEditarUsuario({
                     value={form.email}
                     onChange={handleChange}
                     disabled={isSubmitting}
-                    className="block w-full p-2.5 bg-gray-50 border rounded-lg dark:bg-gray-600 dark:border-gray-500 dark:text-white"
+                    className="block w-full p-2.5  border rounded-lg bg-gray-600 border-gray-500 text-white"
                   />
                 </div>
 
                 {/* Rol */}
                 <div>
-                  <label className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
+                  <label className="block mb-1 text-sm font-medium  text-white">
                     Rol
                   </label>
                   <select
@@ -199,7 +199,7 @@ export default function ModalEditarUsuario({
                     value={form.rol_id}
                     onChange={handleChange}
                     disabled={isSubmitting}
-                    className="block w-full p-2.5 bg-gray-50 border rounded-lg dark:bg-gray-600 dark:border-gray-500 dark:text-white"
+                    className="block w-full p-2.5  border rounded-lg bg-gray-600 border-gray-500 text-white"
                   >
                     <option value="">Seleccione rol</option>
                     {roles.map((r) => (
@@ -212,7 +212,7 @@ export default function ModalEditarUsuario({
 
                 {/* Estado */}
                 <div>
-                  <label className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
+                  <label className="block mb-1 text-sm font-medium  text-white">
                     Estado
                   </label>
                   <select
@@ -220,7 +220,7 @@ export default function ModalEditarUsuario({
                     value={form.estado}
                     onChange={handleChange}
                     disabled={isSubmitting}
-                    className="block w-full p-2.5 bg-gray-50 border rounded-lg dark:bg-gray-600 dark:border-gray-500 dark:text-white"
+                    className="block w-full p-2.5  border rounded-lg bg-gray-600 border-gray-500 text-white"
                   >
                     <option value="activo">Activo</option>
                     <option value="inactivo">Inactivo</option>
@@ -231,7 +231,7 @@ export default function ModalEditarUsuario({
                 {/* Firma previa (si existe) */}
                 {form.firma && !firmaArchivo && (
                   <div className="col-span-2">
-                    <label className="block mb-1 text-sm font-medium dark:text-white">
+                    <label className="block mb-1 text-sm font-medium text-white">
                       Firma previa
                     </label>
                     <a
@@ -247,7 +247,7 @@ export default function ModalEditarUsuario({
 
                 {/* Input para subir/cambiar firma */}
                 <div className="col-span-2">
-                  <label className="block mb-1 text-sm font-medium dark:text-white">
+                  <label className="block mb-1 text-sm font-medium text-white">
                     {form.firma && !firmaArchivo
                       ? "Cambiar firma (imagen)"
                       : "Firma (imagen)"}
@@ -257,7 +257,7 @@ export default function ModalEditarUsuario({
                     accept="image/*"
                     onChange={handleFileChange}
                     disabled={isSubmitting}
-                    className="block w-full p-2.5 bg-gray-50 border rounded-lg dark:bg-gray-600 dark:border-gray-500 dark:text-white"
+                    className="block w-full p-2.5  border rounded-lg bg-gray-600 border-gray-500 text-white"
                   />
                 </div>
 
@@ -269,7 +269,7 @@ export default function ModalEditarUsuario({
                     className={`w-full p-2.5 text-white font-medium rounded-lg ${
                       isSubmitting
                         ? "bg-gray-400 cursor-not-allowed"
-                        : "bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+                        : " focus:ring-4  bg-blue-600 hover:bg-blue-700 focus:ring-blue-800"
                     }`}
                   >
                     {isSubmitting ? "Guardando..." : "Guardar cambios"}

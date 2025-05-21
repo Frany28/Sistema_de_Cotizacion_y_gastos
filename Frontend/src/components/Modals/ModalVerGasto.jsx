@@ -27,12 +27,12 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
-          className="relative w-full max-w-3xl p-6 bg-white dark:bg-gray-800 rounded-lg shadow"
+          className="relative w-full max-w-3xl p-6  bg-gray-800 rounded-lg shadow"
           onClick={(e) => e.stopPropagation()}
         >
           <button
             onClick={onClose}
-            className="absolute top-3 right-3 text-gray-400 hover:text-gray-900 dark:hover:text-white"
+            className="absolute top-3 right-3 text-gray-400  hover:text-white"
           >
             <X className="w-5 h-5" />
           </button>
@@ -41,7 +41,7 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
             Detalles del Gasto
           </h2>
 
-          <div className="text-sm text-gray-400 dark:text-gray-300">
+          <div className="text-sm  text-gray-300">
             <p>
               <strong>Proveedor:</strong> {gasto.proveedor || "—"}
             </p>
@@ -58,7 +58,7 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
           </div>
 
           <div className="overflow-x-auto mt-4">
-            <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+            <table className="w-full text-sm text-left  text-gray-400">
               <thead className="text-xs text-gray-700 uppercase bg-gray-700 ">
                 <tr>
                   <th className="px-4 py-2">CONCEPTO</th>
@@ -69,7 +69,7 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
                 </tr>
               </thead>
               <tbody>
-                <tr className="border-b dark:border-gray-600">
+                <tr className="border-b border-gray-600">
                   <td className="px-4 py-2">{gasto.concepto_pago}</td>
                   {isBolivares && <td>{gasto.tasa_cambio || "N/A"} BS</td>}
                   <td className="px-4 py-2">

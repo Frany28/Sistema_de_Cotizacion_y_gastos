@@ -136,7 +136,7 @@ function ListaSolicitudesPago() {
           <div className="flex items-center gap-2">
             <label
               htmlFor="cantidad"
-              className="text-sm text-gray-600 dark:text-gray-300 font-medium"
+              className="text-sm  text-gray-300 font-medium"
             >
               Mostrar:
             </label>
@@ -144,7 +144,7 @@ function ListaSolicitudesPago() {
               id="cantidad"
               value={limit}
               onChange={(e) => cambiarLimite(Number(e.target.value))}
-              className="text-sm rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              className="text-sm rounded-md  border-gray-600 bg-gray-700 text-white"
             >
               <option value="5">5</option>
               <option value="10">10</option>
@@ -156,7 +156,7 @@ function ListaSolicitudesPago() {
           <div className="relative w-full">
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
               <svg
-                className="w-5 h-5 text-gray-500 dark:text-gray-400"
+                className="w-5 h-5  text-gray-400"
                 fill="currentColor"
                 viewBox="0 0 20 20"
               >
@@ -173,7 +173,7 @@ function ListaSolicitudesPago() {
               placeholder="Buscar solicitudes..."
               value={busqueda}
               onChange={manejarBusqueda}
-              className="pl-10 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              className="pl-10 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-600 text-white"
             />
           </div>
         </div>
@@ -210,9 +210,9 @@ function ListaSolicitudesPago() {
       </div>
 
       {/* Tabla de solicitudes */}
-      <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+      <table className="w-full text-sm text-left  text-gray-400">
         {/* Encabezados de tabla */}
-        <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+        <thead className="text-xs  uppercase  bg-gray-700 text-gray-400">
           <tr>
             <th className="px-4 py-3">Código</th>
             <th className="px-4 py-3">Fecha</th>
@@ -234,8 +234,8 @@ function ListaSolicitudesPago() {
             const isBolivares = solicitud.moneda === "VES";
 
             return (
-              <tr key={solicitud.id} className="border-b dark:border-gray-700">
-                <td className="px-5 py-3 font-medium text-gray-900 dark:text-white">
+              <tr key={solicitud.id} className="border-b border-gray-700">
+                <td className="px-5 py-3 font-medium  text-white">
                   {solicitud.codigo}
                 </td>
                 <td className="px-5 py-3">

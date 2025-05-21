@@ -122,7 +122,7 @@ export default function ModalRegistrarAbono({
           <div className="bg-gray-800 rounded-lg shadow-md p-4 w-125">
             <div className="flex flex-col items-center">
               <DollarSign className="w-8 h-8 text-green-500 mb-2" />
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              <h3 className="text-lg font-semibold  text-white mb-4">
                 Registrar Abono
               </h3>
               <button

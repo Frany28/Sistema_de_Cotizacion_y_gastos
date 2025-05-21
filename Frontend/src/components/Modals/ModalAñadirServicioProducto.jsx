@@ -159,16 +159,16 @@ export default function ModalAñadirServicioProducto({
         className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/40"
       >
         <div className="relative p-4 w-full max-w-md max-h-full">
-          <div className="relative bg-white rounded-lg shadow-sm dark:bg-gray-800">
+          <div className="relative rounded-lg shadow-sm bg-gray-800">
             <div className="flex flex-col items-center justify-center pt-6">
               <PlusSquare className="w-8 h-8 text-blue-500 mb-1" />
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white text-center">
+              <h3 className="text-lg font-semibold text-white text-center">
                 Añadir Servicio/Producto
               </h3>
               <button
                 type="button"
                 onClick={onCancel}
-                className="absolute right-4 top-4 text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white"
+                className="absolute right-4 top-4 text-gray-400 bg-transparent  rounded-lg text-sm w-8 h-8 inline-flex justify-center items-center hover:bg-gray-600 hover:text-white"
               >
                 <svg
                   className="w-3 h-3"
@@ -196,7 +196,7 @@ export default function ModalAñadirServicioProducto({
                 )}
 
                 <div className="col-span-2">
-                  <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                  <label className="block mb-2 text-sm font-medium  text-white">
                     Nombre
                   </label>
                   <input
@@ -204,7 +204,7 @@ export default function ModalAñadirServicioProducto({
                     value={form.nombre}
                     onChange={handleChange}
                     placeholder="Nombre del servicio o producto"
-                    className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white"
+                    className="  text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
                     required
                   />
                   {errors.nombre && (
@@ -213,7 +213,7 @@ export default function ModalAñadirServicioProducto({
                 </div>
 
                 <div className="col-span-2">
-                  <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                  <label className="block mb-2 text-sm font-medium text-white">
                     Descripción
                   </label>
                   <textarea
@@ -222,7 +222,7 @@ export default function ModalAñadirServicioProducto({
                     onChange={handleChange}
                     placeholder="Descripción del servicio o producto"
                     rows="3"
-                    className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white"
+                    className=" text-sm rounded-lg block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
                     required
                   />
                   {errors.descripcion && (
@@ -231,7 +231,7 @@ export default function ModalAñadirServicioProducto({
                 </div>
 
                 <div className="col-span-2 sm:col-span-1">
-                  <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                  <label className="block mb-2 text-sm font-medium  text-white">
                     Precio
                   </label>
                   <input
@@ -242,7 +242,7 @@ export default function ModalAñadirServicioProducto({
                     pattern="^\d+(\.\d{1,2})?$"
                     step="0.01"
                     min="0"
-                    className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white"
+                    className="text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
                     required
                   />
                   {errors.precio && (
@@ -250,14 +250,14 @@ export default function ModalAñadirServicioProducto({
                   )}
                 </div>
                 <div className="col-span-2 sm:col-span-1">
-                  <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                  <label className="block mb-2 text-sm font-medium  text-white">
                     Tipo de Impuesto
                   </label>
                   <select
                     name="porcentaje_iva"
                     value={form.porcentaje_iva}
                     onChange={handleChange}
-                    className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white"
+                    className="text-sm rounded-lg block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
                     required
                   >
                     <option value="">Seleccione un tipo de impuesto</option>
@@ -273,14 +273,14 @@ export default function ModalAñadirServicioProducto({
                 </div>
 
                 <div className="col-span-2 sm:col-span-1">
-                  <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                  <label className="block mb-2 text-sm font-medium  text-white">
                     Tipo
                   </label>
                   <select
                     name="tipo"
                     value={form.tipo}
                     onChange={handleChange}
-                    className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white"
+                    className="text-sm rounded-lg block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
                     required
                   >
                     <option value="servicio">Servicio</option>
@@ -290,7 +290,7 @@ export default function ModalAñadirServicioProducto({
 
                 {form.tipo === "producto" && (
                   <div className="col-span-2 sm:col-span-1">
-                    <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                    <label className="block mb-2 text-sm font-medium text-white">
                       Cantidad
                     </label>
                     <input
@@ -298,7 +298,7 @@ export default function ModalAñadirServicioProducto({
                       name="cantidad_actual"
                       value={form.cantidad_actual}
                       onChange={handleChange}
-                      className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white"
+                      className="text-sm rounded-lg block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
                     />
                     {errors.cantidad_actual && (
                       <p className="text-red-500 text-sm">
@@ -314,7 +314,7 @@ export default function ModalAñadirServicioProducto({
                 className={`text-white inline-flex items-center font-medium rounded-lg text-sm px-5 py-2.5 text-center ${
                   isSubmitting
                     ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+                    : " bg-blue-600 hover:bg-blue-700 focus:ring-blue-800"
                 }`}
               >
                 <svg
