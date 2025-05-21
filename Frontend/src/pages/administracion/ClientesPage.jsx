@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import ModalEditar from "../../components/Modals/ModalEditar"; // Modal para editar cliente
 import ModalExito from "../../components/Modals/ModalExito"; // Modal de éxito
 import ListaClientes from "../../components/ClientesCRUD"; // Lista de clientes
+import api from "../../api/index"; // API para manejar las peticiones
 
 function ClientesPage() {
   const [clientes, setClientes] = useState([]);
@@ -16,6 +17,17 @@ function ClientesPage() {
     { name: "direccion", label: "Dirección" },
   ];
 
+  const obtenerClientes = async () => {
+    try {
+      const res = await api.get("/clientes");
+      const data = await res.json();
+      setClientes(data);
+    } catch (error) {
+      console.error("Error al obtener clientes:", error);
+      alert("Ocurrió un error al obtener la lista de clientes.");
+    }
+  };
+
   const handleEditar = (cliente) => {
     setClienteEditando(cliente);
     setMostrarModalEditar(true);
@@ -24,7 +36,7 @@ function ClientesPage() {
   const handleGuardarEdicion = async (datosActualizados) => {
     try {
       const res = await fetch(
-        `http://localhost:3000/api/clientes/${clienteEditando.id}`,
+        `${import.meta.env.VITE_API_URL}/clientes/${clienteEditando.id}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
