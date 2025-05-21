@@ -142,8 +142,12 @@ export const crearCliente = async (req, res) => {
 // Obtener clientes paginados
 export const obtenerClientes = async (req, res) => {
   // Convertir explícitamente a número
-  const page = parseInt(req.query.page, 10) || 1;
-  const limit = parseInt(req.query.limit, 10) || 10;
+  const page = Number.isInteger(parseInt(req.query.page))
+    ? parseInt(req.query.page)
+    : 1;
+  const limit = Number.isInteger(parseInt(req.query.limit))
+    ? parseInt(req.query.limit)
+    : 10;
   const offset = (page - 1) * limit;
 
   try {
@@ -155,7 +159,7 @@ export const obtenerClientes = async (req, res) => {
     // 2. Obtener clientes paginados
     const [clientes] = await db.execute(
       "SELECT * FROM clientes ORDER BY id DESC LIMIT ? OFFSET ?",
-      [limit, offset] // Aquí ya son enteros reales
+      [Number(limit), Number(offset)]
     );
 
     res.json({ clientes, total });
