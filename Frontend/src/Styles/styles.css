@@ -1,6 +1,7 @@
 @import "tailwindcss";
-@import "flowbite/dist/flowbite.css";
-@import "flowbite";
+@plugin "flowbite/plugin";
+@source "../node_modules/flowbite";
+
 .modal-overlay {
   position: fixed;
   top: 0;

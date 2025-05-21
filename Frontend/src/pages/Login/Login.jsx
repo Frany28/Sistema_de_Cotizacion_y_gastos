@@ -84,20 +84,13 @@ const Login = () => {
             >
               Forgot password?
             </a>
-
-            <p className="text-white mt-4">
-              Don't have an account?{" "}
-              <a href="#" className="text-sm text-blue-500 hover:underline">
-                Signup
-              </a>
-            </p>
           </div>
 
           <button
             type="submit"
-            className="bg-gradient-to-r from-indigo-500 to-blue-500 text-white
-                       font-bold py-2 px-4 rounded-md mt-4 hover:bg-indigo-600
-                       hover:to-blue-600 transition ease-in-out duration-150"
+            className="bg-blue-700 text-white font-bold py-2 px-4 rounded-md mt-4 hover:bg-blue-600
+                       focus:outline-none focus:ring-2 focus:ring-blue-500
+                       focus:ring-opacity-50 transition ease-in-out duration-150"
           >
             Login
           </button>
