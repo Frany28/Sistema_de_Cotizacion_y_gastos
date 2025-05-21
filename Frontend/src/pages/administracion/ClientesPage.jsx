@@ -16,17 +16,6 @@ function ClientesPage() {
     { name: "direccion", label: "Dirección" },
   ];
 
-  const obtenerClientes = async () => {
-    try {
-      const res = await fetch("http://localhost:3000/api/clientes");
-      const data = await res.json();
-      setClientes(data);
-    } catch (error) {
-      console.error("Error al obtener clientes:", error);
-      alert("Ocurrió un error al obtener la lista de clientes.");
-    }
-  };
-
   const handleEditar = (cliente) => {
     setClienteEditando(cliente);
     setMostrarModalEditar(true);

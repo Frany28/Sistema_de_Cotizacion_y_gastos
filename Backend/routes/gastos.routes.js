@@ -18,7 +18,7 @@ import {
 } from "../Middleware/verificarPermiso.js";
 
 const router = express.Router();
-console.log("✅ Rutas de gastos cargadas");
+
 
 // Rutas públicas
 router.get("/proveedores", getProveedores);

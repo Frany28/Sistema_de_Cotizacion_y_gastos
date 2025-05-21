@@ -126,7 +126,7 @@ function ListaClientes() {
     try {
       const response = await api.put(`/clientes/${editandoCliente.id}`, datos);
 
-      await fetchClientes(); // ← fuerza recarga visual correcta
+      await fetchClientes(); 
 
       setEditandoCliente(null);
       setMostrarModalEditar(false);
