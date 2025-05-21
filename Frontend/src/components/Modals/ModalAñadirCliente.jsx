@@ -35,12 +35,20 @@ export default function ModalAñadirCliente({ onCancel, onSubmit, onSuccess }) {
   useEffect(() => {
     const cargarSucursales = async () => {
       try {
-        const res = await api.get("/sucursales");
-        setSucursales(res.data);
+        // 1) Usa fetch en lugar de axios para poder llamar a .json()
+        const res = await fetch(
+          `${import.meta.env.VITE_API_URL}/sucursales/dropdown/list`,
+          { credentials: "include" }
+        );
+        if (!res.ok) throw new Error(`Status ${res.status}`);
+        // 2) parsea JSON exactamente como en ClientesPage
+        const lista = await res.json();
+        setSucursales(lista);
       } catch (error) {
         console.error("Error al cargar sucursales:", error);
       }
     };
+
     cargarSucursales();
   }, []);
 
@@ -327,7 +335,6 @@ export default function ModalAñadirCliente({ onCancel, onSubmit, onSuccess }) {
                     name="sucursal_id"
                     value={form.sucursal_id}
                     onChange={handleChange}
-                    className=" text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
                     required
                   >
                     <option value="">Seleccione una sucursal</option>
