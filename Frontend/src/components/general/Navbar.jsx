@@ -141,7 +141,7 @@ function Navbar() {
                   <span className="block text-sm  text-white">
                     {usuario?.nombre || "Usuario"}
                   </span>
-                  <span className="block text-sm truncate  text-gray-400">
+                  <span className="block text-sm truncate text-gray-500:text-gray-400">
                     {usuario?.email || "correo@ejemplo.com"}
                   </span>
                 </div>
@@ -236,7 +236,7 @@ function Navbar() {
                         className={`flex items-center justify-between w-full py-2 px-3 rounded-sm ${
                           isActive
                             ? "text-blue-700 font-bold"
-                            : " hover:text-blue-700 text-white"
+                            : " hover:text-blue-700 :text-white"
                         }`}
                       >
                         {item.label}
@@ -350,7 +350,7 @@ function Navbar() {
                               className={`block px-4 py-2 text-sm ${
                                 isSubActive
                                   ? " bg-gray-500 text-white"
-                                  : "text-gray-700  text-gray-300 hover:bg-gray-600"
+                                  : " text-gray-300 hover:bg-gray-600"
                               }`}
                             >
                               {subItem.label}

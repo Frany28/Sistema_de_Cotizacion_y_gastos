@@ -220,7 +220,7 @@ function ListaClientes() {
               placeholder="Buscar clientes..."
               value={busqueda}
               onChange={manejarBusqueda}
-              className="pl-1 border  text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-600 text-white"
+              className="pl-5 border  text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-600 text-white"
             />
           </div>
         </div>
