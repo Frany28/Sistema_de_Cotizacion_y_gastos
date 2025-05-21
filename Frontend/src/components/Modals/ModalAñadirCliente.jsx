@@ -335,6 +335,7 @@ export default function ModalAñadirCliente({ onCancel, onSubmit, onSuccess }) {
                     name="sucursal_id"
                     value={form.sucursal_id}
                     onChange={handleChange}
+                    className=" text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
                     required
                   >
                     <option value="">Seleccione una sucursal</option>
