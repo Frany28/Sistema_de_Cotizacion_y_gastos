@@ -141,23 +141,27 @@ export const crearCliente = async (req, res) => {
 };
 // Obtener clientes paginados
 export const obtenerClientes = async (req, res) => {
-  const page = parseInt(req.query.page, 10) || 1;
-  const limit = parseInt(req.query.limit, 10) || 10;
+  let page = parseInt(req.query.page, 10);
+  let limit = parseInt(req.query.limit, 10);
+
+  // Asignar valores por defecto si no son válidos
+  if (isNaN(page) || page < 1) page = 1;
+  if (isNaN(limit) || limit < 1) limit = 10;
+
   const offset = (page - 1) * limit;
 
   try {
-    // 1. Total de registros
+    // Total de registros
     const [[{ total }]] = await db.query(
       "SELECT COUNT(*) AS total FROM clientes"
     );
 
-    // 2. Obtener clientes paginados
+    // Datos paginados
     const [clientes] = await db.execute(
       "SELECT * FROM clientes ORDER BY id DESC LIMIT ? OFFSET ?",
-      [Number(limit), Number(offset)]
+      [limit, offset]
     );
 
-    // 3. Responder en el nuevo formato (sin romper el frontend actual)
     res.json({ clientes, total });
   } catch (error) {
     console.error("Error al obtener clientes:", error);
