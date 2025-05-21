@@ -22,7 +22,7 @@ export default function ModalExito({
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
-            className="relative p-6 w-full max-w-md  bg-gray-800 rounded-lg shadow text-center"
+            className="relative p-6 w-full max-w-md  bg-gray-800 rounded-lg shadow text-center "
           >
             <button
               onClick={onClose}
@@ -35,16 +35,12 @@ export default function ModalExito({
               <CheckCircle className="w-8 h-8  text-green-400" />
             </div>
 
-            <p className="mb-2 text-lg font-semibold  text-white">
-              {titulo}
-            </p>
-            <p className="mb-4 text-sm  text-gray-300">
-              {mensaje}
-            </p>
+            <p className="mb-2 text-lg font-semibold  text-white">{titulo}</p>
+            <p className="mb-4 text-sm  text-gray-300">{mensaje}</p>
 
             <button
               onClick={onClose}
-              className="px-5 py-2.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg focus:outline-none focus:ring-4 focus:ring-green-300 focus:ring-green-800"
+              className="px-5 py-2.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg focus:outline-none focus:ring-4  focus:ring-green-800"
             >
               {textoBoton}
             </button>

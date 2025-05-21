@@ -65,12 +65,12 @@ function ListaClientes() {
     setLoading(true);
     try {
       const response = await api.get("/clientes");
-      const data = response.data?.clientes;
 
-      if (Array.isArray(data)) {
-        setClientes(data);
+      if (response.data && Array.isArray(response.data.clientes)) {
+        setClientes(response.data.clientes);
       } else {
-        throw new Error("Formato de datos inválido");
+        console.warn("Respuesta inesperada:", response.data);
+        throw new Error("Respuesta inválida del servidor");
       }
     } catch (error) {
       console.error("Error al obtener clientes:", error);

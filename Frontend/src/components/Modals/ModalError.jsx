@@ -22,7 +22,7 @@ export default function ModalError({
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
-            className="relative p-6 w-full max-w-md  rounded-lg shadow text-center"
+            className="relative p-6 w-full max-w-md rounded-lg shadow text-center bg-gray-800"
           >
             <button
               onClick={onClose}

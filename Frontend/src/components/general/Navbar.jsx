@@ -236,7 +236,7 @@ function Navbar() {
                         className={`flex items-center justify-between w-full py-2 px-3 rounded-sm ${
                           isActive
                             ? "text-blue-700 font-bold"
-                            : " hover:text-blue-700 :text-white"
+                            : " hover:text-blue-700 text-white"
                         }`}
                       >
                         {item.label}
