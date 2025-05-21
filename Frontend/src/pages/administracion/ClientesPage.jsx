@@ -17,10 +17,10 @@ function ClientesPage() {
     { name: "direccion", label: "Dirección" },
   ];
 
+  // ClientesPage.jsx
   const obtenerClientes = async () => {
     try {
-      const res = await api.get("/clientes");
-      const data = await res.json();
+      const { data } = await api.get("/clientes");
       setClientes(data);
     } catch (error) {
       console.error("Error al obtener clientes:", error);
