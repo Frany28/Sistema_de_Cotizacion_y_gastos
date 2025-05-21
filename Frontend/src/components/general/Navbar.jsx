@@ -129,19 +129,19 @@ function Navbar() {
             <button
               type="button"
               onClick={toggleUserDropdown}
-              className="flex items-center text-sm bg-gray-600 rounded-full w-8 h-8 justify-center font-semibold text-white focus:ring-4 focus:ring-gray-300 dark:focus:ring-gray-600"
+              className="flex items-center text-sm bg-gray-600 rounded-full w-8 h-8 justify-center font-semibold text-white focus:ring-4  focus:ring-gray-600"
             >
               <span className="sr-only">Open user menu</span>
               {iniciales || "US"}
             </button>
 
             {userDropdownOpen && (
-              <div className="z-50 absolute top-12 right-0 w-56 text-base list-none  divide-y  rounded-lg shadow bg-gray-700 dark:divide-gray-600">
+              <div className="z-50 absolute top-12 right-0 w-56 text-base list-none  divide-y  rounded-lg shadow bg-gray-700 divide-gray-600">
                 <div className="px-4 py-3">
-                  <span className="block text-sm text-gray-900 dark:text-white">
+                  <span className="block text-sm  text-white">
                     {usuario?.nombre || "Usuario"}
                   </span>
-                  <span className="block text-sm truncate text-gray-500 dark:text-gray-400">
+                  <span className="block text-sm truncate  text-gray-400">
                     {usuario?.email || "correo@ejemplo.com"}
                   </span>
                 </div>
@@ -149,7 +149,7 @@ function Navbar() {
                   <li>
                     <a
                       href="#"
-                      className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-600"
+                      className="flex items-center gap-2 px-4 py-2 text-sm text-gray-200 hover:bg-gray-600"
                     >
                       <User size={16} /> Perfil
                     </a>
@@ -157,7 +157,7 @@ function Navbar() {
                   <li>
                     <a
                       href="#"
-                      className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-600"
+                      className="flex items-center gap-2 px-4 py-2 text-sm  text-gray-200 hover:bg-gray-600"
                     >
                       <Settings size={16} /> Configuración
                     </a>
@@ -165,7 +165,7 @@ function Navbar() {
                   <li>
                     <button
                       onClick={cerrarSesion}
-                      className="w-full text-left flex items-center gap-2 px-4 py-2 text-sm text-red-700 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-800"
+                      className="w-full text-left flex items-center gap-2 px-4 py-2 text-sm  text-red-400 hover:bg-red-800"
                     >
                       <LogOut size={16} /> Cerrar sesión
                     </button>
@@ -179,7 +179,7 @@ function Navbar() {
             <button
               onClick={toggleMobileMenu}
               type="button"
-              className="inline-flex items-center p-2 w-10 h-10 justify-center text-sm text-gray-500 rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 dark:text-gray-400 dark:hover:bg-gray-700 dark:focus:ring-gray-600 "
+              className="inline-flex items-center p-2 w-10 h-10 justify-center text-sm  rounded-lg  focus:outline-none focus:ring-2  text-gray-400 hover:bg-gray-700 focus:ring-gray-600 "
             >
               <span className="sr-only">Open main menu</span>
               <svg
@@ -218,7 +218,7 @@ function Navbar() {
                         className={`block py-2 px-3 rounded-sm ${
                           isActive
                             ? "text-blue-700 font-bold border-b-2 border-blue-700"
-                            : "text-gray-900 hover:text-blue-700 dark:text-white"
+                            : " hover:text-blue-700 text-white"
                         }`}
                       >
                         {item.label}
@@ -236,7 +236,7 @@ function Navbar() {
                         className={`flex items-center justify-between w-full py-2 px-3 rounded-sm ${
                           isActive
                             ? "text-blue-700 font-bold"
-                            : "text-gray-900 hover:text-blue-700 dark:text-white"
+                            : " hover:text-blue-700 text-white"
                         }`}
                       >
                         {item.label}
@@ -269,8 +269,8 @@ function Navbar() {
                                 href={subItem.path}
                                 className={`block px-4 py-2 text-sm rounded-sm ${
                                   isSubActive
-                                    ? "bg-blue-100 text-blue-900 dark:bg-gray-500 dark:text-white"
-                                    : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-600"
+                                    ? " bg-gray-500 text-white"
+                                    : " text-gray-300 hover:bg-gray-600"
                                 }`}
                               >
                                 {subItem.label}
@@ -349,8 +349,8 @@ function Navbar() {
                               href={subItem.path}
                               className={`block px-4 py-2 text-sm ${
                                 isSubActive
-                                  ? " dark:bg-gray-500 dark:text-white"
-                                  : "text-gray-700  dark:text-gray-300 hover:bg-gray-600"
+                                  ? " bg-gray-500 text-white"
+                                  : "text-gray-700  text-gray-300 hover:bg-gray-600"
                               }`}
                             >
                               {subItem.label}

@@ -18,7 +18,7 @@ function Sidebar({ items }) {
         data-drawer-toggle="cta-button-sidebar"
         aria-controls="cta-button-sidebar"
         type="button"
-        className="inline-flex items-center p-2 mt-2 ms-3 text-sm text-gray-500 rounded-lg sm:hidden hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 dark:text-gray-400 dark:hover:bg-gray-700 dark:focus:ring-gray-600"
+        className="inline-flex items-center p-2 mt-2 ms-3 text-sm  rounded-lg sm:hidden  focus:outline-none focus:ring-2  text-gray-400 hover:bg-gray-700 focus:ring-gray-600"
       >
         <span className="sr-only">Open sidebar</span>
         <svg
@@ -41,7 +41,7 @@ function Sidebar({ items }) {
         className="fixed top-16 left-0 w-64 h-[calc(100vh-4rem)] bg-gray-800 z-40 transition-transform -translate-x-full sm:translate-x-0"
         aria-label="Sidebar"
       >
-        <div className="h-full px-3 py-4 overflow-y-auto bg-gray-50 dark:bg-gray-800">
+        <div className="h-full px-3 py-4 overflow-y-auto bg-gray-800">
           <ul className="space-y-2 font-medium">
             {sidebarItems.map((item) => {
               const isActive = location.pathname === item.path;

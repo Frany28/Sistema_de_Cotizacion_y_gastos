@@ -18,7 +18,7 @@ export default function Paginacion({
 
   return (
     <nav aria-label="Paginación" className="flex justify-center mt-4 mb-2">
-      <ul className="inline-flex gap-1 items-center shadow-sm bg-white dark:bg-gray-800 px-2 py-1 rounded-xl border border-gray-300 dark:border-gray-700">
+      <ul className="inline-flex gap-1 items-center shadow-sm  bg-gray-800 px-2 py-1 rounded-xl border border-gray-300 border-gray-700">
         {/* Botón Anterior */}
         <li>
           <button
@@ -27,7 +27,7 @@ export default function Paginacion({
             className={`flex items-center justify-center w-9 h-9 rounded-md transition-colors duration-150 ${
               paginaActual === 1
                 ? "text-gray-400 cursor-not-allowed"
-                : "text-gray-700 bg-white hover:bg-gray-100 dark:text-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700"
+                : "text-gray-300 bg-gray-800 hover:bg-gray-700"
             }`}
           >
             <ChevronLeft className="w-4 h-4" />
@@ -42,7 +42,7 @@ export default function Paginacion({
               className={`w-9 h-9 rounded-md font-medium transition-colors duration-150 ${
                 pagina === paginaActual
                   ? "bg-gray-900 text-white shadow-sm"
-                  : "bg-white text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                  : " bg-gray-800 text-gray-300 hover:bg-gray-700"
               }`}
             >
               {pagina}
@@ -58,7 +58,7 @@ export default function Paginacion({
             className={`flex items-center justify-center w-9 h-9 rounded-md transition-colors duration-150 ${
               paginaActual === totalPaginas
                 ? "text-gray-400 cursor-not-allowed"
-                : "text-gray-700 bg-white hover:bg-gray-100 dark:text-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700"
+                : "text-gray-300 bg-gray-800 hover:bg-gray-700"
             }`}
           >
             <ChevronRight className="w-4 h-4" />
