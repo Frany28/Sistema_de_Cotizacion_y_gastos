@@ -158,10 +158,10 @@ export const obtenerClientes = async (req, res) => {
       "SELECT COUNT(*) AS total FROM clientes"
     );
 
-    // 2. Obtener clientes paginados
-    const [clientes] = await db.execute(
-      "SELECT * FROM clientes ORDER BY id DESC LIMIT ? OFFSET ?",
-      [Number(limit), Number(offset)]
+    const [clientes] = await db.query(
+      `SELECT * FROM clientes ORDER BY id DESC LIMIT ${Number(
+        limit
+      )} OFFSET ${Number(offset)}`
     );
 
     res.json({ clientes, total });
