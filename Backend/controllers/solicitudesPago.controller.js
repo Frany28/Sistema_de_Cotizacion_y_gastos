@@ -8,7 +8,8 @@ import db from "../config/database.js";
    1. LISTAR SOLICITUDES (paginado + filtro opcional por estado)
 ----------------------------------------------------------- */
 export const obtenerSolicitudesPago = async (req, res) => {
-  const { page = 1, limit = 10, estado } = req.query;
+  const page = parseInt(req.query.page, 10) || 1;
+  const limit = parseInt(req.query.limit, 10) || 10;
   const offset = (page - 1) * limit;
 
   try {

@@ -5,14 +5,13 @@ export const getGastos = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 5;
-
+    const offset = (page - 1) * limit;
+    
     if (isNaN(page) || isNaN(limit) || page < 1 || limit < 1) {
       return res
         .status(400)
         .json({ message: "Parámetros de paginación inválidos" });
     }
-
-    const offset = (page - 1) * limit;
 
     const [gastos] = await db.query(
       `SELECT 
