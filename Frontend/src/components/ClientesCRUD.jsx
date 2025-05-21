@@ -65,10 +65,13 @@ function ListaClientes() {
     setLoading(true);
     try {
       const response = await api.get("/clientes");
-      const data = Array.isArray(response.data)
-        ? response.data
-        : response.data.clientes;
-      setClientes(data);
+      const data = response.data?.clientes;
+
+      if (Array.isArray(data)) {
+        setClientes(data);
+      } else {
+        throw new Error("Formato de datos inválido");
+      }
     } catch (error) {
       console.error("Error al obtener clientes:", error);
       mostrarError({
