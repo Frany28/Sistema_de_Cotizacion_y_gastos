@@ -142,13 +142,15 @@ export const crearCliente = async (req, res) => {
 // Obtener clientes paginados
 export const obtenerClientes = async (req, res) => {
   // Convertir explícitamente a número
-  const page = Number.isInteger(parseInt(req.query.page))
-    ? parseInt(req.query.page)
-    : 1;
-  const limit = Number.isInteger(parseInt(req.query.limit))
-    ? parseInt(req.query.limit)
-    : 10;
+  const page = Number.isNaN(Number(req.query.page))
+    ? 1
+    : Number(req.query.page);
+  const limit = Number.isNaN(Number(req.query.limit))
+    ? 10
+    : Number(req.query.limit);
   const offset = (page - 1) * limit;
+
+  console.log("Valores de paginación:", { limit, offset });
 
   try {
     // 1. Total de registros
