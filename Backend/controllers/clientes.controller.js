@@ -141,25 +141,21 @@ export const crearCliente = async (req, res) => {
 };
 // Obtener clientes paginados
 export const obtenerClientes = async (req, res) => {
-  let page = parseInt(req.query.page, 10);
-  let limit = parseInt(req.query.limit, 10);
-
-  // Asignar valores por defecto si no son válidos
-  if (isNaN(page) || page < 1) page = 1;
-  if (isNaN(limit) || limit < 1) limit = 10;
-
+  // Convertir explícitamente a número
+  const page = parseInt(req.query.page, 10) || 1;
+  const limit = parseInt(req.query.limit, 10) || 10;
   const offset = (page - 1) * limit;
 
   try {
-    // Total de registros
+    // 1. Total de registros
     const [[{ total }]] = await db.query(
       "SELECT COUNT(*) AS total FROM clientes"
     );
 
-    // Datos paginados
+    // 2. Obtener clientes paginados
     const [clientes] = await db.execute(
       "SELECT * FROM clientes ORDER BY id DESC LIMIT ? OFFSET ?",
-      [limit, offset]
+      [limit, offset] // Aquí ya son enteros reales
     );
 
     res.json({ clientes, total });
