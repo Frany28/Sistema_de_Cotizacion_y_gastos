@@ -128,47 +128,52 @@ export const getServicioProductoById = async (req, res) => {
 
 // Obtener servicios/productos con filtro opcional
 export const obtenerServiciosProductos = async (req, res) => {
-  // 1. Extraemos y parseamos
+  // 1) Extraemos page, limit y tipo desde req.query
   const { page = "1", limit = "10", tipo } = req.query;
+  // 2) Parseamos a enteros
   const pageNum = parseInt(page, 10);
   const limitNum = parseInt(limit, 10);
   const offset = (pageNum - 1) * limitNum;
 
   try {
-    // 2. Construimos dinámicamente el WHERE si hay filtro por tipo
-    let whereClause = "";
+    // 3) Construimos el WHERE si hay filtro por tipo
+    let baseQuery = "SELECT * FROM servicios_productos";
     const params = [];
     if (tipo) {
-      whereClause = " WHERE tipo = ?";
+      baseQuery += " WHERE tipo = ?";
       params.push(tipo);
     }
 
-    // 3. Contamos total de registros
-    const [[{ total }]] = await db.execute(
-      `SELECT COUNT(*) AS total FROM servicios_productos${whereClause}`,
-      params
+    // 4) Agregamos paginación
+    const dataQuery = `
+      ${baseQuery}
+      ORDER BY id DESC
+      LIMIT ? OFFSET ?
+    `;
+    // IMPORTANTE: push(limitNum, offset) en el mismo orden de los placeholders
+    params.push(limitNum, offset);
+
+    const [rows] = await db.execute(dataQuery, params);
+
+    // 5) Consulta total de resultados (sin paginación)
+    const countParams = tipo ? [tipo] : [];
+    const [countRows] = await db.execute(
+      `SELECT COUNT(*) AS total FROM servicios_productos${
+        tipo ? " WHERE tipo = ?" : ""
+      }`,
+      countParams
     );
 
-    // 4. Obtenemos datos con paginación
-    const [rows] = await db.execute(
-      `SELECT * 
-         FROM servicios_productos
-         ${whereClause}
-         ORDER BY id DESC
-         LIMIT ? OFFSET ?`,
-      [...params, limitNum, offset]
-    );
-
-    // 5. Respondemos con la estructura esperada
-    return res.json({
+    // 6) Respondemos con la estructura esperada
+    res.json({
       servicios: rows,
-      total,
+      total: countRows[0].total,
       page: pageNum,
       limit: limitNum,
     });
   } catch (error) {
     console.error("Error al obtener servicios/productos:", error);
-    return res
+    res
       .status(500)
       .json({ message: "Error al obtener los servicios/productos" });
   }
