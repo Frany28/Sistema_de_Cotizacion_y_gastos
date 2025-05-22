@@ -1,6 +1,6 @@
 // src/components/UsuariosCRUD.jsx
 import React, { useEffect, useState, useCallback } from "react";
-import axios from "axios";
+import api from "../api/index";
 import BotonIcono from "../components/general/BotonIcono";
 import BotonAgregar from "../components/general/BotonAgregar";
 import Paginacion from "../components/general/Paginacion";
@@ -39,7 +39,7 @@ export default function UsuariosCRUD() {
   const fetchUsuarios = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await axios.get("/api/usuarios", {
+      const response = await api.get("/usuarios", {
         withCredentials: true,
       });
       setUsuarios(
@@ -54,7 +54,7 @@ export default function UsuariosCRUD() {
 
   const fetchRoles = async () => {
     try {
-      const { data } = await axios.get("/api/roles", { withCredentials: true });
+      const { data } = await api.get("/roles", { withCredentials: true });
       setRoles(data);
     } catch (error) {
       console.error(error);
@@ -79,7 +79,7 @@ export default function UsuariosCRUD() {
 
   const abrirModalEditar = async (id) => {
     try {
-      const { data } = await axios.get(`/api/usuarios/${id}`, {
+      const { data } = await api.get(`/api/usuarios/${id}`, {
         withCredentials: true,
       });
       setUsuarioEditar(data);
@@ -104,9 +104,9 @@ export default function UsuariosCRUD() {
   // 2) Ejecutar borrado y mostrar éxito/error
   const handleConfirmEliminar = async () => {
     try {
-      await axios.delete(`/api/usuarios/${usuarioEliminarId}`, {
+      await api.delete(`/usuarios/${usuarioEliminarId}`, {
         withCredentials: true,
-      }); // controlador eliminarUsuario :contentReference[oaicite:0]{index=0}:contentReference[oaicite:1]{index=1}
+      });
       setShowModalEliminar(false);
       setShowDeleteExito(true);
       fetchUsuarios();

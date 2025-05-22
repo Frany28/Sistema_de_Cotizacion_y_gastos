@@ -1,6 +1,6 @@
 // src/components/SucursalesCRUD.jsx
 import React, { useEffect, useState, useCallback } from "react";
-import axios from "axios";
+import api from "../api/index";
 import BotonIcono from "../components/general/BotonIcono";
 import BotonAgregar from "../components/general/BotonAgregar";
 import Paginacion from "../components/general/Paginacion";
@@ -38,7 +38,7 @@ export default function SucursalesCRUD() {
   const fetchSucursales = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await axios.get("/api/sucursales", {
+      const response = await api.get("/api/sucursales", {
         params: { page, limit },
         withCredentials: true,
       });
@@ -66,7 +66,7 @@ export default function SucursalesCRUD() {
   };
 
   const abrirModalEditar = async (id) => {
-    const { data } = await axios.get(`/api/sucursales/${id}`, {
+    const { data } = await api.get(`/api/sucursales/${id}`, {
       withCredentials: true,
     });
     setSucursalEditar(data);
@@ -80,7 +80,7 @@ export default function SucursalesCRUD() {
 
   const handleConfirmEliminar = async () => {
     try {
-      await axios.delete(`/api/sucursales/${sucursalEliminarId}`, {
+      await api.delete(`/sucursales/${sucursalEliminarId}`, {
         withCredentials: true,
       });
       setShowModalEliminar(false);

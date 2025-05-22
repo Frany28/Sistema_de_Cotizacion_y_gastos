@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../../api/index";
 import { motion, AnimatePresence } from "framer-motion";
 import { UserPlus } from "lucide-react";
 import ModalError from "./ModalError";
@@ -28,14 +28,14 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
   useEffect(() => {
     if (visible) {
       setPermitted(null);
-      axios
-        .get("http://localhost:3000/api/usuarios/permisos/crear_usuario", {
+      api
+        .get("usuarios/permisos/crear_usuario", {
           withCredentials: true,
         })
         .then(({ data }) => setPermitted(data.tienePermiso))
         .catch(() => setPermitted(false));
-      axios
-        .get("http://localhost:3000/api/roles", { withCredentials: true })
+      api
+        .get("roles", { withCredentials: true })
         .then(({ data }) => setRoles(data))
         .catch(() => setRoles([]));
     }
@@ -80,7 +80,7 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
 
   const sendRequest = async (data) => {
     try {
-      await axios.post("http://localhost:3000/api/usuarios", data, {
+      await api.post("usuarios", data, {
         withCredentials: true,
         headers: { "Content-Type": "multipart/form-data" },
       });

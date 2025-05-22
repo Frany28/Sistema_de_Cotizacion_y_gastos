@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import axios from "axios";
+import api from "../../api/index";
 import { Building2, X } from "lucide-react";
 import ModalExito from "./ModalExito";
 import ModalError from "./ModalError";
@@ -56,7 +56,7 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
     }
     setIsSubmitting(true);
     try {
-      await axios.post("/api/sucursales", form, { withCredentials: true });
+      await api.post("/sucursales", form, { withCredentials: true });
       setShowExito(true);
     } catch (err) {
       setServerError(err.response?.data?.error || "Error al crear sucursal");
