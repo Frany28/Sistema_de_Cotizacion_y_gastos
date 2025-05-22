@@ -1,6 +1,7 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Eye } from "lucide-react";
+import api from "../../api/index"; 
 
 export default function ModalDetalleCotizacion({
   visible,
@@ -8,7 +9,7 @@ export default function ModalDetalleCotizacion({
   cotizacion,
 }) {
   console.log(
-    "🧩 Datos de cotización recibidos en ModalDetalleCotizacion:",
+    "Datos de cotización recibidos en ModalDetalleCotizacion:",
     cotizacion
   );
 
@@ -151,7 +152,7 @@ export default function ModalDetalleCotizacion({
 
           <div className="mt-6 text-right">
             <a
-              href={`http://localhost:3000/api/cotizaciones/${cotizacion.id}/pdf`}
+              href={`${api.defaults.baseURL}/cotizaciones/${cotizacion.id}/pdf`}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-block bg-blue-600 text-white text-sm px-4 py-2 rounded hover:bg-blue-700"
