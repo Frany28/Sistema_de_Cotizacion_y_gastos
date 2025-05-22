@@ -1,6 +1,6 @@
 // src/components/ListaSolicitudesPago.jsx
 import React, { useEffect, useState, useCallback } from "react";
-import api from "../index";
+import api from "../api/index";
 import BotonIcono from "./general/BotonIcono";
 import ModalExito from "../components/Modals/ModalExito";
 import ModalError from "../components/Modals/ModalError";
