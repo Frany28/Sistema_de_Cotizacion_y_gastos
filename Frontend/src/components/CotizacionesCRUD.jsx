@@ -19,6 +19,7 @@ function ListaCotizaciones() {
   const [cotizaciones, setCotizaciones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [clientes, setClientes] = useState([]);
   const [sucursales, setSucursales] = useState([]);
   const [mostrarModalEditar, setMostrarModalEditar] = useState(false);
@@ -108,22 +109,30 @@ function ListaCotizaciones() {
     setModalErrorData({ visible: true, titulo, mensaje, textoBoton });
   };
 
+  // --- Fetch de cotizaciones con paginación en servidor ---
   const fetchCotizaciones = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get("/cotizaciones");
-      setCotizaciones(res.data);
-      console.log("Cotizaciones recibidas:", res.data);
-    } catch (error) {
-      mostrarError({
-        titulo: "Error",
-        mensaje: "No se pudieron cargar las cotizaciones",
+      // Llama al endpoint con paginación
+      const res = await api.get("/cotizaciones", {
+        params: { page, limit },
       });
+      // La respuesta tiene { cotizaciones, total, page, limit }
+      setCotizaciones(res.data.cotizaciones);
+      setTotal(res.data.total);
+      console.log("Cotizaciones recibidas:", res.data.cotizaciones);
+    } catch (error) {
       console.error("Error al obtener cotizaciones:", error);
+      setModalErrorData({
+        visible: true,
+        titulo: "Error",
+        mensaje: "No se pudieron cargar las cotizaciones.",
+        textoBoton: "Cerrar",
+      });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, limit]);
 
   useEffect(() => {
     fetchCotizaciones();
@@ -354,10 +363,12 @@ function ListaCotizaciones() {
           ))}
         </tbody>
       </table>
+      {/* Paginación */}
       <Paginacion
-        paginaActual={page}
-        totalPaginas={totalPaginas}
-        onCambiarPagina={setPage}
+        total={total}
+        limit={limit}
+        page={page}
+        onPageChange={cambiarPagina}
       />
       <ModalDetalleCotizacion
         visible={mostrarModalDetalle}
