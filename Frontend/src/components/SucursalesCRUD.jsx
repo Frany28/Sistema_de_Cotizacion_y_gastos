@@ -38,7 +38,7 @@ export default function SucursalesCRUD() {
   const fetchSucursales = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await api.get("/api/sucursales", {
+      const response = await api.get("/sucursales", {
         params: { page, limit },
         withCredentials: true,
       });
@@ -66,7 +66,7 @@ export default function SucursalesCRUD() {
   };
 
   const abrirModalEditar = async (id) => {
-    const { data } = await api.get(`/api/sucursales/${id}`, {
+    const { data } = await api.get(`/sucursales/${id}`, {
       withCredentials: true,
     });
     setSucursalEditar(data);
