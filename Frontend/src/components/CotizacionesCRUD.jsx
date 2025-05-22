@@ -372,14 +372,18 @@ function ListaCotizaciones() {
       />
       <ModalExito
         visible={modalExitoData.visible}
-        onClose={() => setModalExitoData({ ...modalExitoData, visible: false })}
+        onClose={() =>
+          setModalExitoData((prev) => ({ ...prev, visible: false }))
+        }
         titulo={modalExitoData.titulo}
         mensaje={modalExitoData.mensaje}
         textoBoton={modalExitoData.textoBoton}
       />
       <ModalError
         visible={modalErrorData.visible}
-        onClose={() => setModalErrorData({ ...modalErrorData, visible: false })}
+        onClose={() =>
+          setModalErrorData((prev) => ({ ...prev, visible: false }))
+        }
         titulo={modalErrorData.titulo}
         mensaje={modalErrorData.mensaje}
         textoBoton={modalErrorData.textoBoton}
