@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import BotonIcono from "../general/BotonIcono";
-import axios from "axios";
+import api from "../../api/index";
 import ModalError from "../Modals/ModalError";
 
 export default function ServProCotizacion({
@@ -20,9 +20,7 @@ export default function ServProCotizacion({
     if (yaExiste) return;
 
     try {
-      const response = await axios.get(
-        `http://localhost:3000/api/servicios-productos/${servicio.id}`
-      );
+      const response = await api.get(`/servicios-productos/${servicio.id}`);
 
       const { stock, tipo, porcentaje_iva } = response.data;
 

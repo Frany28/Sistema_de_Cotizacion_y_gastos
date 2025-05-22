@@ -1,15 +1,31 @@
 import db from "../config/database.js";
 
 export const listaCuentasPorCobrar = async (req, res) => {
+  // 1) Parseo seguro de page, limit y extracción de cliente_id
+  const page = Number.isNaN(Number(req.query.page))
+    ? 1
+    : Number(req.query.page);
+  const limit = Number.isNaN(Number(req.query.limit))
+    ? 10
+    : Number(req.query.limit);
+  const offset = (page - 1) * limit;
+  const { cliente_id } = req.query;
+
+  if (!cliente_id) {
+    return res.status(400).json({ message: "cliente_id es requerido" });
+  }
+
   try {
-    const { cliente_id } = req.query;
+    // 2) Total de cuentas para este cliente (sin paginación)
+    const [[{ total }]] = await db.query(
+      `SELECT COUNT(*) AS total
+         FROM cuentas_por_cobrar
+        WHERE cliente_id = ?`,
+      [cliente_id]
+    );
 
-    if (!cliente_id) {
-      // Si no envían cliente_id, devolvemos array vacío para seguridad
-      return res.json([]);
-    }
-
-    const [rows] = await db.query(
+    // 3) Datos paginados inyectando limit y offset
+    const [cuentas] = await db.query(
       `
       SELECT 
         cxc.id,
@@ -24,14 +40,23 @@ export const listaCuentasPorCobrar = async (req, res) => {
       JOIN clientes cli ON cli.id = cxc.cliente_id
       WHERE cxc.cliente_id = ?
       ORDER BY cxc.fecha_vencimiento ASC
+      LIMIT ${limit} OFFSET ${offset}
       `,
       [cliente_id]
     );
 
-    res.json(rows);
+    // 4) Respuesta con paginación
+    return res.json({
+      cuentas, // las filas de esta página
+      total, // total de registros disponibles
+      page, // página actual
+      limit, // tamaño de página
+    });
   } catch (error) {
     console.error("Error al obtener cuentas por cobrar:", error);
-    res.status(500).json({ message: "Error al obtener cuentas por cobrar" });
+    return res
+      .status(500)
+      .json({ message: "Error al obtener cuentas por cobrar" });
   }
 };
 

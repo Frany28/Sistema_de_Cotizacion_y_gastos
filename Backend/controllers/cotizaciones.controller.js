@@ -11,33 +11,44 @@ const __dirname = path.dirname(__filename);
 // Obtener todas las cotizaciones con detalle
 
 export const getCotizaciones = async (req, res) => {
+  const page = Number.isNaN(Number(req.query.page))
+    ? 1
+    : Number(req.query.page);
+  const limit = Number.isNaN(Number(req.query.limit))
+    ? 10
+    : Number(req.query.limit);
+  const offset = (page - 1) * limit;
+
+  console.log("Paginación cotizaciones:", { page, limit, offset });
+
   try {
-    const [cotizaciones] = await db.query(
-      `SELECT 
-         c.id, 
-         c.fecha, 
-         c.total, 
-         c.estado, 
-         c.codigo_referencia AS codigo, 
-         c.subtotal, 
-         c.impuesto, 
-         c.cliente_id,
-         c.sucursal_id,
-         c.confirmacion_cliente,
-         c.observaciones,
-         s.nombre AS sucursal, 
-         cli.nombre AS cliente_nombre
-       FROM cotizaciones c
-       JOIN clientes cli ON c.cliente_id = cli.id
-       LEFT JOIN sucursales s ON c.sucursal_id = s.id
-       ORDER BY c.fecha DESC`
+    // 2) Total de registros
+    const [[{ total }]] = await db.query(
+      `SELECT COUNT(*) AS total FROM cotizaciones`
     );
 
-    // Nota: No se agrega el detalle aquí para mantener la respuesta liviana
-    res.json(cotizaciones);
+    const [cotizaciones] = await db.query(
+      `
+        SELECT 
+          c.id, c.fecha, c.total, c.estado,
+          c.codigo_referencia AS codigo,
+          c.subtotal, c.impuesto,
+          c.cliente_id, c.sucursal_id,
+          c.confirmacion_cliente, c.observaciones,
+          s.nombre AS sucursal,
+          cli.nombre AS cliente_nombre
+        FROM cotizaciones c
+        JOIN clientes cli ON c.cliente_id = cli.id
+        LEFT JOIN sucursales s ON c.sucursal_id = s.id
+        ORDER BY c.fecha DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `
+    );
+
+    return res.json({ cotizaciones, total, page, limit });
   } catch (error) {
     console.error("Error al obtener cotizaciones:", error);
-    res.status(500).json({ message: "Error al obtener cotizaciones" });
+    return res.status(500).json({ message: "Error al obtener cotizaciones" });
   }
 };
 

@@ -2,37 +2,36 @@
 import db from "../config/database.js";
 
 export const getGastos = async (req, res) => {
-  try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 5;
-    const offset = (page - 1) * limit;
-    
-    if (isNaN(page) || isNaN(limit) || page < 1 || limit < 1) {
-      return res
-        .status(400)
-        .json({ message: "Parámetros de paginación inválidos" });
-    }
+  // 1) Parseo seguro de page y limit (por defecto page=1, limit=5)
+  const page = Number.isNaN(Number(req.query.page))
+    ? 1
+    : Number(req.query.page);
+  const limit = Number.isNaN(Number(req.query.limit))
+    ? 5
+    : Number(req.query.limit);
+  const offset = (page - 1) * limit;
 
-    const [gastos] = await db.query(
-      `SELECT 
+  // 2) Validación básica de parámetros
+  if (page < 1 || limit < 1) {
+    return res
+      .status(400)
+      .json({ message: "Parámetros de paginación inválidos" });
+  }
+
+  try {
+    // 3) Total de registros (sin paginación)
+    const [[{ total }]] = await db.query(
+      "SELECT COUNT(*) AS total FROM gastos"
+    );
+
+    // 4) Datos paginados, inyectando limit y offset como literales
+    const [gastos] = await db.query(`
+      SELECT 
         g.id, g.codigo, g.proveedor_id, p.nombre AS proveedor,
-        g.concepto_pago,
-        g.subtotal,
-        g.porcentaje_iva, 
-        g.impuesto, 
-        g.total,
-        g.descripcion, 
-        g.fecha, 
-        g.estado,
-        g.motivo_rechazo,
-        g.tipo_gasto_id,
-        g.sucursal_id, 
-        s.nombre AS sucursal,
-        g.cotizacion_id, 
-        g.moneda, 
-        g.tasa_cambio, 
-        g.usuario_id,
-        -- Calculamos los valores en BS si la moneda es VES
+        g.concepto_pago, g.subtotal, g.porcentaje_iva, g.impuesto,
+        g.total, g.descripcion, g.fecha, g.estado, g.motivo_rechazo,
+        g.tipo_gasto_id, g.sucursal_id, s.nombre AS sucursal,
+        g.cotizacion_id, g.moneda, g.tasa_cambio, g.usuario_id,
         CASE WHEN g.moneda = 'VES' THEN (g.subtotal * g.tasa_cambio) ELSE g.subtotal END AS subtotal_bs,
         CASE WHEN g.moneda = 'VES' THEN (g.impuesto * g.tasa_cambio) ELSE g.impuesto END AS impuesto_bs,
         CASE WHEN g.moneda = 'VES' THEN (g.total * g.tasa_cambio) ELSE g.total END AS total_bs
@@ -40,19 +39,19 @@ export const getGastos = async (req, res) => {
       LEFT JOIN proveedores p ON p.id = g.proveedor_id
       LEFT JOIN sucursales s ON s.id = g.sucursal_id
       ORDER BY g.fecha DESC, g.id DESC
-      LIMIT ? OFFSET ?`,
-      [limit, offset]
-    );
+      LIMIT ${limit} OFFSET ${offset}
+    `);
 
-    const [totalResult] = await db.query(
-      `SELECT COUNT(*) AS total FROM gastos`
-    );
-    const total = totalResult[0]?.total ?? 0;
-
-    res.json({ data: gastos, total });
+    // 5) Respuesta con paginación coherente
+    return res.json({
+      data: gastos,
+      total,
+      page,
+      limit,
+    });
   } catch (error) {
     console.error("Error interno al obtener gastos:", error);
-    res.status(500).json({ message: "Error interno del servidor" });
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 };
 
