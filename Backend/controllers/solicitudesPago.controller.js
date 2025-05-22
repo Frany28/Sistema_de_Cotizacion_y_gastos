@@ -1,48 +1,63 @@
 // controllers/solicitudes_pago.controller.js
 import db from "../config/database.js";
 
-/* -----------------------------------------------------------
-   1. LISTAR SOLICITUDES (paginado + filtro opcional por estado)
------------------------------------------------------------ */
-/* -----------------------------------------------------------
-   1. LISTAR SOLICITUDES (paginado + filtro opcional por estado)
------------------------------------------------------------ */
 export const obtenerSolicitudesPago = async (req, res) => {
+  // 1) Extraer page, limit y estado del query string
   const page = parseInt(req.query.page, 10) || 1;
   const limit = parseInt(req.query.limit, 10) || 10;
   const offset = (page - 1) * limit;
+  const { estado } = req.query; // <-- Aquí definimos 'estado'
 
   try {
-    const where = estado ? "WHERE sp.estado = ?" : "";
-    const params = estado
-      ? [estado, Number(limit), Number(offset)]
-      : [Number(limit), Number(offset)];
+    // 2) Contar el total (con filtro opcional por estado)
+    let countSQL = "SELECT COUNT(*) AS total FROM solicitudes_pago";
+    const countParams = [];
+    if (estado) {
+      countSQL += " WHERE estado = ?";
+      countParams.push(estado);
+    }
+    const [[{ total }]] = await db.query(countSQL, countParams);
 
-    const [rows] = await db.execute(
-      `SELECT sp.*, p.nombre AS proveedor_nombre,
-              (sp.monto_total - sp.monto_pagado) AS saldo_pendiente
-         FROM solicitudes_pago sp
-         LEFT JOIN proveedores p ON p.id = sp.proveedor_id
-       ${where}
-       ORDER BY sp.created_at DESC
-       LIMIT ? OFFSET ?`,
-      params
-    );
+    // 3) Obtener los datos paginados
+    let dataSQL = `
+      SELECT 
+        sp.id,
+        sp.codigo,
+        sp.gasto_id,
+        sp.usuario_solicita_id,
+        sp.usuario_aprueba_id,
+        p.nombre AS proveedor_nombre,
+        sp.monto_total    AS monto,
+        sp.monto_pagado   AS pagado,
+        sp.moneda,
+        sp.fecha_solicitud AS fecha,
+        sp.estado
+      FROM solicitudes_pago sp
+      LEFT JOIN proveedores p ON p.id = sp.proveedor_id
+    `;
+    const dataParams = [];
+    if (estado) {
+      dataSQL += " WHERE sp.estado = ?";
+      dataParams.push(estado);
+    }
+    dataSQL += `
+      ORDER BY sp.fecha_solicitud DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `;
+    const [solicitudes] = await db.query(dataSQL, dataParams);
 
-    const [countRows] = await db.execute(
-      `SELECT COUNT(*) AS total FROM solicitudes_pago sp ${where}`,
-      estado ? [estado] : []
-    );
-
-    res.json({
-      solicitudes: rows,
-      total: countRows[0].total,
-      page: Number(page),
-      limit: Number(limit),
+    // 4) Responder en el mismo esquema de paginación
+    return res.json({
+      solicitudes,
+      total,
+      page,
+      limit,
     });
   } catch (error) {
     console.error("Error al listar solicitudes de pago:", error);
-    res.status(500).json({ message: "Error al obtener solicitudes de pago" });
+    return res
+      .status(500)
+      .json({ message: "Error al listar solicitudes de pago" });
   }
 };
 
