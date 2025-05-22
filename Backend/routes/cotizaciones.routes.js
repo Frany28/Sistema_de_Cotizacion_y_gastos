@@ -13,15 +13,26 @@ import { validarCotizacion } from "../Middleware/validarCotizacion.js";
 
 const router = express.Router();
 
-// Primero las rutas fijas
+// Listar cotizaciones paginadas
+router.get("/", getCotizaciones);
+
+// Buscar por código o cliente
+// Ej: /api/cotizaciones/buscar?q=Juan
 router.get("/buscar", buscarCotizaciones);
 
-// Luego las demás
-router.get("/", getCotizaciones);
+// Obtener una cotización por ID
 router.get("/:id", getCotizacionById);
+
+// Generar PDF de la cotización
 router.get("/:id/pdf", generarPDFCotizacion);
+
+// Editar cotización completa (requiere validación)
 router.put("/:id", validarCotizacion, editarCotizacion);
-router.put("/:id/estado", actualizarEstadoCotizacion);
+
+// Actualizar solo el estado de la cotización
+router.patch("/:id/estado", actualizarEstadoCotizacion);
+
+// Eliminar cotización
 router.delete("/:id", deleteCotizacion);
 
 export default router;
