@@ -128,42 +128,47 @@ export const getServicioProductoById = async (req, res) => {
 
 // Obtener servicios/productos con filtro opcional
 export const obtenerServiciosProductos = async (req, res) => {
-  const page = parseInt(req.query.page, 10) || 1;
-  const limit = parseInt(req.query.limit, 10) || 10;
-  const offset = (page - 1) * limit;
+  // 1. Extraemos y parseamos
+  const { page = "1", limit = "10", tipo } = req.query;
+  const pageNum = parseInt(page, 10);
+  const limitNum = parseInt(limit, 10);
+  const offset = (pageNum - 1) * limitNum;
 
   try {
-    let query = "SELECT * FROM servicios_productos";
+    // 2. Construimos dinámicamente el WHERE si hay filtro por tipo
+    let whereClause = "";
     const params = [];
-
     if (tipo) {
-      query += " WHERE tipo = ?";
+      whereClause = " WHERE tipo = ?";
       params.push(tipo);
     }
 
-    // Ordenar por ID descendente (más recientes primero)
-    query += " ORDER BY id DESC LIMIT ? OFFSET ?";
-    params.push(Number(limit), Number(offset));
-
-    const [rows] = await db.execute(query, params);
-
-    // Consulta total de resultados
-    const [countRows] = await db.execute(
-      `SELECT COUNT(*) AS total FROM servicios_productos ${
-        tipo ? "WHERE tipo = ?" : ""
-      }`,
-      tipo ? [tipo] : []
+    // 3. Contamos total de registros
+    const [[{ total }]] = await db.execute(
+      `SELECT COUNT(*) AS total FROM servicios_productos${whereClause}`,
+      params
     );
 
-    res.json({
+    // 4. Obtenemos datos con paginación
+    const [rows] = await db.execute(
+      `SELECT * 
+         FROM servicios_productos
+         ${whereClause}
+         ORDER BY id DESC
+         LIMIT ? OFFSET ?`,
+      [...params, limitNum, offset]
+    );
+
+    // 5. Respondemos con la estructura esperada
+    return res.json({
       servicios: rows,
-      total: countRows[0].total,
-      page: Number(page),
-      limit: Number(limit),
+      total,
+      page: pageNum,
+      limit: limitNum,
     });
   } catch (error) {
     console.error("Error al obtener servicios/productos:", error);
-    res
+    return res
       .status(500)
       .json({ message: "Error al obtener los servicios/productos" });
   }

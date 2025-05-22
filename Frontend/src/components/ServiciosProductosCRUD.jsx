@@ -1,6 +1,5 @@
 // src/components/ListaServiciosProductos.jsx
 import React, { useEffect, useState, useCallback } from "react";
-import axios from "axios";
 import BotonIcono from "./general/BotonIcono";
 import BotonAgregar from "../components/general/BotonAgregar";
 import ModalExito from "../components/Modals/ModalExito";
@@ -10,11 +9,13 @@ import ModalEditar from "../components/Modals/ModalEditar";
 import ModalAñadirServicioProducto from "../components/Modals/ModalAñadirServicioProducto";
 import Paginacion from "../components/general/Paginacion";
 import Loader from "./general/Loader";
+import api from "../api/index";
 
 function ListaServiciosProductos() {
   const [servicios, setServicios] = useState([]);
   const [busqueda, setBusqueda] = useState("");
   const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [limit, setLimit] = useState(() => {
     const stored = localStorage.getItem("productosLimit");
     return stored ? parseInt(stored, 10) : 5;
@@ -59,12 +60,12 @@ function ListaServiciosProductos() {
   const fetchServicios = useCallback(async () => {
     setLoading(true);
     try {
-      let url = "http://localhost:3000/api/servicios-productos";
-      if (tipoFiltro !== "todos") {
-        url += `?tipo=${tipoFiltro}`;
-      }
-      const response = await axios.get(url);
-      setServicios(response.data.servicios || []);
+      const params = { page, limit };
+      if (tipoFiltro !== "todos") params.tipo = tipoFiltro;
+
+      const { data } = await api.get("/servicios-productos", { params });
+      setServicios(data.servicios);
+      setTotal(data.total);
     } catch (error) {
       console.error("Error al obtener servicios/productos:", error);
       mostrarError({
@@ -74,7 +75,7 @@ function ListaServiciosProductos() {
     } finally {
       setLoading(false);
     }
-  }, [tipoFiltro]);
+  }, [page, limit, tipoFiltro]);
 
   useEffect(() => {
     fetchServicios();
@@ -128,8 +129,8 @@ function ListaServiciosProductos() {
         delete datosValidados.cantidad_anterior;
       }
 
-      const response = await axios.put(
-        `http://localhost:3000/api/servicios-productos/${editandoServicio.id}`,
+      const response = await api.put(
+        `/servicios-productos/${editandoServicio.id}`,
         datosValidados
       );
 
@@ -161,9 +162,7 @@ function ListaServiciosProductos() {
 
   const eliminarServicio = async () => {
     try {
-      await axios.delete(
-        `http://localhost:3000/api/servicios-productos/${editandoServicio.id}`
-      );
+      await api.delete(`servicios-productos/${editandoServicio.id}`);
       const actualizados = servicios.filter(
         (s) => s.id !== editandoServicio.id
       );
@@ -188,9 +187,8 @@ function ListaServiciosProductos() {
       s[campo]?.toLowerCase().includes(busqueda.toLowerCase())
     )
   );
-
-  const totalPaginas = Math.ceil(filtrados.length / limit);
-  const paginados = filtrados.slice((page - 1) * limit, page * limit);
+  const paginados = filtrados;
+  const totalPaginas = Math.ceil(total / limit);
 
   const cambiarLimite = (nuevo) => {
     setLimit(nuevo);
@@ -289,7 +287,7 @@ function ListaServiciosProductos() {
             </button>
           ))}
         </div>
-        Mostrando {paginados.length} de {filtrados.length} resultados
+        Mostrando {paginados.length} de {total} resultados
       </div>
 
       <table className="w-full text-sm text-left  text-gray-400">

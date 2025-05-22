@@ -1,6 +1,6 @@
 // src/components/ModalAñadirServicioProducto.jsx
 import { useState } from "react";
-import axios from "axios";
+import api from "../../api/index";
 import { motion, AnimatePresence } from "framer-motion";
 import { PlusSquare } from "lucide-react";
 
@@ -72,8 +72,8 @@ export default function ModalAñadirServicioProducto({
 
   const checkExisting = async () => {
     try {
-      const response = await axios.get(
-        "http://localhost:3000/api/servicios-productos/check",
+      const response = await api.get(
+        "/servicios-productos/check",
         {
           params: { nombre: form.nombre.trim() },
           validateStatus: (status) => status < 500,
@@ -117,8 +117,8 @@ export default function ModalAñadirServicioProducto({
         delete datosEnviar.cantidad_anterior;
       }
 
-      const response = await axios.post(
-        "http://localhost:3000/api/servicios-productos",
+      const response = await api.post(
+        "/servicios-productos",
         datosEnviar
       );
 
