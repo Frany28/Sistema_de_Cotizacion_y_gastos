@@ -1,28 +1,37 @@
 // controllers/sucursales.controller.js
 import db from "../config/database.js";
 
-// Obtener todas las sucursales (paginadas)
 export const obtenerSucursales = async (req, res) => {
-  const page = parseInt(req.query.page, 10) || 1;
-  const limit = parseInt(req.query.limit, 10) || 10;
+  // 1) Parseo seguro de page y limit
+  const page = Number.isNaN(Number(req.query.page))
+    ? 1
+    : Number(req.query.page);
+  const limit = Number.isNaN(Number(req.query.limit))
+    ? 10
+    : Number(req.query.limit);
   const offset = (page - 1) * limit;
 
+  console.log("Valores de paginación (sucursales):", { limit, offset });
+
   try {
-    // 1. Total de registros
+    // 2) Total de registros sin paginar
     const [[{ total }]] = await db.query(
       "SELECT COUNT(*) AS total FROM sucursales"
     );
 
-    // 2. Obtener sucursales paginadas
-    const [sucursales] = await db.execute(
-      "SELECT * FROM sucursales ORDER BY id DESC LIMIT ? OFFSET ?",
-      [Number(limit), Number(offset)]
+    // 3) Datos paginados: inyectamos limit y offset como literales
+    const [sucursales] = await db.query(
+      `SELECT *
+       FROM sucursales
+       ORDER BY id DESC
+       LIMIT ${limit} OFFSET ${offset}`
     );
 
-    res.json({ sucursales, total });
+    // 4) Respondemos con el mismo formato que en clientes
+    return res.json({ sucursales, total });
   } catch (error) {
     console.error("Error al obtener sucursales:", error);
-    res.status(500).json({ message: "Error al obtener las sucursales" });
+    return res.status(500).json({ message: "Error al obtener las sucursales" });
   }
 };
 
