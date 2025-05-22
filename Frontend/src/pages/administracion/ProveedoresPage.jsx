@@ -1,7 +1,7 @@
 // src/pages/ProveedoresPage.jsx
 import React, { useState, useEffect } from "react";
 import ListaProveedores from "../../components/ProveedoresCRUD";
-import ModalAñadirProveedor from "../../components/Modals/ModalAñadirProveedor";
+
 import api from "../../api/index";
 
 function ProveedoresPage() {
@@ -59,14 +59,6 @@ function ProveedoresPage() {
             >
               + Añadir Proveedor
             </button>
-
-            {/* Modal para crear proveedor */}
-            {mostrarFormulario && (
-              <ModalAñadirProveedor
-                onGuardar={manejarGuardar}
-                onCancel={() => setMostrarFormulario(false)}
-              />
-            )}
 
             {/* Tabla de proveedores */}
             <ListaProveedores
