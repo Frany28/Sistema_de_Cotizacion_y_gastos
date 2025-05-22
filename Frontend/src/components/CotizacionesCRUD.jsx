@@ -17,7 +17,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 function ListaCotizaciones() {
   const [cotizaciones, setCotizaciones] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [clientes, setClientes] = useState([]);
   const [sucursales, setSucursales] = useState([]);
   const [mostrarModalEditar, setMostrarModalEditar] = useState(false);
@@ -30,6 +30,8 @@ function ListaCotizaciones() {
   const [puedeEditar, setPuedeEditar] = useState(false);
   const [puedeEliminar, setPuedeEliminar] = useState(false);
   const [puedeAprobar, setPuedeAprobar] = useState(false);
+  const cotizacionesPaginadas = cotizacionesFiltradas;
+
   const navigate = useNavigate();
 
   const eliminarCotizacion = async (id) => {
@@ -110,9 +112,14 @@ function ListaCotizaciones() {
   const fetchCotizaciones = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get("/cotizaciones");
-      setCotizaciones(res.data);
-      console.log("Cotizaciones recibidas:", res.data);
+      // 1) Llamamos con page y limit en params
+      const { data } = await api.get("/cotizaciones", {
+        params: { page, limit },
+      });
+      // 2) Extraemos el array y el total
+      setCotizaciones(data.cotizaciones);
+      setTotal(data.total);
+      console.log("Cotizaciones recibidas:", data);
     } catch (error) {
       mostrarError({
         titulo: "Error",
@@ -122,23 +129,20 @@ function ListaCotizaciones() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, limit]);
 
   useEffect(() => {
     fetchCotizaciones();
   }, [fetchCotizaciones]);
 
+  // Filtrado sobre el array ya obtenido
   const cotizacionesFiltradas = cotizaciones.filter((c) =>
     [c.codigo, c.cliente_nombre, c.estado].some((campo) =>
       campo?.toLowerCase().includes(busqueda.toLowerCase())
     )
   );
 
-  const totalPaginas = Math.ceil(cotizacionesFiltradas.length / limit);
-  const cotizacionesPaginadas = cotizacionesFiltradas.slice(
-    (page - 1) * limit,
-    page * limit
-  );
+  const totalPaginas = Math.ceil(total / limit);
 
   const cambiarLimite = (nuevoLimite) => {
     setLimit(nuevoLimite);
@@ -223,7 +227,7 @@ function ListaCotizaciones() {
         </div>
       </div>
       <div className="px-4 pb-2 text-sm  text-gray-400">
-        Mostrando {cotizacionesPaginadas.length} de{" "}
+        Mostrando {cotizacionesPaginadas.length} de {total} resultados
         {cotizacionesFiltradas.length} resultados
       </div>
       <table className="w-full text-sm text-left  text-gray-400">
