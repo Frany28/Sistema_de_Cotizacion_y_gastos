@@ -126,54 +126,45 @@ export const getServicioProductoById = async (req, res) => {
   }
 };
 
-// Obtener servicios/productos con filtro opcional
 export const obtenerServiciosProductos = async (req, res) => {
-  // 1) Extraemos page, limit y tipo desde req.query
-  const { page = "1", limit = "10", tipo } = req.query;
-  // 2) Parseamos a enteros
-  const pageNum = parseInt(page, 10);
-  const limitNum = parseInt(limit, 10);
-  const offset = (pageNum - 1) * limitNum;
+  // 1) Convertir explícitamente a número, igual que en clientes
+  const page = Number.isNaN(Number(req.query.page))
+    ? 1
+    : Number(req.query.page);
+  const limit = Number.isNaN(Number(req.query.limit))
+    ? 10
+    : Number(req.query.limit);
+  const offset = (page - 1) * limit;
+
+  console.log("Valores de paginación (servicios):", { limit, offset });
+
+  // 2) Construir cláusulas SQL con filtro opcional por tipo
+  const { tipo } = req.query;
+  const whereSQL = tipo ? ` WHERE tipo = ?` : "";
+  const params = tipo ? [tipo] : [];
 
   try {
-    // 3) Construimos el WHERE si hay filtro por tipo
-    let baseQuery = "SELECT * FROM servicios_productos";
-    const params = [];
-    if (tipo) {
-      baseQuery += " WHERE tipo = ?";
-      params.push(tipo);
-    }
-
-    // 4) Agregamos paginación
-    const dataQuery = `
-      ${baseQuery}
-      ORDER BY id DESC
-      LIMIT ? OFFSET ?
-    `;
-    // IMPORTANTE: push(limitNum, offset) en el mismo orden de los placeholders
-    params.push(limitNum, offset);
-
-    const [rows] = await db.execute(dataQuery, params);
-
-    // 5) Consulta total de resultados (sin paginación)
-    const countParams = tipo ? [tipo] : [];
-    const [countRows] = await db.execute(
-      `SELECT COUNT(*) AS total FROM servicios_productos${
-        tipo ? " WHERE tipo = ?" : ""
-      }`,
-      countParams
+    // 3. Total de registros (sin paginación)
+    const [[{ total }]] = await db.query(
+      `SELECT COUNT(*) AS total
+       FROM servicios_productos${whereSQL}`,
+      params
     );
 
-    // 6) Respondemos con la estructura esperada
-    res.json({
-      servicios: rows,
-      total: countRows[0].total,
-      page: pageNum,
-      limit: limitNum,
-    });
+    // 4. Datos paginados con LIMIT y OFFSET inyectados como números
+    const [servicios] = await db.query(
+      `SELECT *
+       FROM servicios_productos${whereSQL}
+       ORDER BY id DESC
+       LIMIT ${limit} OFFSET ${offset}`,
+      params
+    );
+
+    // 5. Responder igual que en clientes: { servicios, total }
+    return res.json({ servicios, total });
   } catch (error) {
     console.error("Error al obtener servicios/productos:", error);
-    res
+    return res
       .status(500)
       .json({ message: "Error al obtener los servicios/productos" });
   }
