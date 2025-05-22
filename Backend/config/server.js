@@ -124,6 +124,7 @@ app.use(logger);
 /* ─────────────  Endpoints funcionales ───────────── */
 app.use("/api/clientes", clientesRoutes);
 app.use("/api/servicios-productos", serviciosProductosRoutes);
+console.log("🟢 Montando ruta /api/cotizaciones");
 app.use("/api/cotizaciones", cotizacionesRoutes);
 app.use("/api/proveedores", proveedoresRoutes);
 app.use("/api/gastos", gastosRoutes);
