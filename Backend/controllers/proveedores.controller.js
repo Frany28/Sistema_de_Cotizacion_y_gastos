@@ -94,34 +94,39 @@ export const crearProveedor = async (req, res) => {
   }
 };
 
-// Obtener proveedores paginados (del más reciente al más antiguo)
 export const obtenerProveedores = async (req, res) => {
-  const page = parseInt(req.query.page, 10) || 1;
-  const limit = parseInt(req.query.limit, 10) || 10;
+  // 1) Parseo seguro de page y limit
+  const page = Number.isNaN(Number(req.query.page))
+    ? 1
+    : Number(req.query.page);
+  const limit = Number.isNaN(Number(req.query.limit))
+    ? 10
+    : Number(req.query.limit);
   const offset = (page - 1) * limit;
 
+  console.log("Valores de paginación (proveedores):", { limit, offset });
+
   try {
-    // 1. Obtener el total de registros
+    // 2) Total de registros sin paginar
     const [[{ total }]] = await db.query(
       "SELECT COUNT(*) AS total FROM proveedores"
     );
 
-    // 2. Obtener proveedores paginados ordenados por ID descendente
-    const [proveedores] = await db.execute(
-      "SELECT * FROM proveedores ORDER BY id DESC LIMIT ? OFFSET ?",
-      [Number(limit), Number(offset)]
+    // 3) Registros paginados, inyectando limit y offset directamente
+    const [proveedores] = await db.query(
+      `SELECT *
+         FROM proveedores
+         ORDER BY id DESC
+         LIMIT ${limit} OFFSET ${offset}`
     );
 
-    // 3. Responder con el mismo formato que clientes
-    res.json({
-      proveedores,
-      total,
-      page: Number(page),
-      limit: Number(limit),
-    });
+    // 4) Respuesta en el mismo formato que clientes
+    return res.json({ proveedores, total });
   } catch (error) {
     console.error("Error al obtener proveedores:", error);
-    res.status(500).json({ message: "Error al obtener los proveedores" });
+    return res
+      .status(500)
+      .json({ message: "Error al obtener los proveedores" });
   }
 };
 

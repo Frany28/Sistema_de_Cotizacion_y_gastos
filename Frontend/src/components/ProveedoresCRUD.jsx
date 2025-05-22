@@ -1,6 +1,6 @@
 // src/components/ListaProveedores.jsx
 import React, { useEffect, useState, useCallback } from "react";
-import axios from "axios";
+import api from "../api/index";
 import BotonIcono from "./general/BotonIcono";
 import BotonAgregar from "../components/general/BotonAgregar";
 import ModalConfirmacion from "../components/Modals/ModalConfirmacion";
@@ -60,7 +60,7 @@ function ListaProveedores() {
   const fetchProveedores = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await axios.get("http://localhost:3000/api/proveedores");
+      const response = await api.get("api/proveedores");
       setProveedores(response.data.proveedores);
     } catch (error) {
       console.error("Error al obtener proveedores:", error);
@@ -104,7 +104,7 @@ function ListaProveedores() {
 
   const eliminarProveedor = async (id) => {
     try {
-      await axios.delete(`http://localhost:3000/api/proveedores/${id}`);
+      await api.delete(`api/proveedores/${id}`);
       setProveedores(proveedores.filter((p) => p.id !== id));
     } catch (error) {
       console.error("Error al eliminar proveedor:", error);
@@ -117,8 +117,8 @@ function ListaProveedores() {
 
   const guardarProveedorEditado = async (datos) => {
     try {
-      const response = await axios.put(
-        `http://localhost:3000/api/proveedores/${editandoProveedor.id}`,
+      const response = await api.put(
+        `api/proveedores/${editandoProveedor.id}`,
         datos
       );
       const actualizado = response.data;
