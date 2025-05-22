@@ -60,7 +60,7 @@ function ListaProveedores() {
   const fetchProveedores = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await api.get("api/proveedores");
+      const response = await api.get("/proveedores");
       setProveedores(response.data.proveedores);
     } catch (error) {
       console.error("Error al obtener proveedores:", error);
