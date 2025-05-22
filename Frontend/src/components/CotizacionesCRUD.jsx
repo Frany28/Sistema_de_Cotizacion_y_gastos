@@ -109,6 +109,10 @@ function ListaCotizaciones() {
     setModalErrorData({ visible: true, titulo, mensaje, textoBoton });
   };
 
+  const cambiarPagina = (nuevaPagina) => {
+    setPage(nuevaPagina);
+  };
+
   // --- Fetch de cotizaciones con paginación en servidor ---
   const fetchCotizaciones = useCallback(async () => {
     setLoading(true);
