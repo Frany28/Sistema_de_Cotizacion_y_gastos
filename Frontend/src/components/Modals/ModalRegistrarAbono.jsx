@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../../api/index";
 import { motion, AnimatePresence } from "framer-motion";
 import { DollarSign } from "lucide-react";
 
@@ -28,7 +28,7 @@ export default function ModalRegistrarAbono({
       if (form.moneda_pago === "VES") {
         try {
           setCargandoTasa(true);
-          const res = await axios.get(
+          const res = await api.get(
             "https://ve.dolarapi.com/v1/dolares/oficial"
           );
           const tasa = res.data?.promedio;
@@ -86,10 +86,7 @@ export default function ModalRegistrarAbono({
         observaciones: form.observaciones,
       };
 
-      const res = await axios.post(
-        "http://localhost:3000/api/abonos",
-        abonoData
-      );
+      const res = await api.post("/abonos", abonoData);
       if (res.status === 200) {
         onSuccess({
           titulo: "Abono registrado",

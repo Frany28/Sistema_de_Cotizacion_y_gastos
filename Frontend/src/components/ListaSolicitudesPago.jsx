@@ -1,14 +1,13 @@
 // src/components/ListaSolicitudesPago.jsx
 import React, { useEffect, useState, useCallback } from "react";
-import axios from "axios";
+import api from "../index";
 import BotonIcono from "./general/BotonIcono";
 import ModalExito from "../components/Modals/ModalExito";
 import ModalError from "../components/Modals/ModalError";
 import ModalRegistrarPago from "../components/Modals/ModalRegistrarPago";
 import Paginacion from "../components/general/Paginacion";
 import Loader from "./general/Loader";
-axios.defaults.baseURL =
-  import.meta.env.VITE_API_URL || "http://localhost:3000";
+api.defaults.baseURL = import.meta.env.VITE_API_URL;
 
 function ListaSolicitudesPago() {
   // Estados principales
@@ -57,7 +56,7 @@ function ListaSolicitudesPago() {
         estado: estadoFiltro !== "todos" ? estadoFiltro : undefined,
       };
 
-      const response = await axios.get("/api/solicitudes-pago", {
+      const response = await api.get("/solicitudes-pago", {
         params,
         withCredentials: true,
       });

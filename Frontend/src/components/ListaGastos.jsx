@@ -1,6 +1,6 @@
 // src/components/ListaGastos.jsx
 import React, { useEffect, useState, useCallback } from "react";
-import axios from "axios";
+import api from "../api/index.js";
 import BotonIcono from "./general/BotonIcono";
 import ModalExito from "../components/Modals/ModalExito";
 import ModalError from "../components/Modals/ModalError";
@@ -85,7 +85,7 @@ function ListaGastos() {
   const fetchGastos = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`http://localhost:3000/api/gastos`, {
+      const response = await api.get(`/gastos`, {
         params: { page, limit },
         withCredentials: true,
       });
@@ -110,15 +110,9 @@ function ListaGastos() {
   const fetchDatosSoporte = useCallback(async () => {
     try {
       const [prov, suc, tipos] = await Promise.all([
-        axios
-          .get("http://localhost:3000/api/proveedores")
-          .catch(() => ({ data: [] })),
-        axios
-          .get("http://localhost:3000/api/sucursales")
-          .catch(() => ({ data: [] })),
-        axios
-          .get("http://localhost:3000/api/gastos/tipos")
-          .catch(() => ({ data: [] })),
+        api.get("/proveedores").catch(() => ({ data: [] })),
+        api.get("/sucursales").catch(() => ({ data: [] })),
+        api.get("/gastos/tipos").catch(() => ({ data: [] })),
       ]);
 
       console.log("Proveedores cargados:", prov.data);
@@ -167,9 +161,7 @@ function ListaGastos() {
   const iniciarEdicion = async (gasto) => {
     console.log("🔧 Iniciar Edición:", gasto);
     try {
-      const response = await axios.get(
-        `http://localhost:3000/api/gastos/${gasto.id}`
-      );
+      const response = await api.get(`/gastos/${gasto.id}`);
       const { gasto: gastoCompleto } = response.data;
 
       setEditandoGasto(gastoCompleto);
@@ -181,10 +173,7 @@ function ListaGastos() {
 
   const guardarGastoEditado = async (datos) => {
     try {
-      const response = await axios.put(
-        `http://localhost:3000/api/gastos/${datos.id}`,
-        datos
-      );
+      const response = await api.put(`/gastos/${datos.id}`, datos);
 
       const actualizado = response.data?.data;
       if (!actualizado) throw new Error("Datos de respuesta inválidos");
@@ -202,7 +191,7 @@ function ListaGastos() {
 
   const eliminarGasto = async (id) => {
     try {
-      await axios.delete(`http://localhost:3000/api/gastos/${id}`);
+      await api.delete(`/gastos/${id}`);
       setGastos((prev) => prev.filter((g) => g.id !== id));
       mostrarMensajeExito({
         titulo: "Gasto eliminado",
@@ -236,11 +225,9 @@ function ListaGastos() {
         payload.motivo_rechazo = motivo;
       }
 
-      await axios.put(
-        `http://localhost:3000/api/gastos/${gastoCambioEstado.id}/estado`,
-        payload,
-        { withCredentials: true }
-      );
+      await api.put(`/gastos/${gastoCambioEstado.id}/estado`, payload, {
+        withCredentials: true,
+      });
 
       setGastos((prev) =>
         prev.map((g) =>

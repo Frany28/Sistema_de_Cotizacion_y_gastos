@@ -1,6 +1,6 @@
 // CotizacionesCRUD.jsx actualizado con mejoras visuales de ClientesCRUD
 import React, { useEffect, useState, useCallback } from "react";
-import axios from "axios";
+import api from "../api/index";
 import BotonAgregar from "../components/general/BotonAgregar";
 import BotonIcono from "../components/general/BotonIcono";
 import ModalExito from "../components/Modals/ModalExito";
@@ -8,7 +8,6 @@ import ModalError from "../components/Modals/ModalError";
 import Paginacion from "../components/general/Paginacion";
 import ModalConfirmacion from "../components/Modals/ModalConfirmacion";
 import ModalEditarCotizacion from "../components/Modals/ModalEditarCotizacion";
-import { useMemo } from "react";
 import ModalDetalleCotizacion from "../components/Modals/ModalDetalleCotizacion";
 import Loader from "../components/general/Loader";
 import ModalCambioEstado from "../components/Modals/ModalCambiosEstado";
@@ -35,7 +34,7 @@ function ListaCotizaciones() {
 
   const eliminarCotizacion = async (id) => {
     try {
-      await axios.delete(`http://localhost:3000/api/cotizaciones/${id}`);
+      await api.delete(`/cotizaciones/${id}`);
       mostrarMensajeExito({
         titulo: "Cotización eliminada",
         mensaje: "La cotización fue eliminada correctamente.",
@@ -83,8 +82,8 @@ function ListaCotizaciones() {
     const fetchClientesSucursales = async () => {
       try {
         const [resClientes, resSucursales] = await Promise.all([
-          axios.get("http://localhost:3000/api/clientes"),
-          axios.get("http://localhost:3000/api/sucursales"),
+          api.get("/clientes"),
+          api.get("/sucursales"),
         ]);
         setClientes(resClientes.data);
         setSucursales(resSucursales.data);
@@ -111,7 +110,7 @@ function ListaCotizaciones() {
   const fetchCotizaciones = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await axios.get("http://localhost:3000/api/cotizaciones");
+      const res = await api.get("/cotizaciones");
       setCotizaciones(res.data);
       console.log("Cotizaciones recibidas:", res.data);
     } catch (error) {
@@ -289,9 +288,7 @@ function ListaCotizaciones() {
                   titulo="Ver detalle"
                   onClick={async () => {
                     try {
-                      const res = await axios.get(
-                        `http://localhost:3000/api/cotizaciones/${c.id}`
-                      );
+                      const res = await api.get(`/cotizaciones/${c.id}`);
                       setCotizacionSeleccionada(res.data);
                       setMostrarModalDetalle(true);
                     } catch (error) {
@@ -313,10 +310,8 @@ function ListaCotizaciones() {
                     titulo="Editar"
                     onClick={async () => {
                       try {
-                        setLoading(true); // Activar el loader general
-                        const response = await axios.get(
-                          `http://localhost:3000/api/cotizaciones/${c.id}`
-                        );
+                        setLoading(true);
+                        const response = await api.get(`/cotizaciones/${c.id}`);
                         const cotizacionCompleta = response.data;
 
                         setCotizacionSeleccionada({
@@ -396,16 +391,13 @@ function ListaCotizaciones() {
           onSubmit={async (formActualizado) => {
             try {
               const id = cotizacionSeleccionada.id;
-              const response = await axios.put(
-                `http://localhost:3000/api/cotizaciones/${id}`,
-                {
-                  cliente_id: formActualizado.cliente_id,
-                  sucursal_id: formActualizado.sucursal_id,
-                  confirmacion_cliente:
-                    formActualizado.confirmacion_cliente === "1",
-                  observaciones: formActualizado.observaciones,
-                }
-              );
+              const response = await api.put(`/cotizaciones/${id}`, {
+                cliente_id: formActualizado.cliente_id,
+                sucursal_id: formActualizado.sucursal_id,
+                confirmacion_cliente:
+                  formActualizado.confirmacion_cliente === "1",
+                observaciones: formActualizado.observaciones,
+              });
               if (response.status === 200) {
                 mostrarMensajeExito({
                   titulo: "Cotización actualizada",
@@ -472,10 +464,9 @@ function ListaCotizaciones() {
         ]}
         onSeleccionar={async (nuevoEstado) => {
           try {
-            await axios.put(
-              `http://localhost:3000/api/cotizaciones/${cotizacionAActualizar.id}/estado`,
-              { estado: nuevoEstado }
-            );
+            await api.put(`/cotizaciones/${cotizacionAActualizar.id}/estado`, {
+              estado: nuevoEstado,
+            });
             mostrarMensajeExito({
               titulo: "Estado actualizado",
               mensaje: `La cotización ahora está ${nuevoEstado}.`,

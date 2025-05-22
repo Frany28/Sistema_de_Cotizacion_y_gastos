@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, Building2 } from "lucide-react";
-import axios from "axios";
+import api from "../../api/index";
 import ModalExito from "./ModalExito";
 import ModalError from "./ModalError";
 
@@ -90,7 +90,7 @@ export default function ModalEditarSucursal({
 
   const checkExistingCode = async () => {
     try {
-      const response = await axios.get("/api/sucursales/check/codigo", {
+      const response = await api.get("/sucursales/check/codigo", {
         params: { codigo: form.codigo.trim() },
         withCredentials: true,
       });
@@ -137,7 +137,7 @@ export default function ModalEditarSucursal({
       }
 
       // Enviar actualización
-      await axios.put(`/api/sucursales/${sucursal.id}`, cambios, {
+      await api.put(`/sucursales/${sucursal.id}`, cambios, {
         withCredentials: true,
       });
 

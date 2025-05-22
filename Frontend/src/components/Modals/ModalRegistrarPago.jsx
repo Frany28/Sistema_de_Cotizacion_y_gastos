@@ -2,12 +2,11 @@
 import React, { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, CreditCard } from "lucide-react";
-import axios from "axios";
+import api from "../../api/index";
 import ModalExito from "./ModalExito";
 import ModalError from "./ModalError";
 
-axios.defaults.baseURL =
-  import.meta.env.VITE_API_URL || "http://localhost:3000";
+api.defaults.baseURL = import.meta.env.VITE_API_URL;
 
 export default function ModalRegistrarPago({
   visible,
@@ -34,10 +33,9 @@ export default function ModalRegistrarPago({
     if (!visible) return;
     (async () => {
       try {
-        const { data } = await axios.get(
-          `/api/solicitudes-pago/${solicitudId}`,
-          { withCredentials: true }
-        );
+        const { data } = await api.get(`/solicitudes-pago/${solicitudId}`, {
+          withCredentials: true,
+        });
         if (data.estado === "pagada") {
           setModalError({
             visible: true,
@@ -54,7 +52,7 @@ export default function ModalRegistrarPago({
         }));
 
         if (data.usuario_firma) {
-          setFirmaURL(`${axios.defaults.baseURL}${data.usuario_firma}`);
+          setFirmaURL(`${api.defaults.baseURL}${data.usuario_firma}`);
         }
       } catch (error) {
         console.error("Error al cargar detalle:", error);
@@ -104,8 +102,8 @@ export default function ModalRegistrarPago({
 
       console.log("FormData antes de enviar:", formData);
 
-      const url = `/api/solicitudes-pago/${solicitudId}/pagar`;
-      const { data } = await axios.patch(url, formData, {
+      const url = `/solicitudes-pago/${solicitudId}/pagar`;
+      const { data } = await api.patch(url, formData, {
         withCredentials: true,
       });
 
