@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, Pencil } from "lucide-react";
-import axios from "axios";
+import api from "../../api/index";
 import ModalExito from "./ModalExito";
 import ModalError from "./ModalError";
 
@@ -87,7 +87,7 @@ export default function ModalEditarUsuario({
     }
 
     try {
-      await axios.put(`/api/usuarios/${usuario.id}`, data, {
+      await api.put(`/usuarios/${usuario.id}`, data, {
         withCredentials: true,
       });
 
