@@ -3,8 +3,9 @@ import { useNavigate } from "react-router-dom";
 import api from "../../api/index.js";
 
 const Login = () => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  // ✅ Valores predeterminados para email y password
+  const [email, setEmail] = useState("admin@email.com");
+  const [password, setPassword] = useState("admin123");
   const [recordar, setRecordar] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
@@ -14,19 +15,16 @@ const Login = () => {
     setError("");
 
     try {
-      // Enviamos con credenciales por si la instancia no lo trae
       const { data } = await api.post(
         "/auth/login",
         { email, password },
         { withCredentials: true }
       );
 
-      // Guardamos usuario en localStorage o sessionStorage
       const { usuario } = data;
       const storage = recordar ? localStorage : sessionStorage;
       storage.setItem("usuario", JSON.stringify(usuario));
 
-      // Redirigimos al dashboard
       navigate("/dashboard");
     } catch (err) {
       setError(err.response?.data?.message || "Error al iniciar sesión");
