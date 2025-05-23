@@ -20,22 +20,23 @@ export const verificaPermisoDinamico = [
         : tipo === "cotizacion"
         ? "crear_cotizacion"
         : null;
+
     if (!permisoClave) {
       return res.status(400).json({ message: "Tipo de registro no válido" });
     }
 
     try {
-      // 3) Obtener permisos del rol directamente por clave
+      // 3) Obtener permisos del rol directamente por nombre (antes era clave)
       const [permisos] = await db.execute(
-        `SELECT p.clave
-           FROM roles_permisos rp
-           JOIN permisos p ON p.id = rp.permiso_id
-          WHERE rp.rol_id = ?`,
+        `SELECT p.nombre
+         FROM roles_permisos rp
+         JOIN permisos p ON p.id = rp.permiso_id
+         WHERE rp.rol_id = ?`,
         [usuario.rol_id]
       );
 
       // 4) Comprobar si existe el permiso requerido
-      const tienePermiso = permisos.some((p) => p.clave === permisoClave);
+      const tienePermiso = permisos.some((p) => p.nombre === permisoClave);
       if (!tienePermiso) {
         return res.status(403).json({
           message: "No tienes permiso para crear este tipo de registro",
