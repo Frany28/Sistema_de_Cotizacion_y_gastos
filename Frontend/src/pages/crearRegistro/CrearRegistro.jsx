@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../../api/index.js";
 import AgregarGasto from "../../components/AgregarGasto";
 import AgregarCotizacion from "../../components/AgregarCotizacion";
 import ModalExito from "../../components/Modals/ModalExito";
@@ -34,18 +34,18 @@ const CrearRegistro = () => {
       if (usuarioGuardado?.id) {
         setUsuarioId(usuarioGuardado.id);
       } else {
-        console.warn("⚠️ Usuario no encontrado en localStorage.");
+        console.warn(" Usuario no encontrado en localStorage.");
       }
     } catch (error) {
-      console.error("❌ No se puede acceder a localStorage:", error);
+      console.error(" No se puede acceder a localStorage:", error);
     }
   }, []);
 
   useEffect(() => {
     const obtenerCotizaciones = async () => {
       try {
-        const { data } = await axios.get(
-          "http://localhost:3000/api/cotizaciones"
+        const { data } = await api.get(
+          "/cotizaciones"
         );
         setCotizaciones(data);
       } catch (error) {
@@ -65,15 +65,15 @@ const CrearRegistro = () => {
     mercancia: "",
     contenedor: "",
   });
-  const [datosGeneralesPreview, setDatosGeneralesPreview] = useState(form); // Nuevo estado para Vista Previa
+  const [datosGeneralesPreview, setDatosGeneralesPreview] = useState(form); 
 
   useEffect(() => {
     const obtenerProveedores = async () => {
       try {
-        const { data } = await axios.get(
-          "http://localhost:3000/api/proveedores?page=1&limit=1000"
+        const { data } = await api.get(
+          "/proveedores?page=1&limit=1000"
         );
-        // ⚠️ Asegúrate de guardar `data.proveedores` directamente
+        
         setProveedores(data.proveedores);
       } catch (error) {
         console.error("Error al obtener proveedores:", error);
@@ -87,8 +87,8 @@ const CrearRegistro = () => {
       try {
         setLoading(true);
 
-        const response = await axios.get(
-          "http://localhost:3000/api/registros",
+        const response = await api.get(
+          "/registros",
           {
             withCredentials: true,
           }
@@ -111,8 +111,8 @@ const CrearRegistro = () => {
   }, []);
 
   useEffect(() => {
-    axios
-      .get("http://localhost:3000/api/sucursales/dropdown/list", {
+    api
+      .get("/sucursales/dropdown/list", {
         withCredentials: true,
       })
       .then((res) => {
@@ -192,7 +192,7 @@ const CrearRegistro = () => {
         })),
       };
 
-      await axios.post("http://localhost:3000/api/registros", datosCotizacion, {
+      await api.post("/registros", datosCotizacion, {
         withCredentials: true,
       });
       setMensajeExito("¡Cotización registrada correctamente!");
@@ -284,8 +284,8 @@ const CrearRegistro = () => {
               100,
         }));
 
-      const response = await axios.post(
-        "http://localhost:3000/api/registros/cotizaciones/vista-previa",
+      const response = await api.post(
+        "/registros/cotizaciones/vista-previa",
         {
           datos: {
             cliente_nombre: clienteSeleccionado?.nombre,
@@ -358,7 +358,7 @@ const CrearRegistro = () => {
         tipo: "gasto",
       };
 
-      await axios.post("http://localhost:3000/api/registros", payload, {
+      await api.post("/registros", payload, {
         withCredentials: true,
       });
       setMensajeExito("¡Gasto registrado correctamente!");

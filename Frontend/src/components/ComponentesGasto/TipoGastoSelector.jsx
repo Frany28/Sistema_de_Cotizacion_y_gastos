@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../../api/index.js";
 
 const TipoGastoSelector = ({ onSeleccionar, tipoGastoSeleccionado }) => {
   const [tiposGasto, setTiposGasto] = useState([]);
@@ -9,12 +9,9 @@ const TipoGastoSelector = ({ onSeleccionar, tipoGastoSeleccionado }) => {
   useEffect(() => {
     const obtenerTiposGasto = async () => {
       try {
-        const { data } = await axios.get(
-          "http://localhost:3000/api/registros/tipos-gasto",
-          {
-            withCredentials: true, // enviar cookie de sesión
-          }
-        );
+        const { data } = await api.get("/registros/tipos-gasto", {
+          withCredentials: true,
+        });
         setTiposGasto(data);
       } catch (error) {
         console.error("Error al obtener tipos de gasto:", error);
