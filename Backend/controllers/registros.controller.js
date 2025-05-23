@@ -1,4 +1,4 @@
-import puppeteer from "puppeteer";
+import chromium from "chrome-aws-lambda";
 
 import { generarHTMLCotizacion } from "../templates/generarHTMLCotizacion.js";
 import path from "path";
@@ -346,20 +346,18 @@ export const generarVistaPreviaCotizacion = async (req, res) => {
       });
     }
 
-    //  Ahora usamos nuestra función para generar el HTML
     const html = generarHTMLCotizacion(datosCotizacion, "preview");
 
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    const browser = await chromium.puppeteer.launch({
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath,
+      headless: chromium.headless,
     });
 
     const page = await browser.newPage();
-
-    //  Cargamos el HTML generado
     await page.setContent(html, { waitUntil: "networkidle0" });
 
-    //  Creamos el PDF
     const pdfBuffer = await page.pdf({
       format: "A4",
       printBackground: true,
@@ -368,7 +366,6 @@ export const generarVistaPreviaCotizacion = async (req, res) => {
 
     await browser.close();
 
-    //  Devolvemos el PDF
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
