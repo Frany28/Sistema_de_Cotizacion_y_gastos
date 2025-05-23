@@ -115,10 +115,6 @@ function ListaGastos() {
         api.get("/gastos/tipos").catch(() => ({ data: [] })),
       ]);
 
-      console.log("Proveedores cargados:", prov.data);
-      console.log("Sucursales cargadas:", suc.data);
-      console.log("Tipos de gasto cargados:", tipos.data);
-
       setProveedores(Array.isArray(prov.data) ? prov.data : []);
       setSucursales(Array.isArray(suc.data) ? suc.data : []);
       setTiposGasto(Array.isArray(tipos.data) ? tipos.data : []);

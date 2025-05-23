@@ -124,7 +124,6 @@ function ListaCotizaciones() {
       // La respuesta tiene { cotizaciones, total, page, limit }
       setCotizaciones(res.data.cotizaciones);
       setTotal(res.data.total);
-      console.log("Cotizaciones recibidas:", res.data.cotizaciones);
     } catch (error) {
       console.error("Error al obtener cotizaciones:", error);
       setModalErrorData({

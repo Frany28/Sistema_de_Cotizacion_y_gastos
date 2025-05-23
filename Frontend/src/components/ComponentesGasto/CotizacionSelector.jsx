@@ -9,7 +9,6 @@ const CotizacionSelector = ({
   const [mostrarOpciones, setMostrarOpciones] = useState(false);
 
   useEffect(() => {
-    console.log("📦 Cotizaciones recibidas:", cotizaciones);
   }, [cotizaciones]);
 
   const filtrarCotizaciones = () => {

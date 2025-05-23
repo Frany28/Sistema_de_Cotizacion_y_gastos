@@ -14,7 +14,6 @@ function ProveedoresPage() {
       const { data } = await api.get("/proveedores");
       // Si tu controlador devuelve { proveedores, total }
       setProveedores(data.proveedores ?? data);
-      console.log("✅ Proveedores obtenidos:", data);
     } catch (error) {
       console.error("Error al obtener proveedores:", error);
       alert("Ocurrió un error al obtener la lista de proveedores.");

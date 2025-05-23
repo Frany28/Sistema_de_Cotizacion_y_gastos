@@ -111,7 +111,6 @@ function ListaServiciosProductos() {
 
   const guardarServicioEditado = async (datos) => {
     try {
-      console.log("🛠 Enviando datos al backend:", datos);
 
       const datosValidados = {
         ...datos,

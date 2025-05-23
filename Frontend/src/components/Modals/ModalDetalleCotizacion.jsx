@@ -7,10 +7,7 @@ export default function ModalDetalleCotizacion({
   onClose,
   cotizacion,
 }) {
-  console.log(
-    " Datos de cotización recibidos en ModalDetalleCotizacion:",
-    cotizacion
-  );
+
 
   if (!visible || !cotizacion) return null;
 

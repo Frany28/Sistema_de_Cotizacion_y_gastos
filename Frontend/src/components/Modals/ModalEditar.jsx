@@ -15,7 +15,7 @@ export default function ModalEditar({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    console.log("Datos iniciales recibidos por ModalEditar:", datosIniciales);
+   
     setForm(datosIniciales || {});
   }, [datosIniciales]);
 

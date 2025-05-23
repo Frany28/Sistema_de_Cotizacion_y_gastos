@@ -67,7 +67,7 @@ export default function ModalAñadirGasto({ onCancel, onSubmit }) {
     e.preventDefault();
     setServerError("");
     if (!validateForm()) {
-      console.log(" Validación fallida:", form);
+     
       return;
     }
     setIsSubmitting(true);
@@ -78,8 +78,6 @@ export default function ModalAñadirGasto({ onCancel, onSubmit }) {
         subtotal: parseFloat(form.monto),
       };
       delete datosParaEnviar.monto;
-
-      console.log(" Enviando al backend:", datosParaEnviar);
 
       const response = await api.post("/gastos", datosParaEnviar);
 

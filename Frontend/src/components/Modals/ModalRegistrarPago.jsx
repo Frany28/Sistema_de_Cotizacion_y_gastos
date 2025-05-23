@@ -79,10 +79,6 @@ export default function ModalRegistrarPago({
     e.preventDefault();
     setIsSubmitting(true);
 
-    // Verificar que la firma esté cargada correctamente
-    console.log("Datos del formulario:", form);
-    console.log("URL de la Firma del Usuario:", firmaURL);
-
     try {
       const formData = new FormData();
       formData.append("metodo_pago", form.metodo_pago);
@@ -100,7 +96,6 @@ export default function ModalRegistrarPago({
       }
       formData.append("observaciones", form.observaciones);
 
-      console.log("FormData antes de enviar:", formData);
 
       const url = `/solicitudes-pago/${solicitudId}/pagar`;
       const { data } = await api.patch(url, formData, {

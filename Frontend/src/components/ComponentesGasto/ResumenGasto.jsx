@@ -21,7 +21,7 @@ export default function ResumenGasto({ gasto = {}, onRegistrar }) {
 
   const obtenerSimbolo = (moneda) => (moneda === "VES" ? "Bs" : "$");
 
-  console.log("🧾 Se renderizó ResumenGasto con:", gasto);
+ 
 
   return (
     <div className="w-full bg-gray-800 rounded-xl p-6 shadow-md">

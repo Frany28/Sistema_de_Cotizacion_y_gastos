@@ -47,7 +47,6 @@ export default function AgregarGasto({
   const esRentable = tipoGastoSeleccionado?.rentable === 1;
 
   const handleRegistrar = () => {
-    console.log("Gasto a enviar:", gasto);
     crearGasto(gasto);
   };
 

@@ -59,11 +59,6 @@ export default function ModalEditarGasto({
 
   useEffect(() => {
     if (visible && gasto) {
-      console.log("🔍 Datos del gasto recibidos para edición:", gasto);
-      console.log("📋 Proveedores disponibles:", proveedores);
-      console.log("🏢 Sucursales disponibles:", sucursales);
-      console.log("💰 Tipos de gasto disponibles:", tiposGasto);
-
       // Formatear la fecha correctamente
       const fechaFormateada = gasto.fecha
         ? new Date(gasto.fecha).toISOString().split("T")[0]
@@ -118,11 +113,6 @@ export default function ModalEditarGasto({
           : Promise.resolve({ data: tiposGasto }),
       ]);
 
-      console.log("Listas adicionales cargadas:", {
-        proveedores: prov.data,
-        sucursales: suc.data,
-        tiposGasto: tipos.data,
-      });
     } catch (error) {
       console.error("Error cargando listas adicionales:", error);
     } finally {
@@ -136,7 +126,6 @@ export default function ModalEditarGasto({
         "http://localhost:3000/api/cotizaciones"
       );
       setCotizaciones(response.data || []);
-      console.log("📄 Cotizaciones cargadas:", response.data);
     } catch (error) {
       console.error("Error cargando cotizaciones:", error);
       setCotizaciones([]);
@@ -204,7 +193,6 @@ export default function ModalEditarGasto({
         porcentaje_iva: ivaNum,
       };
 
-      console.log("📤 Datos a guardar:", datosActualizados);
       onSave(datosActualizados);
     } catch (error) {
       console.error("Error al guardar el gasto:", error);
