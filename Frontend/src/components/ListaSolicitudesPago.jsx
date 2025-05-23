@@ -229,7 +229,7 @@ function ListaSolicitudesPago() {
         <tbody>
           {solicitudesPaginadas.map((solicitud) => {
             const saldoPendiente =
-              solicitud.monto_total - solicitud.monto_pagado;
+              solicitud.monto - solicitud.pagado;
             const isBolivares = solicitud.moneda === "VES";
 
             return (
@@ -238,7 +238,7 @@ function ListaSolicitudesPago() {
                   {solicitud.codigo}
                 </td>
                 <td className="px-5 py-3">
-                  {new Date(solicitud.created_at).toLocaleDateString("es-VE", {
+                  {new Date(solicitud.fecha).toLocaleDateString("es-VE", {
                     day: "2-digit",
                     month: "2-digit",
                     year: "numeric",
@@ -250,13 +250,13 @@ function ListaSolicitudesPago() {
                 <td className="px-5 py-3">{solicitud.moneda}</td>
                 <td className="px-5 py-3">
                   {isBolivares
-                    ? `${parseFloat(solicitud.monto_total).toFixed(2)} BS`
-                    : `$${parseFloat(solicitud.monto_total).toFixed(2)}`}
+                    ? `${parseFloat(solicitud.monto).toFixed(2)} BS`
+                    : `$${parseFloat(solicitud.monto).toFixed(2)}`}
                 </td>
                 <td className="px-5 py-3">
                   {isBolivares
-                    ? `${parseFloat(solicitud.monto_pagado).toFixed(2)} BS`
-                    : `$${parseFloat(solicitud.monto_pagado).toFixed(2)}`}
+                    ? `${parseFloat(solicitud.pagado).toFixed(2)} BS`
+                    : `$${parseFloat(solicitud.pagado).toFixed(2)}`}
                 </td>
                 <td className="px-5 py-3">
                   {isBolivares

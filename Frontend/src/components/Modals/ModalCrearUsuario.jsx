@@ -244,7 +244,7 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                     )}
                   </div>
 
-                  {/* Firma */}
+                  
                   {/* Firma */}
                   <div className="col-span-2">
                     <label className="block mb-1 text-sm font-medium text-white">
