@@ -40,8 +40,8 @@ const TablaCuentasPorCobrar = ({ clienteId }) => {
 
   return (
     <div className="overflow-x-auto mt-6">
-      <table className="w-full text-sm text-lefttext-gray-400">
-        <thead className="text-xsbg-gray-700 dark:text-gray-400">
+      <table className="w-full text-sm text-left text-gray-400">
+        <thead className="text-xs bg-gray-700 text-gray-400">
           <tr>
             <th className="px-4 py-3">Código</th>
             <th className="px-4 py-3">Monto</th>
@@ -73,20 +73,20 @@ const TablaCuentasPorCobrar = ({ clienteId }) => {
             </tr>
           ) : (
             cuentas.map((cuenta) => (
-              <tr key={cuenta.id} className="border-b dark:border-gray-700">
-                <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">
+              <tr key={cuenta.id} className="border-b border-gray-700">
+                <td className="px-4 py-3 font-medium  text-white">
                   {cuenta.codigo}
                 </td>
-                <td className="px-4 py-3 text-gray-900 dark:text-white">
+                <td className="px-4 py-3  text-white">
                   ${parseFloat(cuenta.monto).toFixed(2)}
                 </td>
-                <td className="px-4 py-3 capitalize text-gray-900 dark:text-white">
+                <td className="px-4 py-3 capitalize  text-white">
                   {cuenta.estado}
                 </td>
-                <td className="px-4 py-3 text-gray-900 dark:text-white">
+                <td className="px-4 py-3  text-white">
                   {new Date(cuenta.fecha_emision).toLocaleDateString("es-VE")}
                 </td>
-                <td className="px-4 py-3 text-gray-900 dark:text-white">
+                <td className="px-4 py-3  text-white">
                   {new Date(cuenta.fecha_vencimiento).toLocaleDateString(
                     "es-VE"
                   )}
