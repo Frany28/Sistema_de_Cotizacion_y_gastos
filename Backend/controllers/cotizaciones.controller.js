@@ -177,6 +177,23 @@ export const actualizarEstadoCotizacion = async (req, res) => {
   }
 };
 
+export const buscarCotizaciones = async (req, res) => {
+  const q = (req.query.q || "").trim();
+  const [rows] = await db.query(
+    `
+      SELECT c.id,
+             c.codigo_referencia   AS codigo,
+             cli.nombre            AS cliente,
+             c.total
+      FROM cotizaciones c
+      JOIN clientes cli ON cli.id = c.cliente_id
+      WHERE c.codigo_referencia LIKE ? OR cli.nombre LIKE ?
+      ORDER BY c.id DESC LIMIT 20`,
+    [`%${q}%`, `%${q}%`]
+  );
+  res.json(rows);
+};
+
 // En cotizaciones.controller.js
 export const editarCotizacion = async (req, res) => {
   const { id } = req.params;
