@@ -1,5 +1,5 @@
-import React from "react";
 import { useNavigate } from "react-router-dom";
+import api from "../api/index";
 
 export default function CotizacionPreview({ cotizacion }) {
   const navigate = useNavigate();
@@ -20,7 +20,7 @@ export default function CotizacionPreview({ cotizacion }) {
     );
   }
 
-  const url = `http://localhost:3000/api/cotizaciones/${cotizacion.id}/pdf`;
+  const url = `${api.defaults.baseURL}/cotizaciones/${cotizacion.id}/pdf`;
 
   return (
     <div className="p-6 bg-gray-900 min-h-screen text-white">
