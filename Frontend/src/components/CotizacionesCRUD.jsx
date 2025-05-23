@@ -480,9 +480,12 @@ function ListaCotizaciones() {
         ]}
         onSeleccionar={async (nuevoEstado) => {
           try {
-            await api.put(`/cotizaciones/${cotizacionAActualizar.id}/estado`, {
-              estado: nuevoEstado,
-            });
+            await api.patch(
+              `/cotizaciones/${cotizacionAActualizar.id}/estado`,
+              {
+                estado: nuevoEstado,
+              }
+            );
             mostrarMensajeExito({
               titulo: "Estado actualizado",
               mensaje: `La cotización ahora está ${nuevoEstado}.`,

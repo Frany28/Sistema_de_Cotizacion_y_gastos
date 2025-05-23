@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../../api/index";
 import BotonIcono from "../general/BotonIcono";
 import ModalRegistrarAbono from "../Modals/ModalRegistrarAbono";
 import ModalExito from "../../components/Modals/ModalExito";
@@ -23,8 +23,8 @@ const TablaCuentasPorCobrar = ({ clienteId }) => {
 
       try {
         setLoading(true);
-        const response = await axios.get(
-          `http://localhost:3000/api/cuentas-por-cobrar?cliente_id=${clienteId}`
+        const response = await api.get(
+          `/cuentas-por-cobrar?cliente_id=${clienteId}`
         );
         setCuentas(response.data);
       } catch (error) {
@@ -40,8 +40,8 @@ const TablaCuentasPorCobrar = ({ clienteId }) => {
 
   return (
     <div className="overflow-x-auto mt-6">
-      <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
-        <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+      <table className="w-full text-sm text-lefttext-gray-400">
+        <thead className="text-xsbg-gray-700 dark:text-gray-400">
           <tr>
             <th className="px-4 py-3">Código</th>
             <th className="px-4 py-3">Monto</th>

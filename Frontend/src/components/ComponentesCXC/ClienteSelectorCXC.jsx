@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../../api/index";
 
 const ClienteSelectorCXC = ({ onClienteSeleccionado }) => {
   const [clientes, setClientes] = useState([]);
@@ -8,9 +8,7 @@ const ClienteSelectorCXC = ({ onClienteSeleccionado }) => {
   useEffect(() => {
     const fetchClientes = async () => {
       try {
-        const response = await axios.get(
-          "http://localhost:3000/api/cuentas-por-cobrar/clientes"
-        );
+        const response = await api.get("/cuentas-por-cobrar/clientes");
         setClientes(response.data);
       } catch (error) {
         console.error("Error al cargar clientes con CXC:", error);

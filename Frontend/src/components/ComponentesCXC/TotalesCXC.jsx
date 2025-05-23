@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../../api/index";
 
 const TotalesCXC = ({ clienteId }) => {
   const [totales, setTotales] = useState({ debe: 0, haber: 0, saldo: 0 });
@@ -12,8 +12,8 @@ const TotalesCXC = ({ clienteId }) => {
       }
 
       try {
-        const response = await axios.get(
-          `http://localhost:3000/api/cuentas-por-cobrar/totales/${clienteId}`
+        const response = await api.get(
+          `/cuentas-por-cobrar/totales/${clienteId}`
         );
         setTotales(response.data);
       } catch (error) {
