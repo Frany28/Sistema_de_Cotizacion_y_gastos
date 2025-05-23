@@ -1,7 +1,7 @@
 // controllers/cotizaciones.controller.js
 import db from "../config/database.js";
 import path from "path";
-import puppeteer from "puppeteer";
+import chromium from "chrome-aws-lambda";
 import { generarHTMLCotizacion } from "../templates/generarHTMLCotizacion.js";
 import { fileURLToPath } from "url";
 
@@ -275,7 +275,6 @@ export const generarPDFCotizacion = async (req, res) => {
 
     const cotizacion = cotizacionData[0];
 
-    // 2. Consultar detalle de productos/servicios
     const [detalleCotizacion] = await db.query(
       `SELECT 
          sp.nombre AS servicio,
@@ -293,7 +292,6 @@ export const generarPDFCotizacion = async (req, res) => {
       [id]
     );
 
-    // 3. Construir datos para el HTML
     const datosCotizacion = {
       codigo: cotizacion.codigo,
       fecha: cotizacion.fecha,
@@ -313,13 +311,13 @@ export const generarPDFCotizacion = async (req, res) => {
       detalle: detalleCotizacion,
     };
 
-    // 4. Generar el HTML
     const html = generarHTMLCotizacion(datosCotizacion, "final");
 
-    // 5. Generar PDF usando Puppeteer
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    const browser = await chromium.puppeteer.launch({
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath,
+      headless: chromium.headless,
     });
 
     const page = await browser.newPage();
@@ -333,7 +331,6 @@ export const generarPDFCotizacion = async (req, res) => {
 
     await browser.close();
 
-    // 6. Enviar PDF
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
@@ -344,21 +341,4 @@ export const generarPDFCotizacion = async (req, res) => {
     console.error("Error generando PDF de cotización:", error);
     res.status(500).json({ message: "Error al generar PDF de cotización" });
   }
-};
-
-export const buscarCotizaciones = async (req, res) => {
-  const q = (req.query.q || "").trim();
-  const [rows] = await db.query(
-    `
-      SELECT c.id,
-             c.codigo_referencia   AS codigo,
-             cli.nombre            AS cliente,
-             c.total
-      FROM cotizaciones c
-      JOIN clientes cli ON cli.id = c.cliente_id
-      WHERE c.codigo_referencia LIKE ? OR cli.nombre LIKE ?
-      ORDER BY c.id DESC LIMIT 20`,
-    [`%${q}%`, `%${q}%`]
-  );
-  res.json(rows);
 };
