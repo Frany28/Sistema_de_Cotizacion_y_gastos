@@ -51,24 +51,6 @@ const AgregarCotizacion = ({
             onClienteSeleccionado={setClienteSeleccionado}
             mostrarError={mostrarClienteInvalido}
           />
-          <ServProCotizacion
-            servicios={servicios}
-            itemsSeleccionados={itemsAgregados}
-            onAgregar={(servicio) => {
-              const nuevoItem = {
-                id: servicio.id,
-                nombre: servicio.nombre,
-                precio: parseFloat(servicio.precio),
-                cantidad: 1,
-                porcentaje_iva: parseFloat(servicio.porcentaje_iva) || 0,
-                tipo: servicio.tipo,
-              };
-              setItemsAgregados((prevItems) => [...prevItems, nuevoItem]);
-            }}
-          />
-        </div>
-
-        <div className="flex flex-col gap-6 w-full mb-6">
           <div className="w-full">
             <DatosGeneralesCotizacion
               datos={datosGenerales}
@@ -78,17 +60,34 @@ const AgregarCotizacion = ({
               )}
             />
           </div>
+        </div>
 
-          <div>
-            <ItemsSeleccionados
-              items={itemsAgregados}
-              onUpdate={setItemsAgregados}
-              onRemove={(id) =>
-                setItemsAgregados((prev) =>
-                  prev.filter((item) => item.id !== id)
-                )
-              }
+        <div>
+          <ItemsSeleccionados
+            items={itemsAgregados}
+            onUpdate={setItemsAgregados}
+            onRemove={(id) =>
+              setItemsAgregados((prev) => prev.filter((item) => item.id !== id))
+            }
+          />
+
+          <div className="flex flex-col gap-6 w-full mb-6">
+            <ServProCotizacion
+              servicios={servicios}
+              itemsSeleccionados={itemsAgregados}
+              onAgregar={(servicio) => {
+                const nuevoItem = {
+                  id: servicio.id,
+                  nombre: servicio.nombre,
+                  precio: parseFloat(servicio.precio),
+                  cantidad: 1,
+                  porcentaje_iva: parseFloat(servicio.porcentaje_iva) || 0,
+                  tipo: servicio.tipo,
+                };
+                setItemsAgregados((prevItems) => [...prevItems, nuevoItem]);
+              }}
             />
+
             <ResumenCotizacion
               items={itemsAgregados}
               onGenerar={handleGenerarCotizacion}
