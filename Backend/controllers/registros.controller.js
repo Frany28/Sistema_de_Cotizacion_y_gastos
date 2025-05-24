@@ -45,13 +45,13 @@ export const getDatosRegistro = async (req, res) => {
 
 export const createRegistro = async (req, res) => {
   const tipo = req.body.tipo;
-
   if (!tipo) {
     return res
       .status(400)
       .json({ message: "Debe indicar el tipo de registro" });
   }
 
+  // Desempaquetamos correctamente todo el body
   const datos = { ...req.body };
 
   try {
