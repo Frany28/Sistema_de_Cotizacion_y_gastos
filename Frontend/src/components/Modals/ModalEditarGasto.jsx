@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Pencil, Search, X } from "lucide-react";
-import axios from "axios";
+import api from "../../api/index";
 
 export default function ModalEditarGasto({
   visible,
@@ -103,16 +103,15 @@ export default function ModalEditarGasto({
     try {
       const [prov, suc, tipos] = await Promise.all([
         proveedores.length === 0
-          ? axios.get("http://localhost:3000/api/proveedores")
+          ? api.get("/proveedores")
           : Promise.resolve({ data: proveedores }),
         sucursales.length === 0
-          ? axios.get("http://localhost:3000/api/sucursales")
+          ? api.get("/sucursales")
           : Promise.resolve({ data: sucursales }),
         tiposGasto.length === 0
-          ? axios.get("http://localhost:3000/api/gastos/tipos")
+          ? api.get("/gastos/tipos")
           : Promise.resolve({ data: tiposGasto }),
       ]);
-
     } catch (error) {
       console.error("Error cargando listas adicionales:", error);
     } finally {
@@ -122,9 +121,7 @@ export default function ModalEditarGasto({
 
   const cargarCotizaciones = async () => {
     try {
-      const response = await axios.get(
-        "http://localhost:3000/api/cotizaciones"
-      );
+      const response = await api.get("/cotizaciones");
       setCotizaciones(response.data || []);
     } catch (error) {
       console.error("Error cargando cotizaciones:", error);
