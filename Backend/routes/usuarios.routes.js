@@ -45,7 +45,6 @@ router.get("/permisos/:clave", autenticarUsuario, async (req, res) => {
       [usuario.rol_id, clave]
     );
 
-    // Aquí cambiamos la propiedad 'tiene' a 'tienePermiso'
     res.json({ tienePermiso: rows.length > 0 });
   } catch (error) {
     console.error("Error al verificar permiso (frontend):", error);

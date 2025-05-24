@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import api from "../api/index";
+import Loader from "../components/general/Loader";
 
 export default function RutaPrivada({ children }) {
   const [verificando, setVerificando] = useState(true);
@@ -21,7 +22,7 @@ export default function RutaPrivada({ children }) {
   }, []);
 
   if (verificando) {
-    return <p className="text-white">Verificando sesión…</p>;
+    return <Loader />;
   }
 
   if (!autenticado) {

@@ -3,7 +3,7 @@ import { login } from "../controllers/auth.controller.js";
 
 const router = express.Router();
 
-// ✅ Verificar si hay sesión activa
+
 router.get("/verificar-sesion", (req, res) => {
   if (req.session?.usuario) {
     res.json({ message: "Sesión activa", usuario: req.session.usuario });
