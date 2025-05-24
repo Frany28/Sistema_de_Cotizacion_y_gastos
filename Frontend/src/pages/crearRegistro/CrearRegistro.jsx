@@ -309,7 +309,7 @@ const CrearRegistro = () => {
 
   if (loading) {
     return (
-      <div className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-50 z-50">
+      <div className="fixed inset-0 flex justify-center items-cente bg-opacity-50 z-50">
         <Loader />
       </div>
     );
