@@ -178,6 +178,7 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                     <input
                       type="text"
                       name="nombre"
+                      placeholder="Nombre del usuario"
                       value={form.nombre}
                       onChange={handleChange}
                       className="block w-full p-2.5  border rounded-lg bg-gray-600 border-gray-500 text-white"
@@ -195,6 +196,7 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                     <input
                       type="email"
                       name="email"
+                      placeholder="correo@email.com"
                       value={form.email}
                       onChange={handleChange}
                       className="block w-full p-2.5  border rounded-lg bg-gray-600 border-gray-500 text-white"
@@ -214,6 +216,7 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                       name="password"
                       value={form.password}
                       onChange={handleChange}
+                      placeholder="Mínimo 6 caracteres"
                       className="block w-full p-2.5  border rounded-lg bg-gray-600 border-gray-500 text-white"
                     />
                     {errors.password && (
