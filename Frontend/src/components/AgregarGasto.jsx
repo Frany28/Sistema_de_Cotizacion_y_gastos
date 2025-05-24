@@ -51,7 +51,7 @@ export default function AgregarGasto({
   };
 
   return (
-    <div className="mx-auto p-6 rounded-lg">
+    <div className="mx-auto p-6 rounded-lg bg-gray-900">
       <h2 className="text-xl font-semibold mb-6 text-white">
         Crear Solicitud de Gasto
       </h2>
