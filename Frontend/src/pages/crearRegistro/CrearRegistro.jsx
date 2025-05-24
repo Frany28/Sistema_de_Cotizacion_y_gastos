@@ -44,10 +44,8 @@ const CrearRegistro = () => {
   useEffect(() => {
     const obtenerCotizaciones = async () => {
       try {
-        const { data } = await api.get(
-          "/cotizaciones"
-        );
-        setCotizaciones(data);
+        const { data } = await api.get("/cotizaciones?page=1&limit=1000");
+        setCotizaciones(data.cotizaciones);
       } catch (error) {
         console.error("Error al cargar cotizaciones:", error);
       }
@@ -65,15 +63,13 @@ const CrearRegistro = () => {
     mercancia: "",
     contenedor: "",
   });
-  const [datosGeneralesPreview, setDatosGeneralesPreview] = useState(form); 
+  const [datosGeneralesPreview, setDatosGeneralesPreview] = useState(form);
 
   useEffect(() => {
     const obtenerProveedores = async () => {
       try {
-        const { data } = await api.get(
-          "/proveedores?page=1&limit=1000"
-        );
-        
+        const { data } = await api.get("/proveedores?page=1&limit=1000");
+
         setProveedores(data.proveedores);
       } catch (error) {
         console.error("Error al obtener proveedores:", error);
@@ -87,12 +83,9 @@ const CrearRegistro = () => {
       try {
         setLoading(true);
 
-        const response = await api.get(
-          "/registros",
-          {
-            withCredentials: true,
-          }
-        );
+        const response = await api.get("/registros", {
+          withCredentials: true,
+        });
         setServicios(response.data.servicios);
         setClientes(response.data.clientes);
         setCategoriasGastos(response.data.categorias || []);
