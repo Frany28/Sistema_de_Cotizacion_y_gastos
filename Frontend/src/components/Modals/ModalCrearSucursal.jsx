@@ -117,13 +117,13 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
               </div>
               <form onSubmit={handleSubmit} className="space-y-4">
                 {serverError && (
-                  <div className="p-3 bg-red-100 text-red-700 rounded">
+                  <div className="p-3 bg-red-100 text-red-700 rounded ">
                     {serverError}
                   </div>
                 )}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="col-span-2">
-                    <label className="block text-sm font-medium  text-gray-300">
+                    <label className="block text-sm font-medium  text-gray-300 ">
                       Código *
                     </label>
                     <input
@@ -131,7 +131,7 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
                       value={form.codigo}
                       onChange={handleChange}
                       required
-                      className="mt-1 block w-full rounded-md  border-gray-600 bg-gray-700 focus:ring-primary-500 focus:border-primary-500"
+                      className=" border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
                     />
                     {errors.codigo && (
                       <p className="mt-1 text-sm text-red-600">
@@ -148,7 +148,7 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
                       value={form.nombre}
                       onChange={handleChange}
                       required
-                      className="mt-1 block w-full rounded-md  border-gray-600 bg-gray-700 focus:ring-primary-500 focus:border-primary-500"
+                      className="border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
                     />
                     {errors.nombre && (
                       <p className="mt-1 text-sm text-red-600">
@@ -165,7 +165,7 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
                       value={form.direccion}
                       onChange={handleChange}
                       required
-                      className="mt-1 block w-full rounded-md  border-gray-600 bg-gray-700 focus:ring-primary-500 focus:border-primary-500"
+                      className="border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
                     />
                     {errors.direccion && (
                       <p className="mt-1 text-sm text-red-600">
@@ -181,7 +181,7 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
                       name="ciudad"
                       value={form.ciudad}
                       onChange={handleChange}
-                      className="mt-1 block w-full rounded-md  border-gray-600 bg-gray-700 focus:ring-primary-500 focus:border-primary-500"
+                      className="border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
                     />
                   </div>
                   <div>
@@ -192,7 +192,7 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
                       name="estado_provincia"
                       value={form.estado_provincia}
                       onChange={handleChange}
-                      className="mt-1 block w-full rounded-md  border-gray-600 bg-gray-700 focus:ring-primary-500 focus:border-primary-500"
+                      className="border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
                     />
                   </div>
                   <div className="col-span-2">
@@ -203,7 +203,7 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
                       name="pais"
                       value={form.pais}
                       onChange={handleChange}
-                      className="mt-1 block w-full rounded-md  border-gray-600 bg-gray-700 focus:ring-primary-500 focus:border-primary-500"
+                      className="border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
                     />
                   </div>
                   <div>
@@ -214,7 +214,7 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
                       name="telefono"
                       value={form.telefono}
                       onChange={handleChange}
-                      className="mt-1 block w-full rounded-md  border-gray-600 bg-gray-700 focus:ring-primary-500 focus:border-primary-500"
+                      className="border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
                     />
                   </div>
                   <div>
@@ -226,7 +226,7 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
                       name="email"
                       value={form.email}
                       onChange={handleChange}
-                      className="mt-1 block w-full rounded-md  border-gray-600 bg-gray-700 focus:ring-primary-500 focus:border-primary-500"
+                      className="border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
                     />
                   </div>
                   <div className="col-span-2">
@@ -237,7 +237,7 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
                       name="responsable"
                       value={form.responsable}
                       onChange={handleChange}
-                      className="mt-1 block w-full rounded-md  border-gray-600 bg-gray-700 focus:ring-primary-500 focus:border-primary-500"
+                      className="border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
                     />
                   </div>
                 </div>

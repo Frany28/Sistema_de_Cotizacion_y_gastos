@@ -30,7 +30,7 @@ const AgregarCotizacion = ({
     if (onActualizarDatos) {
       onActualizarDatos(datosGenerales);
     }
-  }, [datosGenerales, onActualizarDatos]); // ✅ Cada vez que cambien los datos, avisamos al padre
+  }, [datosGenerales, onActualizarDatos]);
 
   const subtotal = itemsAgregados.reduce(
     (sum, item) => sum + (item.precio || 0) * (item.cantidad || 0),
@@ -67,16 +67,6 @@ const AgregarCotizacion = ({
           </div>
 
           <div>
-            <ItemsSeleccionados
-              items={itemsAgregados}
-              onUpdate={setItemsAgregados}
-              onRemove={(id) =>
-                setItemsAgregados((prev) =>
-                  prev.filter((item) => item.id !== id)
-                )
-              }
-            />
-
             <div className="flex flex-col gap-6 w-full mb-6">
               <ServProCotizacion
                 servicios={servicios}
@@ -92,6 +82,16 @@ const AgregarCotizacion = ({
                   };
                   setItemsAgregados((prevItems) => [...prevItems, nuevoItem]);
                 }}
+              />
+
+              <ItemsSeleccionados
+                items={itemsAgregados}
+                onUpdate={setItemsAgregados}
+                onRemove={(id) =>
+                  setItemsAgregados((prev) =>
+                    prev.filter((item) => item.id !== id)
+                  )
+                }
               />
 
               <ResumenCotizacion
