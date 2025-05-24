@@ -22,7 +22,11 @@ export default function RutaPrivada({ children }) {
   }, []);
 
   if (verificando) {
-    return <Loader />;
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader />
+      </div>
+    );
   }
 
   if (!autenticado) {
