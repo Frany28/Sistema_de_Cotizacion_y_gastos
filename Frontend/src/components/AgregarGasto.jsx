@@ -51,7 +51,7 @@ export default function AgregarGasto({
   };
 
   return (
-    <div className="mx-auto p-6 bg-gray-900 rounded-lg">
+    <div className="mx-auto p-6 rounded-lg">
       <h2 className="text-xl font-semibold mb-6 text-white">
         Crear Solicitud de Gasto
       </h2>
@@ -76,7 +76,7 @@ export default function AgregarGasto({
             setProveedores={setProveedores}
             proveedorSeleccionado={
               proveedores.find((p) => p.id === gasto.proveedor_id) || null
-              }
+            }
             onSeleccionar={(prov) =>
               setGasto((prev) => ({
                 ...prev,

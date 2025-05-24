@@ -43,7 +43,10 @@ const AgregarCotizacion = ({
 
   return (
     <>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full mb-6 bg-gray-900">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full mb-6">
+        <h2 className="text-xl font-semibold mb-6 text-white">
+          Crear Solicitud de Cotización
+        </h2>
         <div className="flex flex-col gap-6 w-full mb-6">
           <ClienteSelector
             clientes={clientes}
