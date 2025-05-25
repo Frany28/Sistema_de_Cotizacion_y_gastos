@@ -1,6 +1,7 @@
 // src/components/BancosCRUD.jsx
 import React, { useState, useEffect, useCallback } from "react";
 import api from "../api/index";
+import { useAuth } from "../context/AuthContext";
 
 import ModalAñadirBanco from "../components/Modals/ModalAñadirBanco";
 import BotonIcono from "./general/BotonIcono";
@@ -13,6 +14,12 @@ import Paginacion from "../components/general/Paginacion";
 import Loader from "./general/Loader";
 
 function BancosCRUD() {
+  const { permisos } = useAuth();
+  const tienePermiso = useCallback(
+    (perm) => permisos.includes(perm),
+    [permisos]
+  );
+
   const [bancos, setBancos] = useState([]);
   const [busqueda, setBusqueda] = useState("");
   const [page, setPage] = useState(1);
@@ -112,10 +119,17 @@ function BancosCRUD() {
       });
     } catch (err) {
       console.error(err);
-      mostrarMensajeError({
-        titulo: "Error al eliminar",
-        mensaje: "No se pudo eliminar el banco.",
-      });
+      if (err.response?.status === 403) {
+        mostrarMensajeError({
+          titulo: "Permiso denegado",
+          mensaje: err.response.data.message,
+        });
+      } else {
+        mostrarMensajeError({
+          titulo: "Error al eliminar",
+          mensaje: "No se pudo eliminar el banco.",
+        });
+      }
     } finally {
       setMostrarConfirm(false);
       setBancoAEliminar(null);
@@ -132,6 +146,13 @@ function BancosCRUD() {
       });
     } catch (err) {
       console.error(err);
+      if (err.response?.status === 403) {
+        mostrarMensajeError({
+          titulo: "Permiso denegado",
+          mensaje: err.response.data.message,
+        });
+        return;
+      }
       mostrarMensajeError({
         titulo: "Error al actualizar",
         mensaje: "No se pudo actualizar el banco.",
@@ -142,7 +163,7 @@ function BancosCRUD() {
     }
   };
 
-  // Filtrado y paginación en cliente
+  // Filtrado y paginación
   const filtrados = bancos.filter((b) =>
     ["nombre", "moneda", "tipo_identificador", "identificador", "estado"].some(
       (campo) =>
@@ -170,7 +191,14 @@ function BancosCRUD() {
     <div>
       {/* Barra superior: Nuevo + filtros */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 p-4 gap-2">
-        <BotonAgregar onClick={abrirAdd} texto="Nuevo Banco" />
+        <BotonAgregar
+          onClick={abrirAdd}
+          texto="Nuevo Banco"
+          disabled={!tienePermiso("crear_banco")}
+          titulo={
+            !tienePermiso("crear_banco") ? "Sin permiso para crear banco" : ""
+          }
+        />
         <div className="flex w-full md:w-1/2 gap-2">
           <div className="flex items-center gap-2">
             <label htmlFor="cantidad" className="text-sm text-gray-300">
@@ -234,16 +262,41 @@ function BancosCRUD() {
               <td className="px-4 py-2">{banco.identificador}</td>
               <td className="px-4 py-2">{banco.estado}</td>
               <td className="px-4 py-2 flex space-x-2">
-                <BotonIcono
-                  tipo="editar"
-                  onClick={() => iniciarEdicion(banco)}
-                  titulo="Editar banco"
-                />
-                <BotonIcono
-                  tipo="eliminar"
-                  onClick={() => confirmarEliminacion(banco)}
-                  titulo="Eliminar banco"
-                />
+                {tienePermiso("editar_banco") ? (
+                  <BotonIcono
+                    tipo="editar"
+                    onClick={() => iniciarEdicion(banco)}
+                    titulo="Editar banco"
+                  />
+                ) : (
+                  <BotonIcono
+                    tipo="editar"
+                    disabled
+                    titulo="Sin permiso para editar"
+                  />
+                )}
+                {tienePermiso("eliminar_banco") ? (
+                  <BotonIcono
+                    tipo="eliminar"
+                    onClick={() => {
+                      if (banco.estado !== "activo") {
+                        confirmarEliminacion(banco);
+                      }
+                    }}
+                    disabled={banco.estado === "activo"}
+                    titulo={
+                      banco.estado === "activo"
+                        ? "No se puede eliminar un banco activo"
+                        : "Eliminar banco"
+                    }
+                  />
+                ) : (
+                  <BotonIcono
+                    tipo="eliminar"
+                    disabled
+                    titulo="Sin permiso para eliminar"
+                  />
+                )}
               </td>
             </tr>
           ))}
@@ -262,13 +315,28 @@ function BancosCRUD() {
         <ModalAñadirBanco
           onCancel={cerrarAdd}
           onSubmit={async (datos) => {
-            await api.post("/bancos", datos);
-            await fetchBancos();
-            cerrarAdd();
-            mostrarMensajeExito({
-              titulo: "Banco creado",
-              mensaje: "El banco se agregó correctamente.",
-            });
+            try {
+              await api.post("/bancos", datos);
+              await fetchBancos();
+              cerrarAdd();
+              mostrarMensajeExito({
+                titulo: "Banco creado",
+                mensaje: "El banco se agregó correctamente.",
+              });
+            } catch (err) {
+              console.error(err);
+              if (err.response?.status === 403) {
+                mostrarMensajeError({
+                  titulo: "Permiso denegado",
+                  mensaje: err.response.data.message,
+                });
+              } else {
+                mostrarMensajeError({
+                  titulo: "Error al crear banco",
+                  mensaje: "No se pudo crear el banco.",
+                });
+              }
+            }
           }}
         />
       )}

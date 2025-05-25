@@ -138,12 +138,27 @@ export const actualizarBanco = async (req, res) => {
   }
 };
 
-/**
- * Eliminar un banco
- */
 export const eliminarBanco = async (req, res) => {
   const { id } = req.params;
   try {
+    // 1) Comprobar que existe y obtener su estado
+    const [filas] = await db.execute("SELECT estado FROM bancos WHERE id = ?", [
+      id,
+    ]);
+    if (filas.length === 0) {
+      return res.status(404).json({ message: "Banco no encontrado" });
+    }
+
+    // 2) Validar que no esté activo
+    if (filas[0].estado === "activo") {
+      return res
+        .status(400)
+        .json({
+          message: "No se puede eliminar un banco activo. Primero inactívelo.",
+        });
+    }
+
+    // 3) Si pasó la validación, procedemos a borrar
     const [resultado] = await db.execute("DELETE FROM bancos WHERE id = ?", [
       id,
     ]);
