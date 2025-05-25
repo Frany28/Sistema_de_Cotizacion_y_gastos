@@ -77,7 +77,7 @@ function Navbar() {
           label: "Servicios/Productos",
         },
         { path: "/administracion/proveedores", label: "Proveedores" },
-        { path: "/bancos", label: "Bancos" },
+        { path: "/administracion/bancos", label: "Bancos" },
         { path: "/administracion/sucursales", label: "Sucursales" },
         { path: "/administracion/usuarios", label: "Usuarios" },
       ],

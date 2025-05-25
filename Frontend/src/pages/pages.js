@@ -11,6 +11,7 @@ export { default as TipoGastosPage } from "./administracion/TipoGastosPage";
 export { default as ProveedoresPage } from "./administracion/ProveedoresPage";
 export { default as UsuariosPage } from "./administracion/UsuariosPage";
 export { default as SucursalesPage } from "./administracion/SucursalesPage";
+export { default as BancosPage } from "./administracion/BancosPage";
 // Cotizaciones
 export { default as Operaciones } from "./Operaciones/Operaciones";
 export { default as CXC } from "./Operaciones/CXC";

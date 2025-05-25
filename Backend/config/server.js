@@ -22,6 +22,7 @@ import sucursalesRoutes from "../routes/sucursales.routes.js";
 import cxcRoutes from "../routes/cxc.routes.js";
 import abonosRoutes from "../routes/abonos.routes.js";
 import solicitudesPagoRoutes from "../routes/solicitudesPago.routes.js";
+import bancosRoutes from "../routes/bancos.routes.js";
 
 /* ─────────────  Rutas de seguridad  ──────────── */
 import authRoutes from "../routes/auth.routes.js";
@@ -132,6 +133,8 @@ app.use("/api/sucursales", sucursalesRoutes);
 app.use("/api/cuentas-por-cobrar", cxcRoutes);
 app.use("/api/abonos", abonosRoutes);
 app.use("/api/solicitudes-pago", solicitudesPagoRoutes);
+app.use("/api/bancos", bancosRoutes);
+app.use("/api/proveedores", proveedoresRoutes);
 
 /* ─────────────  Endpoints de seguridad ──────────── */
 app.use("/api/auth", authRoutes);

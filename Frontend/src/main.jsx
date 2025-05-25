@@ -23,6 +23,7 @@ import {
   SolicitudesPage,
   UsuariosPage,
   SucursalesPage,
+  BancosPage,
 } from "./pages/pages.js";
 
 createRoot(document.getElementById("root")).render(
@@ -58,6 +59,8 @@ createRoot(document.getElementById("root")).render(
             path="/administracion/sucursales"
             element={<SucursalesPage />}
           />
+
+          <Route path="/administracion/bancos" element={<BancosPage />} />
 
           <Route path="/operaciones" element={<Operaciones />} />
           <Route
