@@ -1,6 +1,6 @@
 // src/components/Modals/ModalAñadirBanco.jsx
 import React, { useState } from "react";
-import { Bank } from "lucide-react";
+import { CreditCard } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const regexNombre = /^[A-Za-zÁÉÍÓÚáéíóúÜüÑñ\s]+$/;
@@ -86,7 +86,7 @@ export default function ModalAñadirBanco({ onCancel, onSubmit }) {
         <div className="relative p-4 w-full max-w-md max-h-full">
           <div className="relative rounded-lg shadow-sm bg-gray-800">
             <div className="flex flex-col items-center justify-center pt-6">
-              <Bank className="w-8 h-8 text-blue-500 mb-1" />
+              <CreditCard className="w-8 h-8 text-blue-500 mb-1" />
               <h3 className="text-lg font-semibold text-white text-center">
                 Añadir Banco
               </h3>
