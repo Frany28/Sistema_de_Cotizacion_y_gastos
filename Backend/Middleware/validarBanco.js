@@ -1,58 +1,91 @@
 // Middleware/validarBanco.js
-import { check, validationResult } from "express-validator";
+export const validarBanco = (req, res, next) => {
+  const { nombre, moneda, tipo_identificador, identificador, estado } =
+    req.body;
 
-export const validarBanco = [
-  // nombre es obligatorio
-  check("nombre")
-    .trim()
-    .notEmpty()
-    .withMessage("El nombre del banco es obligatorio"),
+  // ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+  // 1) Campos obligatorios
+  // ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+  if (
+    !nombre ||
+    !moneda ||
+    !tipo_identificador ||
+    !identificador
+    // 'estado' lo dejamos opcional: si no llega, asumimos 'activo'
+  ) {
+    return res.status(400).json({
+      message:
+        "Los campos nombre, moneda, tipo_identificador e identificador son obligatorios.",
+    });
+  }
 
-  // moneda debe ser 'VES' o 'USD'
-  check("moneda")
-    .isIn(["VES", "USD"])
-    .withMessage("La moneda debe ser 'VES' o 'USD'"),
+  // ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+  // 2) Validar 'nombre'
+  // Sólo letras (incluye tildes y ñ) y espacios
+  // ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+  const regexNombre = /^[A-Za-zÁÉÍÓÚáéíóúÜüÑñ\s]+$/;
+  if (!regexNombre.test(nombre.trim())) {
+    return res
+      .status(400)
+      .json({ message: "El nombre sólo puede contener letras y espacios." });
+  }
 
-  // tipo_identificador: 'nro_cuenta' o 'email'
-  check("tipo_identificador")
-    .isIn(["nro_cuenta", "email"])
-    .withMessage("El tipo debe ser 'nro_cuenta' o 'email'"),
+  // ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+  // 3) Validar 'moneda'
+  // Debe ser exactamente 'VES' o 'USD'
+  // ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+  const monedasValidas = ["VES", "USD"];
+  if (!monedasValidas.includes(moneda)) {
+    return res
+      .status(400)
+      .json({ message: "La moneda debe ser 'VES' o 'USD'." });
+  }
 
-  // identificador: dependiendo del tipo
-  check("identificador")
-    .trim()
-    .notEmpty()
-    .withMessage("El identificador es obligatorio")
-    .bail()
-    .custom((valor, { req }) => {
-      if (req.body.tipo_identificador === "email") {
-        // validar formato email
-        const emailRegex = /^\S+@\S+\.\S+$/;
-        if (!emailRegex.test(valor)) {
-          throw new Error("Identificador debe ser un email válido");
-        }
-      } else {
-        // validar solo dígitos para cuenta
-        const accountRegex = /^[0-9]+$/;
-        if (!accountRegex.test(valor)) {
-          throw new Error("Identificador debe contener solo números");
-        }
-      }
-      return true;
-    }),
+  // ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+  // 4) Validar 'tipo_identificador'
+  // Debe ser 'nro_cuenta' o 'email'
+  // ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+  const tiposValidos = ["nro_cuenta", "email"];
+  if (!tiposValidos.includes(tipo_identificador)) {
+    return res.status(400).json({
+      message: "El tipo_identificador debe ser 'nro_cuenta' o 'email'.",
+    });
+  }
 
-  // estado opcional, por defecto 'activo'
-  check("estado")
-    .optional()
-    .isIn(["activo", "inactivo"])
-    .withMessage("El estado debe ser 'activo' o 'inactivo'"),
-
-  // manejar errores de validación
-  (req, res, next) => {
-    const errores = validationResult(req);
-    if (!errores.isEmpty()) {
-      return res.status(400).json({ errores: errores.array() });
+  // ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+  // 5) Validar 'identificador' según su tipo
+  // - Si es 'email', usamos regex de email
+  // - Si es 'nro_cuenta', sólo números
+  // ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+  if (tipo_identificador === "email") {
+    const regexEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!regexEmail.test(identificador.trim())) {
+      return res
+        .status(400)
+        .json({ message: "El identificador debe ser un email válido." });
     }
-    next();
-  },
-];
+  } else {
+    const regexCuenta = /^[0-9]+$/;
+    if (!regexCuenta.test(identificador.trim())) {
+      return res
+        .status(400)
+        .json({ message: "El identificador debe contener sólo dígitos." });
+    }
+  }
+
+  // ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+  // 6) Validar 'estado' (opcional)
+  // Puede llegar 'activo' o 'inactivo'; si no viene, lo asumimos 'activo'
+  // ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+  if (estado) {
+    const estadosValidos = ["activo", "inactivo"];
+    if (!estadosValidos.includes(estado)) {
+      return res
+        .status(400)
+        .json({ message: "El estado debe ser 'activo' o 'inactivo'." });
+    }
+  }
+
+  // Si todo OK, dejamos que la petición siga a tu controlador
+  next();
+};
