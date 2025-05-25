@@ -1,7 +1,7 @@
 // src/components/BancosCRUD.jsx
 import React, { useState, useEffect, useCallback } from "react";
 import api from "../api/index";
-import { useAuth } from "../context/AuthContext";
+import { verificarPermisoFront } from "../../utils/verificarPermisoFront.js";
 
 import ModalAñadirBanco from "../components/Modals/ModalAñadirBanco";
 import BotonIcono from "./general/BotonIcono";
@@ -14,12 +14,6 @@ import Paginacion from "../components/general/Paginacion";
 import Loader from "./general/Loader";
 
 function BancosCRUD() {
-  const { permisos } = useAuth();
-  const tienePermiso = useCallback(
-    (perm) => permisos.includes(perm),
-    [permisos]
-  );
-
   const [bancos, setBancos] = useState([]);
   const [busqueda, setBusqueda] = useState("");
   const [page, setPage] = useState(1);
@@ -29,6 +23,30 @@ function BancosCRUD() {
   });
 
   const [loading, setLoading] = useState(true);
+
+  // Permisos de usuario
+  const [puedeCrear, setPuedeCrear] = useState(false);
+  const [puedeEditar, setPuedeEditar] = useState(false);
+  const [puedeEliminar, setPuedeEliminar] = useState(false);
+
+  useEffect(() => {
+    const fetchPermisos = async () => {
+      try {
+        const [crear, editar, eliminar] = await Promise.all([
+          verificarPermisoFront("crear_banco"),
+          verificarPermisoFront("editar_banco"),
+          verificarPermisoFront("eliminar_banco"),
+        ]);
+        setPuedeCrear(crear);
+        setPuedeEditar(editar);
+        setPuedeEliminar(eliminar);
+      } catch (err) {
+        console.error("Error verificando permisos:", err);
+      }
+    };
+    fetchPermisos();
+  }, []);
+
   const [mostrarModalAdd, setMostrarModalAdd] = useState(false);
   const [editandoBanco, setEditandoBanco] = useState(null);
   const [mostrarModalEditar, setMostrarModalEditar] = useState(false);
@@ -194,10 +212,8 @@ function BancosCRUD() {
         <BotonAgregar
           onClick={abrirAdd}
           texto="Nuevo Banco"
-          disabled={!tienePermiso("crear_banco")}
-          titulo={
-            !tienePermiso("crear_banco") ? "Sin permiso para crear banco" : ""
-          }
+          disabled={!puedeCrear}
+          titulo={!puedeCrear ? "Sin permiso para crear banco" : ""}
         />
         <div className="flex w-full md:w-1/2 gap-2">
           <div className="flex items-center gap-2">
@@ -262,41 +278,25 @@ function BancosCRUD() {
               <td className="px-4 py-2">{banco.identificador}</td>
               <td className="px-4 py-2">{banco.estado}</td>
               <td className="px-4 py-2 flex space-x-2">
-                {tienePermiso("editar_banco") ? (
-                  <BotonIcono
-                    tipo="editar"
-                    onClick={() => iniciarEdicion(banco)}
-                    titulo="Editar banco"
-                  />
-                ) : (
-                  <BotonIcono
-                    tipo="editar"
-                    disabled
-                    titulo="Sin permiso para editar"
-                  />
-                )}
-                {tienePermiso("eliminar_banco") ? (
-                  <BotonIcono
-                    tipo="eliminar"
-                    onClick={() => {
-                      if (banco.estado !== "activo") {
-                        confirmarEliminacion(banco);
-                      }
-                    }}
-                    disabled={banco.estado === "activo"}
-                    titulo={
-                      banco.estado === "activo"
-                        ? "No se puede eliminar un banco activo"
-                        : "Eliminar banco"
+                <BotonIcono
+                  tipo="editar"
+                  onClick={() => iniciarEdicion(banco)}
+                  titulo="Editar banco"
+                />
+                <BotonIcono
+                  tipo="eliminar"
+                  onClick={() => {
+                    if (banco.estado !== "activo") {
+                      confirmarEliminacion(banco);
                     }
-                  />
-                ) : (
-                  <BotonIcono
-                    tipo="eliminar"
-                    disabled
-                    titulo="Sin permiso para eliminar"
-                  />
-                )}
+                  }}
+                  disabled={banco.estado === "activo"}
+                  titulo={
+                    banco.estado === "activo"
+                      ? "No se puede eliminar un banco activo"
+                      : "Eliminar banco"
+                  }
+                />
               </td>
             </tr>
           ))}
@@ -315,28 +315,13 @@ function BancosCRUD() {
         <ModalAñadirBanco
           onCancel={cerrarAdd}
           onSubmit={async (datos) => {
-            try {
-              await api.post("/bancos", datos);
-              await fetchBancos();
-              cerrarAdd();
-              mostrarMensajeExito({
-                titulo: "Banco creado",
-                mensaje: "El banco se agregó correctamente.",
-              });
-            } catch (err) {
-              console.error(err);
-              if (err.response?.status === 403) {
-                mostrarMensajeError({
-                  titulo: "Permiso denegado",
-                  mensaje: err.response.data.message,
-                });
-              } else {
-                mostrarMensajeError({
-                  titulo: "Error al crear banco",
-                  mensaje: "No se pudo crear el banco.",
-                });
-              }
-            }
+            await api.post("/bancos", datos);
+            await fetchBancos();
+            cerrarAdd();
+            mostrarMensajeExito({
+              titulo: "Banco creado",
+              mensaje: "El banco se agregó correctamente.",
+            });
           }}
         />
       )}
