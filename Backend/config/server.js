@@ -62,11 +62,10 @@ app.use(
       if (!origin || allowedOrigins.includes(origin)) {
         return cb(null, true);
       }
-      console.error(`CORS origin not allowed: ${origin}`);
       return cb(new Error(`CORS origin not allowed: ${origin}`));
     },
-    credentials: true, // Permitir cookies
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: [
       "Content-Type",
       "Authorization",
@@ -78,14 +77,17 @@ app.use(
   })
 );
 
-// Forzar que todas las respuestas incluyan el encabezado CORS (como medida adicional)
 app.use((req, res, next) => {
+  const origen = req.headers.origin;
   res.header(
     "Access-Control-Allow-Origin",
-    allowedOrigins.includes(req.headers.origin) ? req.headers.origin : ""
+    allowedOrigins.includes(origen) ? origen : ""
   );
   res.header("Access-Control-Allow-Credentials", "true");
-  res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+  res.header(
+    "Access-Control-Allow-Methods",
+    "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+  );
   res.header(
     "Access-Control-Allow-Headers",
     "Content-Type,Authorization,X-Requested-With"
