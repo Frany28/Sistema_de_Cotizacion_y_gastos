@@ -335,11 +335,11 @@ function ListaCotizaciones() {
                     tipo="estado"
                     titulo="Cambiar Estado"
                     onClick={() => {
-                      if (c.estado === "aprobada") {
+                      if (c.estado === "aprobada" || c.estado === "rechazada") {
                         mostrarError({
                           titulo: "Acción no permitida",
                           mensaje:
-                            "No puedes cambiar el estado de una cotización aprobada.",
+                            "No puedes cambiar el estado de una cotización que ya fue aprobada o rechazada.",
                         });
                       } else {
                         setCotizacionAActualizar(c);
