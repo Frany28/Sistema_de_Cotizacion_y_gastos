@@ -137,17 +137,11 @@ function ListaCotizaciones() {
     } finally {
       setLoading(false);
     }
-  }, [page, limit]);
+  }, [page, limit, busqueda]);
 
   useEffect(() => {
     fetchCotizaciones();
   }, [fetchCotizaciones]);
-
-  const cotizacionesFiltradas = cotizaciones.filter((c) =>
-    [c.codigo, c.cliente_nombre, c.estado].some((campo) =>
-      campo?.toLowerCase().includes(busqueda.toLowerCase())
-    )
-  );
 
   const totalPaginas = Math.ceil(total / limit);
 
@@ -277,7 +271,7 @@ function ListaCotizaciones() {
         </div>
       </div>
       <div className="px-4 pb-2 text-sm  text-gray-400">
-        Mostrando {cotizacionesPaginadas.length} de{" "}
+        Mostrando {cotizaciones.length} de {total} resultados
         {cotizacionesFiltradas.length} resultados
       </div>
       <table className="w-full text-sm text-left  text-gray-400">
@@ -295,7 +289,7 @@ function ListaCotizaciones() {
           </tr>
         </thead>
         <tbody>
-          {cotizacionesFiltradas.map((c) => (
+          {cotizaciones.map((c) => (
             <tr key={c.id} className="border-b border-gray-700">
               <td className="px-4 py-3 font-medium  text-white">{c.codigo}</td>
               <td className="px-4 py-3">{c.cliente_nombre}</td>
