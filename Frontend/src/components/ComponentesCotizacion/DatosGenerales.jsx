@@ -24,7 +24,7 @@ export default function DatosGeneralesCotizacion({
             type="date"
             id="fecha"
             name="fecha"
-            value={gasto.fecha}
+            value={datos.fecha || ""}
             onChange={handleInputChange}
             className="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white"
           />

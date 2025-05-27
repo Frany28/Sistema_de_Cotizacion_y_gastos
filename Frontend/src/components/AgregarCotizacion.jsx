@@ -5,6 +5,7 @@ import ServProCotizacion from "./ComponentesCotizacion/ServProCotizacion.jsx";
 import ItemsSeleccionados from "./ComponentesCotizacion/ItemsSeleccionados.jsx";
 import DatosGeneralesCotizacion from "./ComponentesCotizacion/DatosGenerales.jsx";
 
+const today = new Date().toISOString().split("T")[0];
 const AgregarCotizacion = ({
   clientes,
   setClienteSeleccionado,
@@ -17,7 +18,7 @@ const AgregarCotizacion = ({
   setItemsAgregados,
 }) => {
   const [datosGenerales, setDatosGenerales] = useState({
-    fecha: "",
+    fecha: today,
     observaciones: "",
     operacion: "",
     puerto: "",
