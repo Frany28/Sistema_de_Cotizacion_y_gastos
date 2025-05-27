@@ -11,6 +11,7 @@ const __dirname = path.dirname(__filename);
 // Obtener todas las cotizaciones con detalle
 
 export const getCotizaciones = async (req, res) => {
+  // 1) Parámetros de paginación
   const page = Number.isNaN(Number(req.query.page))
     ? 1
     : Number(req.query.page);
@@ -19,39 +20,87 @@ export const getCotizaciones = async (req, res) => {
     : Number(req.query.limit);
   const offset = (page - 1) * limit;
 
-  console.log("Paginación cotizaciones:", { page, limit, offset });
+  // 2) Parámetro de búsqueda (opcional)
+  const q = (req.query.search || "").trim();
+
+  console.log("Paginación cotizaciones:", { page, limit, offset, search: q });
 
   try {
-    // 2) Total de registros
-    const [[{ total }]] = await db.query(
-      `SELECT COUNT(*) AS total FROM cotizaciones`
-    );
+    // 3) Total de registros (filtrado si hay búsqueda)
+    let total;
+    if (q) {
+      const [[{ total: count }]] = await db.query(
+        `SELECT COUNT(*) AS total
+           FROM cotizaciones c
+           JOIN clientes cli ON c.cliente_id = cli.id
+          WHERE c.codigo_referencia LIKE ? OR cli.nombre LIKE ?`,
+        [`%${q}%`, `%${q}%`]
+      );
+      total = count;
+    } else {
+      const [[{ total: count }]] = await db.query(
+        `SELECT COUNT(*) AS total FROM cotizaciones`
+      );
+      total = count;
+    }
 
-    const [cotizaciones] = await db.query(
-      `
-        SELECT 
-        c.id,
-        c.fecha,
-        c.total,
-        c.estado,
-        c.motivo_rechazo,               -- lo agregas aquí
-        c.codigo_referencia AS codigo,
-        c.subtotal,
-        c.impuesto,
-        c.cliente_id,
-        c.sucursal_id,
-        c.confirmacion_cliente,
-        c.observaciones,
-        s.nombre AS sucursal,
-        cli.nombre AS cliente_nombre
-        FROM cotizaciones c
-        JOIN clientes cli ON c.cliente_id = cli.id
-        LEFT JOIN sucursales s ON c.sucursal_id = s.id
-        ORDER BY c.fecha DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `
-    );
+    // 4) Listado paginado y (opcional) filtrado
+    let cotizaciones;
+    if (q) {
+      [cotizaciones] = await db.query(
+        `
+          SELECT 
+            c.id,
+            c.fecha,
+            c.total,
+            c.estado,
+            c.motivo_rechazo,
+            c.codigo_referencia AS codigo,
+            c.subtotal,
+            c.impuesto,
+            c.cliente_id,
+            c.sucursal_id,
+            c.confirmacion_cliente,
+            c.observaciones,
+            s.nombre AS sucursal,
+            cli.nombre AS cliente_nombre
+          FROM cotizaciones c
+          JOIN clientes cli ON c.cliente_id = cli.id
+          LEFT JOIN sucursales s ON c.sucursal_id = s.id
+         WHERE c.codigo_referencia LIKE ? OR cli.nombre LIKE ?
+         ORDER BY c.fecha DESC
+         LIMIT ${limit} OFFSET ${offset}
+        `,
+        [`%${q}%`, `%${q}%`]
+      );
+    } else {
+      [cotizaciones] = await db.query(
+        `
+          SELECT 
+            c.id,
+            c.fecha,
+            c.total,
+            c.estado,
+            c.motivo_rechazo,
+            c.codigo_referencia AS codigo,
+            c.subtotal,
+            c.impuesto,
+            c.cliente_id,
+            c.sucursal_id,
+            c.confirmacion_cliente,
+            c.observaciones,
+            s.nombre AS sucursal,
+            cli.nombre AS cliente_nombre
+          FROM cotizaciones c
+          JOIN clientes cli ON c.cliente_id = cli.id
+          LEFT JOIN sucursales s ON c.sucursal_id = s.id
+         ORDER BY c.fecha DESC
+         LIMIT ${limit} OFFSET ${offset}
+        `
+      );
+    }
 
+    // 5) Enviar respuesta
     return res.json({ cotizaciones, total, page, limit });
   } catch (error) {
     console.error("Error al obtener cotizaciones:", error);

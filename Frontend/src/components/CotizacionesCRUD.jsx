@@ -121,7 +121,7 @@ function ListaCotizaciones() {
     try {
       // Llama al endpoint con paginación
       const res = await api.get("/cotizaciones", {
-        params: { page, limit },
+        params: { page, limit, search: busqueda },
       });
       // La respuesta tiene { cotizaciones, total, page, limit }
       setCotizaciones(res.data.cotizaciones);
@@ -150,10 +150,6 @@ function ListaCotizaciones() {
   );
 
   const totalPaginas = Math.ceil(total / limit);
-  const cotizacionesPaginadas = cotizacionesFiltradas.slice(
-    (page - 1) * limit,
-    page * limit
-  );
 
   const cambiarLimite = (nuevoLimite) => {
     setLimit(nuevoLimite);
@@ -299,7 +295,7 @@ function ListaCotizaciones() {
           </tr>
         </thead>
         <tbody>
-        {cotizacionesPaginadas.map((c) => (
+          {cotizacionesFiltradas.map((c) => (
             <tr key={c.id} className="border-b border-gray-700">
               <td className="px-4 py-3 font-medium  text-white">{c.codigo}</td>
               <td className="px-4 py-3">{c.cliente_nombre}</td>
