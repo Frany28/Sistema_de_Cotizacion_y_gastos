@@ -8,12 +8,12 @@ import ModalError from "../components/Modals/ModalError";
 import Paginacion from "../components/general/Paginacion";
 import ModalConfirmacion from "../components/Modals/ModalConfirmacion";
 import ModalEditarCotizacion from "../components/Modals/ModalEditarCotizacion";
-import { useMemo } from "react";
 import ModalDetalleCotizacion from "../components/Modals/ModalDetalleCotizacion";
 import Loader from "../components/general/Loader";
 import ModalCambioEstado from "../components/Modals/ModalCambiosEstado";
 import { verificarPermisoFront } from "../../utils/verificarPermisoFront";
 import { useLocation, useNavigate } from "react-router-dom";
+import ModalMotivoRechazo from "../components/Modals/ModalMotivoRechazo";
 
 function ListaCotizaciones() {
   const [cotizaciones, setCotizaciones] = useState([]);
@@ -33,6 +33,8 @@ function ListaCotizaciones() {
   const [puedeEliminar, setPuedeEliminar] = useState(false);
   const [puedeAprobar, setPuedeAprobar] = useState(false);
   const navigate = useNavigate();
+  const [mostrarModalRechazo, setMostrarModalRechazo] = useState(false);
+  const [estadoSeleccionado, setEstadoSeleccionado] = useState("");
 
   const eliminarCotizacion = async (id) => {
     try {
@@ -166,6 +168,49 @@ function ListaCotizaciones() {
       </div>
     );
   }
+
+  // Dentro de CotizacionesCRUD.jsx, justo antes del `return ( ... )`:
+
+  const cambiarEstadoCotizacion = async (id, estado, motivo = null) => {
+    try {
+      // 1) Construir payload
+      const payload = { estado };
+      if (estado === "rechazada") {
+        if (!motivo || !motivo.trim()) {
+          mostrarError({
+            titulo: "Motivo requerido",
+            mensaje: "Debes indicar el motivo del rechazo.",
+          });
+          return;
+        }
+        payload.motivo_rechazo = motivo.trim();
+      }
+
+      // 2) Llamada al API
+      await api.patch(`/cotizaciones/${id}/estado`, payload, {
+        withCredentials: true,
+      });
+
+      // 3) Mostrar éxito y recargar datos
+      mostrarMensajeExito({
+        titulo: "Estado actualizado",
+        mensaje: `La cotización ahora está ${estado}.`,
+      });
+      fetchCotizaciones();
+    } catch (error) {
+      console.error("Error al cambiar estado de cotización:", error);
+      mostrarError({
+        titulo: "Error",
+        mensaje: "No se pudo actualizar el estado de la cotización.",
+      });
+    } finally {
+      // 4) Limpiar todos los modales y estados asociados
+      setMostrarModalEstado(false);
+      setMostrarModalRechazo(false);
+      setCotizacionAActualizar(null);
+      setEstadoSeleccionado("");
+    }
+  };
 
   return (
     <div>
@@ -354,10 +399,17 @@ function ListaCotizaciones() {
                 {puedeEliminar && (
                   <BotonIcono
                     tipo="eliminar"
-                    titulo="Eliminar"
                     onClick={() => {
-                      setIdAEliminar(c.id);
-                      setMostrarConfirmacion(true);
+                      if (c.estado === "aprobada") {
+                        mostrarError({
+                          titulo: "Acción no permitida",
+                          mensaje:
+                            "No puedes eliminar una cotización aprobada.",
+                        });
+                      } else {
+                        setIdAEliminar(c.id);
+                        setMostrarConfirmacion(true);
+                      }
                     }}
                   />
                 )}
@@ -478,30 +530,49 @@ function ListaCotizaciones() {
           },
         ]}
         onSeleccionar={async (nuevoEstado) => {
-          try {
-            await api.patch(
-              `/cotizaciones/${cotizacionAActualizar.id}/estado`,
-              {
-                estado: nuevoEstado,
-              }
-            );
-            mostrarMensajeExito({
-              titulo: "Estado actualizado",
-              mensaje: `La cotización ahora está ${nuevoEstado}.`,
-            });
-            fetchCotizaciones();
-          } catch (error) {
-            console.error("Error al actualizar estado:", error);
-            mostrarError({
-              titulo: "Error",
-              mensaje: "No se pudo actualizar el estado de la cotización.",
-            });
-          } finally {
+          // Si el usuario elige “rechazada”, abrimos el modal de motivo
+          if (nuevoEstado === "rechazada") {
+            setEstadoSeleccionado(nuevoEstado);
             setMostrarModalEstado(false);
-            setCotizacionAActualizar(null);
+            setMostrarModalRechazo(true);
+            return;
           }
+          // Para cualquier otro estado, reutilizamos la función
+          cambiarEstadoCotizacion(cotizacionAActualizar.id, nuevoEstado);
         }}
       />
+      {mostrarModalRechazo && (
+        <ModalMotivoRechazo
+          visible={mostrarModalRechazo}
+          onClose={() => {
+            setMostrarModalRechazo(false);
+            setCotizacionAActualizar(null);
+            setEstadoSeleccionado("");
+          }}
+          onSubmit={async (motivo) => {
+            try {
+              await api.patch(
+                `/cotizaciones/${cotizacionAActualizar.id}/estado`,
+                { estado: estadoSeleccionado, motivo_rechazo: motivo },
+                { withCredentials: true }
+              );
+              mostrarMensajeExito({
+                titulo: "Rechazo registrado",
+                mensaje: `La cotización ha sido rechazada.`,
+              });
+              fetchCotizaciones();
+            } catch {
+              mostrarError({
+                titulo: "Error",
+                mensaje: "No se pudo registrar el motivo de rechazo.",
+              });
+            } finally {
+              setMostrarModalRechazo(false);
+              setCotizacionAActualizar(null);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

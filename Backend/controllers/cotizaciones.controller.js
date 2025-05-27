@@ -30,13 +30,20 @@ export const getCotizaciones = async (req, res) => {
     const [cotizaciones] = await db.query(
       `
         SELECT 
-          c.id, c.fecha, c.total, c.estado,
-          c.codigo_referencia AS codigo,
-          c.subtotal, c.impuesto,
-          c.cliente_id, c.sucursal_id,
-          c.confirmacion_cliente, c.observaciones,
-          s.nombre AS sucursal,
-          cli.nombre AS cliente_nombre
+        c.id,
+        c.fecha,
+        c.total,
+        c.estado,
+        c.motivo_rechazo,               -- lo agregas aquí
+        c.codigo_referencia AS codigo,
+        c.subtotal,
+        c.impuesto,
+        c.cliente_id,
+        c.sucursal_id,
+        c.confirmacion_cliente,
+        c.observaciones,
+        s.nombre AS sucursal,
+        cli.nombre AS cliente_nombre
         FROM cotizaciones c
         JOIN clientes cli ON c.cliente_id = cli.id
         LEFT JOIN sucursales s ON c.sucursal_id = s.id
@@ -118,16 +125,38 @@ export const getCotizacionById = async (req, res) => {
 // Actualizar estado de cotización
 export const actualizarEstadoCotizacion = async (req, res) => {
   const { id } = req.params;
-  const { estado } = req.body;
+  const { estado, motivo_rechazo } = req.body;
+
+  const [estadoRow] = await db.query(
+    "SELECT estado FROM cotizaciones WHERE id = ?",
+    [id]
+  );
+  if (!estadoRow.length) {
+    return res.status(404).json({ message: "Cotización no encontrada" });
+  }
+  if (estadoRow[0].estado === "aprobada") {
+    return res.status(403).json({
+      message: "No se puede cambiar el estado de una cotización aprobada",
+    });
+  }
 
   if (!["pendiente", "aprobada", "rechazada"].includes(estado)) {
     return res.status(400).json({ message: "Estado no válido" });
   }
 
+  if (estado === "rechazada" && (!motivo_rechazo || !motivo_rechazo.trim())) {
+    return res
+      .status(400)
+      .json({ message: "Debes indicar el motivo del rechazo." });
+  }
+
   try {
     const [result] = await db.query(
-      `UPDATE cotizaciones SET estado = ? WHERE id = ?`,
-      [estado, id]
+      `UPDATE cotizaciones
+          SET estado = ?,
+              motivo_rechazo = ?
+        WHERE id = ?`,
+      [estado, estado === "rechazada" ? motivo_rechazo.trim() : null, id]
     );
 
     if (result.affectedRows === 0) {
@@ -146,18 +175,18 @@ export const actualizarEstadoCotizacion = async (req, res) => {
         // Primero insertar la cuenta por cobrar
         const [insertResult] = await db.query(
           `INSERT INTO cuentas_por_cobrar 
-          (cliente_id, cotizacion_id, monto, descripcion, estado, fecha_emision, fecha_vencimiento, creado_en, actualizado_en)
-          VALUES (?, ?, ?, ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 15 DAY), NOW(), NOW())`,
+          (codigo, cliente_id, cotizacion_id, monto, descripcion, estado, fecha_emision, fecha_vencimiento)
+              VALUES (?, ?, ?, ?, ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 15 DAY))`,
           [
+            "",
             cot.cliente_id,
-            id, // cotizacion_id
+            id,
             cot.total,
             `Cuenta generada por cotización #${id}`,
-            "pendiente", // estado inicial
+            "pendiente",
           ]
         );
 
-        // Luego actualizar el código basado en el ID insertado
         const nuevoId = insertResult.insertId;
         const codigoGenerado = `CXC-${nuevoId.toString().padStart(5, "0")}`;
 
@@ -230,12 +259,26 @@ export const deleteCotizacion = async (req, res) => {
   const { id } = req.params;
 
   try {
-    // Eliminar detalles primero
+    // 1) Verificar si existe y cuál es su estado
+    const [rows] = await db.query(
+      "SELECT estado FROM cotizaciones WHERE id = ?",
+      [id]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "Cotización no encontrada" });
+    }
+    if (rows[0].estado === "aprobada") {
+      return res
+        .status(403)
+        .json({ message: "No puede eliminar una cotización aprobada" });
+    }
+
+    // 2) Eliminar detalles primero
     await db.query("DELETE FROM detalle_cotizacion WHERE cotizacion_id = ?", [
       id,
     ]);
 
-    // Luego eliminar la cotización
+    // 3) Luego eliminar la cotización
     const [result] = await db.query("DELETE FROM cotizaciones WHERE id = ?", [
       id,
     ]);
@@ -244,10 +287,10 @@ export const deleteCotizacion = async (req, res) => {
       return res.status(404).json({ message: "Cotización no encontrada" });
     }
 
-    res.json({ message: "Cotización eliminada exitosamente" });
+    return res.json({ message: "Cotización eliminada exitosamente" });
   } catch (error) {
     console.error("Error al eliminar cotización:", error);
-    res
+    return res
       .status(500)
       .json({ message: "Hubo un error al eliminar la cotización" });
   }
