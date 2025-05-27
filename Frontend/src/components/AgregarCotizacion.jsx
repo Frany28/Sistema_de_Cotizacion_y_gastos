@@ -13,7 +13,7 @@ const AgregarCotizacion = ({
   setClientes,
   servicios,
   onGenerarCotizacion,
-  onActualizarDatos, // ✅ Nueva prop para actualizar datosGenerales en tiempo real
+  onActualizarDatos,
   itemsAgregados,
   setItemsAgregados,
 }) => {
