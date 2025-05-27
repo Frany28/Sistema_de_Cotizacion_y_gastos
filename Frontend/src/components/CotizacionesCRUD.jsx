@@ -120,10 +120,8 @@ function ListaCotizaciones() {
     setLoading(true);
     try {
       // Llama al endpoint con paginación
-      const res = await api.get("/cotizaciones", {
-        params: { page, limit },
-      });
-      // La respuesta tiene { cotizaciones, total, page, limit }
+      const res = await api.get("/cotizaciones");
+
       setCotizaciones(res.data.cotizaciones);
       setTotal(res.data.total);
     } catch (error) {
@@ -137,11 +135,11 @@ function ListaCotizaciones() {
     } finally {
       setLoading(false);
     }
-  }, [page, limit]);
+  }, []);
 
   useEffect(() => {
     fetchCotizaciones();
-  }, [fetchCotizaciones]);
+  }, []);
 
   const cambiarLimite = (nuevoLimite) => {
     setLimit(nuevoLimite);
@@ -291,7 +289,7 @@ function ListaCotizaciones() {
       </div>
       <div className="px-4 pb-2 text-sm text-gray-400">
         Mostrando {cotizacionesPaginadas.length} de{" "}
-        {cotizacionesFiltradas.length} resultados +{" "}
+        {cotizacionesFiltradas.length} resultados
       </div>
 
       <table className="w-full text-sm text-left  text-gray-400">
