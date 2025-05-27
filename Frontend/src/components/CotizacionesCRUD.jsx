@@ -149,7 +149,7 @@ function ListaCotizaciones() {
     )
   );
 
-  const totalPaginas = Math.ceil(cotizacionesFiltradas.length / limit);
+  const totalPaginas = Math.ceil(total / limit);
   const cotizacionesPaginadas = cotizacionesFiltradas.slice(
     (page - 1) * limit,
     page * limit
@@ -299,7 +299,7 @@ function ListaCotizaciones() {
           </tr>
         </thead>
         <tbody>
-          {cotizacionesPaginadas.map((c) => (
+          {cotizaciones.map((c) => (
             <tr key={c.id} className="border-b border-gray-700">
               <td className="px-4 py-3 font-medium  text-white">{c.codigo}</td>
               <td className="px-4 py-3">{c.cliente_nombre}</td>
@@ -437,10 +437,9 @@ function ListaCotizaciones() {
       </table>
       {/* Paginación */}
       <Paginacion
-        total={total}
-        limit={limit}
-        page={page}
-        onPageChange={cambiarPagina}
+        paginaActual={page}
+        totalPaginas={totalPaginas}
+        onCambiarPagina={cambiarPagina}
       />
       <ModalDetalleCotizacion
         visible={mostrarModalDetalle}
