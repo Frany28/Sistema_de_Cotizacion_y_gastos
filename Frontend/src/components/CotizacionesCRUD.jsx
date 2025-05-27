@@ -333,11 +333,19 @@ function ListaCotizaciones() {
                 {puedeAprobar && (
                   <BotonIcono
                     tipo="estado"
+                    titulo="Cambiar Estado"
                     onClick={() => {
-                      setCotizacionAActualizar(c);
-                      setMostrarModalEstado(true);
+                      if (c.estado === "aprobada") {
+                        mostrarError({
+                          titulo: "Acción no permitida",
+                          mensaje:
+                            "No puedes cambiar el estado de una cotización aprobada.",
+                        });
+                      } else {
+                        setCotizacionAActualizar(c);
+                        setMostrarModalEstado(true);
+                      }
                     }}
-                    titulo="Cambiar Estado de Cotización"
                   />
                 )}
 
