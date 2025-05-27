@@ -121,7 +121,7 @@ function ListaCotizaciones() {
     try {
       // Llama al endpoint con paginación
       const res = await api.get("/cotizaciones", {
-        params: { page, limit, search: busqueda },
+        params: { page, limit },
       });
       // La respuesta tiene { cotizaciones, total, page, limit }
       setCotizaciones(res.data.cotizaciones);
@@ -137,13 +137,11 @@ function ListaCotizaciones() {
     } finally {
       setLoading(false);
     }
-  }, [page, limit, busqueda]);
+  }, [page, limit]);
 
   useEffect(() => {
     fetchCotizaciones();
   }, [fetchCotizaciones]);
-
-  const totalPaginas = Math.ceil(total / limit);
 
   const cambiarLimite = (nuevoLimite) => {
     setLimit(nuevoLimite);
@@ -201,6 +199,21 @@ function ListaCotizaciones() {
       setEstadoSeleccionado("");
     }
   };
+
+  const cotizacionesFiltradas = cotizaciones.filter((c) =>
+    [c.codigo, c.cliente_nombre, c.estado].some((campo) =>
+      campo?.toString().toLowerCase().includes(busqueda.toLowerCase())
+    )
+  );
+
+  // 2) Calcular total de páginas según los filtrados
+  const totalPaginas = Math.ceil(cotizacionesFiltradas.length / limit);
+
+  // 3) Slice para la página actual
+  const cotizacionesPaginadas = cotizacionesFiltradas.slice(
+    (page - 1) * limit,
+    page * limit
+  );
 
   return (
     <div>
@@ -265,14 +278,22 @@ function ListaCotizaciones() {
               placeholder="Buscar cotización..."
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  setPage(1);
+                  fetchCotizaciones();
+                }
+              }}
               className="pl-10  border   text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-600 text-white"
             />
           </div>
         </div>
       </div>
       <div className="px-4 pb-2 text-sm text-gray-400">
-        Mostrando {cotizaciones.length} de {total} resultados +{" "}
+        Mostrando {cotizacionesPaginadas.length} de{" "}
+        {cotizacionesFiltradas.length} resultados +{" "}
       </div>
+
       <table className="w-full text-sm text-left  text-gray-400">
         <thead className="text-xs  uppercase bg-gray-700 text-gray-400">
           <tr>
@@ -288,7 +309,7 @@ function ListaCotizaciones() {
           </tr>
         </thead>
         <tbody>
-          {cotizaciones.map((c) => (
+          {cotizacionesPaginadas.map((c) => (
             <tr key={c.id} className="border-b border-gray-700">
               <td className="px-4 py-3 font-medium  text-white">{c.codigo}</td>
               <td className="px-4 py-3">{c.cliente_nombre}</td>
