@@ -299,7 +299,7 @@ function ListaCotizaciones() {
           </tr>
         </thead>
         <tbody>
-          {cotizaciones.map((c) => (
+        {cotizacionesPaginadas.map((c) => (
             <tr key={c.id} className="border-b border-gray-700">
               <td className="px-4 py-3 font-medium  text-white">{c.codigo}</td>
               <td className="px-4 py-3">{c.cliente_nombre}</td>
