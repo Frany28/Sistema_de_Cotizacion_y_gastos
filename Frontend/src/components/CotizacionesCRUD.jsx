@@ -367,6 +367,15 @@ function ListaCotizaciones() {
                     tipo="editar"
                     titulo="Editar"
                     onClick={async () => {
+                      // Si la cotización ya está aprobada, mostramos el modal de error
+                      if (c.estado === "aprobada") {
+                        mostrarError({
+                          titulo: "Acción no permitida",
+                          mensaje: "No puedes editar una cotización aprobada.",
+                        });
+                        return;
+                      }
+                      // Si no, procedemos a cargar los datos y abrir el modal de edición
                       try {
                         setLoading(true); // Activar el loader general
                         const response = await api.get(`/cotizaciones/${c.id}`);
@@ -388,7 +397,7 @@ function ListaCotizaciones() {
                         mostrarError({
                           titulo: "Error",
                           mensaje:
-                            "No se pudo cargar la cotización para edición",
+                            "No se pudo cargar la cotización para edición.",
                         });
                       } finally {
                         setLoading(false); // Desactivar el loader
