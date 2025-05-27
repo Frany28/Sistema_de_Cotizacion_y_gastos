@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { RefreshCw, X, Check, XCircle, AlertTriangle } from "lucide-react";
+import { RefreshCw, X, Check, XCircle } from "lucide-react";
 
 export default function ModalCambioEstado({
   visible,
@@ -21,27 +21,23 @@ export default function ModalCambioEstado({
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
-            className="relative p-6 w-full max-w-md  bg-gray-800 rounded-lg shadow text-center"
+            className="relative p-6 w-full max-w-md bg-gray-800 rounded-lg shadow text-center"
           >
             <button
               onClick={onClose}
-              className="absolute top-3 right-3 text-gray-400  hover:text-white"
+              className="absolute top-3 right-3 text-gray-400 hover:text-white"
             >
               <X className="w-5 h-5" />
             </button>
 
-            <div className="w-12 h-12 rounded-full  bg-blue-900 p-2 mx-auto mb-4 flex items-center justify-center">
-              <RefreshCw className="w-8 h-8  text-blue-400" />
+            <div className="w-12 h-12 rounded-full bg-blue-900 p-2 mx-auto mb-4 flex items-center justify-center">
+              <RefreshCw className="w-8 h-8 text-blue-400" />
             </div>
 
-            <p className="mb-2 text-lg font-semibold  text-blue-400">
-              {titulo}
-            </p>
-            <p className="mb-6 text-sm text-gray-300">
-              {mensaje}
-            </p>
+            <p className="mb-2 text-lg font-semibold text-blue-400">{titulo}</p>
+            <p className="mb-6 text-sm text-gray-300">{mensaje}</p>
 
-            <div className="grid grid-cols-3 gap-4 justify-center">
+            <div className="grid grid-cols-2 gap-4 justify-center">
               {/* Aprobar */}
               <div className="flex flex-col items-center">
                 <button
@@ -50,9 +46,7 @@ export default function ModalCambioEstado({
                 >
                   <Check className="w-8 h-8 text-white" />
                 </button>
-                <p className="mt-2 text-sm  text-gray-300">
-                  Aprobar
-                </p>
+                <p className="mt-2 text-sm text-gray-300">Aprobar</p>
               </div>
 
               {/* Rechazar */}
@@ -63,28 +57,13 @@ export default function ModalCambioEstado({
                 >
                   <XCircle className="w-8 h-8 text-white" />
                 </button>
-                <p className="mt-2 text-sm  text-gray-300">
-                  Rechazar
-                </p>
-              </div>
-
-              {/* Pendiente */}
-              <div className="flex flex-col items-center">
-                <button
-                  onClick={() => onSeleccionar("pendiente")}
-                  className="w-16 h-16 rounded-full bg-yellow-400 hover:bg-yellow-500 flex items-center justify-center shadow-md"
-                >
-                  <AlertTriangle className="w-8 h-8 text-white" />
-                </button>
-                <p className="mt-2 text-sm  text-gray-300">
-                  Pendiente
-                </p>
+                <p className="mt-2 text-sm text-gray-300">Rechazar</p>
               </div>
             </div>
 
             <button
               onClick={onClose}
-              className="mt-6 px-5 py-2.5 text-sm font-medium text-white bg-blue-700 hover:bg-gray-600 rounded-lg focus:outline-none focus:ring-4 focus:ring-gray-300 focus:ring-gray-700"
+              className="mt-6 px-5 py-2.5 text-sm font-medium text-white bg-blue-700 hover:bg-gray-600 rounded-lg focus:outline-none focus:ring-4 focus:ring-gray-700"
             >
               Cancelar
             </button>
