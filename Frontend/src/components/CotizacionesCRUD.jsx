@@ -270,9 +270,8 @@ function ListaCotizaciones() {
           </div>
         </div>
       </div>
-      <div className="px-4 pb-2 text-sm  text-gray-400">
-        Mostrando {cotizaciones.length} de {total} resultados
-        {cotizacionesFiltradas.length} resultados
+      <div className="px-4 pb-2 text-sm text-gray-400">
+        Mostrando {cotizaciones.length} de {total} resultados +{" "}
       </div>
       <table className="w-full text-sm text-left  text-gray-400">
         <thead className="text-xs  uppercase bg-gray-700 text-gray-400">
