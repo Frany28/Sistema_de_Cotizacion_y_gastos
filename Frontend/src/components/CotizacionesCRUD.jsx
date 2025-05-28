@@ -101,23 +101,6 @@ function ListaCotizaciones() {
     verificarPermisos();
   }, []);
 
-  useEffect(() => {
-    const fetchClientesSucursales = async () => {
-      try {
-        const [resClientes, resSucursales] = await Promise.all([
-          api.get("/clientes"),
-          api.get("/sucursales"),
-        ]);
-        setClientes(resClientes.data);
-        setSucursales(resSucursales.data);
-      } catch (error) {
-        console.error("Error al cargar clientes o sucursales:", error);
-      }
-    };
-
-    fetchClientesSucursales();
-  }, []);
-
   const mostrarMensajeExito = ({
     titulo,
     mensaje,
@@ -359,19 +342,19 @@ function ListaCotizaciones() {
               <td className="px-4 py-3 flex space-x-2">
                 {puedeAprobar && (
                   <BotonIcono
-                    tipo="estado"
+                    tipo="check"
                     titulo="Cambiar Estado"
                     onClick={() => {
-                      if (c.estado === "aprobada" || c.estado === "rechazada") {
-                        mostrarError({
+                      // Solo permitir cambio de estado si está en pendiente
+                      if (c.estado !== "pendiente") {
+                        return mostrarError({
                           titulo: "Acción no permitida",
                           mensaje:
-                            "No puedes cambiar el estado de una cotización que ya fue aprobada o rechazada.",
+                            "Solo puedes cambiar el estado de cotizaciones que estén en 'pendiente'.",
                         });
-                      } else {
-                        setCotizacionAActualizar(c);
-                        setMostrarModalEstado(true);
                       }
+                      setCotizacionAActualizar(c);
+                      setMostrarModalEstado(true);
                     }}
                   />
                 )}
@@ -397,49 +380,49 @@ function ListaCotizaciones() {
                     }
                   }}
                 />
+
                 {puedeEditar && (
                   <BotonIcono
                     tipo="editar"
-                    titulo="Editar"
+                    titulo="Editar Cotización"
                     onClick={async () => {
-                      // Si la cotización ya está aprobada, mostramos el modal de error
                       if (c.estado === "aprobada") {
-                        mostrarError({
+                        return mostrarError({
                           titulo: "Acción no permitida",
                           mensaje: "No puedes editar una cotización aprobada.",
                         });
-                        return;
                       }
-                      // Si no, procedemos a cargar los datos y abrir el modal de edición
+                      setLoading(true);
                       try {
-                        setLoading(true); // Activar el loader general
-                        const response = await api.get(`/cotizaciones/${c.id}`);
-                        const cotizacionCompleta = response.data;
-
+                        const { data } = await api.get(`/cotizaciones/${c.id}`);
                         setCotizacionSeleccionada({
-                          id: cotizacionCompleta.id,
-                          cliente_id: cotizacionCompleta.cliente_id ?? null,
-                          sucursal_id: cotizacionCompleta.sucursal_id ?? null,
-                          estado: cotizacionCompleta.estado,
-                          confirmacion_cliente:
-                            cotizacionCompleta.confirmacion_cliente ? "1" : "0",
-                          observaciones: cotizacionCompleta.observaciones ?? "",
-                          detalle: cotizacionCompleta.detalle || [],
+                          id: data.id,
+                          cliente_id: data.cliente_id ?? null,
+                          sucursal_id: data.sucursal_id ?? null,
+                          estado: data.estado,
+                          confirmacion_cliente: data.confirmacion_cliente
+                            ? "1"
+                            : "0",
+                          observaciones: data.observaciones || "",
+                          detalle: Array.isArray(data.detalle)
+                            ? data.detalle
+                            : [],
                         });
                         setMostrarModalEditar(true);
                       } catch (error) {
-                        console.error("Error al cargar cotización:", error);
+                        console.error("Error cargando cotización:", error);
                         mostrarError({
-                          titulo: "Error",
+                          titulo: "Error al cargar",
                           mensaje:
                             "No se pudo cargar la cotización para edición.",
                         });
                       } finally {
-                        setLoading(false); // Desactivar el loader
+                        setLoading(false);
                       }
                     }}
                   />
                 )}
+
                 {puedeEliminar && (
                   <BotonIcono
                     tipo="eliminar"

@@ -36,7 +36,7 @@ export default function ModalEditarCotizacion({
         estado: cotizacion.estado ?? "pendiente",
         confirmacion_cliente: cotizacion.confirmacion_cliente ? "1" : "0",
         observaciones: cotizacion.observaciones ?? "",
-        detalle: cotizacion.detalle || [],
+        detalle: Array.isArray(cotizacion.detalle) ? cotizacion.detalle : [],
       });
     }
   }, [cotizacion]);
