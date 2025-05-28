@@ -280,27 +280,166 @@ export const editarCotizacion = async (req, res) => {
     sucursal_id,
     confirmacion_cliente = false,
     observaciones = "",
+    detalle = [], // array de líneas con { id?, servicio_productos_id, cantidad, precio_unitario, porcentaje_iva }
   } = req.body;
 
+  const conn = await db.getConnection();
   try {
-    await db.query(
-      `UPDATE cotizaciones SET 
-        cliente_id = ?, 
-        sucursal_id = ?, 
-        confirmacion_cliente = ?, 
-        observaciones = ?, 
-        updated_at = NOW()
-      WHERE id = ?`,
+    await conn.beginTransaction();
+
+    // 1) Leer el estado actual
+    const [rowsEstado] = await conn.query(
+      `SELECT estado FROM cotizaciones WHERE id = ?`,
+      [id]
+    );
+    if (rowsEstado.length === 0) {
+      await conn.rollback();
+      return res.status(404).json({ message: "Cotización no encontrada." });
+    }
+    const estadoActual = rowsEstado[0].estado;
+    if (!["pendiente", "rechazada"].includes(estadoActual)) {
+      await conn.rollback();
+      return res.status(403).json({
+        message:
+          'Sólo se pueden editar cotizaciones en estado "pendiente" o "rechazada".',
+      });
+    }
+
+    // 2) Actualizar cabecera y forzar estado a 'pendiente'
+    await conn.query(
+      `UPDATE cotizaciones
+         SET cliente_id          = ?,
+             sucursal_id         = ?,
+             confirmacion_cliente= ?,
+             observaciones       = ?,
+             estado              = 'pendiente',
+             updated_at          = NOW()
+       WHERE id = ?`,
       [cliente_id, sucursal_id, confirmacion_cliente, observaciones, id]
     );
 
-    res.json({
-      message: "Cotización actualizada con éxito",
-      cotizacion_id: id,
+    // 3) Leer líneas actuales (detalle viejo)
+    const [detalleOldRows] = await conn.query(
+      `SELECT id, servicio_productos_id, cantidad, precio_unitario, porcentaje_iva
+         FROM detalle_cotizacion
+        WHERE cotizacion_id = ?`,
+      [id]
+    );
+    const viejoPorId = new Map(detalleOldRows.map((r) => [r.id, r]));
+
+    // 4) Determinar qué eliminar, actualizar e insertar
+    const idsAEliminar = [];
+    const lineasAActualizar = [];
+    const lineasAInsertar = [];
+
+    // a) Marcar eliminaciones: id viejos que no están en detalle[]
+    detalleOldRows.forEach(({ id: oldId }) => {
+      if (!detalle.some((n) => n.id === oldId)) {
+        idsAEliminar.push(oldId);
+      }
+    });
+
+    // b) Clasificar inserciones y actualizaciones
+    detalle.forEach((item) => {
+      if (item.id) {
+        // posible actualización
+        const vie = viejoPorId.get(item.id);
+        if (
+          vie.servicio_productos_id !== item.servicio_productos_id ||
+          vie.cantidad !== Number(item.cantidad) ||
+          vie.precio_unitario !== Number(item.precio_unitario) ||
+          vie.porcentaje_iva !== Number(item.porcentaje_iva)
+        ) {
+          lineasAActualizar.push(item);
+        }
+      } else {
+        // nueva línea
+        lineasAInsertar.push(item);
+      }
+    });
+
+    // 5) Ejecutar eliminaciones
+    if (idsAEliminar.length) {
+      await conn.query(`DELETE FROM detalle_cotizacion WHERE id IN (?)`, [
+        idsAEliminar,
+      ]);
+    }
+
+    let subtotal = 0,
+      impuesto = 0;
+
+    // 6) Ejecutar actualizaciones
+    for (const {
+      id: linId,
+      servicio_productos_id,
+      cantidad,
+      precio_unitario,
+      porcentaje_iva,
+    } of lineasAActualizar) {
+      const cant = Number(cantidad),
+        precio = Number(precio_unitario),
+        iva = Number(porcentaje_iva);
+      const sub = cant * precio;
+      const imp = sub * (iva / 100);
+      subtotal += sub;
+      impuesto += imp;
+      await conn.query(
+        `UPDATE detalle_cotizacion
+            SET servicio_productos_id = ?,
+                cantidad              = ?,
+                precio_unitario       = ?,
+                porcentaje_iva        = ?,
+                subtotal              = ?,
+                impuesto              = ?,
+                total                 = ?
+          WHERE id = ?`,
+        [servicio_productos_id, cant, precio, iva, sub, imp, sub + imp, linId]
+      );
+    }
+
+    // 7) Ejecutar inserciones
+    for (const {
+      servicio_productos_id,
+      cantidad,
+      precio_unitario,
+      porcentaje_iva = 16,
+    } of lineasAInsertar) {
+      const cant = Number(cantidad),
+        precio = Number(precio_unitario),
+        iva = Number(porcentaje_iva);
+      const sub = cant * precio;
+      const imp = sub * (iva / 100);
+      subtotal += sub;
+      impuesto += imp;
+      await conn.query(
+        `INSERT INTO detalle_cotizacion
+           (cotizacion_id, servicio_productos_id, cantidad, precio_unitario, porcentaje_iva, subtotal, impuesto, total)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [id, servicio_productos_id, cant, precio, iva, sub, imp, sub + imp]
+      );
+    }
+
+    // 8) Recalcular totales en la cabecera
+    const total = subtotal + impuesto;
+    await conn.query(
+      `UPDATE cotizaciones
+         SET subtotal = ?, impuesto = ?, total = ?
+       WHERE id = ?`,
+      [subtotal, impuesto, total, id]
+    );
+
+    await conn.commit();
+    return res.json({
+      message: "Cotización actualizada y reabierta como 'pendiente'.",
     });
   } catch (error) {
-    console.error("Error al editar cotización:", error);
-    res.status(500).json({ message: "Error al editar la cotización" });
+    await conn.rollback();
+    console.error("Error editando cotización:", error);
+    return res
+      .status(500)
+      .json({ message: "Error al editar la cotización.", error });
+  } finally {
+    conn.release();
   }
 };
 

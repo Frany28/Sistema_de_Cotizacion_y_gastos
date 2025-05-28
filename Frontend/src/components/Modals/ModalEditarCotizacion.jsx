@@ -13,19 +13,19 @@ export default function ModalEditarCotizacion({
   onSubmit,
   cotizacion,
   sucursales = [],
+  serviciosProductos = [],
 }) {
   const [form, setForm] = useState({
     sucursal_id: "",
     estado: "pendiente",
     confirmacion_cliente: "0",
     observaciones: "",
+    detalle: [],
   });
-
   const [modalExitoVisible, setModalExitoVisible] = useState(false);
   const [modalErrorVisible, setModalErrorVisible] = useState(false);
   const [mensajeExito, setMensajeExito] = useState("");
   const [mensajeError, setMensajeError] = useState("");
-
   const [loading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -36,6 +36,7 @@ export default function ModalEditarCotizacion({
         estado: cotizacion.estado ?? "pendiente",
         confirmacion_cliente: cotizacion.confirmacion_cliente ? "1" : "0",
         observaciones: cotizacion.observaciones ?? "",
+        detalle: cotizacion.detalle || [],
       });
     }
   }, [cotizacion]);
@@ -43,6 +44,39 @@ export default function ModalEditarCotizacion({
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  // Añadir una nueva línea vacía al detalle
+  const addLinea = () => {
+    setForm((prev) => ({
+      ...prev,
+      detalle: [
+        ...prev.detalle,
+        {
+          servicio_productos_id: "",
+          cantidad: 1,
+          precio_unitario: 0,
+          porcentaje_iva: 16,
+        },
+      ],
+    }));
+  };
+
+  // Eliminar línea por índice
+  const removeLinea = (index) => {
+    setForm((prev) => ({
+      ...prev,
+      detalle: prev.detalle.filter((_, i) => i !== index),
+    }));
+  };
+
+  // Actualizar campo en línea específica
+  const handleDetalleChange = (index, field, value) => {
+    setForm((prev) => {
+      const updated = [...prev.detalle];
+      updated[index] = { ...updated[index], [field]: value };
+      return { ...prev, detalle: updated };
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -61,134 +95,232 @@ export default function ModalEditarCotizacion({
     }
   };
 
-  if (!visible) return null;
-
   return (
     <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/40"
-        onClick={onClose}
-      >
+      {visible && (
         <motion.div
-          initial={{ scale: 0.95, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.95, opacity: 0 }}
-          className="relative w-full max-w-md p-6  bg-gray-800 rounded-lg shadow"
-          onClick={(e) => e.stopPropagation()}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
         >
-          <button
-            onClick={onClose}
-            disabled={loading}
-            className="absolute top-3 right-3 text-gray-400 0 hover:text-white disabled:opacity-50"
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.95, opacity: 0 }}
+            className="relative w-full max-w-lg p-6 bg-gray-800 rounded-lg shadow-lg"
           >
-            <X className="w-5 h-5" />
-          </button>
+            {/* Botón cerrar */}
+            <button
+              onClick={onClose}
+              disabled={loading}
+              className="absolute top-3 right-3 text-gray-400 hover:text-white disabled:opacity-50"
+            >
+              <X className="w-5 h-5" />
+            </button>
 
-          <div className="text-center mb-4">
-            <Pencil className="mx-auto mb-2 text-blue-600 w-10 h-10" />
-            <h3 className="text-lg font-semibold  text-white">
-              {titulo}
-            </h3>
-          </div>
+            {/* Título */}
+            <div className="text-center mb-4">
+              <Pencil className="mx-auto mb-2 text-blue-600 w-10 h-10" />
+              <h3 className="text-xl font-semibold text-white">{titulo}</h3>
+            </div>
 
-          <form onSubmit={handleSubmit} className="space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               {/* Sucursal */}
               <div>
-                <label className="block text-sm font-medium  text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   Sucursal
                 </label>
                 <select
                   name="sucursal_id"
                   value={form.sucursal_id}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white"
+                  className="w-full px-3 py-2 border border-gray-600 rounded bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   disabled={loading}
                 >
-                  <option value="">Seleccione una sucursal</option>
-                  {Array.isArray(sucursales) &&
-                    sucursales.map((sucursal) => (
-                      <option key={sucursal.id} value={sucursal.id}>
-                        {sucursal.nombre}
-                      </option>
-                    ))}
+                  <option value="">Seleccione sucursal...</option>
+                  {sucursales.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.nombre}
+                    </option>
+                  ))}
                 </select>
               </div>
 
-              {/* Confirmación cliente */}
+              {/* Confirmación Cliente */}
               <div>
-                <label className="block text-sm font-medium  text-gray-300 mb-1">
-                  Confirmación del Cliente
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Confirmación Cliente
                 </label>
                 <select
                   name="confirmacion_cliente"
                   value={form.confirmacion_cliente}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white"
+                  className="w-full px-3 py-2 border border-gray-600 rounded bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   disabled={loading}
                 >
-                  <option value="1">Sí</option>
-                  <option value="0">No</option>
+                  <option value="0">No confirmado</option>
+                  <option value="1">Confirmado</option>
                 </select>
               </div>
-            </div>
 
-            {/* Observaciones */}
-            <div>
-              <label className="block text-sm font-medium  text-gray-300 mb-1">
-                Observaciones
-              </label>
-              <textarea
-                name="observaciones"
-                value={form.observaciones}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border  border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white"
-                disabled={loading}
-                rows={3}
-              />
-            </div>
+              {/* Observaciones */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Observaciones
+                </label>
+                <textarea
+                  name="observaciones"
+                  value={form.observaciones}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-600 rounded bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={loading}
+                  rows={3}
+                />
+              </div>
 
-            {/* Botón Guardar */}
-            <div className="flex justify-center gap-2 pt-4">
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader className="w-4 h-4 animate-spin" />
-                    Guardando...
-                  </>
-                ) : (
-                  "Guardar"
-                )}
-              </button>
-            </div>
-          </form>
+              {/* Detalle de ítems */}
+              <div>
+                <h4 className="text-sm font-medium text-gray-300 mb-2">
+                  Detalle de ítems
+                </h4>
+                <table className="w-full text-sm text-left text-gray-400 mb-2">
+                  <thead className="bg-gray-700">
+                    <tr>
+                      <th className="px-2 py-1">Servicio/Producto</th>
+                      <th className="px-2 py-1">Cantidad</th>
+                      <th className="px-2 py-1">Precio U.</th>
+                      <th className="px-2 py-1">% IVA</th>
+                      <th className="px-2 py-1">Subtotal</th>
+                      <th className="px-2 py-1">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {form.detalle.map((item, index) => (
+                      <tr key={index} className="border-b border-gray-600">
+                        <td className="px-2 py-1">
+                          <select
+                            className="w-full bg-gray-700 text-white p-1 border border-gray-600 rounded"
+                            value={item.servicio_productos_id}
+                            onChange={(e) =>
+                              handleDetalleChange(
+                                index,
+                                "servicio_productos_id",
+                                e.target.value
+                              )
+                            }
+                          >
+                            <option value="">Seleccione...</option>
+                            {serviciosProductos.map((sp) => (
+                              <option key={sp.id} value={sp.id}>
+                                {sp.nombre}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="px-2 py-1">
+                          <input
+                            type="number"
+                            className="w-full bg-gray-700 text-white p-1 border border-gray-600 rounded"
+                            value={item.cantidad}
+                            onChange={(e) =>
+                              handleDetalleChange(
+                                index,
+                                "cantidad",
+                                e.target.value
+                              )
+                            }
+                          />
+                        </td>
+                        <td className="px-2 py-1">
+                          <input
+                            type="number"
+                            className="w-full bg-gray-700 text-white p-1 border border-gray-600 rounded"
+                            value={item.precio_unitario}
+                            onChange={(e) =>
+                              handleDetalleChange(
+                                index,
+                                "precio_unitario",
+                                e.target.value
+                              )
+                            }
+                          />
+                        </td>
+                        <td className="px-2 py-1">
+                          <input
+                            type="number"
+                            className="w-full bg-gray-700 text-white p-1 border border-gray-600 rounded"
+                            value={item.porcentaje_iva}
+                            onChange={(e) =>
+                              handleDetalleChange(
+                                index,
+                                "porcentaje_iva",
+                                e.target.value
+                              )
+                            }
+                          />
+                        </td>
+                        <td className="px-2 py-1 text-right">
+                          {(
+                            Number(item.cantidad) * Number(item.precio_unitario)
+                          ).toFixed(2)}
+                        </td>
+                        <td className="px-2 py-1">
+                          <button
+                            type="button"
+                            onClick={() => removeLinea(index)}
+                            className="text-red-500 hover:text-red-300"
+                          >
+                            Eliminar
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <button
+                  type="button"
+                  onClick={addLinea}
+                  className="text-white bg-green-600 hover:bg-green-500 px-3 py-1 rounded"
+                >
+                  + Agregar línea
+                </button>
+              </div>
 
-          {/* Modales de Éxito y Error */}
-          <ModalExito
-            visible={modalExitoVisible}
-            onClose={() => {
-              setModalExitoVisible(false);
-              onClose();
-            }}
-            titulo="Cotización actualizada"
-            mensaje={mensajeExito}
-          />
+              {/* Botón Guardar */}
+              <div className="flex justify-center gap-2 pt-4">
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="text-white bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 px-4 py-2 rounded"
+                >
+                  {isSubmitting ? (
+                    <Loader size="sm" />
+                  ) : (
+                    <Pencil className="w-5 h-5" />
+                  )}
+                  Guardar cambios
+                </button>
+              </div>
+            </form>
 
-          <ModalError
-            visible={modalErrorVisible}
-            onClose={() => setModalErrorVisible(false)}
-            titulo="Error al actualizar"
-            mensaje={mensajeError}
-          />
+            {/* Modales de feedback */}
+            <ModalExito
+              visible={modalExitoVisible}
+              onClose={() => setModalExitoVisible(false)}
+              titulo="¡Éxito!"
+              mensaje={mensajeExito}
+            />
+
+            <ModalError
+              visible={modalErrorVisible}
+              onClose={() => setModalErrorVisible(false)}
+              titulo="Error al actualizar"
+              mensaje={mensajeError}
+            />
+          </motion.div>
         </motion.div>
-      </motion.div>
+      )}
     </AnimatePresence>
   );
 }

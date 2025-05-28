@@ -35,6 +35,7 @@ function ListaCotizaciones() {
   const navigate = useNavigate();
   const [mostrarModalRechazo, setMostrarModalRechazo] = useState(false);
   const [estadoSeleccionado, setEstadoSeleccionado] = useState("");
+  const [serviciosProductos, setServiciosProductos] = useState([]);
 
   const eliminarCotizacion = async (id) => {
     try {
@@ -52,6 +53,24 @@ function ListaCotizaciones() {
       });
     }
   };
+
+  useEffect(() => {
+    const fetchMaestros = async () => {
+      try {
+        const [resClientes, resSucursales, resSP] = await Promise.all([
+          api.get("/clientes"),
+          api.get("/sucursales"),
+          api.get("/servicios-productos"),
+        ]);
+        setClientes(resClientes.data);
+        setSucursales(resSucursales.data);
+        setServiciosProductos(resSP.data);
+      } catch (err) {
+        console.error("Error cargando maestros:", err);
+      }
+    };
+    fetchMaestros();
+  }, []);
 
   const [limit, setLimit] = useState(() => {
     const stored = localStorage.getItem("cotizacionesLimit");
@@ -474,7 +493,7 @@ function ListaCotizaciones() {
       {mostrarModalEditar && cotizacionSeleccionada && (
         <ModalEditarCotizacion
           titulo="Editar Cotización"
-          visible={true}
+          visible
           onClose={() => {
             setMostrarModalEditar(false);
             setCotizacionSeleccionada(null);
@@ -482,22 +501,22 @@ function ListaCotizaciones() {
           onSubmit={async (formActualizado) => {
             try {
               const id = cotizacionSeleccionada.id;
-              const response = await api.put(`/cotizaciones/${id}`, {
-                cliente_id: formActualizado.cliente_id,
+              // Incluimos aquí el detalle completo
+              await api.put(`/cotizaciones/${id}`, {
+                cliente_id: cotizacionSeleccionada.cliente_id,
                 sucursal_id: formActualizado.sucursal_id,
                 confirmacion_cliente:
                   formActualizado.confirmacion_cliente === "1",
                 observaciones: formActualizado.observaciones,
+                detalle: formActualizado.detalle,
               });
-              if (response.status === 200) {
-                mostrarMensajeExito({
-                  titulo: "Cotización actualizada",
-                  mensaje: "Los cambios fueron guardados correctamente.",
-                });
-                setMostrarModalEditar(false);
-                setCotizacionSeleccionada(null);
-                fetchCotizaciones();
-              }
+              mostrarMensajeExito({
+                titulo: "Cotización actualizada",
+                mensaje: "Los cambios fueron guardados correctamente.",
+              });
+              setMostrarModalEditar(false);
+              setCotizacionSeleccionada(null);
+              fetchCotizaciones();
             } catch (error) {
               console.error("Error al editar cotización:", error);
               mostrarError({
@@ -509,8 +528,8 @@ function ListaCotizaciones() {
             }
           }}
           cotizacion={cotizacionSeleccionada}
-          clientes={clientes}
           sucursales={sucursales}
+          serviciosProductos={serviciosProductos}
         />
       )}
       <ModalConfirmacion
