@@ -46,7 +46,6 @@ export default function ModalEditarCotizacion({
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Añadir una nueva línea vacía al detalle
   const addLinea = () => {
     setForm((prev) => ({
       ...prev,
@@ -71,7 +70,6 @@ export default function ModalEditarCotizacion({
     }));
   };
 
-  // Eliminar línea por índice
   const removeLinea = (index) => {
     setForm((prev) => ({
       ...prev,
@@ -81,7 +79,6 @@ export default function ModalEditarCotizacion({
     }));
   };
 
-  // Actualizar campo en línea específica
   const handleDetalleChange = (index, field, value) => {
     setForm((prev) => {
       const currentDetalle = Array.isArray(prev.detalle)
@@ -108,6 +105,24 @@ export default function ModalEditarCotizacion({
     }
   };
 
+  const renderSucursales = () => {
+    if (!Array.isArray(sucursales)) return null;
+    return sucursales.map((s) => (
+      <option key={s.id} value={s.id}>
+        {s.nombre}
+      </option>
+    ));
+  };
+
+  const renderServicios = () => {
+    if (!Array.isArray(serviciosProductos)) return null;
+    return serviciosProductos.map((sp) => (
+      <option key={sp.id} value={sp.id}>
+        {sp.nombre}
+      </option>
+    ));
+  };
+
   return (
     <AnimatePresence>
       {visible && (
@@ -123,7 +138,6 @@ export default function ModalEditarCotizacion({
             exit={{ scale: 0.95, opacity: 0 }}
             className="relative w-full max-w-lg p-6 bg-gray-800 rounded-lg shadow-lg"
           >
-            {/* Botón cerrar */}
             <button
               onClick={onClose}
               disabled={loading}
@@ -132,14 +146,12 @@ export default function ModalEditarCotizacion({
               <X className="w-5 h-5" />
             </button>
 
-            {/* Título */}
             <div className="text-center mb-4">
               <Pencil className="mx-auto mb-2 text-blue-600 w-10 h-10" />
               <h3 className="text-xl font-semibold text-white">{titulo}</h3>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Sucursal */}
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">
                   Sucursal
@@ -152,17 +164,10 @@ export default function ModalEditarCotizacion({
                   disabled={loading}
                 >
                   <option value="">Seleccione sucursal...</option>
-                  {Array.isArray(sucursales)
-                    ? sucursales.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.nombre}
-                        </option>
-                      ))
-                    : null}
+                  {renderSucursales()}
                 </select>
               </div>
 
-              {/* Confirmación Cliente */}
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">
                   Confirmación Cliente
@@ -179,7 +184,6 @@ export default function ModalEditarCotizacion({
                 </select>
               </div>
 
-              {/* Observaciones */}
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">
                   Observaciones
@@ -194,7 +198,6 @@ export default function ModalEditarCotizacion({
                 />
               </div>
 
-              {/* Detalle de ítems */}
               <div>
                 <h4 className="text-sm font-medium text-gray-300 mb-2">
                   Detalle de ítems
@@ -225,13 +228,10 @@ export default function ModalEditarCotizacion({
                                   e.target.value
                                 )
                               }
+                              disabled={loading}
                             >
                               <option value="">Seleccione...</option>
-                              {serviciosProductos.map((sp) => (
-                                <option key={sp.id} value={sp.id}>
-                                  {sp.nombre}
-                                </option>
-                              ))}
+                              {renderServicios()}
                             </select>
                           </td>
                           <td className="px-2 py-1">
@@ -246,6 +246,7 @@ export default function ModalEditarCotizacion({
                                   e.target.value
                                 )
                               }
+                              disabled={loading}
                             />
                           </td>
                           <td className="px-2 py-1">
@@ -260,6 +261,7 @@ export default function ModalEditarCotizacion({
                                   e.target.value
                                 )
                               }
+                              disabled={loading}
                             />
                           </td>
                           <td className="px-2 py-1">
@@ -274,6 +276,7 @@ export default function ModalEditarCotizacion({
                                   e.target.value
                                 )
                               }
+                              disabled={loading}
                             />
                           </td>
                           <td className="px-2 py-1 text-right">
@@ -287,6 +290,7 @@ export default function ModalEditarCotizacion({
                               type="button"
                               onClick={() => removeLinea(index)}
                               className="text-red-500 hover:text-red-300"
+                              disabled={loading}
                             >
                               Eliminar
                             </button>
@@ -299,12 +303,12 @@ export default function ModalEditarCotizacion({
                   type="button"
                   onClick={addLinea}
                   className="text-white bg-green-600 hover:bg-green-500 px-3 py-1 rounded"
+                  disabled={loading}
                 >
                   + Agregar línea
                 </button>
               </div>
 
-              {/* Botón Guardar */}
               <div className="flex justify-center gap-2 pt-4">
                 <button
                   type="submit"
@@ -321,14 +325,12 @@ export default function ModalEditarCotizacion({
               </div>
             </form>
 
-            {/* Modales de feedback */}
             <ModalExito
               visible={modalExitoVisible}
               onClose={() => setModalExitoVisible(false)}
               titulo="¡Éxito!"
               mensaje={mensajeExito}
             />
-
             <ModalError
               visible={modalErrorVisible}
               onClose={() => setModalErrorVisible(false)}
