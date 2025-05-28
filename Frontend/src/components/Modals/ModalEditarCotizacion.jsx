@@ -152,12 +152,13 @@ export default function ModalEditarCotizacion({
                   disabled={loading}
                 >
                   <option value="">Seleccione sucursal...</option>
-                  {Array.isArray(sucursales) &&
-                    sucursales.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.nombre}
-                      </option>
-                    ))}
+                  {Array.isArray(sucursales)
+                    ? sucursales.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.nombre}
+                        </option>
+                      ))
+                    : null}
                 </select>
               </div>
 
