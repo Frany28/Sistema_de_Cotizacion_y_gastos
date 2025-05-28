@@ -50,15 +50,24 @@ export default function ModalEditarCotizacion({
   const addLinea = () => {
     setForm((prev) => ({
       ...prev,
-      detalle: [
-        ...prev.detalle,
-        {
-          servicio_productos_id: "",
-          cantidad: 1,
-          precio_unitario: 0,
-          porcentaje_iva: 16,
-        },
-      ],
+      detalle: Array.isArray(prev.detalle)
+        ? [
+            ...prev.detalle,
+            {
+              servicio_productos_id: "",
+              cantidad: 1,
+              precio_unitario: 0,
+              porcentaje_iva: 16,
+            },
+          ]
+        : [
+            {
+              servicio_productos_id: "",
+              cantidad: 1,
+              precio_unitario: 0,
+              porcentaje_iva: 16,
+            },
+          ],
     }));
   };
 
@@ -66,16 +75,20 @@ export default function ModalEditarCotizacion({
   const removeLinea = (index) => {
     setForm((prev) => ({
       ...prev,
-      detalle: prev.detalle.filter((_, i) => i !== index),
+      detalle: Array.isArray(prev.detalle)
+        ? prev.detalle.filter((_, i) => i !== index)
+        : [],
     }));
   };
 
   // Actualizar campo en línea específica
   const handleDetalleChange = (index, field, value) => {
     setForm((prev) => {
-      const updated = [...prev.detalle];
-      updated[index] = { ...updated[index], [field]: value };
-      return { ...prev, detalle: updated };
+      const currentDetalle = Array.isArray(prev.detalle)
+        ? [...prev.detalle]
+        : [];
+      currentDetalle[index] = { ...currentDetalle[index], [field]: value };
+      return { ...prev, detalle: currentDetalle };
     });
   };
 
@@ -139,11 +152,12 @@ export default function ModalEditarCotizacion({
                   disabled={loading}
                 >
                   <option value="">Seleccione sucursal...</option>
-                  {sucursales.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.nombre}
-                    </option>
-                  ))}
+                  {Array.isArray(sucursales) &&
+                    sucursales.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.nombre}
+                      </option>
+                    ))}
                 </select>
               </div>
 
@@ -196,86 +210,88 @@ export default function ModalEditarCotizacion({
                     </tr>
                   </thead>
                   <tbody>
-                    {form.detalle.map((item, index) => (
-                      <tr key={index} className="border-b border-gray-600">
-                        <td className="px-2 py-1">
-                          <select
-                            className="w-full bg-gray-700 text-white p-1 border border-gray-600 rounded"
-                            value={item.servicio_productos_id}
-                            onChange={(e) =>
-                              handleDetalleChange(
-                                index,
-                                "servicio_productos_id",
-                                e.target.value
-                              )
-                            }
-                          >
-                            <option value="">Seleccione...</option>
-                            {serviciosProductos.map((sp) => (
-                              <option key={sp.id} value={sp.id}>
-                                {sp.nombre}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="px-2 py-1">
-                          <input
-                            type="number"
-                            className="w-full bg-gray-700 text-white p-1 border border-gray-600 rounded"
-                            value={item.cantidad}
-                            onChange={(e) =>
-                              handleDetalleChange(
-                                index,
-                                "cantidad",
-                                e.target.value
-                              )
-                            }
-                          />
-                        </td>
-                        <td className="px-2 py-1">
-                          <input
-                            type="number"
-                            className="w-full bg-gray-700 text-white p-1 border border-gray-600 rounded"
-                            value={item.precio_unitario}
-                            onChange={(e) =>
-                              handleDetalleChange(
-                                index,
-                                "precio_unitario",
-                                e.target.value
-                              )
-                            }
-                          />
-                        </td>
-                        <td className="px-2 py-1">
-                          <input
-                            type="number"
-                            className="w-full bg-gray-700 text-white p-1 border border-gray-600 rounded"
-                            value={item.porcentaje_iva}
-                            onChange={(e) =>
-                              handleDetalleChange(
-                                index,
-                                "porcentaje_iva",
-                                e.target.value
-                              )
-                            }
-                          />
-                        </td>
-                        <td className="px-2 py-1 text-right">
-                          {(
-                            Number(item.cantidad) * Number(item.precio_unitario)
-                          ).toFixed(2)}
-                        </td>
-                        <td className="px-2 py-1">
-                          <button
-                            type="button"
-                            onClick={() => removeLinea(index)}
-                            className="text-red-500 hover:text-red-300"
-                          >
-                            Eliminar
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {Array.isArray(form.detalle) &&
+                      form.detalle.map((item, index) => (
+                        <tr key={index} className="border-b border-gray-600">
+                          <td className="px-2 py-1">
+                            <select
+                              className="w-full bg-gray-700 text-white p-1 border border-gray-600 rounded"
+                              value={item.servicio_productos_id}
+                              onChange={(e) =>
+                                handleDetalleChange(
+                                  index,
+                                  "servicio_productos_id",
+                                  e.target.value
+                                )
+                              }
+                            >
+                              <option value="">Seleccione...</option>
+                              {serviciosProductos.map((sp) => (
+                                <option key={sp.id} value={sp.id}>
+                                  {sp.nombre}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="px-2 py-1">
+                            <input
+                              type="number"
+                              className="w-full bg-gray-700 text-white p-1 border border-gray-600 rounded"
+                              value={item.cantidad}
+                              onChange={(e) =>
+                                handleDetalleChange(
+                                  index,
+                                  "cantidad",
+                                  e.target.value
+                                )
+                              }
+                            />
+                          </td>
+                          <td className="px-2 py-1">
+                            <input
+                              type="number"
+                              className="w-full bg-gray-700 text-white p-1 border border-gray-600 rounded"
+                              value={item.precio_unitario}
+                              onChange={(e) =>
+                                handleDetalleChange(
+                                  index,
+                                  "precio_unitario",
+                                  e.target.value
+                                )
+                              }
+                            />
+                          </td>
+                          <td className="px-2 py-1">
+                            <input
+                              type="number"
+                              className="w-full bg-gray-700 text-white p-1 border border-gray-600 rounded"
+                              value={item.porcentaje_iva}
+                              onChange={(e) =>
+                                handleDetalleChange(
+                                  index,
+                                  "porcentaje_iva",
+                                  e.target.value
+                                )
+                              }
+                            />
+                          </td>
+                          <td className="px-2 py-1 text-right">
+                            {(
+                              Number(item.cantidad) *
+                              Number(item.precio_unitario)
+                            ).toFixed(2)}
+                          </td>
+                          <td className="px-2 py-1">
+                            <button
+                              type="button"
+                              onClick={() => removeLinea(index)}
+                              className="text-red-500 hover:text-red-300"
+                            >
+                              Eliminar
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
                   </tbody>
                 </table>
                 <button
