@@ -342,19 +342,19 @@ function ListaCotizaciones() {
               <td className="px-4 py-3 flex space-x-2">
                 {puedeAprobar && (
                   <BotonIcono
-                    tipo="check"
+                    tipo="estado"
                     titulo="Cambiar Estado"
                     onClick={() => {
-                      // Solo permitir cambio de estado si está en pendiente
-                      if (c.estado !== "pendiente") {
-                        return mostrarError({
+                      if (c.estado === "aprobada" || c.estado === "rechazada") {
+                        mostrarError({
                           titulo: "Acción no permitida",
                           mensaje:
-                            "Solo puedes cambiar el estado de cotizaciones que estén en 'pendiente'.",
+                            "No puedes cambiar el estado de una cotización que ya fue aprobada o rechazada.",
                         });
+                      } else {
+                        setCotizacionAActualizar(c);
+                        setMostrarModalEstado(true);
                       }
-                      setCotizacionAActualizar(c);
-                      setMostrarModalEstado(true);
                     }}
                   />
                 )}
