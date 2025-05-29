@@ -111,66 +111,70 @@ export const getCotizaciones = async (req, res) => {
 // Obtener una cotización específica
 export const getCotizacionById = async (req, res) => {
   const { id } = req.params;
-
   try {
-    const [cotizacion] = await db.query(
-      `SELECT 
-    c.id, 
-    c.fecha, 
-    c.total, 
-    c.estado, 
-    c.subtotal, 
-    c.impuesto,
-    c.cliente_id, 
-    c.sucursal_id,
-    s.nombre AS sucursal, 
-    c.confirmacion_cliente,
-    c.observaciones,
-    cli.nombre AS cliente_nombre, 
-    cli.email,
-    u.nombre AS declarante
-  FROM cotizaciones c
-  JOIN clientes cli ON c.cliente_id = cli.id
-  LEFT JOIN sucursales s ON c.sucursal_id = s.id 
-  LEFT JOIN usuarios u ON u.id = c.usuario_id
-  WHERE c.id = ?
-
-
-    `,
+    // 1) Cabecera: agregamos los campos que faltaban
+    const [[cot]] = await db.query(
+      `SELECT
+         c.id,
+         c.fecha,
+         c.total,
+         c.estado,
+         c.subtotal,
+         c.impuesto,
+         c.cliente_id,
+         c.sucursal_id,
+         s.nombre    AS sucursal,
+         c.confirmacion_cliente,
+         c.observaciones,
+         c.operacion,
+         c.mercancia,
+         c.bl,
+         c.contenedor,
+         c.puerto,
+         cli.nombre  AS cliente_nombre,
+         cli.email,
+         u.nombre    AS declarante
+       FROM cotizaciones c
+       JOIN clientes cli ON c.cliente_id = cli.id
+       LEFT JOIN sucursales s ON c.sucursal_id = s.id
+       LEFT JOIN usuarios u   ON u.id = c.usuario_id
+       WHERE c.id = ?`,
       [id]
     );
+    if (!cot)
+      return res.status(404).json({ message: "No existe esa cotización" });
 
-    if (cotizacion.length === 0)
-      return res.status(404).json({ message: "Cotización no encontrada" });
-
-    cotizacion[0].subtotal = Number(cotizacion[0].subtotal) || 0;
-    cotizacion[0].impuesto = Number(cotizacion[0].impuesto) || 0;
-    cotizacion[0].total = Number(cotizacion[0].total) || 0;
-
+    // 2) Detalle: ahora traemos también dc.id y dc.servicio_productos_id
     const [detalle] = await db.query(
-      `SELECT 
-        sp.nombre AS servicio, 
-        sp.descripcion, 
-        dc.cantidad, 
-        dc.precio_unitario,
-        dc.porcentaje_iva,
-        dc.subtotal,
-        dc.impuesto,
-        dc.total
-      FROM detalle_cotizacion dc
-      JOIN servicios_productos sp ON sp.id = dc.servicio_productos_id
-      WHERE dc.cotizacion_id = ?`,
+      `SELECT
+         dc.id,
+         dc.servicio_productos_id,
+         sp.nombre           AS servicio,
+         sp.descripcion,
+         dc.cantidad,
+         dc.precio_unitario,
+         dc.porcentaje_iva,
+         dc.subtotal,
+         dc.impuesto,
+         dc.total
+       FROM detalle_cotizacion dc
+       JOIN servicios_productos sp ON sp.id = dc.servicio_productos_id
+       WHERE dc.cotizacion_id = ?`,
       [id]
     );
 
-    cotizacion[0].detalle = detalle;
-    res.json(cotizacion[0]);
+    // 3) Ajustes de tipos si los necesitas…
+    cot.subtotal = Number(cot.subtotal);
+    cot.impuesto = Number(cot.impuesto);
+    cot.total = Number(cot.total);
+    cot.detalle = detalle;
+
+    return res.json(cot);
   } catch (error) {
     console.error("Error al obtener cotización:", error);
-    res.status(500).json({ message: "Error al obtener la cotización" });
+    return res.status(500).json({ message: "Error interno" });
   }
 };
-
 // Actualizar estado de cotización
 export const actualizarEstadoCotizacion = async (req, res) => {
   const { id } = req.params;
@@ -274,13 +278,17 @@ export const buscarCotizaciones = async (req, res) => {
 
 // En cotizaciones.controller.js
 export const editarCotizacion = async (req, res) => {
-  const { id } = req.params;
   const {
     cliente_id,
     sucursal_id,
+    operacion = "",
+    mercancia = "",
+    bl = "",
+    contenedor = "",
+    puerto = "",
     confirmacion_cliente = false,
     observaciones = "",
-    detalle = [], // array de líneas con { id?, servicio_productos_id, cantidad, precio_unitario, porcentaje_iva }
+    detalle = [],
   } = req.body;
 
   const conn = await db.getConnection();
@@ -308,20 +316,36 @@ export const editarCotizacion = async (req, res) => {
     // 2) Actualizar cabecera y forzar estado a 'pendiente'
     await conn.query(
       `UPDATE cotizaciones
-         SET cliente_id          = ?,
-             sucursal_id         = ?,
-             confirmacion_cliente= ?,
-             observaciones       = ?,
-             estado              = 'pendiente',
-             updated_at          = NOW()
-       WHERE id = ?`,
-      [cliente_id, sucursal_id, confirmacion_cliente, observaciones, id]
+      SET cliente_id          = ?,
+      sucursal_id         = ?,
+      operacion           = ?,
+      mercancia           = ?,
+      bl                  = ?,
+      contenedor          = ?,
+      puerto              = ?,
+      confirmacion_cliente= ?,
+      observaciones       = ?,
+      estado              = 'pendiente',
+      updated_at          = NOW()
+      WHERE id = ?`,
+      [
+        cliente_id,
+        sucursal_id,
+        operacion,
+        mercancia,
+        bl,
+        contenedor,
+        puerto,
+        confirmacion_cliente,
+        observaciones,
+        id,
+      ]
     );
 
     // 3) Leer líneas actuales (detalle viejo)
     const [detalleOldRows] = await conn.query(
       `SELECT id, servicio_productos_id, cantidad, precio_unitario, porcentaje_iva
-         FROM detalle_cotizacion
+        FROM detalle_cotizacion
         WHERE cotizacion_id = ?`,
       [id]
     );
