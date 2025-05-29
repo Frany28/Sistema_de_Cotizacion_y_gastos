@@ -397,13 +397,18 @@ function ListaCotizaciones() {
                         const { data } = await api.get(`/cotizaciones/${c.id}`);
                         setCotizacionSeleccionada({
                           id: data.id,
-                          cliente_id: data.cliente_id ?? null,
-                          sucursal_id: data.sucursal_id ?? null,
+                          cliente_id: data.cliente_id?.toString() || "",
+                          sucursal_id: data.sucursal_id?.toString() || "",
                           estado: data.estado,
                           confirmacion_cliente: data.confirmacion_cliente
                             ? "1"
                             : "0",
                           observaciones: data.observaciones || "",
+                          operacion: data.operacion || "",
+                          mercancia: data.mercancia || "",
+                          bl: data.bl || "",
+                          contenedor: data.contenedor || "",
+                          puerto: data.puerto || "",
                           detalle: Array.isArray(data.detalle)
                             ? data.detalle
                             : [],
@@ -484,13 +489,17 @@ function ListaCotizaciones() {
           onSubmit={async (formActualizado) => {
             try {
               const id = cotizacionSeleccionada.id;
-              // Incluimos aquí el detalle completo
               await api.put(`/cotizaciones/${id}`, {
-                cliente_id: cotizacionSeleccionada.cliente_id,
+                cliente_id: formActualizado.cliente_id,
                 sucursal_id: formActualizado.sucursal_id,
                 confirmacion_cliente:
                   formActualizado.confirmacion_cliente === "1",
                 observaciones: formActualizado.observaciones,
+                operacion: formActualizado.operacion,
+                mercancia: formActualizado.mercancia,
+                bl: formActualizado.bl,
+                contenedor: formActualizado.contenedor,
+                puerto: formActualizado.puerto,
                 detalle: formActualizado.detalle,
               });
               mostrarMensajeExito({
@@ -513,6 +522,7 @@ function ListaCotizaciones() {
           cotizacion={cotizacionSeleccionada}
           sucursales={sucursales}
           serviciosProductos={serviciosProductos}
+          clientes={clientes}
         />
       )}
       <ModalConfirmacion
