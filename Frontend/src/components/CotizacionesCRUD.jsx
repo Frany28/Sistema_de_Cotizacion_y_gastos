@@ -57,11 +57,12 @@ function ListaCotizaciones() {
     const fetchMaestros = async () => {
       try {
         const [resClientes, resSucursales, resSP] = await Promise.all([
-          api.get("/clientes"),
+          api.get("/clientes"), 
           api.get("/sucursales"),
-          api.get("/servicios-productos"),
+          api.get("/servicios-productos"), 
         ]);
-        // GUARDA SOLO EL ARRAY en el estado
+
+        // GUARDA SOLO EL ARRAY de clientes
         setClientes(resClientes.data.clientes);
         setSucursales(resSucursales.data.sucursales);
         setServiciosProductos(resSP.data.servicios);
