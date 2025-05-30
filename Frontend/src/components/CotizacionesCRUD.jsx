@@ -397,22 +397,23 @@ function ListaCotizaciones() {
                         const { data } = await api.get(`/cotizaciones/${c.id}`);
                         setCotizacionSeleccionada({
                           id: data.id,
-                          cliente_id: data.cliente_id?.toString() || "",
-                          sucursal_id: data.sucursal_id?.toString() || "",
+                          cliente_id: data.cliente_id?.toString(),
+                          sucursal_id: data.sucursal_id?.toString(),
                           estado: data.estado,
                           confirmacion_cliente: data.confirmacion_cliente
                             ? "1"
                             : "0",
-                          observaciones: data.observaciones || "",
-                          operacion: data.operacion || "",
-                          mercancia: data.mercancia || "",
-                          bl: data.bl || "",
-                          contenedor: data.contenedor || "",
-                          puerto: data.puerto || "",
+                          observaciones: data.observaciones,
+                          operacion: data.operacion,
+                          mercancia: data.mercancia,
+                          bl: data.bl,
+                          contenedor: data.contenedor,
+                          puerto: data.puerto,
                           detalle: Array.isArray(data.detalle)
                             ? data.detalle
                             : [],
                         });
+
                         setMostrarModalEditar(true);
                       } catch (error) {
                         console.error("Error cargando cotización:", error);

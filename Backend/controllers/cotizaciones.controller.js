@@ -108,7 +108,7 @@ export const getCotizaciones = async (req, res) => {
   }
 };
 
-// Obtener una cotización específica
+// controllers/cotizaciones.controller.js
 export const getCotizacionById = async (req, res) => {
   const { id } = req.params;
   try {
@@ -175,6 +175,7 @@ export const getCotizacionById = async (req, res) => {
     return res.status(500).json({ message: "Error interno" });
   }
 };
+
 // Actualizar estado de cotización
 export const actualizarEstadoCotizacion = async (req, res) => {
   const { id } = req.params;
@@ -316,17 +317,17 @@ export const editarCotizacion = async (req, res) => {
     // 2) Actualizar cabecera y forzar estado a 'pendiente'
     await conn.query(
       `UPDATE cotizaciones
-      SET cliente_id          = ?,
-      sucursal_id         = ?,
-      operacion           = ?,
-      mercancia           = ?,
-      bl                  = ?,
-      contenedor          = ?,
-      puerto              = ?,
-      confirmacion_cliente= ?,
-      observaciones       = ?,
-      estado              = 'pendiente',
-      updated_at          = NOW()
+        SET cliente_id          = ?,
+            sucursal_id         = ?,
+            operacion           = ?,
+            mercancia           = ?,
+            bl                  = ?,
+            contenedor          = ?,
+            puerto              = ?,
+            confirmacion_cliente= ?,
+            observaciones       = ?,
+            estado              = 'pendiente',
+            updated_at          = NOW()
       WHERE id = ?`,
       [
         cliente_id,
