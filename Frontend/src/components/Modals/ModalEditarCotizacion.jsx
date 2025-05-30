@@ -43,6 +43,12 @@ export default function ModalEditarCotizacion({
 
   useEffect(() => {
     if (cotizacion) {
+      console.log("📦 Props en ModalEditarCotizacion:", {
+        cotizacion,
+        clientes,
+        sucursales,
+        serviciosProductos,
+      });
       setForm({
         cliente_id: cotizacion.cliente_id?.toString() || "",
         sucursal_id: cotizacion.sucursal_id?.toString() || "",
