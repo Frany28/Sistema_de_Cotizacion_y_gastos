@@ -35,7 +35,7 @@ function ListaCotizaciones() {
   const navigate = useNavigate();
   const [mostrarModalRechazo, setMostrarModalRechazo] = useState(false);
   const [estadoSeleccionado, setEstadoSeleccionado] = useState("");
-
+  const [serviciosProductos, setServiciosProductos] = useState([]);
   const eliminarCotizacion = async (id) => {
     try {
       await api.delete(`/cotizaciones/${id}`);
