@@ -523,9 +523,9 @@ function ListaCotizaciones() {
             }
           }}
           cotizacion={cotizacionSeleccionada}
-          clientes={clientes}
-          sucursales={sucursales}
-          serviciosProductos={serviciosProductos}
+          clientes={clientes.clientes || []}
+          sucursales={sucursales.sucursales || []}
+          serviciosProductos={serviciosProductos.servicios || []}
         />
       )}
 
