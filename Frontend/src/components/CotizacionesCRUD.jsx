@@ -396,23 +396,25 @@ function ListaCotizaciones() {
                       try {
                         const { data } = await api.get(`/cotizaciones/${c.id}`);
                         setCotizacionSeleccionada({
+                          // …añade o conserva todos estos campos:
                           id: data.id,
-                          cliente_id: data.cliente_id?.toString(),
-                          sucursal_id: data.sucursal_id?.toString(),
+                          cliente_id: data.cliente_id?.toString() || "",
+                          sucursal_id: data.sucursal_id?.toString() || "",
                           estado: data.estado,
                           confirmacion_cliente: data.confirmacion_cliente
                             ? "1"
                             : "0",
-                          observaciones: data.observaciones,
-                          operacion: data.operacion,
-                          mercancia: data.mercancia,
-                          bl: data.bl,
-                          contenedor: data.contenedor,
-                          puerto: data.puerto,
+                          observaciones: data.observaciones || "",
+                          operacion: data.operacion || "",
+                          mercancia: data.mercancia || "",
+                          bl: data.bl || "",
+                          contenedor: data.contenedor || "",
+                          puerto: data.puerto || "",
                           detalle: Array.isArray(data.detalle)
                             ? data.detalle
                             : [],
                         });
+                        setMostrarModalEditar(true);
 
                         setMostrarModalEditar(true);
                       } catch (error) {
@@ -483,10 +485,12 @@ function ListaCotizaciones() {
         <ModalEditarCotizacion
           titulo="Editar Cotización"
           visible
+          // 1) Cerrar modal y limpiar estado
           onClose={() => {
             setMostrarModalEditar(false);
             setCotizacionSeleccionada(null);
           }}
+          // 2) Al hacer submit, enviamos TO-DO el formActualizado al back
           onSubmit={async (formActualizado) => {
             try {
               const id = cotizacionSeleccionada.id;
@@ -507,6 +511,7 @@ function ListaCotizaciones() {
                 titulo: "Cotización actualizada",
                 mensaje: "Los cambios fueron guardados correctamente.",
               });
+              // 3) Cerrar modal y recargar lista
               setMostrarModalEditar(false);
               setCotizacionSeleccionada(null);
               fetchCotizaciones();
@@ -520,12 +525,14 @@ function ListaCotizaciones() {
               });
             }
           }}
+          // 4) Aquí pasamos TODO lo que el modal necesita para resolverse
           cotizacion={cotizacionSeleccionada}
+          clientes={clientes}
           sucursales={sucursales}
           serviciosProductos={serviciosProductos}
-          clientes={clientes}
         />
       )}
+
       <ModalConfirmacion
         visible={mostrarConfirmacion}
         onClose={() => {
