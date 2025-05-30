@@ -37,6 +37,24 @@ function ListaCotizaciones() {
   const [estadoSeleccionado, setEstadoSeleccionado] = useState("");
   const [serviciosProductos, setServiciosProductos] = useState([]);
 
+  const iniciarEdicionCotizacion = async (cot) => {
+    setLoading(true);
+    try {
+      // Trae toda la cotización (cabecera + detalle)
+      const { data } = await api.get(`/cotizaciones/${cot.id}`);
+      setCotizacionSeleccionada(data);
+      setMostrarModalEditar(true);
+    } catch (error) {
+      console.error("Error cargando cotización:", error);
+      mostrarError({
+        titulo: "Error al cargar",
+        mensaje: "No se pudo cargar la cotización para edición.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const eliminarCotizacion = async (id) => {
     try {
       await api.delete(`/cotizaciones/${id}`);
@@ -385,46 +403,21 @@ function ListaCotizaciones() {
                   <BotonIcono
                     tipo="editar"
                     titulo="Editar Cotización"
-                    onClick={async () => {
+                    onClick={() => {
                       if (c.estado === "aprobada") {
                         return mostrarError({
                           titulo: "Acción no permitida",
                           mensaje: "No puedes editar una cotización aprobada.",
                         });
                       }
-                      setLoading(true);
-                      try {
-                        const { data } = await api.get(`/cotizaciones/${c.id}`);
-                        setCotizacionSeleccionada({
-                          id: data.id,
-                          cliente_id: data.cliente_id?.toString() || "",
-                          sucursal_id: data.sucursal_id?.toString() || "",
-                          estado: data.estado,
-                          confirmacion_cliente: data.confirmacion_cliente
-                            ? "1"
-                            : "0",
-                          observaciones: data.observaciones || "",
-                          operacion: data.operacion || "",
-                          mercancia: data.mercancia || "",
-                          bl: data.bl || "",
-                          contenedor: data.contenedor || "",
-                          puerto: data.puerto || "",
-                          detalle: Array.isArray(data.detalle)
-                            ? data.detalle
-                            : [],
-                        });
-                        setMostrarModalEditar(true);
-                      } catch (error) {
-                        console.error("Error cargando cotización:", error);
-                        mostrarError({
-                          titulo: "Error al cargar",
-                          mensaje:
-                            "No se pudo cargar la cotización para edición.",
-                        });
-                      } finally {
-                        setLoading(false);
-                      }
+                      iniciarEdicionCotizacion(c);
                     }}
+                    disabled={c.estado === "aprobada"}
+                    className={
+                      c.estado === "aprobada"
+                        ? "opacity-50 cursor-not-allowed"
+                        : ""
+                    }
                   />
                 )}
 
