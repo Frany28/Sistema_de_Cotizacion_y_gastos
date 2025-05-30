@@ -40,9 +40,16 @@ export default function ModalEditarCotizacion({
   const [showClientes, setShowClientes] = useState(false);
   const [showSucursales, setShowSucursales] = useState(false);
   const [showServicios, setShowServicios] = useState(false);
+  const [activeServicioIndex, setActiveServicioIndex] = useState(null);
 
   useEffect(() => {
-    if (cotizacion) {
+    if (
+      visible &&
+      cotizacion &&
+      clientes.length &&
+      sucursales.length &&
+      serviciosProductos.length
+    ) {
       setForm({
         cliente_id: cotizacion.cliente_id?.toString() || "",
         sucursal_id: cotizacion.sucursal_id?.toString() || "",
@@ -54,10 +61,14 @@ export default function ModalEditarCotizacion({
         bl: cotizacion.bl || "",
         contenedor: cotizacion.contenedor || "",
         puerto: cotizacion.puerto || "",
-        detalle: Array.isArray(cotizacion.detalle) ? cotizacion.detalle : [],
+        detalle: cotizacion.detalle.map((item) => ({
+          ...item,
+          // convertir siempre a string para consistencia
+          servicio_productos_id: item.servicio_productos_id?.toString() || "",
+        })),
       });
     }
-  }, [cotizacion]);
+  }, [visible, cotizacion, clientes, sucursales, serviciosProductos]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -484,7 +495,7 @@ export default function ModalEditarCotizacion({
                                   serviciosProductos
                                 )}
                                 readOnly
-                                onClick={() => setShowServicios(!showServicios)}
+                                onClick={() => setActiveServicioIndex(index)}
                                 className="w-full px-3 py-1 border rounded bg-gray-700 text-white cursor-pointer"
                                 placeholder="Seleccione servicio"
                               />

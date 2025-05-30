@@ -40,7 +40,6 @@ function ListaCotizaciones() {
   const iniciarEdicionCotizacion = async (cot) => {
     setLoading(true);
     try {
-      // Trae toda la cotización (cabecera + detalle)
       const { data } = await api.get(`/cotizaciones/${cot.id}`);
       setCotizacionSeleccionada(data);
       setMostrarModalEditar(true);
@@ -518,6 +517,7 @@ function ListaCotizaciones() {
           clientes={clientes}
         />
       )}
+
       <ModalConfirmacion
         visible={mostrarConfirmacion}
         onClose={() => {
