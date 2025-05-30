@@ -35,7 +35,6 @@ function ListaCotizaciones() {
   const navigate = useNavigate();
   const [mostrarModalRechazo, setMostrarModalRechazo] = useState(false);
   const [estadoSeleccionado, setEstadoSeleccionado] = useState("");
-  const [serviciosProductos, setServiciosProductos] = useState([]);
 
   const eliminarCotizacion = async (id) => {
     try {
@@ -62,9 +61,10 @@ function ListaCotizaciones() {
           api.get("/sucursales"),
           api.get("/servicios-productos"),
         ]);
-        setClientes(resClientes.data);
-        setSucursales(resSucursales.data);
-        setServiciosProductos(resSP.data);
+        // GUARDA SOLO EL ARRAY en el estado
+        setClientes(resClientes.data.clientes);
+        setSucursales(resSucursales.data.sucursales);
+        setServiciosProductos(resSP.data.servicios);
       } catch (err) {
         console.error("Error cargando maestros:", err);
       }
@@ -484,13 +484,11 @@ function ListaCotizaciones() {
       {mostrarModalEditar && cotizacionSeleccionada && (
         <ModalEditarCotizacion
           titulo="Editar Cotización"
-          visible
-          // 1) Cerrar modal y limpiar estado
+          visible={mostrarModalEditar}
           onClose={() => {
             setMostrarModalEditar(false);
             setCotizacionSeleccionada(null);
           }}
-          // 2) Al hacer submit, enviamos TO-DO el formActualizado al back
           onSubmit={async (formActualizado) => {
             try {
               const id = cotizacionSeleccionada.id;
@@ -511,7 +509,6 @@ function ListaCotizaciones() {
                 titulo: "Cotización actualizada",
                 mensaje: "Los cambios fueron guardados correctamente.",
               });
-              // 3) Cerrar modal y recargar lista
               setMostrarModalEditar(false);
               setCotizacionSeleccionada(null);
               fetchCotizaciones();
@@ -525,7 +522,6 @@ function ListaCotizaciones() {
               });
             }
           }}
-          // 4) Aquí pasamos TODO lo que el modal necesita para resolverse
           cotizacion={cotizacionSeleccionada}
           clientes={clientes}
           sucursales={sucursales}
