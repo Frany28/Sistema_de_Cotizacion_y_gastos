@@ -112,7 +112,6 @@ export default function ModalEditarCotizacion({
           const precioBase = isNaN(Number(servicioSeleccionado.precio_unitario))
             ? 0
             : Number(servicioSeleccionado.precio_unitario);
-
           const ivaBase = isNaN(Number(servicioSeleccionado.porcentaje_iva))
             ? 0
             : Number(servicioSeleccionado.porcentaje_iva);
@@ -121,7 +120,7 @@ export default function ModalEditarCotizacion({
           item.porcentaje_iva = ivaBase;
         } else {
           item.precio_unitario = 0;
-          item.porcentaje_iva = 16;
+          item.porcentaje_iva = 0;
         }
 
         const cantidadActual = Number(item.cantidad) || 0;
@@ -148,7 +147,6 @@ export default function ModalEditarCotizacion({
       }
 
       newDetalle[index] = item;
-
       return { ...prev, detalle: newDetalle };
     });
   };
