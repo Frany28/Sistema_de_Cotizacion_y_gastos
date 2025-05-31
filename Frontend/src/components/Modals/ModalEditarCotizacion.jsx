@@ -50,7 +50,7 @@ export default function ModalEditarCotizacion({
         serviciosProductos,
       });
       setForm({
-        cliente_id: cotizacion.cliente_id?.toString() || "",
+        cliente_id: cotizacion.cliente_id?.toString() || "", // ← aquí guardas “5”
         sucursal_id: cotizacion.sucursal_id?.toString() || "",
         estado: cotizacion.estado || "pendiente",
         confirmacion_cliente: cotizacion.confirmacion_cliente ? "1" : "0",

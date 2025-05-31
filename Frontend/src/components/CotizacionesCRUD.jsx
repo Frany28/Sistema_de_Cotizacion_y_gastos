@@ -57,12 +57,11 @@ function ListaCotizaciones() {
     const fetchMaestros = async () => {
       try {
         const [resClientes, resSucursales, resSP] = await Promise.all([
-          api.get("/clientes"), 
+          api.get("/clientes"),
           api.get("/sucursales"),
-          api.get("/servicios-productos"), 
+          api.get("/servicios-productos"),
         ]);
 
-        // GUARDA SOLO EL ARRAY de clientes
         setClientes(resClientes.data.clientes);
         setSucursales(resSucursales.data.sucursales);
         setServiciosProductos(resSP.data.servicios);
@@ -397,9 +396,8 @@ function ListaCotizaciones() {
                       try {
                         const { data } = await api.get(`/cotizaciones/${c.id}`);
                         setCotizacionSeleccionada({
-                          // …añade o conserva todos estos campos:
                           id: data.id,
-                          cliente_id: data.cliente_id?.toString() || "",
+                          cliente_id: data.cliente_id?.toString() || "", 
                           sucursal_id: data.sucursal_id?.toString() || "",
                           estado: data.estado,
                           confirmacion_cliente: data.confirmacion_cliente
@@ -415,8 +413,6 @@ function ListaCotizaciones() {
                             ? data.detalle
                             : [],
                         });
-                        setMostrarModalEditar(true);
-
                         setMostrarModalEditar(true);
                       } catch (error) {
                         console.error("Error cargando cotización:", error);
