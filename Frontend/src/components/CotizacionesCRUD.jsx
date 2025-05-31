@@ -489,32 +489,31 @@ function ListaCotizaciones() {
           onSubmit={async (formActualizado) => {
             try {
               const id = cotizacionSeleccionada.id;
-              console.log("🚀 Payload a enviar a PUT /cotizaciones/:id:", {
-                cliente_id: formActualizado.cliente_id,
-                sucursal_id: formActualizado.sucursal_id,
-                confirmacion_cliente:
-                  formActualizado.confirmacion_cliente === "1",
-                observaciones: formActualizado.observaciones,
-                operacion: formActualizado.operacion,
-                mercancia: formActualizado.mercancia,
-                bl: formActualizado.bl,
-                contenedor: formActualizado.contenedor,
-                puerto: formActualizado.puerto,
-                detalle: formActualizado.detalle,
-              });
+
+              // 1) Crear 'detallePayload' solo con los campos que el controlador espera 
+              const detallePayload = formActualizado.detalle.map((item) => ({
+                ...(item.id ? { id: Number(item.id) } : {}),
+                servicio_productos_id: Number(item.servicio_productos_id),
+                cantidad: Number(item.cantidad),
+                precio_unitario: Number(item.precio_unitario),
+                porcentaje_iva: Number(item.porcentaje_iva),
+              }));
+
+              //  2) Enviar el PUT con cabecera + detallePayload 
               await api.put(`/cotizaciones/${id}`, {
-                cliente_id: formActualizado.cliente_id,
-                sucursal_id: formActualizado.sucursal_id,
+                cliente_id: Number(formActualizado.cliente_id),
+                sucursal_id: Number(formActualizado.sucursal_id),
+                operacion: formActualizado.operacion.trim(),
+                mercancia: formActualizado.mercancia.trim(),
+                bl: formActualizado.bl.trim(),
+                contenedor: formActualizado.contenedor.trim(),
+                puerto: formActualizado.puerto.trim(),
                 confirmacion_cliente:
                   formActualizado.confirmacion_cliente === "1",
-                observaciones: formActualizado.observaciones,
-                operacion: formActualizado.operacion,
-                mercancia: formActualizado.mercancia,
-                bl: formActualizado.bl,
-                contenedor: formActualizado.contenedor,
-                puerto: formActualizado.puerto,
-                detalle: formActualizado.detalle,
+                observaciones: formActualizado.observaciones.trim(),
+                detalle: detallePayload,
               });
+
               mostrarMensajeExito({
                 titulo: "Cotización actualizada",
                 mensaje: "Los cambios fueron guardados correctamente.",
@@ -526,7 +525,7 @@ function ListaCotizaciones() {
               console.error("Error al editar cotización:", error);
               if (error.response && error.response.data) {
                 console.error(
-                  "→ Respuesta 400 del servidor (error.response.data):",
+                  "Respuesta 400 del servidor (error.response.data):",
                   error.response.data
                 );
               }
