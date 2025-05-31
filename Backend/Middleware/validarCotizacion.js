@@ -10,7 +10,6 @@ export const validarCotizacion = (req, res, next) => {
     mercancia,
     contenedor,
     observaciones,
-    total,
   } = req.body;
 
   const errors = [];
@@ -27,10 +26,6 @@ export const validarCotizacion = (req, res, next) => {
   const estadosValidos = ["pendiente", "aprobada", "rechazada"];
   if (!estadosValidos.includes(estado)) {
     errors.push("El campo 'estado' no es válido.");
-  }
-
-  if (total === undefined || total === null || isNaN(total) || total < 0) {
-    errors.push("El campo 'total' es requerido y debe ser un número positivo.");
   }
 
   // Validaciones de operación (para servicios o productos)

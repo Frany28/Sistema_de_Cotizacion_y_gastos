@@ -279,6 +279,8 @@ export const buscarCotizaciones = async (req, res) => {
 
 // En cotizaciones.controller.js
 export const editarCotizacion = async (req, res) => {
+  const { id } = req.params; // ← Esto es esencial
+
   const {
     cliente_id,
     sucursal_id,

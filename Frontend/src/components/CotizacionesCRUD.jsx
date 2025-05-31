@@ -490,16 +490,16 @@ function ListaCotizaciones() {
             try {
               const id = cotizacionSeleccionada.id;
 
-              // 1) Crear 'detallePayload' solo con los campos que el controlador espera 
+              // 1) Creamos detallePayload con los campos que el controlador espera
               const detallePayload = formActualizado.detalle.map((item) => ({
-                ...(item.id ? { id: Number(item.id) } : {}),
+                ...(item.id ? { id: Number(item.id) } : {}), // si ya existe, incluimos el id
                 servicio_productos_id: Number(item.servicio_productos_id),
                 cantidad: Number(item.cantidad),
                 precio_unitario: Number(item.precio_unitario),
                 porcentaje_iva: Number(item.porcentaje_iva),
               }));
 
-              //  2) Enviar el PUT con cabecera + detallePayload 
+              // 2) Enviamos el PUT con la cabecera + detallePayload (sin total)
               await api.put(`/cotizaciones/${id}`, {
                 cliente_id: Number(formActualizado.cliente_id),
                 sucursal_id: Number(formActualizado.sucursal_id),
