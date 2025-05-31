@@ -97,32 +97,40 @@ export default function ModalEditarCotizacion({
 
   const handleDetalleChange = (index, field, value) => {
     setForm((prev) => {
+      // 1) Hacemos una copia del arreglo de líneas
       const newDetalle = [...prev.detalle];
-
+      // 2) Clonamos el objeto de la línea que estamos editando
       const item = { ...newDetalle[index] };
 
+      // 3) Asignamos el nuevo valor al campo que cambió
       item[field] = value;
 
+      // 4) Si cambiaron el "servicio_productos_id", buscamos en serviciosProductos:
       if (field === "servicio_productos_id") {
+        // a) Encontrar el objeto completo del servicio con ese id
         const servicioSeleccionado = serviciosProductos.find(
           (serv) => serv.id.toString() === value.toString()
         );
 
         if (servicioSeleccionado) {
-          const precioBase = isNaN(Number(servicioSeleccionado.precio_unitario))
+          // b) Parseamos precio y porcentaje_iva de ese objeto:
+          const precioBase = isNaN(Number(servicioSeleccionado.precio))
             ? 0
-            : Number(servicioSeleccionado.precio_unitario);
+            : Number(servicioSeleccionado.precio);
           const ivaBase = isNaN(Number(servicioSeleccionado.porcentaje_iva))
             ? 0
             : Number(servicioSeleccionado.porcentaje_iva);
 
+          // c) Asignamos ambos valores a la línea actual
           item.precio_unitario = precioBase;
           item.porcentaje_iva = ivaBase;
         } else {
+          // Si no existe (por ejemplo, deseleccionó), ponemos 0
           item.precio_unitario = 0;
           item.porcentaje_iva = 0;
         }
 
+        // d) Recalculamos subtotal, impuesto y total usando la cantidad que ya esté en item.cantidad:
         const cantidadActual = Number(item.cantidad) || 0;
         const precioActual = Number(item.precio_unitario) || 0;
         const ivaActual = Number(item.porcentaje_iva) || 0;
@@ -132,6 +140,7 @@ export default function ModalEditarCotizacion({
         item.total = item.subtotal + item.impuesto;
       }
 
+      // 5) Si cambiaron cantidad, precio_unitario o porcentaje_iva manualmente, recalculemos:
       if (
         field === "cantidad" ||
         field === "precio_unitario" ||
@@ -146,11 +155,12 @@ export default function ModalEditarCotizacion({
         item.total = item.subtotal + item.impuesto;
       }
 
+      // 6) Guardamos esta línea modificada en newDetalle
       newDetalle[index] = item;
+      // 7) Actualizamos el estado del formulario con el nuevo detalle
       return { ...prev, detalle: newDetalle };
     });
   };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
