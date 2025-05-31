@@ -98,11 +98,33 @@ export default function ModalEditarCotizacion({
   const handleDetalleChange = (index, field, value) => {
     setForm((prev) => {
       const newDetalle = [...prev.detalle];
+
       const item = { ...newDetalle[index] };
 
       item[field] = value;
 
-      // Recalcular valores si cambian cantidad, precio o IVA
+      if (field === "servicio_productos_id") {
+        const servicioSeleccionado = serviciosProductos.find(
+          (serv) => serv.id.toString() === value.toString()
+        );
+
+        if (servicioSeleccionado) {
+          item.precio_unitario = Number(servicioSeleccionado.precio_unitario);
+          item.porcentaje_iva = Number(servicioSeleccionado.porcentaje_iva);
+        } else {
+          item.precio_unitario = 0;
+          item.porcentaje_iva = 16;
+        }
+
+        const cantidadActual = Number(item.cantidad) || 0;
+        const precioActual = Number(item.precio_unitario) || 0;
+        const ivaActual = Number(item.porcentaje_iva) || 0;
+
+        item.subtotal = cantidadActual * precioActual;
+        item.impuesto = item.subtotal * (ivaActual / 100);
+        item.total = item.subtotal + item.impuesto;
+      }
+
       if (
         field === "cantidad" ||
         field === "precio_unitario" ||
@@ -118,6 +140,7 @@ export default function ModalEditarCotizacion({
       }
 
       newDetalle[index] = item;
+
       return { ...prev, detalle: newDetalle };
     });
   };
