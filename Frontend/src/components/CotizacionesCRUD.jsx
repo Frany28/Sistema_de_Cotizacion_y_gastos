@@ -397,7 +397,7 @@ function ListaCotizaciones() {
                         const { data } = await api.get(`/cotizaciones/${c.id}`);
                         setCotizacionSeleccionada({
                           id: data.id,
-                          cliente_id: data.cliente_id?.toString() || "", 
+                          cliente_id: data.cliente_id?.toString() || "",
                           sucursal_id: data.sucursal_id?.toString() || "",
                           estado: data.estado,
                           confirmacion_cliente: data.confirmacion_cliente
@@ -489,6 +489,19 @@ function ListaCotizaciones() {
           onSubmit={async (formActualizado) => {
             try {
               const id = cotizacionSeleccionada.id;
+              console.log("🚀 Payload a enviar a PUT /cotizaciones/:id:", {
+                cliente_id: formActualizado.cliente_id,
+                sucursal_id: formActualizado.sucursal_id,
+                confirmacion_cliente:
+                  formActualizado.confirmacion_cliente === "1",
+                observaciones: formActualizado.observaciones,
+                operacion: formActualizado.operacion,
+                mercancia: formActualizado.mercancia,
+                bl: formActualizado.bl,
+                contenedor: formActualizado.contenedor,
+                puerto: formActualizado.puerto,
+                detalle: formActualizado.detalle,
+              });
               await api.put(`/cotizaciones/${id}`, {
                 cliente_id: formActualizado.cliente_id,
                 sucursal_id: formActualizado.sucursal_id,
@@ -511,6 +524,12 @@ function ListaCotizaciones() {
               fetchCotizaciones();
             } catch (error) {
               console.error("Error al editar cotización:", error);
+              if (error.response && error.response.data) {
+                console.error(
+                  "→ Respuesta 400 del servidor (error.response.data):",
+                  error.response.data
+                );
+              }
               mostrarError({
                 titulo: "Error",
                 mensaje:
