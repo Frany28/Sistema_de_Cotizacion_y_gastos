@@ -109,8 +109,16 @@ export default function ModalEditarCotizacion({
         );
 
         if (servicioSeleccionado) {
-          item.precio_unitario = Number(servicioSeleccionado.precio_unitario);
-          item.porcentaje_iva = Number(servicioSeleccionado.porcentaje_iva);
+          const precioBase = isNaN(Number(servicioSeleccionado.precio_unitario))
+            ? 0
+            : Number(servicioSeleccionado.precio_unitario);
+
+          const ivaBase = isNaN(Number(servicioSeleccionado.porcentaje_iva))
+            ? 0
+            : Number(servicioSeleccionado.porcentaje_iva);
+
+          item.precio_unitario = precioBase;
+          item.porcentaje_iva = ivaBase;
         } else {
           item.precio_unitario = 0;
           item.porcentaje_iva = 16;
