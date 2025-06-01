@@ -4,7 +4,6 @@ import path from "path";
 import { fileURLToPath } from "url";
 import db from "../config/database.js";
 
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -51,13 +50,20 @@ export const createRegistro = async (req, res) => {
       .json({ message: "Debe indicar el tipo de registro" });
   }
 
-  // Desempaquetamos correctamente todo el body
   const datos = { ...req.body };
 
   try {
     let resultado;
 
-    if (tipo === "gasto" && req.file) {
+    if (tipo === "gasto") {
+      // ← Aquí detectamos que NO llegó req.file y devolvemos 400
+      if (!req.file) {
+        return res.status(400).json({
+          message: "Para crear un gasto, el comprobante es obligatorio",
+        });
+      }
+
+      // Si llegamos aquí, sí existe req.file, así que asignamos la URL
       datos.url_factura = req.file.key;
       resultado = await crearGasto(datos);
     } else if (tipo === "cotizacion") {
