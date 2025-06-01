@@ -317,20 +317,15 @@ const CrearRegistro = () => {
   const crearGasto = async (datosGasto) => {
     try {
       setLoading(true);
-
-      // 1) Obtener el usuario y validar que exista
-      const usuarioGuardado = JSON.parse(localStorage.getItem("usuario"));
-      const usuarioId = usuarioGuardado?.id;
       if (!usuarioId) {
-        console.error("No hay usuario logueado en LocalStorage");
+        console.error("No hay usuario logueado en estado.");
         setModalError({
           visible: true,
           mensaje: "Debes iniciar sesión para crear un gasto",
         });
         setLoading(false);
-        return; // salimos antes de enviar la petición
+        return;
       }
-
       // 2) Formatear la fecha
       const fechaFormateada = new Date(datosGasto.fecha || Date.now())
         .toISOString()
