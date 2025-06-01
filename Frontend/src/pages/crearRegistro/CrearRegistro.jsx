@@ -318,53 +318,61 @@ const CrearRegistro = () => {
     try {
       setLoading(true);
 
-      // 1) Obtén el usuario y formatea la fecha
+      // 1) Obtener el usuario y validar que exista
       const usuarioGuardado = JSON.parse(localStorage.getItem("usuario"));
       const usuarioId = usuarioGuardado?.id;
+      if (!usuarioId) {
+        console.error("No hay usuario logueado en LocalStorage");
+        setModalError({
+          visible: true,
+          mensaje: "Debes iniciar sesión para crear un gasto",
+        });
+        setLoading(false);
+        return; // salimos antes de enviar la petición
+      }
+
+      // 2) Formatear la fecha
       const fechaFormateada = new Date(datosGasto.fecha || Date.now())
         .toISOString()
         .split("T")[0];
 
-      // 2) Crea un FormData en lugar de un objeto JSON
+      // 3) Crear el FormData
       const formData = new FormData();
 
-      // 2.1) Adjuntar el archivo si existe
+      // 3.1) Adjuntar el archivo si existe
       if (datosGasto.comprobante) {
         formData.append("comprobante", datosGasto.comprobante);
       }
+
+      // 3.2) Solo UNA vez: indicar el tipo de registro
       formData.append("tipo", "gasto");
 
-      // 2.2) Adjuntar el resto de campos (todos como strings o números)
-      formData.append("tipo_gasto_id", String(datosGasto.tipo_gasto_id));
+      // 3.3) Adjuntar todos los demás campos (nombres exactos que valida el backend)
+      formData.append("proveedor_id", String(datosGasto.proveedor_id || ""));
       formData.append("concepto_pago", datosGasto.concepto_pago || "N/A");
-      formData.append("sucursal_id", String(datosGasto.sucursal_id));
+      formData.append("tipo_gasto_id", String(datosGasto.tipo_gasto_id || ""));
       formData.append("descripcion", datosGasto.descripcion || "N/A");
-      formData.append("subtotal", String(datosGasto.subtotal));
+      formData.append("subtotal", String(datosGasto.subtotal || ""));
       formData.append("porcentaje_iva", String(datosGasto.porcentaje_iva || 0));
       formData.append("moneda", datosGasto.moneda || "USD");
 
       if (datosGasto.moneda === "VES") {
-        formData.append("tasa_cambio", String(datosGasto.tasa_cambio));
+        formData.append("tasa_cambio", String(datosGasto.tasa_cambio || ""));
       }
 
-      if (datosGasto.proveedor_id) {
-        formData.append("proveedor_id", String(datosGasto.proveedor_id));
-      }
-
+      formData.append("sucursal_id", String(datosGasto.sucursal_id || ""));
       if (datosGasto.cotizacion_id) {
         formData.append("cotizacion_id", String(datosGasto.cotizacion_id));
       }
 
       formData.append("fecha", fechaFormateada);
       formData.append("usuario_id", String(usuarioId));
-      formData.append("tipo", "gasto");
+      // (no volvemos a hacer append("tipo","gasto") aquí)
 
-      // 3) Envía la petición como multipart/form-data
+      // 4) Enviar la petición dejando que Axios gestione el Content-Type
       await api.post("/registros", formData, {
         withCredentials: true,
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
+        // NO incluimos headers: { "Content-Type": "multipart/form-data" }
       });
 
       setMensajeExito("¡Gasto registrado correctamente!");
