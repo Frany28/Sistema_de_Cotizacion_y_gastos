@@ -222,7 +222,6 @@ export const deleteGasto = async (req, res) => {
 
 // controllers/gastos.controller.js
 
-import db from "../config/database.js";
 // … quizá otras importaciones …
 
 export const getGastoById = async (req, res) => {
