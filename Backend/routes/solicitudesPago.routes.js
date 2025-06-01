@@ -9,7 +9,7 @@ import {
 } from "../controllers/solicitudesPago.controller.js";
 import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
 import { verificarPermiso } from "../Middleware/verificarPermiso.js";
-import { upload } from "../config/multer.js";
+import { uploadComprobante } from "../utils/s3.js";
 
 const router = express.Router();
 
@@ -51,7 +51,7 @@ router.patch(
   "/:id/pagar",
   autenticarUsuario,
   verificarPermiso("pagar_solicitud_pago"),
-  upload.single("ruta_comprobante"),
+  uploadComprobante.single("ruta_comprobante"),
   pagarSolicitudPago
 );
 
