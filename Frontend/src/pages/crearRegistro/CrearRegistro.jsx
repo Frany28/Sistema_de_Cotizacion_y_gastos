@@ -318,42 +318,54 @@ const CrearRegistro = () => {
     try {
       setLoading(true);
 
+      // 1) Obtén el usuario y formatea la fecha
       const usuarioGuardado = JSON.parse(localStorage.getItem("usuario"));
       const usuarioId = usuarioGuardado?.id;
       const fechaFormateada = new Date(datosGasto.fecha || Date.now())
         .toISOString()
         .split("T")[0];
 
-      const payload = {
-        tipo_gasto_id: Number(datosGasto.tipo_gasto_id),
-        concepto_pago: datosGasto.concepto_pago || "N/A",
-        sucursal_id: Number(datosGasto.sucursal_id),
-        descripcion: datosGasto.descripcion || "N/A",
-        subtotal: parseFloat(datosGasto.subtotal),
-        porcentaje_iva: parseFloat(datosGasto.porcentaje_iva) || 0,
-        moneda: datosGasto.moneda || "USD",
+      // 2) Crea un FormData en lugar de un objeto JSON
+      const formData = new FormData();
 
-        tasa_cambio:
-          datosGasto.moneda === "VES"
-            ? parseFloat(datosGasto.tasa_cambio)
-            : null,
+      // 2.1) Adjuntar el archivo si existe
+      if (datosGasto.comprobante) {
+        formData.append("comprobante", datosGasto.comprobante);
+      }
 
-        proveedor_id: datosGasto.proveedor_id
-          ? Number(datosGasto.proveedor_id)
-          : null,
+      // 2.2) Adjuntar el resto de campos (todos como strings o números)
+      formData.append("tipo_gasto_id", String(datosGasto.tipo_gasto_id));
+      formData.append("concepto_pago", datosGasto.concepto_pago || "N/A");
+      formData.append("sucursal_id", String(datosGasto.sucursal_id));
+      formData.append("descripcion", datosGasto.descripcion || "N/A");
+      formData.append("subtotal", String(datosGasto.subtotal));
+      formData.append("porcentaje_iva", String(datosGasto.porcentaje_iva || 0));
+      formData.append("moneda", datosGasto.moneda || "USD");
 
-        cotizacion_id: datosGasto.cotizacion_id
-          ? Number(datosGasto.cotizacion_id)
-          : null,
+      if (datosGasto.moneda === "VES") {
+        formData.append("tasa_cambio", String(datosGasto.tasa_cambio));
+      }
 
-        fecha: fechaFormateada,
-        usuario_id: usuarioId,
-        tipo: "gasto",
-      };
+      if (datosGasto.proveedor_id) {
+        formData.append("proveedor_id", String(datosGasto.proveedor_id));
+      }
 
-      await api.post("/registros", payload, {
+      if (datosGasto.cotizacion_id) {
+        formData.append("cotizacion_id", String(datosGasto.cotizacion_id));
+      }
+
+      formData.append("fecha", fechaFormateada);
+      formData.append("usuario_id", String(usuarioId));
+      formData.append("tipo", "gasto");
+
+      // 3) Envía la petición como multipart/form-data
+      await api.post("/registros", formData, {
         withCredentials: true,
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
       });
+
       setMensajeExito("¡Gasto registrado correctamente!");
       setModalExito(true);
       setTipoRegistro("");

@@ -6,7 +6,6 @@ import path from "path";
 import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 import listEndpoints from "express-list-endpoints";
-import mysql from "mysql2/promise";
 
 import { errorHandler } from "../Middleware/errorHandler.js";
 import { logger } from "../Middleware/logger.js";
@@ -23,6 +22,7 @@ import cxcRoutes from "../routes/cxc.routes.js";
 import abonosRoutes from "../routes/abonos.routes.js";
 import solicitudesPagoRoutes from "../routes/solicitudesPago.routes.js";
 import bancosRoutes from "../routes/bancos.routes.js";
+import db from "./database.js";
 
 /* ─────────────  Rutas de seguridad  ──────────── */
 import authRoutes from "../routes/auth.routes.js";
@@ -37,18 +37,6 @@ const PORT = process.env.PORT || 3000; // Railway asigna PORT
 const FRONT_URL = process.env.FRONT_URL; // https://sistemacotizaciongastos.netlify.app
 
 const app = express();
-
-/* ─────────────  Conexión MySQL (pool) ───────────── */
-export const db = mysql.createPool({
-  host: process.env.DB_HOST || "localhost",
-  port: process.env.DB_PORT || 3306,
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASS || "",
-  database: process.env.DB_NAME || "sistema_cotizacion_gastos",
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-});
 
 /* ─────────────  CORS ───────────── */
 const allowedOrigins = [

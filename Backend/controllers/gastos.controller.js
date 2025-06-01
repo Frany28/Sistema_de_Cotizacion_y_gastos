@@ -1,5 +1,6 @@
 // controllers/gastos.controller.js
 import db from "../config/database.js";
+import { generarUrlPrefirmadaLectura } from "../utils/s3.js";
 
 export const getGastos = async (req, res) => {
   // 1) Parseo seguro de page y limit (por defecto page=1, limit=5)
@@ -219,15 +220,21 @@ export const deleteGasto = async (req, res) => {
 
 // controllers/gastos.controller.js
 
+// controllers/gastos.controller.js
+
+import db from "../config/database.js";
+// … quizá otras importaciones …
+
 export const getGastoById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Consultar el gasto y sus relaciones (Proveedor, Sucursal, Cotización)
+    // 1) Consultar el gasto, incluyendo la columna url_factura
     const [[gasto]] = await db.query(
       `
       SELECT 
-        g.*, 
+        g.*,
+        g.url_factura,                 -- incluimos la columna que guarda la "key" en S3
         p.nombre AS proveedor_nombre, 
         p.id AS proveedor_id,
         s.nombre AS sucursal_nombre, 
@@ -242,7 +249,7 @@ export const getGastoById = async (req, res) => {
       LEFT JOIN cotizaciones c ON c.id = g.cotizacion_id
       LEFT JOIN tipos_gasto tg ON tg.id = g.tipo_gasto_id
       WHERE g.id = ?;
-    `,
+      `,
       [id]
     );
 
@@ -250,7 +257,14 @@ export const getGastoById = async (req, res) => {
       return res.status(404).json({ message: "Gasto no encontrado" });
     }
 
-    // Obtener listas de opciones para el formulario de edición
+    // 1.5) Si existe un valor en gasto.url_factura, generamos la URL prefirmada para lectura
+    let urlFacturaFirmada = null;
+    if (gasto.url_factura) {
+      // Por defecto, la URL expira en 300 segundos (5 minutos). Puedes ajustar el segundo parámetro si necesitas más o menos tiempo.
+      urlFacturaFirmada = generarUrlPrefirmadaLectura(gasto.url_factura);
+    }
+
+    // 2) Obtener listas para poblar los dropdowns en el frontend
     const [tiposGasto] = await db.query("SELECT id, nombre FROM tipos_gasto");
     const [proveedores] = await db.query(
       "SELECT id, nombre FROM proveedores WHERE estado = 'activo'"
@@ -259,16 +273,13 @@ export const getGastoById = async (req, res) => {
     const [cotizaciones] = await db.query(
       "SELECT id, codigo_referencia FROM cotizaciones"
     );
-    // Verificar que se está cargando correctamente el gasto por ID
-    console.log("🔍 Obtener gasto por ID:", id);
-    console.log("🔍 Gasto encontrado:", gasto);
-    console.log("🔍 Tipos de Gasto:", tiposGasto);
-    console.log("🔍 Proveedores:", proveedores);
-    console.log("🔍 Sucursales:", sucursales);
-    console.log("🔍 Cotizaciones:", cotizaciones);
 
+    // 3) Enviar la respuesta JSON, añadiendo urlFacturaFirmada dentro del objeto "gasto"
     res.json({
-      gasto,
+      gasto: {
+        ...gasto,
+        urlFacturaFirmada, // Será null si no había factura, o la URL firmada si sí existe
+      },
       opciones: {
         tiposGasto,
         proveedores,

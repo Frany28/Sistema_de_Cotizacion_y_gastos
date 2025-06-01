@@ -1,9 +1,9 @@
 import chromium from "chrome-aws-lambda";
-
 import { generarHTMLCotizacion } from "../templates/generarHTMLCotizacion.js";
 import path from "path";
 import { fileURLToPath } from "url";
 import db from "../config/database.js";
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -57,7 +57,8 @@ export const createRegistro = async (req, res) => {
   try {
     let resultado;
 
-    if (tipo === "gasto") {
+    if (tipo === "gasto" && req.file) {
+      datos.url_factura = req.file.key;
       resultado = await crearGasto(datos);
     } else if (tipo === "cotizacion") {
       resultado = await crearCotizacionDesdeRegistro(datos);
