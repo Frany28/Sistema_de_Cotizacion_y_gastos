@@ -21,6 +21,12 @@ export const crearUsuario = async (req, res) => {
       [nombre.trim(), email.trim(), hashed, rol_id, estado, firma]
     );
 
+    const codigo = `USR${String(result.insertId).padStart(4, "0")}`;
+    await db.query("UPDATE usuarios SET codigo = ? WHERE id = ?", [
+      codigo,
+      result.insertId,
+    ]);
+
     res.status(201).json({ id: result.insertId, firma });
   } catch (err) {
     console.error(err);
