@@ -489,6 +489,13 @@ function ListaCotizaciones() {
           onSubmit={async (formActualizado) => {
             try {
               const id = cotizacionSeleccionada.id;
+              const detallePayload = formActualizado.detalle.map((item) => ({
+                ...(item.id ? { id: Number(item.id) } : {}),
+                servicio_productos_id: Number(item.servicio_productos_id),
+                cantidad: Number(item.cantidad),
+                precio_unitario: Number(item.precio_unitario),
+                porcentaje_iva: Number(item.porcentaje_iva),
+              }));
 
               // 2) Enviamos el PUT con la cabecera + detallePayload (sin total)
               await api.put(`/cotizaciones/${id}`, {
