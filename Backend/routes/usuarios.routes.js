@@ -1,7 +1,7 @@
 import express from "express";
 import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
 import { validarUsuario } from "../Middleware/validarUsuario.js";
-import { uploadUsuario } from "../middlewares/uploadUsuario.js";
+import { uploadUsuario } from "../Middleware/uploadUsuario.js";
 import {
   obtenerUsuarios,
   obtenerUsuarioPorId,
