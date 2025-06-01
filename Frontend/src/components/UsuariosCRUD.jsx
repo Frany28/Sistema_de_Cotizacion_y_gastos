@@ -79,7 +79,7 @@ export default function UsuariosCRUD() {
 
   const abrirModalEditar = async (id) => {
     try {
-      const { data } = await api.get(`/api/usuarios/${id}`, {
+      const { data } = await api.get(`/usuarios/${id}`, {
         withCredentials: true,
       });
       setUsuarioEditar(data);
