@@ -47,44 +47,13 @@ export const uploadComprobante = multer({
       cb(null, `comprobantes/${nombreUnico}`);
     },
   }),
-  limits: { fileSize: 5 * 1024 * 1024 }, // límite 5 MB
-  fileFilter: (req, file, cb) => {
-    // Solo permitir archivos tipo imagen o PDF
-    const allowed =
-      file.mimetype.startsWith("image/") || file.mimetype === "application/pdf";
-    if (allowed) {
-      cb(null, true);
-    } else {
-      cb(new Error("Solo se permiten archivos de tipo imagen o PDF"), false);
-    }
-  },
-});
-
-// 4) Configurar multer + multer-s3 para subir firma de usuarios
-export const uploadUsuario = multer({
-  storage: multerS3({
-    s3: s3,
-    bucket: process.env.S3_BUCKET,
-    acl: "private",
-    metadata: (req, file, cb) => {
-      cb(null, { fieldName: file.fieldname });
-    },
-    key: (req, file, cb) => {
-      // Guardamos dentro de carpeta 'usuarios/' + timestamp + nombre original
-      const nombreUnico = Date.now().toString() + "-" + file.originalname;
-      cb(null, `usuarios/${nombreUnico}`);
-    },
-  }),
-  limits: { fileSize: 2 * 1024 * 1024 }, // límite 2 MB para firmas (ajústalo si es necesario)
+  limits: { fileSize: 5 * 1024 * 1024 }, // límite 5 MB (ajústalo si es necesario)
   fileFilter: (req, file, cb) => {
     // Solo permitir archivos tipo imagen
     if (file.mimetype.startsWith("image/")) {
       cb(null, true);
     } else {
-      cb(
-        new Error("Solo se permiten archivos de tipo imagen para la firma"),
-        false
-      );
+      cb(new Error("Solo se permiten archivos de tipo imagen"), false);
     }
   },
 });
