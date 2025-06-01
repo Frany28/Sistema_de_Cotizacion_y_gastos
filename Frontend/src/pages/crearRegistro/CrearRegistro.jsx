@@ -326,6 +326,7 @@ const CrearRegistro = () => {
         setLoading(false);
         return;
       }
+
       // 2) Formatear la fecha
       const fechaFormateada = new Date(datosGasto.fecha || Date.now())
         .toISOString()
@@ -364,6 +365,14 @@ const CrearRegistro = () => {
       formData.append("usuario_id", String(usuarioId));
       // (no volvemos a hacer append("tipo","gasto") aquí)
 
+      // ——— Aquí colocamos dos logs:
+      console.log("📤 [Frontend] datosGasto antes de enviar:", datosGasto);
+      // Para inspeccionar el contenido real de formData, podemos iterar sobre las llaves:
+      for (let pair of formData.entries()) {
+        console.log("└─ formData entry:", pair[0], "=", pair[1]);
+      }
+      // ————————————————————————————————————————————————————————
+
       // 4) Enviar la petición dejando que Axios gestione el Content-Type
       await api.post("/registros", formData, {
         withCredentials: true,
@@ -374,7 +383,7 @@ const CrearRegistro = () => {
       setModalExito(true);
       setTipoRegistro("");
     } catch (error) {
-      console.error("Error al registrar gasto:", error);
+      console.error("❌ [Frontend] Error al registrar gasto:", error);
       setModalError({
         visible: true,
         mensaje: "No se pudo registrar el gasto. Intente nuevamente.",
