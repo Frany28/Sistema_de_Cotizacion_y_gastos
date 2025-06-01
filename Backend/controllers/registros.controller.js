@@ -44,8 +44,8 @@ export const getDatosRegistro = async (req, res) => {
 
 // registros.controller.js (versión corregida)
 export const createRegistro = async (req, res) => {
-  console.log("📥 [Backend] createRegistro – req.body:", req.body);
-  console.log("📥 [Backend] createRegistro – req.file:", req.file);
+  console.log("Backend createRegistro: req.body.tipo =", req.body.tipo);
+  console.log("Backend createRegistro: req.body completo =", req.body);
   const tipo = req.body.tipo;
   if (!tipo) {
     return res
