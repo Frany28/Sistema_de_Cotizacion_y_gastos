@@ -42,6 +42,7 @@ export const getDatosRegistro = async (req, res) => {
   }
 };
 
+// registros.controller.js (versión corregida)
 export const createRegistro = async (req, res) => {
   const tipo = req.body.tipo;
   if (!tipo) {
@@ -50,20 +51,23 @@ export const createRegistro = async (req, res) => {
       .json({ message: "Debe indicar el tipo de registro" });
   }
 
+  // Desempaquetamos todo el body
   const datos = { ...req.body };
 
   try {
     let resultado;
 
     if (tipo === "gasto") {
-      // ← Aquí detectamos que NO llegó req.file y devolvemos 400
+      // ← Si no llegó ningún archivo, devolvemos 400 con mensaje claro
       if (!req.file) {
-        return res.status(400).json({
-          message: "Para crear un gasto, el comprobante es obligatorio",
-        });
+        return res
+          .status(400)
+          .json({
+            message: "Para crear un gasto, el comprobante es obligatorio",
+          });
       }
 
-      // Si llegamos aquí, sí existe req.file, así que asignamos la URL
+      // Si llegamos aquí, sí existe req.file
       datos.url_factura = req.file.key;
       resultado = await crearGasto(datos);
     } else if (tipo === "cotizacion") {
