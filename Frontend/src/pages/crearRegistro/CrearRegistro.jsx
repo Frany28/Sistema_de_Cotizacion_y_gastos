@@ -332,6 +332,7 @@ const CrearRegistro = () => {
       if (datosGasto.comprobante) {
         formData.append("comprobante", datosGasto.comprobante);
       }
+      formData.append("tipo", "gasto");
 
       // 2.2) Adjuntar el resto de campos (todos como strings o números)
       formData.append("tipo_gasto_id", String(datosGasto.tipo_gasto_id));
