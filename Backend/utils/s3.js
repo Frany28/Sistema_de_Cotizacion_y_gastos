@@ -1,59 +1,47 @@
-// utils/s3.js
-
-import AWS from "aws-sdk";
-import dotenv from "dotenv";
-dotenv.config(); // Carga las variables de entorno
-
-// 1) Configurar AWS con las credenciales y región de tu .env
-AWS.config.update({
-  region: process.env.AWS_REGION,
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-});
-
-// 2) Crear la instancia de S3
-export const s3 = new AWS.S3();
-
-/**
- * Genera una URL prefirmada para GET (lectura) de un objeto privado en S3.
- * @param {string} key – la “key” o ruta interna en S3 (e.g. 'comprobantes/16540-factura.png')
- * @param {number} expiresInSeconds – segundos que la URL será válida (300 = 5 min)
- * @returns {string} – URL firmada para que el navegador la use
- */
-export function generarUrlPrefirmadaLectura(key, expiresInSeconds = 300) {
-  const params = {
-    Bucket: process.env.S3_BUCKET,
-    Key: key,
-    Expires: expiresInSeconds,
-  };
-  return s3.getSignedUrl("getObject", params);
-}
-
-// 3) Configurar multer + multer-s3 para subir comprobantes
+// utils/s3.js  (versión preparada para AWS SDK v3)
+import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import multer from "multer";
 import multerS3 from "multer-s3";
+import dotenv from "dotenv";
+dotenv.config();
 
+// 1) crea el cliente v3 (usa ‘send’ internamente)
+export const s3 = new S3Client({
+  region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  },
+});
+
+// 2) URL pre-firmada (lectura) ─ usa el presigner del SDK v3
+export async function generarUrlPrefirmadaLectura(key, expiresInSeconds = 300) {
+  const command = new GetObjectCommand({
+    Bucket: process.env.S3_BUCKET,
+    Key: key,
+  });
+  return await getSignedUrl(s3, command, { expiresIn: expiresInSeconds });
+}
+
+// 3) Multer + S3: ahora ‘s3’ es un S3Client v3
 export const uploadComprobante = multer({
   storage: multerS3({
-    s3: s3,
+    s3,
     bucket: process.env.S3_BUCKET,
-    acl: "private", // dejamos el objeto privado
+    acl: "private",
     metadata: (req, file, cb) => {
       cb(null, { fieldName: file.fieldname });
     },
     key: (req, file, cb) => {
-      // Guardamos dentro de carpeta 'comprobantes/' + timestamp + nombre original
-      const nombreUnico = Date.now().toString() + "-" + file.originalname;
-      cb(null, `comprobantes/${nombreUnico}`);
+      const nombreUnico = Date.now() + "-" + file.originalname;
+      // coloca firmas dentro de la carpeta ‘firmas/’
+      cb(null, `firmas/${nombreUnico}`);
     },
   }),
-  limits: { fileSize: 5 * 1024 * 1024 }, // límite 5 MB (ajústalo si es necesario)
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
   fileFilter: (req, file, cb) => {
-    // Solo permitir archivos tipo imagen
-    if (file.mimetype.startsWith("image/")) {
-      cb(null, true);
-    } else {
-      cb(new Error("Solo se permiten archivos de tipo imagen"), false);
-    }
+    if (file.mimetype.startsWith("image/")) return cb(null, true);
+    cb(new Error("Solo se permiten archivos de imagen"));
   },
 });
