@@ -1,5 +1,6 @@
 // controllers/usuarios.controller.js
 import db from "../config/database.js";
+import { generarUrlPrefirmadaLectura } from "../utils/s3.js";
 import bcrypt from "bcrypt";
 
 // Crear usuario (ahora con firma y código)
@@ -9,7 +10,7 @@ export const crearUsuario = async (req, res) => {
     const { nombre, email, password, rol_id, estado = "activo" } = req.body;
 
     // Construimos la ruta pública
-    const firma = req.file ? `/uploads/firmas/${req.file.filename}` : null;
+    const firma = req.file ? req.file.key : null;
 
     const hashed = await bcrypt.hash(password, 10);
 
@@ -32,7 +33,7 @@ export const actualizarUsuario = async (req, res) => {
     const { id } = req.params;
     const { nombre, email, password, rol_id, estado } = req.body;
 
-    const firma = req.file ? `/uploads/firmas/${req.file.filename}` : null;
+    const firma = req.file ? req.file.key : null;
 
     const campos = [];
     const valores = [];
@@ -113,7 +114,14 @@ export const obtenerUsuarioPorId = async (req, res) => {
     }
 
     const user = rows[0];
-    res.json(user);
+    let urlFirma = null;
+    if (user.firma) {
+      urlFirma = generarUrlPrefirmadaLectura(user.firma);
+    }
+    res.json({
+      ...user,
+      urlFirma,
+    });
   } catch (error) {
     console.error("Error al obtener usuario por ID:", error);
     res.status(500).json({ message: "Error al obtener usuario" });

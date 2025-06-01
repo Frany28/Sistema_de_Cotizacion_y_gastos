@@ -1,7 +1,7 @@
 import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
 import db from "../config/database.js";
 import express from "express";
-import { upload } from "../config/multer.js";
+import { uploadComprobante } from "../utils/s3.js";
 import {
   obtenerUsuarios,
   obtenerUsuarioPorId,
@@ -16,12 +16,12 @@ router.get("/", autenticarUsuario, obtenerUsuarios);
 router.get("/permisos/:permiso", autenticarUsuario /* … */);
 router.get("/:id", autenticarUsuario, obtenerUsuarioPorId);
 
-router.post("/", autenticarUsuario, upload.single("firma"), crearUsuario);
+router.post("/", autenticarUsuario, uploadComprobante.single("firma"), crearUsuario);
 
 router.put(
   "/:id",
   autenticarUsuario,
-  upload.single("firma"),
+  uploadComprobante.single("firma"),
   actualizarUsuario
 );
 
