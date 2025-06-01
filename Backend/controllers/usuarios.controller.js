@@ -1,29 +1,37 @@
 // controllers/usuarios.controller.js
 import db from "../config/database.js";
-import { generarUrlPrefirmadaLectura } from "../utils/s3.js";
-import bcrypt from "bcrypt";
 
-// Crear usuario (ahora con firma y código)
-// controllers/usuarios.controller.js
+import bcrypt from "bcrypt";
+import { subirArchivoS3, generarUrlPrefirmadaLectura } from "../utils/s3.js";
+
+// Crear usuario con posible firma en S3
 export const crearUsuario = async (req, res) => {
   try {
     const { nombre, email, password, rol_id, estado = "activo" } = req.body;
-
-    // Construimos la ruta pública
-    const firma = req.file ? req.file.key : null;
-
     const hashed = await bcrypt.hash(password, 10);
+
+    let firmaKey = null;
+    if (req.file) {
+      const timestamp = Date.now();
+      const extension = req.file.originalname.split(".").pop();
+      const nombreParaS3 = `usuarios/${timestamp}.${extension}`;
+      firmaKey = await subirArchivoS3(
+        req.file.buffer,
+        nombreParaS3,
+        req.file.mimetype
+      );
+    }
 
     const [result] = await db.query(
       `INSERT INTO usuarios
          (nombre, email, password, rol_id, estado, firma, created_at)
        VALUES (?, ?, ?, ?, ?, ?, NOW())`,
-      [nombre.trim(), email.trim(), hashed, rol_id, estado, firma]
+      [nombre.trim(), email.trim(), hashed, rol_id, estado, firmaKey]
     );
 
-    res.status(201).json({ id: result.insertId, firma });
+    res.status(201).json({ id: result.insertId, firma: firmaKey });
   } catch (err) {
-    console.error(err);
+    console.error("Error al crear usuario:", err);
     res.status(500).json({ error: "Error al crear usuario" });
   }
 };
@@ -96,7 +104,6 @@ export const obtenerUsuarios = async (req, res) => {
   }
 };
 
-// Obtener un usuario por ID (incluye código y firma)
 export const obtenerUsuarioPorId = async (req, res) => {
   const { id } = req.params;
   try {
@@ -116,7 +123,7 @@ export const obtenerUsuarioPorId = async (req, res) => {
     const user = rows[0];
     let urlFirma = null;
     if (user.firma) {
-      urlFirma = generarUrlPrefirmadaLectura(user.firma);
+      urlFirma = await generarUrlPrefirmadaLectura(user.firma);
     }
     res.json({
       ...user,
@@ -127,7 +134,6 @@ export const obtenerUsuarioPorId = async (req, res) => {
     res.status(500).json({ message: "Error al obtener usuario" });
   }
 };
-
 // Actualizar usuario (puede cambiar contraseña, firma y rol/estado)
 
 // Eliminar usuario
