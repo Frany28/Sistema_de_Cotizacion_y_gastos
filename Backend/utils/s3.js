@@ -44,6 +44,7 @@ const makeUploader = ({ folder, maxSizeMb, allowPdf = false }) =>
         ? cb(null, true)
         : cb(new Error("Solo se permiten imágenes o PDF"));
     },
+    preservePath: true,
   });
 
 /* 4️⃣  Exportaciones específicas */

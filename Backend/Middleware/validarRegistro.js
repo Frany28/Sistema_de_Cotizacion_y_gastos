@@ -1,5 +1,7 @@
 export const validarRegistro = async (req, res, next) => {
   console.log("🧾 Body recibido:", req.body);
+  console.log("🧾 Headers:", req.headers);
+  console.log("🧾 Files:", req.file); // Para ver si hay archivos
 
   const { tipo } = req.body;
 
