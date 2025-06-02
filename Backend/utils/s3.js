@@ -39,6 +39,7 @@ const makeUploader = ({ folder, maxSizeMb, allowPdf = false }) =>
     fileFilter: (req, file, cb) => {
       const okImg = file.mimetype.startsWith("image/");
       const okPdf = allowPdf && file.mimetype === "application/pdf";
+      console.log("🪄 mimetype", file.mimetype);
       return okImg || okPdf
         ? cb(null, true)
         : cb(new Error("Solo imágenes o PDF"));

@@ -91,6 +91,9 @@ export const validarRegistro = async (req, res, next) => {
       errores.push("tasa_cambio debe ser numérico si se incluye");
     }
   }
+  if (errores.length) {
+    return res.status(422).json({ errores });
+  }
 
   next();
 };
