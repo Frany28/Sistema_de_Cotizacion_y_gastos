@@ -67,8 +67,7 @@ export const createRegistro = async (req, res) => {
         });
       }
 
-      // Si llegamos aquí, sí existe req.file
-      datos.url_factura = req.file.key;
+      datos.documento = req.file.key;
 
       // ——— Nuevo log para inspeccionar todo lo que llevará crearGasto:
       console.log("🔍 [Backend] crearGasto – datos:", datos);
@@ -103,9 +102,9 @@ const crearGasto = async (datos) => {
     sucursal_id,
     cotizacion_id = null,
     moneda = "USD",
-    url_factura = null,
     estado = "pendiente",
     usuario_id,
+    documento,
     tasa_cambio = null,
   } = datos;
 
@@ -141,7 +140,7 @@ const crearGasto = async (datos) => {
       descripcion, subtotal, porcentaje_iva, impuesto, total,
       fecha, sucursal_id, cotizacion_id,
       moneda, tasa_cambio,
-      url_factura,
+      documento,
       estado, usuario_id, created_at, updated_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
@@ -158,7 +157,7 @@ const crearGasto = async (datos) => {
       cotizacionFinal,
       moneda,
       tasa_cambio,
-      url_factura,
+      documento,
       estado,
       usuario_id,
       new Date(),

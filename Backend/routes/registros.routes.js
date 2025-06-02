@@ -1,5 +1,3 @@
-// routes/registros.routes.js
-
 import express from "express";
 import {
   getDatosRegistro,
@@ -22,17 +20,11 @@ const router = express.Router();
 // 1) Obtener datos (servicios, clientes, proveedores, tiposRegistro)
 router.get("/", autenticarUsuario, getDatosRegistro);
 
-// 2) Crear nuevo registro: cotización o gasto
-//    Ahora insertamos uploadComprobante.single("comprobante") justo antes de validarRegistro
-//    para que multer-s3 procese el archivo y deje `req.file.key` disponible en createRegistro.
 router.post(
   "/",
   autenticarUsuario,
   verificaPermisoDinamico,
-  // ──────────────────────────────────────────────────────────────────────
-  // Middleware multer-s3: buscará el archivo en el campo "comprobante" del form-data
   uploadComprobante.single("comprobante"),
-  // ──────────────────────────────────────────────────────────────────────
   validarRegistro,
   createRegistro
 );
