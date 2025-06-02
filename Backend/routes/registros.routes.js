@@ -24,8 +24,8 @@ router.post(
   "/",
   autenticarUsuario,
   verificaPermisoDinamico,
-  validarRegistro,
-  uploadComprobante.single("comprobante"),
+  validarRegistro, // ← Primero validamos
+  uploadComprobante.single("comprobante"), // ← Luego subimos el archivo
   createRegistro
 );
 
