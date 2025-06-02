@@ -1,4 +1,4 @@
-// utils/s3.js  – versión v3 limpia
+// utils/s3.js  – versión AWS SDK v3 + multer-s3
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import multer from "multer";
@@ -6,25 +6,25 @@ import multerS3 from "multer-s3";
 import dotenv from "dotenv";
 dotenv.config();
 
-/* 1) Cliente S3 */
+/* 1️⃣  Cliente S3 */
 export const s3 = new S3Client({
-  region: process.env.AWS_REGION,
+  region: process.env.AWS_REGION, // e.g. "us-east-1"
   credentials: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   },
 });
 
-/* 2) URL pre-firmada de lectura */
+/* 2️⃣  URL pre-firmada de lectura (5 min por defecto) */
 export async function generarUrlPrefirmadaLectura(key, expiresInSeconds = 300) {
   const command = new GetObjectCommand({
     Bucket: process.env.S3_BUCKET,
     Key: key,
   });
-  return await getSignedUrl(s3, command, { expiresIn: expiresInSeconds });
+  return getSignedUrl(s3, command, { expiresIn: expiresInSeconds });
 }
 
-/* ---- Helper genérico ---- */
+/* 3️⃣  Helper para crear uploaders con distinta carpeta y filtro */
 const makeUploader = ({ folder, maxSizeMb, allowPdf = false }) =>
   multer({
     storage: multerS3({
@@ -35,21 +35,25 @@ const makeUploader = ({ folder, maxSizeMb, allowPdf = false }) =>
       key: (req, file, cb) =>
         cb(null, `${folder}/${Date.now()}-${file.originalname}`),
     }),
-    limits: { fileSize: maxSizeMb * 1024 * 1024 },
+    limits: { fileSize: maxSizeMb * 1024 * 1024 }, // MB → bytes
     fileFilter: (req, file, cb) => {
       const okImg = file.mimetype.startsWith("image/");
       const okPdf = allowPdf && file.mimetype === "application/pdf";
-      console.log("🪄 mimetype", file.mimetype);
+      console.log("🪄 mimetype recibido:", file.mimetype);
       return okImg || okPdf
         ? cb(null, true)
-        : cb(new Error("Solo imágenes o PDF"));
+        : cb(new Error("Solo se permiten imágenes o PDF"));
     },
   });
 
-/* 3) Exportaciones concretas */
-export const uploadFirma = makeUploader({ folder: "firmas", maxSizeMb: 5 });
+/* 4️⃣  Exportaciones específicas */
+export const uploadFirma = makeUploader({
+  folder: "firmas",
+  maxSizeMb: 5, // solo imágenes
+});
+
 export const uploadComprobante = makeUploader({
   folder: "comprobantes",
-  maxSizeMb: 8,
+  maxSizeMb: 8, // imágenes o PDF
   allowPdf: true,
 });
