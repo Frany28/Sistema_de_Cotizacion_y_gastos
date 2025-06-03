@@ -26,7 +26,7 @@ const TablaCuentasPorCobrar = ({ clienteId }) => {
         const response = await api.get(
           `/cuentas-por-cobrar?cliente_id=${clienteId}`
         );
-        setCuentas(response.data);
+        setCuentas(response.data.cuentas);
       } catch (error) {
         console.error("Error al obtener cuentas por cobrar:", error);
         setCuentas([]);

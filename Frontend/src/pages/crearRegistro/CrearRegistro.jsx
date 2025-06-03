@@ -21,6 +21,7 @@ const CrearRegistro = () => {
   const [sucursales, setSucursales] = useState([]);
   const [cotizaciones, setCotizaciones] = useState([]);
   const [usuarioId, setUsuarioId] = useState(null);
+
   const [mensajeExito, setMensajeExito] = useState(
     "Registro creado exitosamente."
   );
@@ -317,76 +318,77 @@ const CrearRegistro = () => {
   const crearGasto = async (datosGasto) => {
     try {
       setLoading(true);
+
+      // Validaciones iniciales
       if (!usuarioId) {
-        console.error("No hay usuario logueado en estado.");
+        setModalError({ visible: true, mensaje: "Debes iniciar sesión" });
+        setLoading(false);
+        return;
+      }
+
+      if (!datosGasto.comprobante) {
         setModalError({
           visible: true,
-          mensaje: "Debes iniciar sesión para crear un gasto",
+          mensaje: "El comprobante es obligatorio",
         });
         setLoading(false);
         return;
       }
 
-      // 2) Formatear la fecha
-      const fechaFormateada = new Date(datosGasto.fecha || Date.now())
-        .toISOString()
-        .split("T")[0];
-
-      // 3) Crear el FormData
       const formData = new FormData();
 
-      // 3.1) Adjuntar el archivo si existe
-      if (datosGasto.comprobante) {
-        formData.append("comprobante", datosGasto.comprobante);
-      }
+      // 1. Archivo primero (importante)
+      formData.append("comprobante", datosGasto.comprobante);
 
-      // 3.2) Solo UNA vez: indicar el tipo de registro
+      // 2. Campos obligatorios
       formData.append("tipo", "gasto");
-
-      // 3.3) Adjuntar todos los demás campos (nombres exactos que valida el backend)
-      formData.append("proveedor_id", String(datosGasto.proveedor_id || ""));
+      formData.append("tipo_gasto_id", datosGasto.tipo_gasto_id);
       formData.append("concepto_pago", datosGasto.concepto_pago || "N/A");
-      formData.append("tipo_gasto_id", String(datosGasto.tipo_gasto_id || ""));
-      formData.append("descripcion", datosGasto.descripcion || "N/A");
-      formData.append("subtotal", String(datosGasto.subtotal || ""));
-      formData.append("porcentaje_iva", String(datosGasto.porcentaje_iva || 0));
+      formData.append("subtotal", datosGasto.subtotal);
+      formData.append("porcentaje_iva", datosGasto.porcentaje_iva || 0);
+      formData.append(
+        "fecha",
+        new Date(datosGasto.fecha).toISOString().split("T")[0]
+      );
+      formData.append("sucursal_id", datosGasto.sucursal_id);
+      formData.append("usuario_id", usuarioId);
       formData.append("moneda", datosGasto.moneda || "USD");
 
-      if (datosGasto.moneda === "VES") {
-        formData.append("tasa_cambio", String(datosGasto.tasa_cambio || ""));
+      // 3. Campos opcionales
+      if (datosGasto.proveedor_id) {
+        formData.append("proveedor_id", datosGasto.proveedor_id);
       }
-
-      formData.append("sucursal_id", String(datosGasto.sucursal_id || ""));
+      if (datosGasto.descripcion) {
+        formData.append("descripcion", datosGasto.descripcion);
+      }
       if (datosGasto.cotizacion_id) {
-        formData.append("cotizacion_id", String(datosGasto.cotizacion_id));
+        formData.append("cotizacion_id", datosGasto.cotizacion_id);
+      }
+      if (datosGasto.moneda === "VES" && datosGasto.tasa_cambio) {
+        formData.append("tasa_cambio", datosGasto.tasa_cambio);
       }
 
-      formData.append("fecha", fechaFormateada);
-      formData.append("usuario_id", String(usuarioId));
-      // (no volvemos a hacer append("tipo","gasto") aquí)
-
-      // ——— Aquí colocamos dos logs:
-      console.log("📤 [Frontend] datosGasto antes de enviar:", datosGasto);
-      // Para inspeccionar el contenido real de formData, podemos iterar sobre las llaves:
-      for (let pair of formData.entries()) {
-        console.log("└─ formData entry:", pair[0], "=", pair[1]);
+      // Debug
+      console.log("Contenido de FormData:");
+      for (let [key, value] of formData.entries()) {
+        console.log(key, value);
       }
-      // ————————————————————————————————————————————————————————
 
-      // 4) Enviar la petición dejando que Axios gestione el Content-Type
-      await api.post("/registros", formData, {
+      const response = await api.post("/registros", formData, {
         withCredentials: true,
-        // NO incluimos headers: { "Content-Type": "multipart/form-data" }
+        headers: {
+          "Content-Type": "multipart/form-data", // Importante
+        },
       });
 
       setMensajeExito("¡Gasto registrado correctamente!");
       setModalExito(true);
       setTipoRegistro("");
     } catch (error) {
-      console.error("❌ [Frontend] Error al registrar gasto:", error);
+      console.error("Error:", error.response?.data || error);
       setModalError({
         visible: true,
-        mensaje: "No se pudo registrar el gasto. Intente nuevamente.",
+        mensaje: error.response?.data?.message || "Error al registrar el gasto",
       });
     } finally {
       setLoading(false);

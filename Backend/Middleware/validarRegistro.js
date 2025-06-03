@@ -1,16 +1,24 @@
 export const validarRegistro = async (req, res, next) => {
-  console.log("🧾 Body recibido:", req.body);
-  console.log("🧾 Headers:", req.headers);
-  console.log("🧾 Files:", req.file); // Para ver si hay archivos
+  // Cambiar 'documento' por 'comprobante' para coincidir con el frontend
+  const datosCombinados = {
+    ...req.body,
+    comprobante: req.file?.key, // ← Cambiado de 'documento' a 'comprobante'
+  };
 
-  const { tipo } = req.body;
+  console.log("🧾 Datos combinados recibidos:", datosCombinados);
+  console.log("🧾 Archivo recibido:", req.file);
 
+  // 2. Extraemos el tipo de los datos combinados
+  const { tipo } = datosCombinados;
+
+  // 3. Validación básica del tipo
   if (!tipo || !["cotizacion", "gasto"].includes(tipo)) {
     return res.status(400).json({ message: "Tipo de registro inválido" });
   }
 
   const errores = [];
 
+  // 4. Validación específica para gastos
   if (tipo === "gasto") {
     const {
       proveedor_id,
@@ -18,84 +26,95 @@ export const validarRegistro = async (req, res, next) => {
       tipo_gasto_id,
       descripcion,
       subtotal,
-      porcentaje_iva,
+      porcentaje_iva = 0,
       fecha,
       sucursal_id,
       cotizacion_id,
-      moneda,
+      moneda = "USD",
       usuario_id,
-      estado,
+      estado = "pendiente",
       tasa_cambio,
-    } = req.body;
+    } = datosCombinados;
 
-    if (
-      proveedor_id !== undefined &&
-      proveedor_id !== null &&
-      proveedor_id !== "" &&
-      isNaN(proveedor_id)
-    ) {
-      errores.push("proveedor_id debe ser numérico si se incluye");
-    }
+    // Validación de campos numéricos opcionales
+    const validarCampoNumericoOpcional = (valor, nombre) => {
+      if (
+        valor !== undefined &&
+        valor !== null &&
+        valor !== "" &&
+        isNaN(valor)
+      ) {
+        errores.push(`${nombre} debe ser numérico si se incluye`);
+      }
+    };
 
+    validarCampoNumericoOpcional(proveedor_id, "proveedor_id");
+    validarCampoNumericoOpcional(cotizacion_id, "cotizacion_id");
+    validarCampoNumericoOpcional(tasa_cambio, "tasa_cambio");
+
+    // Validación de campos requeridos
     if (!concepto_pago || typeof concepto_pago !== "string") {
-      errores.push("concepto_pago debe ser texto");
-    }
-
-    if (descripcion && typeof descripcion !== "string") {
-      errores.push("descripcion debe ser texto si se incluye");
+      errores.push("Concepto de pago es requerido y debe ser texto");
     }
 
     if (!tipo_gasto_id || isNaN(tipo_gasto_id)) {
-      errores.push("tipo_gasto_id es requerido y debe ser numérico");
+      errores.push("Tipo de gasto es requerido y debe ser numérico");
     }
 
     if (subtotal == null || isNaN(subtotal) || subtotal <= 0) {
-      errores.push("subtotal es requerido y debe ser un número positivo");
+      errores.push("Subtotal es requerido y debe ser un número positivo");
     }
 
-    if (porcentaje_iva != null && isNaN(porcentaje_iva)) {
-      errores.push("porcentaje_iva debe ser numérico si se incluye");
+    if (isNaN(porcentaje_iva) || porcentaje_iva < 0) {
+      errores.push("Porcentaje IVA debe ser un número no negativo");
     }
 
     if (!fecha || isNaN(new Date(fecha).getTime())) {
-      errores.push("fecha inválida");
+      errores.push("Fecha inválida");
     }
 
     if (!sucursal_id || isNaN(sucursal_id)) {
-      errores.push("sucursal_id es requerido y debe ser numérico");
-    }
-
-    if (cotizacion_id && isNaN(cotizacion_id)) {
-      errores.push("cotizacion_id debe ser numérico si se incluye");
+      errores.push("Sucursal es requerida y debe ser numérico");
     }
 
     if (!usuario_id || isNaN(usuario_id)) {
-      errores.push("usuario_id es requerido y debe ser numérico");
+      errores.push("Usuario es requerido y debe ser numérico");
     }
 
     if (
       estado &&
       !["pendiente", "solicitado", "aprobado", "pagado"].includes(estado)
     ) {
-      errores.push("estado inválido (pendiente, solicitado, aprobado, pagado)");
+      errores.push(
+        "Estado inválido (valores permitidos: pendiente, solicitado, aprobado, pagado)"
+      );
     }
 
-    if (moneda && typeof moneda !== "string") {
-      errores.push("moneda debe ser texto si se incluye");
+    if (moneda && !["USD", "VES"].includes(moneda)) {
+      errores.push("Moneda inválida (valores permitidos: USD, VES)");
     }
 
-    if (
-      tasa_cambio !== undefined &&
-      tasa_cambio !== null &&
-      tasa_cambio !== "" &&
-      isNaN(tasa_cambio)
-    ) {
-      errores.push("tasa_cambio debe ser numérico si se incluye");
+    // Validación especial para moneda VES
+    if (moneda === "VES" && (!tasa_cambio || isNaN(tasa_cambio))) {
+      errores.push("Tasa de cambio es requerida para moneda VES");
+    }
+
+    // Validación de archivo para gastos
+    if (!req.file) {
+      errores.push("El comprobante es obligatorio para gastos");
     }
   }
-  if (errores.length) {
-    return res.status(422).json({ errores });
+
+  // 5. Manejo de errores
+  if (errores.length > 0) {
+    console.error("Errores de validación:", errores);
+    return res.status(422).json({
+      message: "Error de validación",
+      errores,
+    });
   }
 
+  // 6. Adjuntamos los datos combinados al request para el siguiente middleware
+  req.combinedData = datosCombinados;
   next();
 };

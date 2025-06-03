@@ -44,9 +44,8 @@ export const getDatosRegistro = async (req, res) => {
 
 // registros.controller.js (versión corregida)
 export const createRegistro = async (req, res) => {
-  console.log("🔍 req.body:", req.body); // ¿Llega el tipo?
-  console.log("🔍 req.file:", req.file); // ¿Se subió el archivo?
-  const tipo = req.body.tipo;
+  console.log("🔍 Datos combinados:", req.combinedData); // ¡Ahora debería verse!
+  const tipo = req.combinedData.tipo; // Usa los datos del middleware
   if (!tipo) {
     return res
       .status(400)
@@ -104,7 +103,7 @@ const crearGasto = async (datos) => {
     moneda = "USD",
     estado = "pendiente",
     usuario_id,
-    documento,
+    comprobante,
     tasa_cambio = null,
   } = datos;
 
@@ -140,7 +139,7 @@ const crearGasto = async (datos) => {
       descripcion, subtotal, porcentaje_iva, impuesto, total,
       fecha, sucursal_id, cotizacion_id,
       moneda, tasa_cambio,
-      documento,
+      comprobante,
       estado, usuario_id, created_at, updated_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
