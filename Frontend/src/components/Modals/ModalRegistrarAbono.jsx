@@ -18,11 +18,29 @@ export default function ModalRegistrarAbono({
     observaciones: "",
   });
 
+  const [saldoPendiente, setSaldoPendiente] = useState(null);
   const [cargandoTasa, setCargandoTasa] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [montoUSD, setMontoUSD] = useState("");
 
+  // Obtener saldo restante de la cuenta
+  useEffect(() => {
+    const obtenerSaldo = async () => {
+      try {
+        const res = await api.get(`/cuentas/${cuentaId}/saldo`);
+        if (res.status === 200) {
+          setSaldoPendiente(res.data.saldo);
+        }
+      } catch (err) {
+        console.error("Error al obtener saldo pendiente", err);
+        setError("No se pudo obtener el saldo pendiente.");
+      }
+    };
+    if (cuentaId) obtenerSaldo();
+  }, [cuentaId]);
+
+  // Obtener tasa de cambio si es en bolívares
   useEffect(() => {
     const obtenerTasa = async () => {
       if (form.moneda_pago === "VES") {
@@ -48,6 +66,7 @@ export default function ModalRegistrarAbono({
     obtenerTasa();
   }, [form.moneda_pago]);
 
+  // Calcular equivalente en USD si es VES
   useEffect(() => {
     if (form.moneda_pago === "VES" && form.tasa_cambio && form.monto_abonado) {
       const usd = parseFloat(form.monto_abonado / form.tasa_cambio).toFixed(2);
@@ -64,8 +83,14 @@ export default function ModalRegistrarAbono({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.monto_abonado || parseFloat(form.monto_abonado) <= 0) {
+
+    const monto = parseFloat(form.monto_abonado);
+    if (!form.monto_abonado || monto <= 0) {
       setError("Debe ingresar un monto válido");
+      return;
+    }
+    if (saldoPendiente !== null && monto > saldoPendiente) {
+      setError("El monto abonado no puede ser mayor al saldo pendiente.");
       return;
     }
     if (form.moneda_pago === "VES" && !form.tasa_cambio) {
@@ -78,7 +103,7 @@ export default function ModalRegistrarAbono({
       const abonoData = {
         cuenta_id: cuentaId,
         usuario_id: usuarioId,
-        monto_abonado: parseFloat(form.monto_abonado),
+        monto_abonado: monto,
         moneda_pago: form.moneda_pago,
         tasa_cambio:
           form.moneda_pago === "VES" ? parseFloat(form.tasa_cambio) : 1,
@@ -135,7 +160,19 @@ export default function ModalRegistrarAbono({
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm text-white">Monto</label>
+                  <label className="text-sm text-white">
+                    Saldo Pendiente (USD)
+                  </label>
+                  <input
+                    type="text"
+                    value={saldoPendiente !== null ? `$${saldoPendiente}` : ""}
+                    readOnly
+                    className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm text-white">Monto a abonar</label>
                   <input
                     type="number"
                     name="monto_abonado"
@@ -188,26 +225,25 @@ export default function ModalRegistrarAbono({
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm text-white">Fecha del abono</label>
-                  <input
-                    type="date"
-                    name="fecha_abono"
-                    value={form.fecha_abono}
-                    onChange={handleChange}
-                    className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600"
-                  />
-                </div>
+              <div>
+                <label className="text-sm text-white">Fecha del abono</label>
+                <input
+                  type="date"
+                  name="fecha_abono"
+                  value={form.fecha_abono}
+                  onChange={handleChange}
+                  className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600"
+                />
               </div>
-              <div className="col-span-2">
+
+              <div>
                 <label className="text-sm text-white">Observaciones</label>
                 <textarea
                   name="observaciones"
                   value={form.observaciones}
                   onChange={handleChange}
                   rows={3}
-                  className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600 resize-none min-h-[3rem]"
+                  className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600 resize-none"
                   placeholder="Escriba una observación..."
                 ></textarea>
               </div>
@@ -218,7 +254,7 @@ export default function ModalRegistrarAbono({
                 className={`w-full p-2 text-white rounded font-medium ${
                   isSubmitting
                     ? "bg-gray-500 cursor-not-allowed"
-                    : "bg-blue-600 hover:bg-700"
+                    : "bg-blue-600 hover:bg-blue-700"
                 }`}
               >
                 {isSubmitting ? "Registrando..." : "Registrar Abono"}

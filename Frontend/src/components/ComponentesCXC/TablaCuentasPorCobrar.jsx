@@ -13,30 +13,30 @@ const TablaCuentasPorCobrar = ({ clienteId }) => {
   const [modalExito, setModalExito] = useState(null);
   const [modalError, setModalError] = useState(null);
 
+  const fetchCuentas = async () => {
+    if (!clienteId) {
+      setCuentas([]);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await api.get(
+        `/cuentas-por-cobrar?cliente_id=${clienteId}`
+      );
+      setCuentas(response.data.cuentas);
+    } catch (error) {
+      console.error("Error al obtener cuentas por cobrar:", error);
+      setCuentas([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchCuentas = async () => {
-      if (!clienteId) {
-        setCuentas([]);
-        setLoading(false);
-        return;
-      }
-
-      try {
-        setLoading(true);
-        const response = await api.get(
-          `/cuentas-por-cobrar?cliente_id=${clienteId}`
-        );
-        setCuentas(response.data.cuentas);
-      } catch (error) {
-        console.error("Error al obtener cuentas por cobrar:", error);
-        setCuentas([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchCuentas();
-  }, [clienteId, mostrarModalAbono]);
+  }, [clienteId]);
 
   return (
     <div className="overflow-x-auto mt-6">
@@ -45,6 +45,7 @@ const TablaCuentasPorCobrar = ({ clienteId }) => {
           <tr>
             <th className="px-4 py-3">Código</th>
             <th className="px-4 py-3">Monto</th>
+            <th className="px-4 py-3">Saldo Restante</th>
             <th className="px-4 py-3">Estado</th>
             <th className="px-4 py-3">Fecha Emisión</th>
             <th className="px-4 py-3">Fecha Vencimiento</th>
@@ -54,39 +55,42 @@ const TablaCuentasPorCobrar = ({ clienteId }) => {
         <tbody>
           {loading ? (
             <tr>
-              <td colSpan="6" className="text-center py-6 text-white">
+              <td colSpan="7" className="text-center py-6 text-white">
                 Cargando cuentas por cobrar...
               </td>
             </tr>
           ) : !clienteId ? (
             <tr>
-              <td colSpan="6" className="text-center py-6 text-white">
+              <td colSpan="7" className="text-center py-6 text-white">
                 Por favor, seleccione un cliente para ver las cuentas por
                 cobrar.
               </td>
             </tr>
           ) : cuentas.length === 0 ? (
             <tr>
-              <td colSpan="6" className="text-center py-6 text-white">
+              <td colSpan="7" className="text-center py-6 text-white">
                 No hay cuentas por cobrar para este cliente.
               </td>
             </tr>
           ) : (
             cuentas.map((cuenta) => (
               <tr key={cuenta.id} className="border-b border-gray-700">
-                <td className="px-4 py-3 font-medium  text-white">
+                <td className="px-4 py-3 font-medium text-white">
                   {cuenta.codigo}
                 </td>
-                <td className="px-4 py-3  text-white">
+                <td className="px-4 py-3 text-white">
                   ${parseFloat(cuenta.monto).toFixed(2)}
                 </td>
-                <td className="px-4 py-3 capitalize  text-white">
+                <td className="px-4 py-3 text-white">
+                  ${parseFloat(cuenta.saldo_restante).toFixed(2)}
+                </td>
+                <td className="px-4 py-3 capitalize text-white">
                   {cuenta.estado}
                 </td>
-                <td className="px-4 py-3  text-white">
+                <td className="px-4 py-3 text-white">
                   {new Date(cuenta.fecha_emision).toLocaleDateString("es-VE")}
                 </td>
-                <td className="px-4 py-3  text-white">
+                <td className="px-4 py-3 text-white">
                   {new Date(cuenta.fecha_vencimiento).toLocaleDateString(
                     "es-VE"
                   )}
@@ -110,9 +114,13 @@ const TablaCuentasPorCobrar = ({ clienteId }) => {
       {mostrarModalAbono && cuentaSeleccionada && (
         <ModalRegistrarAbono
           cuentaId={cuentaSeleccionada.id}
-          usuarioId={1} // ← reemplazar por el ID real del usuario autenticado
+          usuarioId={1} // ← reemplazar con ID real del usuario autenticado
           onCancel={() => setMostrarModalAbono(false)}
-          onSuccess={(msg) => setModalExito(msg)}
+          onSuccess={(msg) => {
+            setModalExito(msg);
+            setMostrarModalAbono(false);
+            fetchCuentas(); // 🔄 Refresca la tabla tras éxito
+          }}
           onError={(msg) => setModalError(msg)}
         />
       )}
