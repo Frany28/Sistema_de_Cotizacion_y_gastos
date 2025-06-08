@@ -2,6 +2,7 @@
 import express from "express";
 import cors from "cors";
 import session from "express-session";
+import MySQLStore from "express-mysql-session";
 import path from "path";
 import dotenv from "dotenv";
 import { fileURLToPath } from "url";
@@ -35,6 +36,17 @@ const allowedOrigins = [
   "https://sistemacotizaciongastos.netlify.app",
   "http://localhost:5173",
 ];
+
+const sessionStore = new MySQLStore({
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASS,
+  database: process.env.DB_NAME,
+  // Mantener la tabla limpia
+  clearExpired: true,
+  expiration: 2 * 60 * 60 * 1000, // 2 h
+});
 
 app.use(
   cors({
@@ -82,6 +94,7 @@ app.use("/uploads", express.static(path.resolve(__dirname, "uploads")));
 app.set("trust proxy", 1);
 app.use(
   session({
+    store: sessionStore,
     secret: process.env.SESSION_SECRET || "clave_super_segura",
     resave: false,
     saveUninitialized: false,
