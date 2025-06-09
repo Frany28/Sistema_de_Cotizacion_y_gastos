@@ -2,7 +2,7 @@
 import express from "express";
 import cors from "cors";
 import session from "express-session";
-import MySQLStore from "express-mysql-session";
+import expressMysqlSession from "express-mysql-session"; // 👈 función factory
 import path from "path";
 import dotenv from "dotenv";
 import { fileURLToPath } from "url";
@@ -27,33 +27,21 @@ import usuariosRoutes from "./routes/usuarios.routes.js";
 import rolesRoutes from "./routes/roles.routes.js";
 import permisosRoutes from "./routes/permisos.routes.js";
 import rolesPermisosRoutes from "./routes/rolesPermisos.routes.js";
-import db from "./config/database.js";
 
 dotenv.config();
 
 const app = express();
+
+/* ----------  CORS  ---------- */
 const allowedOrigins = [
   "https://sistemacotizaciongastos.netlify.app",
   "http://localhost:5173",
 ];
 
-const sessionStore = new MySQLStore({
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASS,
-  database: process.env.DB_NAME,
-  // Mantener la tabla limpia
-  clearExpired: true,
-  expiration: 2 * 60 * 60 * 1000, // 2 h
-});
-
 app.use(
   cors({
     origin: (origin, cb) => {
-      if (!origin || allowedOrigins.includes(origin)) {
-        return cb(null, true);
-      }
+      if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
       return cb(new Error(`CORS origin not allowed: ${origin}`));
     },
     credentials: true,
@@ -69,27 +57,23 @@ app.use(
   })
 );
 
-app.use((req, res, next) => {
-  const origen = req.headers.origin;
-  res.header(
-    "Access-Control-Allow-Origin",
-    allowedOrigins.includes(origen) ? origen : ""
-  );
-  res.header("Access-Control-Allow-Credentials", "true");
-  res.header(
-    "Access-Control-Allow-Methods",
-    "GET,POST,PUT,PATCH,DELETE,OPTIONS"
-  );
-  res.header(
-    "Access-Control-Allow-Headers",
-    "Content-Type,Authorization,X-Requested-With"
-  );
-  next();
-});
-
+/* ----------  Archivos estáticos  ---------- */
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 app.use("/uploads", express.static(path.resolve(__dirname, "uploads")));
+
+/* ----------  Sesión persistente en MySQL  ---------- */
+const MySQLStore = expressMysqlSession(session); // paso 1
+const sessionStore = new MySQLStore({
+  // paso 2
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASS,
+  database: process.env.DB_NAME,
+  clearExpired: true,
+  expiration: 2 * 60 * 60 * 1000, // 2 h
+});
 
 app.set("trust proxy", 1);
 app.use(
@@ -107,11 +91,12 @@ app.use(
   })
 );
 
+/* ----------  Middlewares globales  ---------- */
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(logger);
 
-// Rutas
+/* ----------  Rutas  ---------- */
 app.use("/api/clientes", clientesRoutes);
 app.use("/api/servicios-productos", serviciosProductosRoutes);
 app.use("/api/cotizaciones", cotizacionesRoutes);
@@ -129,6 +114,7 @@ app.use("/api/roles", rolesRoutes);
 app.use("/api/permisos", permisosRoutes);
 app.use("/api/roles-permisos", rolesPermisosRoutes);
 
+/* ----------  404 para rutas API desconocidas  ---------- */
 app.use((req, res, next) => {
   if (req.originalUrl.startsWith("/api/")) {
     return res.status(404).json({ message: "Ruta no encontrada" });
@@ -142,4 +128,11 @@ if (process.env.NODE_ENV !== "production") {
 
 app.use(errorHandler);
 
+/* ----------  Export para Vercel  ---------- */
 export default app;
+
+/* ----------  Listener local (se ignora en Vercel)  ---------- */
+if (!process.env.VERCEL) {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => console.log(`API local en http://localhost:${PORT}`));
+}
