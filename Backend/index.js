@@ -2,7 +2,7 @@
 import express from "express";
 import cors from "cors";
 import session from "express-session";
-import expressMysqlSession from "express-mysql-session"; // 👈 función factory
+import expressMysqlSession from "express-mysql-session";
 import path from "path";
 import dotenv from "dotenv";
 import { fileURLToPath } from "url";
@@ -63,9 +63,8 @@ const __dirname = path.dirname(__filename);
 app.use("/uploads", express.static(path.resolve(__dirname, "uploads")));
 
 /* ----------  Sesión persistente en MySQL  ---------- */
-const MySQLStore = expressMysqlSession(session); // paso 1
+const MySQLStore = expressMysqlSession(session);
 const sessionStore = new MySQLStore({
-  // paso 2
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
   user: process.env.DB_USER,
@@ -73,7 +72,12 @@ const sessionStore = new MySQLStore({
   database: process.env.DB_NAME,
   clearExpired: true,
   expiration: 2 * 60 * 60 * 1000, // 2 h
+  createDatabaseTable: true,
 });
+
+// Logs de depuración
+sessionStore.on("connect", () => console.log("✅ MySQLStore conectado"));
+sessionStore.on("error", (err) => console.error("❌ MySQLStore error:", err));
 
 app.set("trust proxy", 1);
 app.use(
@@ -90,6 +94,12 @@ app.use(
     },
   })
 );
+
+/* ----------  Middleware para refrescar sesión  ---------- */
+app.use((req, _res, next) => {
+  if (req.session) req.session.touch(); // mantiene la sesión viva
+  next();
+});
 
 /* ----------  Middlewares globales  ---------- */
 app.use(express.json());
