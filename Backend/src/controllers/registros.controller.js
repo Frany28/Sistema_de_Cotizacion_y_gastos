@@ -1,5 +1,5 @@
 import chromium from "chrome-aws-lambda";
-import { generarHTMLCotizacion } from "../templates/generarHTMLCotizacion.js";
+import { generarHTMLCotizacion } from "../../templates/generarHTMLCotizacion.js";
 import path from "path";
 import { fileURLToPath } from "url";
 import db from "../config/database.js";

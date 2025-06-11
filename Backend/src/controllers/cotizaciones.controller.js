@@ -2,7 +2,7 @@
 import db from "../config/database.js";
 import path from "path";
 import chromium from "chrome-aws-lambda";
-import { generarHTMLCotizacion } from "../templates/generarHTMLCotizacion.js";
+import { generarHTMLCotizacion } from "../../templates/generarHTMLCotizacion.js";
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
