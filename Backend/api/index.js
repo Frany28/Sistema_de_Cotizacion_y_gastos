@@ -30,6 +30,8 @@ import rolesPermisosRoutes from "./routes/rolesPermisos.routes.js";
 
 dotenv.config();
 
+app.get("/test-rewrite", (_, res) => res.json({ ok: true, time: Date.now() }));
+
 const app = express();
 
 /* ----------  CORS  ---------- */
