@@ -6,7 +6,7 @@ import multerS3 from "multer-s3";
 import dotenv from "dotenv";
 dotenv.config();
 
-/* 1️⃣  Cliente S3 */
+
 export const s3 = new S3Client({
   region: process.env.AWS_REGION, // e.g. "us-east-1"
   credentials: {
@@ -15,7 +15,7 @@ export const s3 = new S3Client({
   },
 });
 
-/* 2️⃣  URL pre-firmada de lectura (5 min por defecto) */
+
 export async function generarUrlPrefirmadaLectura(key, expiresInSeconds = 300) {
   const command = new GetObjectCommand({
     Bucket: process.env.S3_BUCKET,
@@ -24,7 +24,7 @@ export async function generarUrlPrefirmadaLectura(key, expiresInSeconds = 300) {
   return getSignedUrl(s3, command, { expiresIn: expiresInSeconds });
 }
 
-/* 3️⃣  Helper para crear uploaders con distinta carpeta y filtro */
+
 const makeUploader = ({ folder, maxSizeMb, allowPdf = false }) =>
   multer({
     storage: multerS3({
@@ -47,7 +47,7 @@ const makeUploader = ({ folder, maxSizeMb, allowPdf = false }) =>
     preservePath: true,
   });
 
-/* 4️⃣  Exportaciones específicas */
+
 export const uploadFirma = makeUploader({
   folder: "firmas",
   maxSizeMb: 5, // solo imágenes

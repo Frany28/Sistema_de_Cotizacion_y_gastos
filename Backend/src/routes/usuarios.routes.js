@@ -1,7 +1,7 @@
 import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
 import db from "../config/database.js";
 import express from "express";
-import { uploadComprobante } from "../utils/s3.js";
+import { uploadFirma } from "../utils/s3.js";
 import {
   obtenerUsuarios,
   obtenerUsuarioPorId,
@@ -16,17 +16,12 @@ router.get("/", autenticarUsuario, obtenerUsuarios);
 router.get("/permisos/:permiso", autenticarUsuario /* … */);
 router.get("/:id", autenticarUsuario, obtenerUsuarioPorId);
 
-router.post(
-  "/",
-  autenticarUsuario,
-  uploadComprobante.single("firma"),
-  crearUsuario
-);
+router.post("/", autenticarUsuario, uploadFirma.single("firma"), crearUsuario);
 
 router.put(
   "/:id",
   autenticarUsuario,
-  uploadComprobante.single("firma"),
+  uploadFirma.single("firma"),
   actualizarUsuario
 );
 
