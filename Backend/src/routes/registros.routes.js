@@ -16,6 +16,14 @@ router.get("/", autenticarUsuario, getDatosRegistro);
 
 router.post(
   "/",
+  uploadComprobante.single("documento"),
+  (req, _res, next) => {
+    req.combinedData = {
+      ...req.body,
+      ...(req.file ? { documento: req.file } : {}),
+    };
+    next();
+  },
   autenticarUsuario,
   verificaPermisoDinamico,
   validarRegistro,
