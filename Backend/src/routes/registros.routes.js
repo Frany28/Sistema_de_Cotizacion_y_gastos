@@ -11,8 +11,7 @@ import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
 import { verificaPermisoDinamico } from "../Middleware/verificarPermisoDinamico.js";
 import { validarRegistro } from "../Middleware/validarRegistro.js";
 
-// Importamos el middleware que sube a S3:
-// (asegúrate de que la ruta relativa coincide con tu estructura de carpetas)
+
 import { uploadComprobante } from "../utils/s3.js";
 
 const router = express.Router();
@@ -24,8 +23,8 @@ router.post(
   "/",
   autenticarUsuario,
   verificaPermisoDinamico,
-  validarRegistro, // ← Primero validamos
-  uploadComprobante.single("comprobante"), // ← Luego subimos el archivo
+  validarRegistro,
+  uploadComprobante.single("comprobante"), 
   createRegistro
 );
 

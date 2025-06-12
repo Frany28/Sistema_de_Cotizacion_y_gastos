@@ -42,9 +42,9 @@ export const getDatosRegistro = async (req, res) => {
   }
 };
 
-// registros.controller.js (versión corregida)
+
 export const createRegistro = async (req, res) => {
-  console.log("🔍 Datos combinados:", req.combinedData); // ¡Ahora debería verse!
+  console.log("🔍 Datos combinados:", req.combinedData); 
   const tipo = req.combinedData.tipo; // Usa los datos del middleware
   if (!tipo) {
     return res
@@ -59,7 +59,6 @@ export const createRegistro = async (req, res) => {
     let resultado;
 
     if (tipo === "gasto") {
-      // ← Si no llegó ningún archivo, devolvemos 400 con mensaje claro
       if (!req.file) {
         return res.status(400).json({
           message: "Para crear un gasto, el comprobante es obligatorio",
@@ -68,9 +67,6 @@ export const createRegistro = async (req, res) => {
 
       datos.documento = req.file.key;
 
-      // ——— Nuevo log para inspeccionar todo lo que llevará crearGasto:
-      console.log("🔍 [Backend] crearGasto – datos:", datos);
-      // ——————————————————————————————————————————————
 
       resultado = await crearGasto(datos);
     } else if (tipo === "cotizacion") {

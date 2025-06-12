@@ -110,7 +110,7 @@ const CrearRegistro = () => {
         withCredentials: true,
       })
       .then((res) => {
-        // aquí res.data es directamente el Array<{ id, nombre }>
+      
         setSucursales(res.data);
       })
       .catch((err) =>
