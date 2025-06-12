@@ -133,7 +133,7 @@ const crearGasto = async (datos) => {
       descripcion, subtotal, porcentaje_iva, impuesto, total,
       fecha, sucursal_id, cotizacion_id,
       moneda, tasa_cambio,
-      comprobante,
+      documento,
       estado, usuario_id, created_at, updated_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
