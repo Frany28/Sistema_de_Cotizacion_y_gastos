@@ -34,7 +34,12 @@ import permisosRoutes from "./routes/permisos.routes.js";
 import rolesPermisosRoutes from "./routes/rolesPermisos.routes.js";
 
 dotenv.config();
+const app = express();
+// Obtener el nombre del archivo y directorio actual
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
+// Configuración de la conexión a la base de datos MySQL
 const dbPool = mysql.createPool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
@@ -44,7 +49,6 @@ const dbPool = mysql.createPool({
   connectionLimit: 2,
   maxIdle: 1,
 });
-
 
 const MySQLStore = mysqlSession(session);
 const sessionStore = new MySQLStore(dbPool);
@@ -65,11 +69,6 @@ app.use(
     },
   })
 );
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const app = express();
 
 // CORS dinámico usando FRONT_URL de tu env y localhost
 const allowedOrigins = [process.env.FRONT_URL, "http://localhost:5173"].filter(
