@@ -1,5 +1,4 @@
 // routes/gastos.routes.js
-
 import express from "express";
 import {
   getGastos,

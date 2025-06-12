@@ -104,8 +104,7 @@ app.use("/api/roles", rolesRoutes);
 app.use("/api/permisos", permisosRoutes);
 app.use("/api/roles-permisos", rolesPermisosRoutes);
 
-/* —— Alias Legacy para compatibilidad con el frontend —— */
-app.use("/api/usuarios/permisos", permisosRoutes); // ← soluciona 404
+
 
 /* ───── 404 para API inexistente ─────────────────────────── */
 app.use((req, res, next) => {

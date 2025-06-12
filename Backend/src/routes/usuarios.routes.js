@@ -1,58 +1,56 @@
-// src/routes/solicitudes_pago.routes.js
-import express from "express";
-import {
-  obtenerSolicitudesPago,
-  obtenerSolicitudPagoPorId,
-  actualizarSolicitudPago,
-  cancelarSolicitudPago,
-  pagarSolicitudPago,
-} from "../controllers/solicitudesPago.controller.js";
 import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
-import { verificarPermiso } from "../Middleware/verificarPermiso.js";
-import { uploadComprobante } from "../utils/s3.js";
+import db from "../config/database.js";
+import express from "express";
+import { upload } from "../config/multer.js";
+import {
+  obtenerUsuarios,
+  obtenerUsuarioPorId,
+  crearUsuario,
+  actualizarUsuario,
+  eliminarUsuario,
+} from "../controllers/usuarios.controller.js";
 
 const router = express.Router();
 
-// GET   /api/solicitudes-pago           → Listar todas
-router.get(
-  "/",
-  autenticarUsuario,
-  verificarPermiso("ver_solicitudes_pago"),
-  obtenerSolicitudesPago
-);
+router.get("/", autenticarUsuario, obtenerUsuarios);
+router.get("/permisos/:permiso", autenticarUsuario /* … */);
+router.get("/:id", autenticarUsuario, obtenerUsuarioPorId);
 
-// GET   /api/solicitudes-pago/:id       → Detalle de una
-router.get(
+router.post("/", autenticarUsuario, upload.single("firma"), crearUsuario);
+
+router.put(
   "/:id",
   autenticarUsuario,
-  verificarPermiso("ver_solicitudes_pago"),
-  obtenerSolicitudPagoPorId
+  upload.single("firma"),
+  actualizarUsuario
 );
 
-// PATCH /api/solicitudes-pago/:id       → Actualizar campos generales
-router.patch(
-  "/:id",
-  autenticarUsuario,
-  verificarPermiso("editar_solicitud_pago"),
-  actualizarSolicitudPago
-);
+router.delete("/:id", autenticarUsuario, eliminarUsuario);
 
-// PATCH /api/solicitudes-pago/:id/cancelar
-router.patch(
-  "/:id/cancelar",
-  autenticarUsuario,
-  verificarPermiso("editar_solicitud_pago"),
-  cancelarSolicitudPago
-);
+router.get("/permisos/:clave", autenticarUsuario, async (req, res) => {
+  const { clave } = req.params;
+  const usuario = req.user;
 
-// PATCH /api/solicitudes-pago/:id/pagar
-//    → Sube comprobante y marca como pagada
-router.patch(
-  "/:id/pagar",
-  autenticarUsuario,
-  verificarPermiso("pagar_solicitud_pago"),
-  uploadComprobante.single("ruta_comprobante"),
-  pagarSolicitudPago
-);
+  try {
+    if (usuario.rol_id === 1) {
+      return res.json({ tienePermiso: true });
+    }
+
+    const [rows] = await db.query(
+      `SELECT 1
+         FROM roles_permisos rp
+         JOIN permisos p ON p.id = rp.permiso_id
+         WHERE rp.rol_id = ? AND p.nombre = ?
+         LIMIT 1`,
+      [usuario.rol_id, clave]
+    );
+
+    // Aquí cambiamos la propiedad 'tiene' a 'tienePermiso'
+    res.json({ tienePermiso: rows.length > 0 });
+  } catch (error) {
+    console.error("Error al verificar permiso (frontend):", error);
+    res.status(500).json({ message: "Error interno al verificar permiso" });
+  }
+});
 
 export default router;
