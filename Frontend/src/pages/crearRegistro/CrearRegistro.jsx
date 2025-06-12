@@ -110,7 +110,6 @@ const CrearRegistro = () => {
         withCredentials: true,
       })
       .then((res) => {
-      
         setSucursales(res.data);
       })
       .catch((err) =>
@@ -337,9 +336,6 @@ const CrearRegistro = () => {
 
       const formData = new FormData();
 
-      // 1. Archivo primero (importante)
-      formData.append("documento", datosGasto.documento);
-
       // 2. Campos obligatorios
       formData.append("tipo", "gasto");
       formData.append("tipo_gasto_id", datosGasto.tipo_gasto_id);
@@ -351,6 +347,7 @@ const CrearRegistro = () => {
         new Date(datosGasto.fecha).toISOString().split("T")[0]
       );
       formData.append("sucursal_id", datosGasto.sucursal_id);
+      formData.append("documento", datosGasto.documento);
       formData.append("usuario_id", usuarioId);
       formData.append("moneda", datosGasto.moneda || "USD");
 

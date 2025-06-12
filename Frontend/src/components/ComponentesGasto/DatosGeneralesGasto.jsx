@@ -27,7 +27,7 @@ const DatosBasicosGasto = ({ gasto, setGasto, sucursales = [] }) => {
       return;
     }
 
-    setGasto((prev) => ({ ...prev, comprobante: file }));
+    setGasto((prev) => ({ ...prev, documento: file }));
   };
 
   /* -------------------- Render -------------------- */
@@ -106,7 +106,7 @@ const DatosBasicosGasto = ({ gasto, setGasto, sucursales = [] }) => {
         <input
           type="file"
           accept="image/*,application/pdf"
-          name="comprobante"
+          name="documento"
           onChange={handleFileChange}
           required
           className="
