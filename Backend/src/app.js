@@ -7,14 +7,14 @@ import path from "path";
 import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 
-// ── Pool central reutilizable ─────────────────────────────────
-import db from "../src/config/database.js";
+/* ── Pool global ─────────────────────────────────────────── */
+import db from "./config/database.js"; //  ← ruta correcta
 
-// ── Middlewares propios ──────────────────────────────────────
+/* ── Middlewares propios ─────────────────────────────────― */
 import { errorHandler } from "./Middleware/errorHandler.js";
 import { logger } from "./Middleware/logger.js";
 
-// ── Rutas ────────────────────────────────────────────────────
+/* ── Rutas de negocio ───────────────────────────────────── */
 import clientesRoutes from "./routes/clientes.routes.js";
 import serviciosProductosRoutes from "./routes/servicios_productos.routes.js";
 import proveedoresRoutes from "./routes/proveedores.routes.js";
@@ -26,6 +26,8 @@ import cxcRoutes from "./routes/cxc.routes.js";
 import abonosRoutes from "./routes/abonos.routes.js";
 import solicitudesPagoRoutes from "./routes/solicitudesPago.routes.js";
 import bancosRoutes from "./routes/bancos.routes.js";
+
+/* ── Seguridad ───────────────────────────────────────────── */
 import authRoutes from "./routes/auth.routes.js";
 import usuariosRoutes from "./routes/usuarios.routes.js";
 import rolesRoutes from "./routes/roles.routes.js";
@@ -34,16 +36,16 @@ import rolesPermisosRoutes from "./routes/rolesPermisos.routes.js";
 
 dotenv.config();
 
-/* ───── Init ──────────────────────────────────────────────── */
+/* ───── Init ─────────────────────────────────────────────── */
 const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-/* ───── Session store persistente (MySQL) ─────────────────── */
-const MySQLStore = mysqlSession(session); // fábrica
+/* ───── Session store persistente (MySQL) ────────────────── */
+const MySQLStore = mysqlSession(session);
 const sessionStore = new MySQLStore({}, db);
 
-app.set("trust proxy", 1); // detrás de Vercel proxy
+app.set("trust proxy", 1);
 app.use(
   session({
     secret: process.env.SESSION_SECRET,
@@ -52,7 +54,7 @@ app.use(
     store: sessionStore,
     proxy: true,
     cookie: {
-      secure: true, // obligatorio con SameSite='none'
+      secure: true,
       httpOnly: true,
       sameSite: "none",
       maxAge: 1000 * 60 * 60 * 8, // 8 h
@@ -60,10 +62,11 @@ app.use(
   })
 );
 
-/* ───── CORS ──────────────────────────────────────────────── */
-const allowedOrigins = [process.env.FRONT_URL, "http://localhost:5173"].filter(
-  Boolean
-);
+/* ───── CORS ─────────────────────────────────────────────── */
+const allowedOrigins = [
+  process.env.FRONT_URL, // prod
+  "http://localhost:5173", // dev
+].filter(Boolean);
 
 app.use(
   cors({
@@ -72,18 +75,16 @@ app.use(
         ? cb(null, true)
         : cb(new Error(`CORS origin not allowed: ${origin}`)),
     credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
   })
 );
 
-/* ───── Estáticos y parsers ───────────────────────────────── */
+/* ───── Estáticos y parsers ─────────────────────────────── */
 app.use("/uploads", express.static(path.resolve(__dirname, "../uploads")));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(logger);
 
-/* ───── Rutas de negocio ─────────────────────────────────── */
+/* ───── Rutas REST ───────────────────────────────────────── */
 app.use("/api/clientes", clientesRoutes);
 app.use("/api/servicios-productos", serviciosProductosRoutes);
 app.use("/api/proveedores", proveedoresRoutes);
@@ -95,14 +96,18 @@ app.use("/api/cuentas-por-cobrar", cxcRoutes);
 app.use("/api/abonos", abonosRoutes);
 app.use("/api/solicitudes-pago", solicitudesPagoRoutes);
 app.use("/api/bancos", bancosRoutes);
+
+/* ───── Rutas de seguridad ──────────────────────────────── */
 app.use("/api/auth", authRoutes);
 app.use("/api/usuarios", usuariosRoutes);
 app.use("/api/roles", rolesRoutes);
 app.use("/api/permisos", permisosRoutes);
 app.use("/api/roles-permisos", rolesPermisosRoutes);
-app.use("/api/usuarios/permisos", permisosRoutes);
 
-/* ───── 404 para endpoints inexistentes ───────────────────── */
+/* —— Alias Legacy para compatibilidad con el frontend —— */
+app.use("/api/usuarios/permisos", permisosRoutes); // ← soluciona 404
+
+/* ───── 404 para API inexistente ─────────────────────────── */
 app.use((req, res, next) => {
   if (req.originalUrl.startsWith("/api/")) {
     return res.status(404).json({ message: "Ruta no encontrada" });
@@ -110,7 +115,7 @@ app.use((req, res, next) => {
   next();
 });
 
-/* ───── Error handler global ──────────────────────────────── */
+/* ───── Error handler global ─────────────────────────────── */
 app.use(errorHandler);
 
 export default app;
