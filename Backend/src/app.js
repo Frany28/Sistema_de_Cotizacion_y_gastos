@@ -7,8 +7,7 @@ import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 import listEndpoints from "express-list-endpoints";
 import mysql from "mysql2/promise";
-import MySQLStore from "express-mysql-session";
-
+import mysqlSession from "express-mysql-session";
 
 // Middlewares propios
 import { errorHandler } from "./Middleware/errorHandler.js";
@@ -37,17 +36,35 @@ import rolesPermisosRoutes from "./routes/rolesPermisos.routes.js";
 dotenv.config();
 
 const dbPool = mysql.createPool({
-  host:     process.env.DB_HOST,
-  user:     process.env.DB_USER,
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
   password: process.env.DB_PASS,
   database: process.env.DB_NAME,
   waitForConnections: true,
-  connectionLimit: 2, 
-  maxIdle: 1
+  connectionLimit: 2,
+  maxIdle: 1,
 });
 
-const sessionStore = new MySQLStore({}, dbPool);
 
+const MySQLStore = mysqlSession(session);
+const sessionStore = new MySQLStore(dbPool);
+
+app.set("trust proxy", 1);
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    store: sessionStore,
+    proxy: true,
+    cookie: {
+      secure: true,
+      httpOnly: true,
+      sameSite: "none",
+      maxAge: 1000 * 60 * 60 * 8,
+    },
+  })
+);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
