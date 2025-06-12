@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import api from "../../api/index.js";
 
 const Login = () => {
-  // ✅ Valores predeterminados para email y password
+
   const [email, setEmail] = useState("admin@email.com");
   const [password, setPassword] = useState("admin123");
   const [recordar, setRecordar] = useState(false);
