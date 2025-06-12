@@ -326,7 +326,7 @@ const CrearRegistro = () => {
         return;
       }
 
-      if (!datosGasto.comprobante) {
+      if (!datosGasto.documento) {
         setModalError({
           visible: true,
           mensaje: "El comprobante es obligatorio",
@@ -338,7 +338,7 @@ const CrearRegistro = () => {
       const formData = new FormData();
 
       // 1. Archivo primero (importante)
-      formData.append("comprobante", datosGasto.comprobante);
+      formData.append("documento", datosGasto.documento);
 
       // 2. Campos obligatorios
       formData.append("tipo", "gasto");

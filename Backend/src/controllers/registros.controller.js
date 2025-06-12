@@ -42,9 +42,8 @@ export const getDatosRegistro = async (req, res) => {
   }
 };
 
-
 export const createRegistro = async (req, res) => {
-  console.log("🔍 Datos combinados:", req.combinedData); 
+  console.log(" Datos combinados:", req.combinedData);
   const tipo = req.combinedData.tipo; // Usa los datos del middleware
   if (!tipo) {
     return res
@@ -66,7 +65,6 @@ export const createRegistro = async (req, res) => {
       }
 
       datos.documento = req.file.key;
-
 
       resultado = await crearGasto(datos);
     } else if (tipo === "cotizacion") {
@@ -99,7 +97,7 @@ const crearGasto = async (datos) => {
     moneda = "USD",
     estado = "pendiente",
     usuario_id,
-    comprobante,
+    documento,
     tasa_cambio = null,
   } = datos;
 

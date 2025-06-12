@@ -26,7 +26,7 @@ export default function AgregarGasto({
     porcentaje_iva: 0,
     tasa_cambio: "",
     moneda: "USD",
-    comprobante: null,
+    documento: null,
   });
   const [tipoGastoSeleccionado, setTipoGastoSeleccionado] = useState(null);
   const [cotizacionSeleccionada, setCotizacionSeleccionada] = useState(null);

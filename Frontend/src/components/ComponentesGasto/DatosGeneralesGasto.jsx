@@ -11,7 +11,6 @@ const DatosBasicosGasto = ({ gasto, setGasto, sucursales = [] }) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    // ✅ Validamos tipo y tamaño (2 MB máx.)
     const tiposValidos = [
       "application/pdf",
       "image/png",
@@ -99,10 +98,10 @@ const DatosBasicosGasto = ({ gasto, setGasto, sucursales = [] }) => {
         />
       </div>
 
-      {/* Comprobante */}
+      {/* Documento */}
       <div className="col-span-1">
         <label className="block mb-1 text-sm font-medium text-white">
-          Comprobante (imagen o PDF) *
+            Documento (imagen o PDF) *
         </label>
         <input
           type="file"
