@@ -9,6 +9,7 @@ import {
 import { validarRegistro } from "../Middleware/validarRegistro.js";
 import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
 import { verificaPermisoDinamico } from "../Middleware/verificarPermisoDinamico.js";
+import { uploadComprobante } from "../utils/s3.js";
 
 const router = express.Router();
 
