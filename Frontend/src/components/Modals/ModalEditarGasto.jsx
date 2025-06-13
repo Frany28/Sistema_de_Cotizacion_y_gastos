@@ -457,7 +457,7 @@ export default function ModalEditarGasto({
                           </div>
                         )).length === 0 && (
                         <div className="px-4 py-2 text-gray-400">
-                          No hay resultados
+                          No hay resultados 
                         </div>
                       )}
                     </div>
@@ -465,7 +465,7 @@ export default function ModalEditarGasto({
                 </div>
               )}
 
-              {/* Tasa de cambio (solo si moneda = VES) */}
+              {/* Tasa de cambio (solo si la moneda VES) */}
               {form.moneda === "VES" && (
                 <div>
                   <label className="block text-sm font-medium mb-1">
