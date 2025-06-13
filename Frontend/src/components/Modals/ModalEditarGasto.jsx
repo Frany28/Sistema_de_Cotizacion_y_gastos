@@ -406,7 +406,7 @@ export default function ModalEditarGasto({
                     value={getNombreSeleccionado(
                       form.cotizacion_id,
                       cotizaciones,
-                      "codigo_referencia"
+                      "codigo"
                     )}
                     readOnly
                     onClick={() => setShowCotizaciones(!showCotizaciones)}
@@ -432,7 +432,7 @@ export default function ModalEditarGasto({
                       </div>
                       {cotizaciones
                         .filter((cot) =>
-                          cot.codigo_referencia
+                          cot.codigo
                             .toLowerCase()
                             .includes(busquedaCotizacion.toLowerCase())
                         )
@@ -453,11 +453,11 @@ export default function ModalEditarGasto({
                               setBusquedaCotizacion("");
                             }}
                           >
-                            {cot.codigo} - {cot.descripcion}
+                            {cot.codigo}
                           </div>
                         )).length === 0 && (
                         <div className="px-4 py-2 text-gray-400">
-                          No hay resultados 
+                          No hay resultados
                         </div>
                       )}
                     </div>
