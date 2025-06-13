@@ -33,33 +33,87 @@ export default function ModalEditarGasto({
   });
 
   const [cotizaciones, setCotizaciones] = useState([]);
-  const [busquedaProveedor, setBusquedaProveedor] = useState("");
   const [busquedaSucursal, setBusquedaSucursal] = useState("");
-  const [busquedaTipoGasto, setBusquedaTipoGasto] = useState("");
   const [busquedaCotizacion, setBusquedaCotizacion] = useState("");
-  const [showProveedores, setShowProveedores] = useState(false);
   const [showSucursales, setShowSucursales] = useState(false);
-  const [showTiposGasto, setShowTiposGasto] = useState(false);
   const [showCotizaciones, setShowCotizaciones] = useState(false);
   const [loadingLists, setLoadingLists] = useState(false);
 
   const actualizarCamposVisibles = (tipoGastoId) => {
+    // Buscar el objeto completo del tipo de gasto seleccionado
+    const tipoObj = (Array.isArray(tiposGasto) ? tiposGasto : []).find(
+      (t) => t.id.toString() === tipoGastoId.toString()
+    ) || { nombre: "", rentable: 0 };
+
+    const requiereProveedor = /proveedor|servicio\s+prestado/i.test(
+      tipoObj.nombre
+    );
+    const requiereCotizacion = tipoObj.rentable === 1;
+
     setCamposVisibles({
-      proveedor: tipoGastoId === "1" || tipoGastoId === "5",
-      cotizacion: tipoGastoId === "2",
+      proveedor: requiereProveedor,
+      cotizacion: requiereCotizacion,
     });
 
-    // Resetear campos no aplicables
+    // Limpiar campos que dejan de aplicar
     setForm((prev) => ({
       ...prev,
-      proveedor_id: tipoGastoId === "2" ? "" : prev.proveedor_id,
-      cotizacion_id: tipoGastoId !== "2" ? "" : prev.cotizacion_id,
+      proveedor_id: requiereProveedor ? prev.proveedor_id : "",
+      cotizacion_id: requiereCotizacion ? prev.cotizacion_id : "",
     }));
+
+    // Si ahora se requiere cotización y la lista aún no está cargada ⇒ fetch
+    if (requiereCotizacion && cotizaciones.length === 0) {
+      cargarCotizaciones();
+    }
+  };
+
+  /** Descarga cotizaciones para el desplegable cuando es necesario */
+  const cargarCotizaciones = async () => {
+    try {
+      const { data } = await api.get("/cotizaciones");
+      setCotizaciones(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Error cargando cotizaciones:", err);
+      setCotizaciones([]);
+    }
+  };
+
+  /** Descarga proveedores / sucursales / tiposGasto si no los recibimos por props */
+  const cargarListasAdicionales = async () => {
+    setLoadingLists(true);
+    try {
+      const [prov, suc, tipos] = await Promise.all([
+        proveedores.length === 0
+          ? api.get("/proveedores")
+          : Promise.resolve({ data: proveedores }),
+        sucursales.length === 0
+          ? api.get("/sucursales")
+          : Promise.resolve({ data: sucursales }),
+        tiposGasto.length === 0
+          ? api.get("/gastos/tipos")
+          : Promise.resolve({ data: tiposGasto }),
+      ]);
+      // Solo actualizamos si vinieron vacías para evitar sobrescribir props
+      if (proveedores.length === 0) proveedores = prov.data;
+      if (sucursales.length === 0) sucursales = suc.data;
+      if (tiposGasto.length === 0) tiposGasto = tipos.data;
+    } catch (e) {
+      console.error("Error cargando listas adicionales:", e);
+    } finally {
+      setLoadingLists(false);
+    }
+  };
+
+  /** Devuelve el nombre legible del ítem seleccionado para inputs readonly */
+  const getNombreSeleccionado = (id, lista, campo = "nombre") => {
+    if (!id || !Array.isArray(lista)) return "";
+    const item = lista.find((el) => el.id.toString() === id.toString());
+    return item ? item[campo] : "";
   };
 
   useEffect(() => {
     if (visible && gasto) {
-      // Formatear la fecha correctamente
       const fechaFormateada = gasto.fecha
         ? new Date(gasto.fecha).toISOString().split("T")[0]
         : new Date().toISOString().split("T")[0];
@@ -81,12 +135,6 @@ export default function ModalEditarGasto({
         tasa_cambio: gasto.tasa_cambio?.toString() || "",
       });
 
-      // Cargar cotizaciones si es necesario
-      if (gasto.tipo_gasto_id === 2) {
-        cargarCotizaciones();
-      }
-
-      // Si las listas están vacías, intentar cargarlas
       if (
         proveedores.length === 0 ||
         sucursales.length === 0 ||
@@ -94,148 +142,53 @@ export default function ModalEditarGasto({
       ) {
         cargarListasAdicionales();
       }
-      actualizarCamposVisibles(gasto.tipo_gasto_id?.toString() || "");
     }
   }, [visible, gasto]);
 
-  const cargarListasAdicionales = async () => {
-    setLoadingLists(true);
-    try {
-      const [prov, suc, tipos] = await Promise.all([
-        proveedores.length === 0
-          ? api.get("/proveedores")
-          : Promise.resolve({ data: proveedores }),
-        sucursales.length === 0
-          ? api.get("/sucursales")
-          : Promise.resolve({ data: sucursales }),
-        tiposGasto.length === 0
-          ? api.get("/gastos/tipos")
-          : Promise.resolve({ data: tiposGasto }),
-      ]);
-    } catch (error) {
-      console.error("Error cargando listas adicionales:", error);
-    } finally {
-      setLoadingLists(false);
+  // – Cada vez que cargamos tiposGasto o cambiamos el seleccionado –
+  useEffect(() => {
+    if (visible && form.tipo_gasto_id) {
+      actualizarCamposVisibles(form.tipo_gasto_id);
     }
-  };
-
-  const cargarCotizaciones = async () => {
-    try {
-      const response = await api.get("/cotizaciones");
-      setCotizaciones(response.data || []);
-    } catch (error) {
-      console.error("Error cargando cotizaciones:", error);
-      setCotizaciones([]);
-    }
-  };
+  }, [tiposGasto, form.tipo_gasto_id, visible]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
-
     if (name === "tipo_gasto_id") {
       actualizarCamposVisibles(value);
-      if (value === "2") {
-        cargarCotizaciones();
-      }
     }
   };
 
   const handleSave = (e) => {
     e.preventDefault();
-    guardarGasto();
-  };
 
-  const guardarGasto = async () => {
-    try {
-      // Validaciones
-      if (camposVisibles.proveedor && !form.proveedor_id) {
-        alert("Debe seleccionar un proveedor");
-        return;
-      }
+    if (!form.tipo_gasto_id) return alert("Debe seleccionar un tipo de gasto");
+    if (!form.concepto_pago) return alert("El concepto de pago es requerido");
+    if (!form.fecha) return alert("La fecha es requerida");
 
-      if (camposVisibles.cotizacion && !form.cotizacion_id) {
-        alert("Debe seleccionar una cotización");
-        return;
-      }
-      if (!form.tipo_gasto_id) {
-        alert("Debe seleccionar un tipo de gasto");
-        return;
-      }
-      if (!form.concepto_pago) {
-        alert("El concepto de pago es requerido");
-        return;
-      }
-      if (!form.fecha) {
-        alert("La fecha es requerida");
-        return;
-      }
-      if (isNaN(parseFloat(form.subtotal)) || parseFloat(form.subtotal) <= 0) {
-        alert("El subtotal debe ser un valor numérico mayor a cero");
-        return;
-      }
-
-      // Calcular impuesto y total
-      const subtotalNum = parseFloat(form.subtotal);
-      const ivaNum = parseFloat(form.porcentaje_iva);
-      const impuesto = parseFloat(((subtotalNum * ivaNum) / 100).toFixed(2));
-      const total = parseFloat((subtotalNum + impuesto).toFixed(2));
-
-      // Preparar datos para enviar
-      const datosActualizados = {
-        ...form,
-        impuesto,
-        total,
-        subtotal: subtotalNum,
-        porcentaje_iva: ivaNum,
-      };
-
-      onSave(datosActualizados);
-    } catch (error) {
-      console.error("Error al guardar el gasto:", error);
-      alert("Ocurrió un error al guardar los cambios");
+    if (camposVisibles.proveedor && !form.proveedor_id) {
+      return alert("Debe seleccionar un proveedor");
     }
-  };
-
-  // Obtener nombre del elemento seleccionado para mostrarlo en el input
-  const getNombreSeleccionado = (id, lista, campo = "nombre") => {
-    if (!id || !lista || !Array.isArray(lista)) {
-      // Si no hay lista pero el gasto tiene el nombre, usarlo
-      if (!lista && gasto) {
-        if (
-          campo === "nombre" &&
-          id === form.proveedor_id?.toString() &&
-          gasto.proveedor_nombre
-        ) {
-          return gasto.proveedor_nombre;
-        }
-        if (
-          campo === "nombre" &&
-          id === form.sucursal_id?.toString() &&
-          gasto.sucursal_nombre
-        ) {
-          return gasto.sucursal_nombre;
-        }
-        if (
-          campo === "nombre" &&
-          id === form.tipo_gasto_id?.toString() &&
-          gasto.tipo_gasto_nombre
-        ) {
-          return gasto.tipo_gasto_nombre;
-        }
-      }
-      return "";
+    if (camposVisibles.cotizacion && !form.cotizacion_id) {
+      return alert("Debe seleccionar una cotización");
     }
-    const item = lista.find((item) => item.id.toString() === id.toString());
-    return item ? item[campo] : "";
-  };
 
-  // Filtrado optimizado para las listas desplegables
-  const filtrarOpciones = (lista, busqueda, campo = "nombre") => {
-    if (!lista || !Array.isArray(lista)) return [];
-    return lista.filter((item) =>
-      item[campo]?.toString().toLowerCase().includes(busqueda.toLowerCase())
-    );
+    const sub = parseFloat(form.subtotal);
+    if (isNaN(sub) || sub <= 0) return alert("El subtotal debe ser mayor a 0");
+
+    // Cálculo Impuesto + Total
+    const iva = parseFloat(form.porcentaje_iva);
+    const impuesto = parseFloat(((sub * iva) / 100).toFixed(2));
+    const total = parseFloat((sub + impuesto).toFixed(2));
+
+    onSave({
+      ...form,
+      subtotal: sub,
+      porcentaje_iva: iva,
+      impuesto,
+      total,
+    });
   };
 
   return (
@@ -252,27 +205,27 @@ export default function ModalEditarGasto({
             className="bg-gray-800 text-white rounded-lg shadow-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="sticky top-0 bg-gray-800 p-6 border-b border-gray-700 z-10">
-              <div className="flex justify-between items-center mb-4">
-                <div className="flex items-center gap-3">
-                  <Pencil className="w-6 h-6 text-blue-500" />
-                  <h2 className="text-xl font-semibold">Editar Gasto</h2>
-                </div>
-                <button
-                  onClick={onClose}
-                  className="text-gray-400 hover:text-white"
-                >
-                  <X className="w-6 h-6" />
-                </button>
+            {/* CABECERA  */}
+            <div className="sticky top-0 bg-gray-800 p-6 border-b border-gray-700 flex justify-between items-center z-10">
+              <div className="flex items-center gap-3">
+                <Pencil className="w-6 h-6 text-blue-500" />
+                <h2 className="text-xl font-semibold">Editar Gasto</h2>
               </div>
+              <button
+                onClick={onClose}
+                className="text-gray-400 hover:text-white"
+              >
+                <X className="w-6 h-6" />
+              </button>
             </div>
 
+            {/*FORMULARIO */}
             <form
               onSubmit={handleSave}
               className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4"
             >
-              {/* Campo Tipo de Gasto */}
-              <div className="relative">
+              {/* Tipo de Gasto */}
+              <div>
                 <label className="block text-sm font-medium mb-1">
                   Tipo de Gasto *
                 </label>
@@ -284,17 +237,17 @@ export default function ModalEditarGasto({
                   required
                 >
                   <option value="">Seleccione tipo</option>
-                  {(Array.isArray(tiposGasto) ? tiposGasto : []).map((tipo) => (
-                    <option key={tipo.id} value={tipo.id}>
-                      {tipo.nombre}
+                  {(Array.isArray(tiposGasto) ? tiposGasto : []).map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.nombre}
                     </option>
                   ))}
                 </select>
               </div>
 
-              {/* Campo Proveedor (condicional) */}
+              {/* Proveedor (condicional) */}
               {camposVisibles.proveedor && (
-                <div className="relative">
+                <div>
                   <label className="block text-sm font-medium mb-1">
                     Proveedor *
                   </label>
@@ -307,69 +260,15 @@ export default function ModalEditarGasto({
                   >
                     <option value="">Seleccione proveedor</option>
                     {(Array.isArray(proveedores) ? proveedores : []).map(
-                      (prov) => (
-                        <option key={prov.id} value={prov.id}>
-                          {prov.nombre}
+                      (p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.nombre}
                         </option>
                       )
                     )}
                   </select>
                 </div>
               )}
-
-              {/* Campo Cotización (condicional) */}
-              {camposVisibles.cotizacion && (
-                <div className="relative">
-                  <label className="block text-sm font-medium mb-1">
-                    Cotización Relacionada *
-                  </label>
-                  <select
-                    name="cotizacion_id"
-                    value={form.cotizacion_id}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
-                    required={camposVisibles.cotizacion}
-                  >
-                    <option value="">Seleccione cotización</option>
-                    {(Array.isArray(cotizaciones) ? proveedores : []).map(
-                      (cot) => (
-                        <option key={cot.id} value={cot.id}>
-                          {cot.codigo} - {cot.descripcion}
-                        </option>
-                      )
-                    )}
-                  </select>
-                </div>
-              )}
-
-              {/* Concepto de Pago */}
-              <div className="col-span-2">
-                <label className="block text-sm font-medium mb-1">
-                  Concepto de Pago *
-                </label>
-                <input
-                  type="text"
-                  name="concepto_pago"
-                  value={form.concepto_pago}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
-                  required
-                />
-              </div>
-
-              {/* Descripción */}
-              <div className="col-span-2">
-                <label className="block text-sm font-medium mb-1">
-                  Descripción
-                </label>
-                <textarea
-                  name="descripcion"
-                  value={form.descripcion}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
-                  rows="3"
-                />
-              </div>
 
               {/* Fecha */}
               <div>
@@ -432,79 +331,69 @@ export default function ModalEditarGasto({
                 </select>
               </div>
 
-              {/* Sucursal */}
+              {/* Sucursal – Selector con búsqueda */}
               <div className="relative">
                 <label className="block text-sm font-medium mb-1">
                   Sucursal
                 </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={getNombreSeleccionado(form.sucursal_id, sucursales)}
-                    readOnly
-                    onClick={() => setShowSucursales(!showSucursales)}
-                    className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white cursor-pointer"
-                    placeholder="Seleccione sucursal"
-                  />
-                  {showSucursales && (
-                    <div className="absolute z-10 mt-1 w-full bg-gray-700 rounded-md shadow-lg border border-gray-600 max-h-60 overflow-y-auto">
-                      <div className="p-2 border-b border-gray-600 sticky top-0 bg-gray-700">
-                        <div className="relative">
-                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                          <input
-                            type="text"
-                            value={busquedaSucursal}
-                            onChange={(e) =>
-                              setBusquedaSucursal(e.target.value)
-                            }
-                            className="w-full pl-10 pr-4 py-2 bg-gray-800 text-white rounded focus:outline-none"
-                            placeholder="Buscar sucursal..."
-                            autoFocus
-                          />
-                        </div>
+                <input
+                  type="text"
+                  value={getNombreSeleccionado(form.sucursal_id, sucursales)}
+                  readOnly
+                  onClick={() => setShowSucursales(!showSucursales)}
+                  className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white cursor-pointer"
+                  placeholder="Seleccione sucursal"
+                />
+                {showSucursales && (
+                  <div className="absolute z-10 mt-1 w-full bg-gray-700 rounded-md shadow-lg border border-gray-600 max-h-60 overflow-y-auto">
+                    <div className="p-2 border-b border-gray-600 sticky top-0 bg-gray-700">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                          type="text"
+                          value={busquedaSucursal}
+                          onChange={(e) => setBusquedaSucursal(e.target.value)}
+                          className="w-full pl-10 pr-4 py-2 bg-gray-800 text-white rounded focus:outline-none"
+                          placeholder="Buscar sucursal…"
+                          autoFocus
+                        />
                       </div>
-                      {sucursales.filter((suc) =>
-                        suc.nombre
+                    </div>
+                    {sucursales
+                      .filter((s) =>
+                        s.nombre
                           .toLowerCase()
                           .includes(busquedaSucursal.toLowerCase())
-                      ).length > 0 ? (
-                        sucursales
-                          .filter((suc) =>
-                            suc.nombre
-                              .toLowerCase()
-                              .includes(busquedaSucursal.toLowerCase())
-                          )
-                          .map((suc) => (
-                            <div
-                              key={suc.id}
-                              className={`px-4 py-2 hover:bg-gray-600 cursor-pointer ${
-                                form.sucursal_id === suc.id.toString()
-                                  ? "bg-blue-600"
-                                  : ""
-                              }`}
-                              onClick={() => {
-                                setForm((prev) => ({
-                                  ...prev,
-                                  sucursal_id: suc.id.toString(),
-                                }));
-                                setShowSucursales(false);
-                                setBusquedaSucursal("");
-                              }}
-                            >
-                              {suc.nombre}
-                            </div>
-                          ))
-                      ) : (
-                        <div className="px-4 py-2 text-gray-400">
-                          No hay resultados
+                      )
+                      .map((s) => (
+                        <div
+                          key={s.id}
+                          className={`px-4 py-2 hover:bg-gray-600 cursor-pointer ${
+                            form.sucursal_id === s.id.toString()
+                              ? "bg-blue-600"
+                              : ""
+                          }`}
+                          onClick={() => {
+                            setForm((prev) => ({
+                              ...prev,
+                              sucursal_id: s.id.toString(),
+                            }));
+                            setShowSucursales(false);
+                            setBusquedaSucursal("");
+                          }}
+                        >
+                          {s.nombre}
                         </div>
-                      )}
-                    </div>
-                  )}
-                </div>
+                      )).length === 0 && (
+                      <div className="px-4 py-2 text-gray-400">
+                        No hay resultados
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
-              {/* Tasa de Cambio (solo visible si moneda es VES) */}
+              {/* Tasa de cambio (solo si moneda = VES) */}
               {form.moneda === "VES" && (
                 <div>
                   <label className="block text-sm font-medium mb-1">
@@ -518,86 +407,107 @@ export default function ModalEditarGasto({
                     min="0"
                     step="0.0001"
                     className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
-                    required={form.moneda === "VES"}
+                    required
                   />
                 </div>
               )}
 
-              {/* Cotización (solo visible para tipo de gasto 2 - Servicio Prestado) */}
-              {form.tipo_gasto_id === "2" && (
+              {/* Concepto de Pago */}
+              <div className="col-span-2">
+                <label className="block text-sm font-medium mb-1">
+                  Concepto de Pago *
+                </label>
+                <input
+                  type="text"
+                  name="concepto_pago"
+                  value={form.concepto_pago}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
+                  required
+                />
+              </div>
+
+              {/* Descripción */}
+              <div className="col-span-2">
+                <label className="block text-sm font-medium mb-1">
+                  Descripción
+                </label>
+                <textarea
+                  name="descripcion"
+                  value={form.descripcion}
+                  onChange={handleChange}
+                  rows="3"
+                  className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
+                />
+              </div>
+
+              {/* Cotización (condicional) */}
+              {camposVisibles.cotizacion && (
                 <div className="col-span-2 relative">
                   <label className="block text-sm font-medium mb-1">
-                    Cotización Relacionada
+                    Cotización Relacionada *
                   </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={getNombreSeleccionado(
-                        form.cotizacion_id,
-                        cotizaciones,
-                        "codigo"
-                      )}
-                      readOnly
-                      onClick={() => setShowCotizaciones(!showCotizaciones)}
-                      className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white cursor-pointer"
-                      placeholder="Seleccione cotización"
-                    />
-                    {showCotizaciones && (
-                      <div className="absolute z-10 mt-1 w-full bg-gray-700 rounded-md shadow-lg border border-gray-600 max-h-60 overflow-y-auto">
-                        <div className="p-2 border-b border-gray-600 sticky top-0 bg-gray-700">
-                          <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                            <input
-                              type="text"
-                              value={busquedaCotizacion}
-                              onChange={(e) =>
-                                setBusquedaCotizacion(e.target.value)
-                              }
-                              className="w-full pl-10 pr-4 py-2 bg-gray-800 text-white rounded focus:outline-none"
-                              placeholder="Buscar cotización..."
-                              autoFocus
-                            />
-                          </div>
+                  <input
+                    type="text"
+                    value={getNombreSeleccionado(
+                      form.cotizacion_id,
+                      cotizaciones,
+                      "codigo"
+                    )}
+                    readOnly
+                    onClick={() => setShowCotizaciones(!showCotizaciones)}
+                    className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white cursor-pointer"
+                    placeholder="Seleccione cotización"
+                  />
+                  {showCotizaciones && (
+                    <div className="absolute z-10 mt-1 w-full bg-gray-700 rounded-md shadow-lg border border-gray-600 max-h-60 overflow-y-auto">
+                      <div className="p-2 border-b border-gray-600 sticky top-0 bg-gray-700">
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                          <input
+                            type="text"
+                            value={busquedaCotizacion}
+                            onChange={(e) =>
+                              setBusquedaCotizacion(e.target.value)
+                            }
+                            className="w-full pl-10 pr-4 py-2 bg-gray-800 text-white rounded focus:outline-none"
+                            placeholder="Buscar cotización…"
+                            autoFocus
+                          />
                         </div>
-                        {cotizaciones.filter((cot) =>
+                      </div>
+                      {cotizaciones
+                        .filter((cot) =>
                           cot.codigo
                             .toLowerCase()
                             .includes(busquedaCotizacion.toLowerCase())
-                        ).length > 0 ? (
-                          cotizaciones
-                            .filter((cot) =>
-                              cot.codigo
-                                .toLowerCase()
-                                .includes(busquedaCotizacion.toLowerCase())
-                            )
-                            .map((cot) => (
-                              <div
-                                key={cot.id}
-                                className={`px-4 py-2 hover:bg-gray-600 cursor-pointer ${
-                                  form.cotizacion_id === cot.id.toString()
-                                    ? "bg-blue-600"
-                                    : ""
-                                }`}
-                                onClick={() => {
-                                  setForm((prev) => ({
-                                    ...prev,
-                                    cotizacion_id: cot.id.toString(),
-                                  }));
-                                  setShowCotizaciones(false);
-                                  setBusquedaCotizacion("");
-                                }}
-                              >
-                                {cot.codigo} - {cot.descripcion}
-                              </div>
-                            ))
-                        ) : (
-                          <div className="px-4 py-2 text-gray-400">
-                            No hay resultados
+                        )
+                        .map((cot) => (
+                          <div
+                            key={cot.id}
+                            className={`px-4 py-2 hover:bg-gray-600 cursor-pointer ${
+                              form.cotizacion_id === cot.id.toString()
+                                ? "bg-blue-600"
+                                : ""
+                            }`}
+                            onClick={() => {
+                              setForm((prev) => ({
+                                ...prev,
+                                cotizacion_id: cot.id.toString(),
+                              }));
+                              setShowCotizaciones(false);
+                              setBusquedaCotizacion("");
+                            }}
+                          >
+                            {cot.codigo} - {cot.descripcion}
                           </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                        )).length === 0 && (
+                        <div className="px-4 py-2 text-gray-400">
+                          No hay resultados
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </form>
@@ -611,7 +521,8 @@ export default function ModalEditarGasto({
                 Cancelar
               </button>
               <button
-                type="button"
+                type="submit"
+                form="modal-form"
                 onClick={handleSave}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors"
               >

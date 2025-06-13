@@ -180,7 +180,7 @@ export default function ModalEditarCotizacion({
       setModalExitoVisible(true);
     } catch (error) {
       console.error("Error al guardar:", error);
-      console.error("🔴 Error al guardar en ModalEditarCotizacion:", error);
+      console.error(" Error al guardar en ModalEditarCotizacion:", error);
       setMensajeError(
         error.message || "Hubo un error al actualizar la cotización."
       );
