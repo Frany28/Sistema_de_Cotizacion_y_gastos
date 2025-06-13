@@ -2,6 +2,7 @@
 import db from "../config/database.js";
 import path from "path";
 import chromium from "chrome-aws-lambda";
+import puppeteer from "puppeteer-core";
 import { generarHTMLCotizacion } from "../../templates/generarHTMLCotizacion.js";
 import { fileURLToPath } from "url";
 
@@ -588,11 +589,12 @@ export const generarPDFCotizacion = async (req, res) => {
 
     const html = generarHTMLCotizacion(datosCotizacion, "final");
 
-    const browser = await chromium.puppeteer.launch({
+    const browser = await puppeteer.launch({
       args: chromium.args,
       defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath,
+      executablePath: await chromium.executablePath(),
       headless: chromium.headless,
+      ignoreHTTPSErrors: true,
     });
 
     const page = await browser.newPage();
@@ -606,14 +608,14 @@ export const generarPDFCotizacion = async (req, res) => {
 
     await browser.close();
 
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader(
-      "Content-Disposition",
-      `inline; filename=cotizacion_${cotizacion.codigo}.pdf`
-    );
-    res.send(pdfBuffer);
-  } catch (error) {
-    console.error("Error generando PDF de cotización:", error);
+    res
+      .set({
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `inline; filename=cotizacion_${cotizacion.codigo}.pdf`,
+      })
+      .send(pdfBuffer);
+  } catch (err) {
+    console.error("Error generando PDF de cotización:", err);
     res.status(500).json({ message: "Error al generar PDF de cotización" });
   }
 };
