@@ -406,7 +406,7 @@ export default function ModalEditarGasto({
                     value={getNombreSeleccionado(
                       form.cotizacion_id,
                       cotizaciones,
-                      "codigo"
+                      "codigo_referencia"
                     )}
                     readOnly
                     onClick={() => setShowCotizaciones(!showCotizaciones)}

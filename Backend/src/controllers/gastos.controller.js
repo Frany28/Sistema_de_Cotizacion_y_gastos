@@ -218,11 +218,7 @@ export const deleteGasto = async (req, res) => {
   }
 };
 
-// controllers/gastos.controller.js
 
-// controllers/gastos.controller.js
-
-// … quizá otras importaciones …
 
 export const getGastoById = async (req, res) => {
   try {
@@ -239,6 +235,7 @@ export const getGastoById = async (req, res) => {
         s.nombre AS sucursal_nombre, 
         s.id AS sucursal_id,
         c.codigo_referencia AS cotizacion_codigo, 
+        c.codigo_referencia AS codigo,
         c.id AS cotizacion_id,
         tg.nombre AS tipo_gasto_nombre,
         tg.id AS tipo_gasto_id
