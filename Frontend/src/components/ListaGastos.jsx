@@ -113,8 +113,10 @@ function ListaGastos() {
   const fetchGastos = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await api.get(`/gastos`, {
-        params: { page, limit },
+      const params = { page, limit };
+      if (busqueda.trim()) params.search = busqueda.trim();
+      const response = await api.get("/gastos", {
+        params,
         withCredentials: true,
       });
 
@@ -129,10 +131,7 @@ function ListaGastos() {
     } finally {
       setLoading(false);
     }
-  }, [page, limit]);
-
-  // Fetch de datos de apoyo (proveedores, sucursales, tipos de gasto)
-  // En ListaGastos.jsx
+  }, [page, limit, busqueda]);
 
   // Modificar la función fetchDatosSoporte
   const fetchDatosSoporte = useCallback(async () => {
@@ -304,10 +303,7 @@ function ListaGastos() {
     );
 
   const totalPaginas = Math.ceil(totalGastos / limit);
-  const gastosPaginados = gastosFiltrados.slice(
-    (page - 1) * limit,
-    page * limit
-  );
+  const gastosPaginados = gastosFiltrados;
 
   const cambiarLimite = (nuevoLimite) => {
     setLimit(nuevoLimite);
@@ -399,8 +395,7 @@ function ListaGastos() {
           ))}
         </div>
         <div className="text-sm text-gray-400">
-          Mostrando {gastosPaginados.length} de {gastosFiltrados.length}{" "}
-          resultados
+          Mostrando {gastos.length} de {totalGastos} resultados
         </div>
       </div>
 
