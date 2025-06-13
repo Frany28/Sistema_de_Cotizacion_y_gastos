@@ -1,4 +1,5 @@
-import chromium from "chrome-aws-lambda";
+import puppeteer from "puppeteer-core";
+import chromium from "@sparticuz/chromium-min";
 import { generarHTMLCotizacion } from "../../templates/generarHTMLCotizacion.js";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -345,24 +346,26 @@ export const crearCotizacionDesdeRegistro = async (datos) => {
 
 export const generarVistaPreviaCotizacion = async (req, res) => {
   console.log("Recibido para Preview:", JSON.stringify(req.body, null, 2));
+
   try {
     const datosCotizacion = req.body.datos;
-
-    if (!datosCotizacion) {
+    if (!datosCotizacion)
       return res.status(400).json({
         message: "Faltan datos de cotización para generar la vista previa.",
       });
-    }
 
+    // 1) Plantilla HTML
     const html = generarHTMLCotizacion(datosCotizacion, "preview");
 
-    const browser = await chromium.puppeteer.launch({
+    // 2) Lanzar Chromium optimizado para Lambda/Vercel
+    const browser = await puppeteer.launch({
       args: chromium.args,
       defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath,
+      executablePath: await chromium.executablePath(),
       headless: chromium.headless,
     });
 
+    // 3) Render y PDF
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "networkidle0" });
 
@@ -374,12 +377,13 @@ export const generarVistaPreviaCotizacion = async (req, res) => {
 
     await browser.close();
 
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader(
-      "Content-Disposition",
-      "inline; filename=preview-cotizacion.pdf"
-    );
-    res.send(pdfBuffer);
+    // 4) Respuesta
+    res
+      .set({
+        "Content-Type": "application/pdf",
+        "Content-Disposition": "inline; filename=preview-cotizacion.pdf",
+      })
+      .send(pdfBuffer);
   } catch (error) {
     console.error("Error generando vista previa de cotización:", error);
     res
