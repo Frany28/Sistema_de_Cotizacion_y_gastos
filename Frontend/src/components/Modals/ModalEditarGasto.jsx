@@ -263,12 +263,12 @@ export default function ModalEditarGasto({
 
     // 4 Enviar
     try {
-      await api.put(`/gastos/${form.id}`, data, {
+      const { data: resp } = await api.put(`/gastos/${form.id}`, data, {
         withCredentials: true,
         headers: { "Content-Type": "multipart/form-data" },
       });
 
-      onSave(); // actualiza estado del padre
+      if (onSave) onSave(resp.data || resp);
       setShowExito(true); // dispara ventana de éxito
       onClose();
     } catch (err) {
@@ -690,7 +690,6 @@ export default function ModalEditarGasto({
         visible={showExito}
         onClose={() => {
           setShowExito(false);
-          onClose = { handleDeleteExitoClose };
         }}
         titulo="¡Gasto actualizado!"
         mensaje="Los cambios se han guardado correctamente."
