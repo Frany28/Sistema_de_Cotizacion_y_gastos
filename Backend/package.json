@@ -19,7 +19,6 @@
     "@sparticuz/chromium-min": "133.0.0",
     "axios": "^1.9.0",
     "bcrypt": "^6.0.0",
-    "chrome-aws-lambda": "^10.1.0",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
@@ -30,7 +29,7 @@
     "multer-s3": "^3.0.1",
     "mysql2": "^3.14.1",
     "pdfkit": "^0.17.0",
-    "puppeteer-core": "24.5.0",
+    "puppeteer-core": "24.3.1",
     "sequelize": "^6.37.7",
     "serverless-http": "^3.2.0"
   },

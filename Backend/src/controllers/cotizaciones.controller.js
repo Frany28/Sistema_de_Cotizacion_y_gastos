@@ -1,8 +1,8 @@
 // controllers/cotizaciones.controller.js
 import db from "../config/database.js";
 import path from "path";
-import chromium from "chrome-aws-lambda";
 import puppeteer from "puppeteer-core";
+import chromium from "@sparticuz/chromium-min";
 import { generarHTMLCotizacion } from "../../templates/generarHTMLCotizacion.js";
 import { fileURLToPath } from "url";
 
@@ -592,7 +592,7 @@ export const generarPDFCotizacion = async (req, res) => {
     const browser = await puppeteer.launch({
       args: chromium.args,
       defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath,
+      executablePath: await chromium.executablePath(),
       headless: chromium.headless,
       ignoreHTTPSErrors: true,
     });
