@@ -268,265 +268,194 @@ export default function ModalEditarGasto({
   };
 
   return (
-    <AnimatePresence>
-      {visible && (
-        <motion.div
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={onClose}
-        >
+    <>
+      <AnimatePresence>
+        {visible && (
           <motion.div
-            className="bg-gray-800 text-white rounded-lg shadow-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
           >
-            {/* CABECERA  */}
-            <div className="sticky top-0 bg-gray-800 p-6 border-b border-gray-700 flex justify-between items-center z-10">
-              <div className="flex items-center gap-3">
-                <Pencil className="w-6 h-6 text-blue-500" />
-                <h2 className="text-xl font-semibold">Editar Gasto</h2>
-              </div>
-              <button
-                onClick={onClose}
-                className="text-gray-400 hover:text-white"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            {/*FORMULARIO */}
-            <form
-              onSubmit={handleSave}
-              className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4"
+            <motion.div
+              className="bg-gray-800 text-white rounded-lg shadow-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
             >
-              {/* Tipo de Gasto */}
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Tipo de Gasto *
-                </label>
-                <select
-                  name="tipo_gasto_id"
-                  value={form.tipo_gasto_id}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
-                  required
+              {/* CABECERA  */}
+              <div className="sticky top-0 bg-gray-800 p-6 border-b border-gray-700 flex justify-between items-center z-10">
+                <div className="flex items-center gap-3">
+                  <Pencil className="w-6 h-6 text-blue-500" />
+                  <h2 className="text-xl font-semibold">Editar Gasto</h2>
+                </div>
+                <button
+                  onClick={onClose}
+                  className="text-gray-400 hover:text-white"
                 >
-                  <option value="">Seleccione tipo</option>
-                  {(Array.isArray(tiposGasto) ? tiposGasto : []).map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.nombre}
-                    </option>
-                  ))}
-                </select>
+                  <X className="w-6 h-6" />
+                </button>
               </div>
 
-              {/* Proveedor (condicional) */}
-              {camposVisibles.proveedor && (
+              {/*FORMULARIO */}
+              <form
+                onSubmit={handleSave}
+                className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4"
+              >
+                {/* Tipo de Gasto */}
                 <div>
                   <label className="block text-sm font-medium mb-1">
-                    Proveedor *
+                    Tipo de Gasto *
                   </label>
                   <select
-                    name="proveedor_id"
-                    value={form.proveedor_id}
+                    name="tipo_gasto_id"
+                    value={form.tipo_gasto_id}
                     onChange={handleChange}
                     className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
-                    required={camposVisibles.proveedor}
+                    required
                   >
-                    <option value="">Seleccione proveedor</option>
-                    {(Array.isArray(proveedores) ? proveedores : []).map(
-                      (p) => (
-                        <option key={p.id} value={p.id.toString()}>
-                          {p.nombre}
-                        </option>
-                      )
-                    )}
+                    <option value="">Seleccione tipo</option>
+                    {(Array.isArray(tiposGasto) ? tiposGasto : []).map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.nombre}
+                      </option>
+                    ))}
                   </select>
                 </div>
-              )}
 
-              {/* Fecha */}
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Fecha *
-                </label>
-                <input
-                  type="date"
-                  name="fecha"
-                  value={form.fecha}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
-                  required
-                />
-              </div>
-
-              {/* Moneda */}
-              <div>
-                <label className="block text-sm font-medium mb-1">Moneda</label>
-                <select
-                  name="moneda"
-                  value={form.moneda}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
-                >
-                  <option value="USD">USD - Dólares</option>
-                  <option value="VES">VES - Bolívares</option>
-                </select>
-              </div>
-
-              {/* Subtotal */}
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Subtotal *
-                </label>
-                <input
-                  type="number"
-                  name="subtotal"
-                  value={form.subtotal}
-                  onChange={handleChange}
-                  min="0"
-                  step="0.01"
-                  className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
-                  required
-                />
-              </div>
-
-              {/* % IVA */}
-              <div>
-                <label className="block text-sm font-medium mb-1">% IVA</label>
-                <select
-                  name="porcentaje_iva"
-                  value={form.porcentaje_iva}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
-                >
-                  <option value="0">0% - Exento</option>
-                  <option value="8">8% - Reducido</option>
-                  <option value="16">16% - General</option>
-                </select>
-              </div>
-
-              {/* Sucursal – Selector con búsqueda */}
-              <div className="relative">
-                <label className="block text-sm font-medium mb-1">
-                  Sucursal
-                </label>
-                <input
-                  type="text"
-                  value={
-                    getNombreSeleccionado(
-                      form.sucursal_id,
-                      sucursales,
-                      "nombre"
-                    ) ||
-                    gasto?.sucursal_id ||
-                    ""
-                  }
-                  readOnly
-                  onClick={() => setShowSucursales(!showSucursales)}
-                  className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white cursor-pointer"
-                  placeholder="Seleccione sucursal"
-                />
-                {showSucursales && (
-                  <div className="absolute z-10 mt-1 w-full bg-gray-700 rounded-md shadow-lg border border-gray-600 max-h-60 overflow-y-auto">
-                    <div className="p-2 border-b border-gray-600 sticky top-0 bg-gray-700">
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                        <input
-                          type="text"
-                          value={busquedaSucursal}
-                          onChange={(e) => setBusquedaSucursal(e.target.value)}
-                          className="w-full pl-10 pr-4 py-2 bg-gray-800 text-white rounded focus:outline-none"
-                          placeholder="Buscar sucursal…"
-                          autoFocus
-                        />
-                      </div>
-                    </div>
-                    {(() => {
-                      const resultados = sucursales.filter((s) =>
-                        s.nombre
-                          .toLowerCase()
-                          .includes(busquedaSucursal.toLowerCase())
-                      );
-                      if (resultados.length === 0) {
-                        return (
-                          <div className="px-4 py-2 text-gray-400">
-                            No hay resultados
-                          </div>
-                        );
-                      }
-                      return resultados.map((s) => (
-                        <div
-                          key={s.id}
-                          className={`px-4 py-2 hover:bg-gray-600 cursor-pointer ${
-                            form.sucursal_id === s.id.toString()
-                              ? "bg-blue-600"
-                              : ""
-                          }`}
-                          onClick={() => {
-                            setForm((prev) => ({
-                              ...prev,
-                              sucursal_id: s.id.toString(),
-                            }));
-                            setShowSucursales(false);
-                            setBusquedaSucursal("");
-                          }}
-                        >
-                          {s.nombre}
-                        </div>
-                      ));
-                    })()}
+                {/* Proveedor (condicional) */}
+                {camposVisibles.proveedor && (
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Proveedor *
+                    </label>
+                    <select
+                      name="proveedor_id"
+                      value={form.proveedor_id}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
+                      required={camposVisibles.proveedor}
+                    >
+                      <option value="">Seleccione proveedor</option>
+                      {(Array.isArray(proveedores) ? proveedores : []).map(
+                        (p) => (
+                          <option key={p.id} value={p.id.toString()}>
+                            {p.nombre}
+                          </option>
+                        )
+                      )}
+                    </select>
                   </div>
                 )}
-              </div>
 
-              {/* Cotización (condicional) */}
-              {camposVisibles.cotizacion && (
-                <div className="col-span-2 relative">
+                {/* Fecha */}
+                <div>
                   <label className="block text-sm font-medium mb-1">
-                    Cotización Relacionada
+                    Fecha *
+                  </label>
+                  <input
+                    type="date"
+                    name="fecha"
+                    value={form.fecha}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
+                    required
+                  />
+                </div>
+
+                {/* Moneda */}
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Moneda
+                  </label>
+                  <select
+                    name="moneda"
+                    value={form.moneda}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
+                  >
+                    <option value="USD">USD - Dólares</option>
+                    <option value="VES">VES - Bolívares</option>
+                  </select>
+                </div>
+
+                {/* Subtotal */}
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Subtotal *
+                  </label>
+                  <input
+                    type="number"
+                    name="subtotal"
+                    value={form.subtotal}
+                    onChange={handleChange}
+                    min="0"
+                    step="0.01"
+                    className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
+                    required
+                  />
+                </div>
+
+                {/* % IVA */}
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    % IVA
+                  </label>
+                  <select
+                    name="porcentaje_iva"
+                    value={form.porcentaje_iva}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
+                  >
+                    <option value="0">0% - Exento</option>
+                    <option value="8">8% - Reducido</option>
+                    <option value="16">16% - General</option>
+                  </select>
+                </div>
+
+                {/* Sucursal – Selector con búsqueda */}
+                <div className="relative">
+                  <label className="block text-sm font-medium mb-1">
+                    Sucursal
                   </label>
                   <input
                     type="text"
                     value={
                       getNombreSeleccionado(
-                        form.cotizacion_id,
-                        cotizaciones,
-                        "codigo"
+                        form.sucursal_id,
+                        sucursales,
+                        "nombre"
                       ) ||
-                      gasto?.cotizacion_codigo ||
+                      gasto?.sucursal_id ||
                       ""
                     }
                     readOnly
-                    onClick={() => setShowCotizaciones(!showCotizaciones)}
+                    onClick={() => setShowSucursales(!showSucursales)}
                     className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white cursor-pointer"
-                    placeholder="Seleccione cotización"
+                    placeholder="Seleccione sucursal"
                   />
-                  {showCotizaciones && (
+                  {showSucursales && (
                     <div className="absolute z-10 mt-1 w-full bg-gray-700 rounded-md shadow-lg border border-gray-600 max-h-60 overflow-y-auto">
                       <div className="p-2 border-b border-gray-600 sticky top-0 bg-gray-700">
                         <div className="relative">
                           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                           <input
                             type="text"
-                            value={busquedaCotizacion}
+                            value={busquedaSucursal}
                             onChange={(e) =>
-                              setBusquedaCotizacion(e.target.value)
+                              setBusquedaSucursal(e.target.value)
                             }
                             className="w-full pl-10 pr-4 py-2 bg-gray-800 text-white rounded focus:outline-none"
-                            placeholder="Buscar cotización…"
+                            placeholder="Buscar sucursal…"
                             autoFocus
                           />
                         </div>
                       </div>
                       {(() => {
-                        const resultados = cotizaciones.filter((cot) =>
-                          cot.codigo
+                        const resultados = sucursales.filter((s) =>
+                          s.nombre
                             .toLowerCase()
-                            .includes(busquedaCotizacion.toLowerCase())
+                            .includes(busquedaSucursal.toLowerCase())
                         );
-
                         if (resultados.length === 0) {
                           return (
                             <div className="px-4 py-2 text-gray-400">
@@ -534,93 +463,171 @@ export default function ModalEditarGasto({
                             </div>
                           );
                         }
-
-                        return resultados.map((cot) => (
+                        return resultados.map((s) => (
                           <div
-                            key={cot.id}
+                            key={s.id}
                             className={`px-4 py-2 hover:bg-gray-600 cursor-pointer ${
-                              form.cotizacion_id === cot.id.toString()
+                              form.sucursal_id === s.id.toString()
                                 ? "bg-blue-600"
                                 : ""
                             }`}
                             onClick={() => {
                               setForm((prev) => ({
                                 ...prev,
-                                cotizacion_id: cot.id.toString(),
+                                sucursal_id: s.id.toString(),
                               }));
-                              setShowCotizaciones(false);
-                              setBusquedaCotizacion("");
+                              setShowSucursales(false);
+                              setBusquedaSucursal("");
                             }}
                           >
-                            {cot.codigo}
+                            {s.nombre}
                           </div>
                         ));
                       })()}
                     </div>
                   )}
                 </div>
-              )}
 
-              {/* Tasa de cambio (solo si la moneda VES) */}
-              {form.moneda === "VES" && (
-                <div>
+                {/* Cotización (condicional) */}
+                {camposVisibles.cotizacion && (
+                  <div className="col-span-2 relative">
+                    <label className="block text-sm font-medium mb-1">
+                      Cotización Relacionada
+                    </label>
+                    <input
+                      type="text"
+                      value={
+                        getNombreSeleccionado(
+                          form.cotizacion_id,
+                          cotizaciones,
+                          "codigo"
+                        ) ||
+                        gasto?.cotizacion_codigo ||
+                        ""
+                      }
+                      readOnly
+                      onClick={() => setShowCotizaciones(!showCotizaciones)}
+                      className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white cursor-pointer"
+                      placeholder="Seleccione cotización"
+                    />
+                    {showCotizaciones && (
+                      <div className="absolute z-10 mt-1 w-full bg-gray-700 rounded-md shadow-lg border border-gray-600 max-h-60 overflow-y-auto">
+                        <div className="p-2 border-b border-gray-600 sticky top-0 bg-gray-700">
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <input
+                              type="text"
+                              value={busquedaCotizacion}
+                              onChange={(e) =>
+                                setBusquedaCotizacion(e.target.value)
+                              }
+                              className="w-full pl-10 pr-4 py-2 bg-gray-800 text-white rounded focus:outline-none"
+                              placeholder="Buscar cotización…"
+                              autoFocus
+                            />
+                          </div>
+                        </div>
+                        {(() => {
+                          const resultados = cotizaciones.filter((cot) =>
+                            cot.codigo
+                              .toLowerCase()
+                              .includes(busquedaCotizacion.toLowerCase())
+                          );
+
+                          if (resultados.length === 0) {
+                            return (
+                              <div className="px-4 py-2 text-gray-400">
+                                No hay resultados
+                              </div>
+                            );
+                          }
+
+                          return resultados.map((cot) => (
+                            <div
+                              key={cot.id}
+                              className={`px-4 py-2 hover:bg-gray-600 cursor-pointer ${
+                                form.cotizacion_id === cot.id.toString()
+                                  ? "bg-blue-600"
+                                  : ""
+                              }`}
+                              onClick={() => {
+                                setForm((prev) => ({
+                                  ...prev,
+                                  cotizacion_id: cot.id.toString(),
+                                }));
+                                setShowCotizaciones(false);
+                                setBusquedaCotizacion("");
+                              }}
+                            >
+                              {cot.codigo}
+                            </div>
+                          ));
+                        })()}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Tasa de cambio (solo si la moneda VES) */}
+                {form.moneda === "VES" && (
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Tasa de Cambio (BS/USD) *
+                    </label>
+                    <input
+                      type="number"
+                      name="tasa_cambio"
+                      value={form.tasa_cambio}
+                      onChange={handleChange}
+                      min="0"
+                      step="0.0001"
+                      className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
+                      required
+                    />
+                  </div>
+                )}
+
+                {/* Concepto de Pago */}
+                <div className="col-span-2">
                   <label className="block text-sm font-medium mb-1">
-                    Tasa de Cambio (BS/USD) *
+                    Concepto de Pago *
                   </label>
                   <input
-                    type="number"
-                    name="tasa_cambio"
-                    value={form.tasa_cambio}
+                    type="text"
+                    name="concepto_pago"
+                    value={form.concepto_pago}
                     onChange={handleChange}
-                    min="0"
-                    step="0.0001"
                     className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
                     required
                   />
                 </div>
-              )}
 
-              {/* Concepto de Pago */}
-              <div className="col-span-2">
-                <label className="block text-sm font-medium mb-1">
-                  Concepto de Pago *
-                </label>
-                <input
-                  type="text"
-                  name="concepto_pago"
-                  value={form.concepto_pago}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
-                  required
-                />
-              </div>
+                {/* Documento */}
+                <div className="col-span-2">
+                  <label className="block mb-1 text-sm font-medium text-white">
+                    {form.documento && !documentoArchivo
+                      ? "Documento previo"
+                      : "Cambiar / subir documento (imagen o PDF)"}
+                  </label>
 
-              {/* Documento */}
-              <div className="col-span-2">
-                <label className="block mb-1 text-sm font-medium text-white">
-                  {form.documento && !documentoArchivo
-                    ? "Documento previo"
-                    : "Cambiar / subir documento (imagen o PDF)"}
-                </label>
+                  {/* Enlace al archivo existente */}
+                  {form.documento && !documentoArchivo && (
+                    <a
+                      href={gasto?.urlFacturaFirmada || "#"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block underline text-blue-500 mb-2"
+                    >
+                      {form.documento.split("/").pop()}
+                    </a>
+                  )}
 
-                {/* Enlace al archivo existente */}
-                {form.documento && !documentoArchivo && (
-                  <a
-                    href={gasto?.urlFacturaFirmada || "#"}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block underline text-blue-500 mb-2"
-                  >
-                    {form.documento.split("/").pop()}
-                  </a>
-                )}
-
-                {/* Input para subir o reemplazar */}
-                <input
-                  type="file"
-                  accept="image/*,application/pdf"
-                  onChange={handleFileChange}
-                  className="
+                  {/* Input para subir o reemplazar */}
+                  <input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    onChange={handleFileChange}
+                    className="
                   block w-full p-2.5 text-gray-200 rounded
                   file:px-4 file:py-2
                   file:bg-gray-600 file:text-gray-200
@@ -629,60 +636,61 @@ export default function ModalEditarGasto({
                   file:hover:bg-gray-500
                   transition duration-200 ease-in-out
                 "
-                />
+                  />
+                </div>
+
+                {/* Descripción */}
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium mb-1">
+                    Descripción
+                  </label>
+                  <textarea
+                    name="descripcion"
+                    value={form.descripcion}
+                    onChange={handleChange}
+                    rows="3"
+                    className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
+                  />
+                </div>
+              </form>
+
+              <div className="sticky bottom-0 bg-gray-800 p-4 border-t border-gray-700 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  form="modal-form"
+                  onClick={handleSave}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors"
+                >
+                  Guardar Cambios
+                </button>
               </div>
-
-              {/* Descripción */}
-              <div className="col-span-2">
-                <label className="block text-sm font-medium mb-1">
-                  Descripción
-                </label>
-                <textarea
-                  name="descripcion"
-                  value={form.descripcion}
-                  onChange={handleChange}
-                  rows="3"
-                  className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
-                />
-              </div>
-            </form>
-
-            <div className="sticky bottom-0 bg-gray-800 p-4 border-t border-gray-700 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                form="modal-form"
-                onClick={handleSave}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors"
-              >
-                Guardar Cambios
-              </button>
-            </div>
-            <ModalExito
-              visible={showExito}
-              onClose={() => {
-                setShowExito(false);
-                onClose(); // ahora sí cerramos el formulario
-              }}
-              titulo="¡Gasto actualizado!"
-              mensaje="Los cambios se han guardado correctamente."
-            />
-
-            <ModalError
-              visible={showError}
-              onClose={() => setShowError(false)}
-              titulo="Error"
-              mensaje={errorMsg}
-            />
+            </motion.div>
           </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+        )}
+      </AnimatePresence>
+      <ModalExito
+        visible={showExito}
+        onClose={() => {
+          setShowExito(false);
+          onClose(); // ahora sí cerramos el formulario
+        }}
+        titulo="¡Gasto actualizado!"
+        mensaje="Los cambios se han guardado correctamente."
+      />
+
+      <ModalError
+        visible={showError}
+        onClose={() => setShowError(false)}
+        titulo="Error"
+        mensaje={errorMsg}
+      />
+    </>
   );
 }
