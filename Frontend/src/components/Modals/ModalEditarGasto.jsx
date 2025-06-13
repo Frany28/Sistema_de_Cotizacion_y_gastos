@@ -44,6 +44,7 @@ export default function ModalEditarGasto({
     const tipoObj = (Array.isArray(tiposGasto) ? tiposGasto : []).find(
       (t) => t.id.toString() === tipoGastoId.toString()
     ) || { nombre: "", rentable: 0 };
+    if (!tipoObj.nombre) return;
 
     const requiereProveedor = /proveedor|servicio\s+prestado/i.test(
       tipoObj.nombre
@@ -59,7 +60,10 @@ export default function ModalEditarGasto({
     // Limpiar campos que dejan de aplicar
     setForm((prev) => ({
       ...prev,
-      proveedor_id: requiereProveedor ? prev.proveedor_id : "",
+      proveedor_id:
+        requiereProveedor || prev.proveedor_id 
+          ? prev.proveedor_id
+          : "",
       cotizacion_id: requiereCotizacion ? prev.cotizacion_id : "",
     }));
 
