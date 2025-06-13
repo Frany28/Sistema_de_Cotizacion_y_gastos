@@ -24,7 +24,8 @@ function ListaGastos() {
     return stored ? parseInt(stored, 10) : 5;
   });
   const [puedeCambiarEstado, setPuedeCambiarEstado] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loadingInicial, setLoadingInicial] = useState(true); // sólo 1ª vez
+  const [loading, setLoading] = useState(false);
 
   // Estados para modales
   const [mostrarModalRechazo, setMostrarModalRechazo] = useState(false);
@@ -111,7 +112,7 @@ function ListaGastos() {
 
   // Fetch de datos principales
   const fetchGastos = useCallback(async () => {
-    setLoading(true);
+    if (mostrarSpinner) setLoading(true);
     try {
       const response = await api.get("/gastos", {
         params: { page, limit, search: busqueda.trim() },
@@ -127,7 +128,8 @@ function ListaGastos() {
         mensaje: "No se pudieron cargar los datos desde la base de datos.",
       });
     } finally {
-      setLoading(false);
+      if (mostrarSpinner) setLoading(false);
+      if (loadingInicial) setLoadingInicial(false);
     }
   }, [page, limit, busqueda]);
 
@@ -149,7 +151,7 @@ function ListaGastos() {
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(fetchGastos, 300); // debounce 300 ms
+    const timer = setTimeout(fetchGastos, 300);
     return () => clearTimeout(timer);
   }, [fetchGastos]);
 
@@ -298,7 +300,7 @@ function ListaGastos() {
   };
 
   // Renderizado condicional
-  if (loading) {
+  if (loadingInicial) {
     return (
       <div className="flex justify-center items-center min-h-[200px]">
         <Loader />
