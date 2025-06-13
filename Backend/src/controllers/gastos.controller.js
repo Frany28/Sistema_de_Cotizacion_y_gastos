@@ -26,19 +26,30 @@ export const getGastos = async (req, res) => {
     // 2) LISTA paginada filtrada
     const [gastos] = await db.query(
       `
-      SELECT g.id, g.codigo, g.fecha, g.total, g.estado,
-          p.nombre AS proveedor, s.nombre AS sucursal,
-          g.concepto_pago, g.subtotal, g.impuesto, g.moneda
+      SELECT g.id,
+      g.codigo,
+        g.fecha,
+        g.total,
+        g.estado,
+        g.tipo_gasto_id,                 
+        tg.nombre        AS tipo_gasto,  
+        p.nombre         AS proveedor,
+        s.nombre         AS sucursal,
+        g.concepto_pago,
+        g.subtotal,
+        g.impuesto,
+        g.moneda
         FROM gastos g
         LEFT JOIN proveedores p ON p.id = g.proveedor_id
         LEFT JOIN sucursales  s ON s.id = g.sucursal_id
-       ${
-         q
-           ? `WHERE g.codigo        LIKE ? OR
+        LEFT JOIN tipos_gasto tg ON tg.id = g.tipo_gasto_id
+      ${
+        q
+          ? `WHERE g.codigo        LIKE ? OR
             p.nombre        LIKE ? OR
             g.concepto_pago LIKE ?`
-           : ""
-       }
+          : ""
+      }
       ORDER BY g.fecha DESC, g.id DESC
       LIMIT ${limit} OFFSET ${offset}
       `,
