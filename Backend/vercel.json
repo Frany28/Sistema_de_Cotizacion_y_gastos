@@ -1,27 +1,26 @@
 {
   "version": 2,
+
   "builds": [
     {
       "src": "src/app.js",
       "use": "@vercel/node"
     }
   ],
+
   "routes": [
     {
       "src": "/api/(.*)",
       "dest": "src/app.js"
     }
   ],
+
   "functions": {
+    "runtime": { "nodejs": "22.x" },
     "Backend/src/**/*.js": {
-      "runtime": "nodejs22.x",
-      "memory": 1024,
-      "maxDuration": 60,
-      "includeFiles": "node_modules/@sparticuz/chromium-min/bin/**"
-    },
-      "runtime": "nodejs22.x",
       "memory": 1024,
       "maxDuration": 60,
       "includeFiles": ["node_modules/@sparticuz/chromium-min/bin/**"]
+    }
   }
 }
