@@ -309,6 +309,7 @@ export default function ModalEditarGasto({
 
               {/*FORMULARIO */}
               <form
+                id="modal-form"
                 onSubmit={handleSave}
                 className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4"
               >
@@ -676,7 +677,6 @@ export default function ModalEditarGasto({
                 <button
                   type="submit"
                   form="modal-form"
-                  onClick={handleSave}
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors"
                 >
                   Guardar Cambios
