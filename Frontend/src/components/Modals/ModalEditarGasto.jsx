@@ -542,6 +542,58 @@ export default function ModalEditarGasto({
                   required
                 />
               </div>
+              {/* Documento existente */}
+              {(gasto?.urlFacturaFirmada || gasto?.documento) &&
+                !nuevoDocumento && (
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium mb-1">
+                      Documento actual
+                    </label>
+                    <div className="flex items-center gap-2 p-2 bg-gray-700 rounded">
+                      <File className="w-5 h-5 text-blue-400" />
+                      <a
+                        href={
+                          gasto.urlFacturaFirmada ||
+                          `https://tu-bucket-s3.s3.amazonaws.com/${gasto.documento}`
+                        }
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-400 hover:underline truncate"
+                      >
+                        {gasto.documento?.split("/").pop() || "Ver documento"}
+                      </a>
+                    </div>
+                  </div>
+                )}
+
+              {/* Input para subir nuevo documento */}
+              <div className="col-span-2">
+                <label className="block text-sm font-medium mb-1">
+                  {gasto?.documento && !nuevoDocumento
+                    ? "Reemplazar documento"
+                    : "Subir documento"}
+                </label>
+                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-600 border-dashed rounded-lg cursor-pointer bg-gray-700 hover:bg-gray-600">
+                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                    <Upload className="w-8 h-8 mb-3 text-gray-400" />
+                    <p className="mb-2 text-sm text-gray-400">
+                      <span className="font-semibold">Click para subir</span> o
+                      arrastra el archivo
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {nuevoDocumento
+                        ? nuevoDocumento.name
+                        : "PDF, JPG, PNG (MAX. 10MB)"}
+                    </p>
+                  </div>
+                  <input
+                    type="file"
+                    className="hidden"
+                    onChange={handleFileChange}
+                    accept=".pdf,.jpg,.jpeg,.png"
+                  />
+                </label>
+              </div>
 
               {/* Descripción */}
               <div className="col-span-2">
