@@ -111,27 +111,30 @@ function ListaGastos() {
   };
 
   // Fetch de datos principales
-  const fetchGastos = useCallback(async () => {
-    if (mostrarSpinner) setLoading(true);
-    try {
-      const response = await api.get("/gastos", {
-        params: { page, limit, search: busqueda.trim() },
-        withCredentials: true,
-      });
+  const fetchGastos = useCallback(
+    async (withSpinner = false) => {
+      if (withSpinner) setLoading(true);
+      try {
+        const response = await api.get("/gastos", {
+          params: { page, limit, search: busqueda.trim() },
+          withCredentials: true,
+        });
 
-      setGastos(Array.isArray(response.data?.data) ? response.data.data : []);
-      setTotalGastos(response.data?.total || 0);
-    } catch (error) {
-      console.error("Error al obtener gastos:", error);
-      mostrarError({
-        titulo: "Error al obtener los gastos",
-        mensaje: "No se pudieron cargar los datos desde la base de datos.",
-      });
-    } finally {
-      if (mostrarSpinner) setLoading(false);
-      if (loadingInicial) setLoadingInicial(false);
-    }
-  }, [page, limit, busqueda]);
+        setGastos(Array.isArray(response.data?.data) ? response.data.data : []);
+        setTotalGastos(response.data?.total || 0);
+      } catch (error) {
+        console.error("Error al obtener gastos:", error);
+        mostrarError({
+          titulo: "Error al obtener los gastos",
+          mensaje: "No se pudieron cargar los datos desde la base de datos.",
+        });
+      } finally {
+        if (withSpinner) setLoading(false);
+        if (loadingInicial) setLoadingInicial(false);
+      }
+    },
+    [page, limit, busqueda, loadingInicial]
+  );
 
   // Modificar la función fetchDatosSoporte
   const fetchDatosSoporte = useCallback(async () => {
@@ -172,7 +175,7 @@ function ListaGastos() {
   // Carga inicial de datos
   useEffect(() => {
     const cargarDatos = async () => {
-      await Promise.all([fetchGastos(), fetchDatosSoporte()]);
+      await Promise.all([fetchDatosSoporte(), fetchGastos(true)]);
     };
     cargarDatos();
   }, [fetchGastos, fetchDatosSoporte]);
