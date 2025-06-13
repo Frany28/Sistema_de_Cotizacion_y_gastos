@@ -180,6 +180,13 @@ function ListaGastos() {
   };
 
   const iniciarEdicion = async (gasto) => {
+    if (gasto.estado === "aprobado") {
+      mostrarError({
+        titulo: "Gasto aprobado",
+        mensaje: "No puedes editar un gasto que ya está aprobado.",
+      });
+      return;
+    }
     try {
       const { data } = await api.get(`/gastos/${gasto.id}`);
       const { gasto: gastoCompleto, opciones } = data;
