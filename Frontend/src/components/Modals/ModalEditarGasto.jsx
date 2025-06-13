@@ -214,14 +214,16 @@ export default function ModalEditarGasto({
         setErrorMsg("Debe seleccionar un tipo de gasto"), setShowError(true)
       );
 
-    if (!form.concepto_pago) return alert("El concepto de pago es requerido");
-    if (!form.fecha) return alert("La fecha es requerida");
+    if (!form.concepto_pago)
+      return setErrorMsg("El concepto de pago es requerido"), setErrorMsg(true);
+    if (!form.fecha)
+      return setErrorMsg("La fecha es requerida"), setShowError(true);
 
     if (camposVisibles.proveedor && !form.proveedor_id) {
-      return alert("Debe seleccionar un proveedor");
+      return setErrorMsg("Debe seleccionar un proveedor");
     }
     if (camposVisibles.cotizacion && !form.cotizacion_id) {
-      return alert("Debe seleccionar una cotización");
+      return setErrorMsg("Debe seleccionar una cotización");
     }
 
     const sub = parseFloat(form.subtotal);
@@ -246,6 +248,10 @@ export default function ModalEditarGasto({
     data.append("sucursal_id", form.sucursal_id);
     data.append("moneda", form.moneda);
 
+    if (gasto?.estado === "rechazado") {
+      data.append("estado", "pendiente");
+      data.append("motivo_rechazo", "");
+    }
     if (form.tasa_cambio) {
       data.append("tasa_cambio", String(parseFloat(form.tasa_cambio)));
     }

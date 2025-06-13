@@ -77,6 +77,8 @@ export const updateGasto = async (req, res) => {
         .json({ message: "No puedes editar un gasto aprobado." });
     }
 
+    let estadoEdit = gastoExistente.estado === "rechazado" ? "pendiente" : null;
+
     // Obtener datos del body o del FormData
     const {
       proveedor_id,
@@ -113,11 +115,10 @@ export const updateGasto = async (req, res) => {
 
     // Validar estado
     const estadosPermitidos = ["pendiente", "rechazado"];
-    const nuevoEstado =
-      estado && estadosPermitidos.includes(estado)
-        ? estado
-        : gastoExistente.estado;
-
+    let nuevoEstado = estadoEdit || gastoExistente.estado;
+    if (estado && estadosPermitidos.includes(estado)) {
+      nuevoEstado = estado;
+    }
     // Verificar si el estado es rechazado y se requiere motivo
     let motivoRechazoFinal = motivo_rechazo;
     if (
