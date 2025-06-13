@@ -39,6 +39,9 @@ export default function ModalEditarGasto({
   const [showSucursales, setShowSucursales] = useState(false);
   const [showCotizaciones, setShowCotizaciones] = useState(false);
   const [loadingLists, setLoadingLists] = useState(false);
+  const [proveedoresLocal, setProveedoresLocal] = useState(proveedores);
+  const [sucursalesLocal, setSucursalesLocal] = useState(sucursales);
+  const [tiposGastoLocal, setTiposGastoLocal] = useState(tiposGasto);
 
   const actualizarCamposVisibles = (tipoGastoId) => {
     const tipoObj = (Array.isArray(tiposGasto) ? tiposGasto : []).find(
@@ -99,20 +102,20 @@ export default function ModalEditarGasto({
     setLoadingLists(true);
     try {
       const [prov, suc, tipos] = await Promise.all([
-        proveedores.length === 0
+        proveedoresLocal.length === 0
           ? api.get("/proveedores")
           : Promise.resolve({ data: proveedoresLocal }),
-        sucursales.length === 0
+        sucursalesLocal.length === 0
           ? api.get("/sucursales")
           : Promise.resolve({ data: sucursalesLocal }),
-        tiposGasto.length === 0
+        tiposGastoLocal.length === 0
           ? api.get("/gastos/tipos")
           : Promise.resolve({ data: tiposGastoLocal }),
       ]);
 
-      if (proveedores.length === 0) setProveedoresLocal(prov.data);
-      if (sucursales.length === 0) setSucursalesLocal(suc.data);
-      if (tiposGasto.length === 0) setTiposGastoLocal(tipos.data);
+      if (proveedoresLocal.length === 0) setProveedoresLocal(prov.data);
+      if (sucursalesLocal.length === 0) setSucursalesLocal(suc.data);
+      if (tiposGastoLocal.length === 0) setTiposGastoLocal(tipos.data);
     } catch (e) {
       console.error("Error cargando listas adicionales:", e);
     } finally {
@@ -283,13 +286,14 @@ export default function ModalEditarGasto({
                     required={camposVisibles.proveedor}
                   >
                     <option value="">Seleccione proveedor</option>
-                    {(Array.isArray(proveedores) ? proveedores : []).map(
-                      (p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.nombre}
-                        </option>
-                      )
-                    )}
+                    {(Array.isArray(proveedoresLocal)
+                      ? proveedoresLocal
+                      : []
+                    ).map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.nombre}
+                      </option>
+                    ))}
                   </select>
                 </div>
               )}
@@ -362,7 +366,10 @@ export default function ModalEditarGasto({
                 </label>
                 <input
                   type="text"
-                  value={getNombreSeleccionado(form.sucursal_id, sucursales)}
+                  value={getNombreSeleccionado(
+                    form.sucursal_id,
+                    sucursalesLocal
+                  )}
                   readOnly
                   onClick={() => setShowSucursales(!showSucursales)}
                   className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white cursor-pointer"
@@ -383,7 +390,7 @@ export default function ModalEditarGasto({
                         />
                       </div>
                     </div>
-                    {sucursales
+                    {sucursalesLocal
                       .filter((s) =>
                         s.nombre
                           .toLowerCase()
