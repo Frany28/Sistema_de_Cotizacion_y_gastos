@@ -140,7 +140,7 @@ export default function ModalEditarGasto({
       ) {
         setCotizaciones(cotizacionesIniciales);
       }
-      
+
       // Inicializar el formulario con los datos del gasto
       setForm({
         id: gasto.id,
@@ -452,13 +452,22 @@ export default function ModalEditarGasto({
                           />
                         </div>
                       </div>
-                      {cotizaciones
-                        .filter((cot) =>
+                      {(() => {
+                        const resultados = cotizaciones.filter((cot) =>
                           cot.codigo
                             .toLowerCase()
                             .includes(busquedaCotizacion.toLowerCase())
-                        )
-                        .map((cot) => (
+                        );
+
+                        if (resultados.length === 0) {
+                          return (
+                            <div className="px-4 py-2 text-gray-400">
+                              No hay resultados
+                            </div>
+                          );
+                        }
+
+                        return resultados.map((cot) => (
                           <div
                             key={cot.id}
                             className={`px-4 py-2 hover:bg-gray-600 cursor-pointer ${
@@ -477,11 +486,8 @@ export default function ModalEditarGasto({
                           >
                             {cot.codigo}
                           </div>
-                        )).length === 0 && (
-                        <div className="px-4 py-2 text-gray-400">
-                          No hay resultados
-                        </div>
-                      )}
+                        ));
+                      })()}
                     </div>
                   )}
                 </div>
