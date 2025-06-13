@@ -433,15 +433,19 @@ export default function ModalEditarGasto({
               {camposVisibles.cotizacion && (
                 <div className="col-span-2 relative">
                   <label className="block text-sm font-medium mb-1">
-                    Cotización Relacionada *
+                    Cotización Relacionada
                   </label>
                   <input
                     type="text"
-                    value={getNombreSeleccionado(
-                      form.cotizacion_id,
-                      cotizaciones,
-                      "codigo"
-                    )}
+                    value={
+                      getNombreSeleccionado(
+                        form.cotizacion_id,
+                        cotizaciones,
+                        "codigo"
+                      ) ||
+                      gasto?.cotizacion_codigo ||
+                      ""
+                    }
                     readOnly
                     onClick={() => setShowCotizaciones(!showCotizaciones)}
                     className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white cursor-pointer"
