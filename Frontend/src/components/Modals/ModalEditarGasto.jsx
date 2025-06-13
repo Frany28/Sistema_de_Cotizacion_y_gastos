@@ -81,6 +81,15 @@ export default function ModalEditarGasto({
     }
   };
 
+  // Cerrar modal exito
+  const handleDeleteExitoClose = () => {
+    setShowExito(false);
+  };
+  // Cerrar modal error
+  const handleDeleteErrorClose = () => {
+    setShowError(false);
+  };
+
   useEffect(() => {
     if (Array.isArray(cotizacionesIniciales) && cotizacionesIniciales.length) {
       setCotizaciones(cotizacionesIniciales);
@@ -110,13 +119,13 @@ export default function ModalEditarGasto({
     setLoadingLists(true);
     try {
       const [prov, suc, tipos] = await Promise.all([
-        proveedoresLocal.length === 0
+        proveedores.length === 0
           ? api.get("/proveedores")
-          : Promise.resolve({ data: proveedoresLocal }),
-        sucursalesLocal.length === 0
+          : Promise.resolve({ data: proveedores }),
+        sucursales.length === 0
           ? api.get("/sucursales")
-          : Promise.resolve({ data: sucursalesLocal }),
-        tiposGastoLocal.length === 0
+          : Promise.resolve({ data: sucursales }),
+        tiposGasto.length === 0
           ? api.get("/gastos/tipos")
           : Promise.resolve({ data: tiposGastoLocal }),
       ]);
@@ -681,7 +690,7 @@ export default function ModalEditarGasto({
         visible={showExito}
         onClose={() => {
           setShowExito(false);
-          window.location.reload();
+          onClose = { handleDeleteExitoClose };
         }}
         titulo="¡Gasto actualizado!"
         mensaje="Los cambios se han guardado correctamente."
@@ -689,7 +698,7 @@ export default function ModalEditarGasto({
 
       <ModalError
         visible={showError}
-        onClose={() => setShowError(false)}
+        onClose={handleDeleteErrorClose}
         titulo="Error"
         mensaje={errorMsg}
       />
