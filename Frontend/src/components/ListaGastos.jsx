@@ -75,6 +75,13 @@ function ListaGastos() {
     [proveedores, sucursales]
   );
 
+  const [modalExitoData, setModalExitoData] = useState({
+    visible: false,
+    titulo: "",
+    mensaje: "",
+    textoBoton: "Entendido",
+  });
+
   const [modalErrorData, setModalErrorData] = useState({
     visible: false,
     titulo: "",
