@@ -480,6 +480,39 @@ function ListaGastos() {
                   </span>
                 </td>
                 <td className="px-4 py-3 flex space-x-2 items-center">
+                  {puedeCambiarEstado && (
+                    <BotonIcono
+                      tipo="estado"
+                      onClick={() => {
+                        if (gasto.estado === "rechazado") {
+                          mostrarError({
+                            titulo: "Gasto rechazado",
+                            mensaje: "El gasto ya está rechazado.",
+                          });
+                          return;
+                        }
+
+                        if (gasto.estado === "aprobado") {
+                          mostrarError({
+                            titulo: "Gasto aprobado",
+                            mensaje:
+                              "No puedes cambiar el estado de un gasto aprobado.",
+                          });
+                          return;
+                        }
+
+                        setGastoCambioEstado(gasto);
+                        setMostrarModalCambio(true);
+                      }}
+                      titulo="Cambiar estado"
+                      disabled={gasto.estado === "aprobado"}
+                      className={`${
+                        gasto.estado === "aprobado"
+                          ? "opacity-50 cursor-not-allowed"
+                          : ""
+                      }`}
+                    />
+                  )}
                   <BotonIcono
                     tipo="ver"
                     onClick={() => {
@@ -523,40 +556,6 @@ function ListaGastos() {
                         : ""
                     }`}
                   />
-
-                  {puedeCambiarEstado && (
-                    <BotonIcono
-                      tipo="estado"
-                      onClick={() => {
-                        if (gasto.estado === "rechazado") {
-                          mostrarError({
-                            titulo: "Gasto rechazado",
-                            mensaje: "El gasto ya está rechazado.",
-                          });
-                          return;
-                        }
-
-                        if (gasto.estado === "aprobado") {
-                          mostrarError({
-                            titulo: "Gasto aprobado",
-                            mensaje:
-                              "No puedes cambiar el estado de un gasto aprobado.",
-                          });
-                          return;
-                        }
-
-                        setGastoCambioEstado(gasto);
-                        setMostrarModalCambio(true);
-                      }}
-                      titulo="Cambiar estado"
-                      disabled={gasto.estado === "aprobado"}
-                      className={`${
-                        gasto.estado === "aprobado"
-                          ? "opacity-50 cursor-not-allowed"
-                          : ""
-                      }`}
-                    />
-                  )}
                 </td>
               </tr>
             );
