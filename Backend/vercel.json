@@ -1,11 +1,15 @@
 {
   "version": 2,
-  "routes": [{ "src": "/api/(.*)", "dest": "src/app.js" }],
-  "functions": {
-    "src/app.js": {
-      "memory": 1024,
-      "maxDuration": 60,
-      "includeFiles": "node_modules/@sparticuz/chromium-min/bin/**"
+  "builds": [
+    {
+      "src": "src/app.js",
+      "use": "@vercel/node"
     }
-  }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "src/app.js"
+    }
+  ]
 }
