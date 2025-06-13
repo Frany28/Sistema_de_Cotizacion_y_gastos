@@ -152,7 +152,6 @@ function ListaGastos() {
   };
 
   const iniciarEdicion = async (gasto) => {
-    console.log("🔧 Iniciar Edición:", gasto);
     try {
       const { data } = await api.get(`/gastos/${gasto.id}`);
       const { gasto: gastoCompleto, opciones } = data;
@@ -169,8 +168,8 @@ function ListaGastos() {
 
       setEditandoGasto(gastoCompleto);
       setMostrarModalEditar(true);
-    } catch (error) {
-      console.error("Error al cargar el gasto para edición:", error);
+    } catch (err) {
+      console.error("Error al cargar el gasto para edición:", err);
     }
   };
 

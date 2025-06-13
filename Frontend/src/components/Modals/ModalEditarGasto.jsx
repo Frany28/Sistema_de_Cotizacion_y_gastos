@@ -45,8 +45,8 @@ export default function ModalEditarGasto({
 
   const actualizarCamposVisibles = (tipoGastoId) => {
     setCamposVisibles({
-      proveedor: tipoGastoId === "1" || tipoGastoId === "5", 
-      cotizacion: tipoGastoId === "2", 
+      proveedor: tipoGastoId === "1" || tipoGastoId === "5",
+      cotizacion: tipoGastoId === "2",
     });
 
     // Resetear campos no aplicables
@@ -284,7 +284,7 @@ export default function ModalEditarGasto({
                   required
                 >
                   <option value="">Seleccione tipo</option>
-                  {tiposGasto.map((tipo) => (
+                  {(Array.isArray(tiposGasto) ? tiposGasto : []).map((tipo) => (
                     <option key={tipo.id} value={tipo.id}>
                       {tipo.nombre}
                     </option>
@@ -306,11 +306,13 @@ export default function ModalEditarGasto({
                     required={camposVisibles.proveedor}
                   >
                     <option value="">Seleccione proveedor</option>
-                    {proveedores.map((prov) => (
-                      <option key={prov.id} value={prov.id}>
-                        {prov.nombre}
-                      </option>
-                    ))}
+                    {(Array.isArray(proveedores) ? proveedores : []).map(
+                      (prov) => (
+                        <option key={prov.id} value={prov.id}>
+                          {prov.nombre}
+                        </option>
+                      )
+                    )}
                   </select>
                 </div>
               )}
@@ -329,11 +331,13 @@ export default function ModalEditarGasto({
                     required={camposVisibles.cotizacion}
                   >
                     <option value="">Seleccione cotización</option>
-                    {cotizaciones.map((cot) => (
-                      <option key={cot.id} value={cot.id}>
-                        {cot.codigo} - {cot.descripcion}
-                      </option>
-                    ))}
+                    {(Array.isArray(cotizaciones) ? proveedores : []).map(
+                      (cot) => (
+                        <option key={cot.id} value={cot.id}>
+                          {cot.codigo} - {cot.descripcion}
+                        </option>
+                      )
+                    )}
                   </select>
                 </div>
               )}
@@ -620,4 +624,3 @@ export default function ModalEditarGasto({
     </AnimatePresence>
   );
 }
-
