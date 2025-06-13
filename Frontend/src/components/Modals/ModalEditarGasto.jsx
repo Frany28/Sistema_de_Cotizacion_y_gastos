@@ -99,20 +99,20 @@ export default function ModalEditarGasto({
     setLoadingLists(true);
     try {
       const [prov, suc, tipos] = await Promise.all([
-        proveedoresLocal.length === 0
+        proveedores.length === 0
           ? api.get("/proveedores")
           : Promise.resolve({ data: proveedoresLocal }),
-        sucursalesLocal.length === 0
+        sucursales.length === 0
           ? api.get("/sucursales")
           : Promise.resolve({ data: sucursalesLocal }),
-        tiposGastoLocal.length === 0
+        tiposGasto.length === 0
           ? api.get("/gastos/tipos")
           : Promise.resolve({ data: tiposGastoLocal }),
       ]);
 
-      if (proveedoresLocal.length === 0) setProveedoresLocal(prov.data);
-      if (sucursalesLocal.length === 0) setSucursalesLocal(suc.data);
-      if (tiposGastoLocal.length === 0) setTiposGastoLocal(tipos.data);
+      if (proveedores.length === 0) setProveedoresLocal(prov.data);
+      if (sucursales.length === 0) setSucursalesLocal(suc.data);
+      if (tiposGasto.length === 0) setTiposGastoLocal(tipos.data);
     } catch (e) {
       console.error("Error cargando listas adicionales:", e);
     } finally {
@@ -447,7 +447,7 @@ export default function ModalEditarGasto({
                               setBusquedaCotizacion(e.target.value)
                             }
                             className="w-full pl-10 pr-4 py-2 bg-gray-800 text-white rounded focus:outline-none"
-                            placeholder="Buscar cotización…"
+                            placeholder="Buscar cotización"
                             autoFocus
                           />
                         </div>
