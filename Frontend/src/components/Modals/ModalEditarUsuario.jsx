@@ -227,7 +227,7 @@ export default function ModalEditarUsuario({
                   </select>
                 </div>
 
-                {/* Firma sólo si aplica */}
+                
                 {/* Firma previa (si existe) */}
                 {form.firma && !firmaArchivo && (
                   <div className="col-span-2">

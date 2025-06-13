@@ -26,6 +26,7 @@ export default function ModalEditarGasto({
     sucursal_id: "",
     moneda: "USD",
     tasa_cambio: "",
+    documento: null,
   });
 
   const [camposVisibles, setCamposVisibles] = useState({
@@ -39,6 +40,11 @@ export default function ModalEditarGasto({
   const [showSucursales, setShowSucursales] = useState(false);
   const [showCotizaciones, setShowCotizaciones] = useState(false);
   const [loadingLists, setLoadingLists] = useState(false);
+  const [documentoArchivo, setDocumentoArchivo] = useState(null);
+
+  const handleFileChange = (e) => {
+    setDocumentoArchivo(e.target.files[0] || null);
+  };
 
   const actualizarCamposVisibles = (tipoGastoId) => {
     const tipoObj = (Array.isArray(tiposGasto) ? tiposGasto : []).find(
@@ -157,6 +163,7 @@ export default function ModalEditarGasto({
         cotizacion_id: gasto.cotizacion_id?.toString() || "",
         moneda: gasto.moneda || "USD",
         tasa_cambio: gasto.tasa_cambio?.toString() || "",
+        documento: gasto.documento || null,
       });
 
       if (
@@ -184,9 +191,10 @@ export default function ModalEditarGasto({
     }
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
 
+    // 1 Validaciones
     if (!form.tipo_gasto_id) return alert("Debe seleccionar un tipo de gasto");
     if (!form.concepto_pago) return alert("El concepto de pago es requerido");
     if (!form.fecha) return alert("La fecha es requerida");
@@ -201,18 +209,51 @@ export default function ModalEditarGasto({
     const sub = parseFloat(form.subtotal);
     if (isNaN(sub) || sub <= 0) return alert("El subtotal debe ser mayor a 0");
 
-    // Cálculo Impuesto + Total
+    // 2 Cálculo impuesto y total
     const iva = parseFloat(form.porcentaje_iva);
     const impuesto = parseFloat(((sub * iva) / 100).toFixed(2));
     const total = parseFloat((sub + impuesto).toFixed(2));
 
-    onSave({
-      ...form,
-      subtotal: sub,
-      porcentaje_iva: iva,
-      impuesto,
-      total,
-    });
+    // 3 Construir FormData
+    const data = new FormData();
+    data.append("concepto_pago", form.concepto_pago);
+    data.append("descripcion", form.descripcion);
+    data.append("subtotal", String(sub.toFixed(2)));
+    data.append("porcentaje_iva", String(iva));
+    data.append("impuesto", String(impuesto));
+    data.append("total", String(total));
+    data.append("fecha", form.fecha);
+    data.append("tipo_gasto_id", form.tipo_gasto_id);
+    data.append("sucursal_id", form.sucursal_id);
+    data.append("moneda", form.moneda);
+
+    if (form.tasa_cambio) {
+      data.append("tasa_cambio", String(parseFloat(form.tasa_cambio)));
+    }
+
+    if (camposVisibles.proveedor) {
+      data.append("proveedor_id", form.proveedor_id);
+    }
+    if (camposVisibles.cotizacion) {
+      data.append("cotizacion_id", form.cotizacion_id);
+    }
+
+    if (documentoArchivo) {
+      data.append("documento", documentoArchivo); // archivo nuevo
+    }
+
+    // 4 Enviar
+    try {
+      await api.put(`/gastos/${form.id}`, data, {
+        withCredentials: true,
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      onSave(); // refrescar lista en el padre
+      onClose(); // cerrar modal
+    } catch (err) {
+      alert(err.response?.data?.message || "Error al actualizar gasto");
+    }
   };
 
   return (
@@ -542,57 +583,42 @@ export default function ModalEditarGasto({
                   required
                 />
               </div>
-              {/* Documento existente */}
-              {(gasto?.urlFacturaFirmada || gasto?.documento) &&
-                !nuevoDocumento && (
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium mb-1">
-                      Documento actual
-                    </label>
-                    <div className="flex items-center gap-2 p-2 bg-gray-700 rounded">
-                      <File className="w-5 h-5 text-blue-400" />
-                      <a
-                        href={
-                          gasto.urlFacturaFirmada ||
-                          `https://tu-bucket-s3.s3.amazonaws.com/${gasto.documento}`
-                        }
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-400 hover:underline truncate"
-                      >
-                        {gasto.documento?.split("/").pop() || "Ver documento"}
-                      </a>
-                    </div>
-                  </div>
+
+              {/* Documento */}
+              <div className="col-span-2">
+                <label className="block mb-1 text-sm font-medium text-white">
+                  {form.documento && !documentoArchivo
+                    ? "Documento previo"
+                    : "Cambiar / subir documento (imagen o PDF)"}
+                </label>
+
+                {/* Enlace al archivo existente */}
+                {form.documento && !documentoArchivo && (
+                  <a
+                    href={gasto?.urlFacturaFirmada || "#"}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block underline text-blue-500 mb-2"
+                  >
+                    {form.documento.split("/").pop()}
+                  </a>
                 )}
 
-              {/* Input para subir nuevo documento */}
-              <div className="col-span-2">
-                <label className="block text-sm font-medium mb-1">
-                  {gasto?.documento && !nuevoDocumento
-                    ? "Reemplazar documento"
-                    : "Subir documento"}
-                </label>
-                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-600 border-dashed rounded-lg cursor-pointer bg-gray-700 hover:bg-gray-600">
-                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                    <Upload className="w-8 h-8 mb-3 text-gray-400" />
-                    <p className="mb-2 text-sm text-gray-400">
-                      <span className="font-semibold">Click para subir</span> o
-                      arrastra el archivo
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      {nuevoDocumento
-                        ? nuevoDocumento.name
-                        : "PDF, JPG, PNG (MAX. 10MB)"}
-                    </p>
-                  </div>
-                  <input
-                    type="file"
-                    className="hidden"
-                    onChange={handleFileChange}
-                    accept=".pdf,.jpg,.jpeg,.png"
-                  />
-                </label>
+                {/* Input para subir o reemplazar */}
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  onChange={handleFileChange}
+                  className="
+                  block w-full p-2.5 text-gray-200 rounded
+                  file:px-4 file:py-2
+                  file:bg-gray-600 file:text-gray-200
+                  file:border file:border-gray-500
+                  file:rounded file:cursor-pointer
+                  file:hover:bg-gray-500
+                  transition duration-200 ease-in-out
+                "
+                />
               </div>
 
               {/* Descripción */}

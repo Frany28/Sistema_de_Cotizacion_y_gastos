@@ -36,10 +36,6 @@ router.get(
   getGastoById
 );
 
-// ───────────────────────────────────────────────────────────────
-//  RUTA NUEVA: Subir factura/comprobante a S3 y guardar la “key” en la columna url_factura
-//  Endpoint: POST /api/gastos/:id/comprobante
-// ───────────────────────────────────────────────────────────────
 router.post(
   "/:id/comprobante",
   autenticarUsuario,
@@ -89,6 +85,7 @@ router.put(
   autenticarUsuario,
   verificarPermiso("editar_gasto"),
   scopeEdicionGasto,
+  uploadComprobante.single("documento"),
   validarGasto,
   updateGasto
 );
