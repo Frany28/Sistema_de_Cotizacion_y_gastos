@@ -364,9 +364,9 @@ export default function ModalEditarGasto({
                   type="text"
                   value={
                     getNombreSeleccionado(
-                      form.cotizacion_id,
-                      cotizaciones,
-                      "codigo"
+                      form.sucursal_id,
+                      sucursales,
+                      "nombre"
                     ) ||
                     gasto?.cotizacion_codigo ||
                     ""
