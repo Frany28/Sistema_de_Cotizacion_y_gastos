@@ -259,11 +259,13 @@ export default function ModalEditarGasto({
         headers: { "Content-Type": "multipart/form-data" },
       });
 
-      onSave();
-      setShowExito(true);
+      onSave(); // actualiza estado del padre
+      setShowExito(true); // dispara ventana de éxito
+      onClose();
     } catch (err) {
       setErrorMsg(err.response?.data?.message || "Error al actualizar gasto");
       setShowError(true);
+      onClose();
     }
   };
 
@@ -679,7 +681,7 @@ export default function ModalEditarGasto({
         visible={showExito}
         onClose={() => {
           setShowExito(false);
-          onClose(); // ahora sí cerramos el formulario
+          window.location.reload();
         }}
         titulo="¡Gasto actualizado!"
         mensaje="Los cambios se han guardado correctamente."
