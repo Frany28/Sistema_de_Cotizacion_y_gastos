@@ -218,8 +218,6 @@ export const deleteGasto = async (req, res) => {
   }
 };
 
-
-
 export const getGastoById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -267,7 +265,8 @@ export const getGastoById = async (req, res) => {
     );
     const [sucursales] = await db.query("SELECT id, nombre FROM sucursales");
     const [cotizaciones] = await db.query(
-      "SELECT id, codigo_referencia AS codigo FROM cotizaciones"
+      "SELECT id, codigo_referencia AS codigo FROM cotizaciones",
+      console.log("Cotizaciones obtenidas:", cotizaciones)
     );
 
     // 3) Enviar la respuesta JSON, añadiendo urlFacturaFirmada dentro del objeto "gasto"
