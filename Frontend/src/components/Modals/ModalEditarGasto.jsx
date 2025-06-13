@@ -432,7 +432,7 @@ export default function ModalEditarGasto({
                       </div>
                       {cotizaciones
                         .filter((cot) =>
-                          cot.codigo
+                          cot.codigo_referencia
                             .toLowerCase()
                             .includes(busquedaCotizacion.toLowerCase())
                         )
