@@ -31,6 +31,7 @@ export const getGastos = async (req, res) => {
         g.fecha,
         g.total,
         g.estado,
+        g.motivo_rechazo,
         g.tipo_gasto_id,                 
         tg.nombre        AS tipo_gasto,  
         p.nombre         AS proveedor,

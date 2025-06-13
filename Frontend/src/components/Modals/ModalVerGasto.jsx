@@ -154,7 +154,7 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
               </div>
 
               {/* Motivo de rechazo - Ahora más prominente */}
-              {isRechazado && gasto.motivo_rechazo && (
+              {gasto.estado === "rechazado" && (
                 <div className="bg-red-900/30 p-4 rounded-lg border border-red-700">
                   <div className="flex items-start">
                     <AlertCircle className="w-5 h-5 text-red-400 mr-2 mt-0.5 flex-shrink-0" />
@@ -162,9 +162,10 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
                       <h4 className="font-medium text-red-300 mb-1">
                         Motivo de rechazo
                       </h4>
-                      <p className="text-red-400 text-sm">
+
+                      <span className="text-red-400 italic">
                         {gasto.motivo_rechazo}
-                      </p>
+                      </span>
                     </div>
                   </div>
                 </div>
