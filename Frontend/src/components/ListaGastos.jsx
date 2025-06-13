@@ -113,7 +113,7 @@ function ListaGastos() {
   const fetchGastos = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get("/gastos", {
+      const response = await api.get("/gastos", {
         params: { page, limit, search: busqueda.trim() },
         withCredentials: true,
       });
