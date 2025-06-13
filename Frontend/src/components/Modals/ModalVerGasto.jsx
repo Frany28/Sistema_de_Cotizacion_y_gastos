@@ -7,6 +7,7 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
   if (!visible || !gasto) return null;
 
   const isBolivares = gasto.moneda === "VES";
+  const isRechazado = gasto.estado === "rechazado";
 
   const mostrarMonto = (valor) => {
     if (valor === undefined || valor === null) return "0.00";
@@ -27,12 +28,12 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
-          className="relative w-full max-w-3xl p-6  bg-gray-800 rounded-lg shadow"
+          className="relative w-full max-w-3xl p-6 bg-gray-800 rounded-lg shadow"
           onClick={(e) => e.stopPropagation()}
         >
           <button
             onClick={onClose}
-            className="absolute top-3 right-3 text-gray-400  hover:text-white"
+            className="absolute top-3 right-3 text-gray-400 hover:text-white"
           >
             <X className="w-5 h-5" />
           </button>
@@ -41,25 +42,78 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
             Detalles del Gasto
           </h2>
 
-          <div className="text-sm  text-gray-300">
-            <p>
-              <strong>Proveedor:</strong> {gasto.proveedor || "—"}
-            </p>
-            <p>
-              <strong>Fecha:</strong>{" "}
-              {new Date(gasto.fecha).toLocaleDateString("es-VE")}
-            </p>
-            <p>
-              <strong>Sucursal:</strong> {gasto.sucursal || "—"}
-            </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-300 mb-4">
+            <div>
+              <p>
+                <strong>Código:</strong> {gasto.codigo || "—"}
+              </p>
+              <p>
+                <strong>Proveedor:</strong> {gasto.proveedor || "—"}
+              </p>
+              <p>
+                <strong>Tipo de gasto:</strong> {gasto.tipo_gasto || "—"}
+              </p>
+              <p>
+                <strong>Fecha:</strong>{" "}
+                {new Date(gasto.fecha).toLocaleDateString("es-VE")}
+              </p>
+              <p>
+                <strong>Sucursal:</strong> {gasto.sucursal || "—"}
+              </p>
+            </div>
+            <div>
+              <p>
+                <strong>Estado:</strong>{" "}
+                <span
+                  className={`capitalize ${
+                    gasto.estado === "aprobado"
+                      ? "text-green-400"
+                      : gasto.estado === "rechazado"
+                      ? "text-red-400"
+                      : "text-yellow-400"
+                  }`}
+                >
+                  {gasto.estado}
+                </span>
+              </p>
+              <p>
+                <strong>Moneda:</strong> {gasto.moneda || "—"}
+              </p>
+              {isBolivares && (
+                <p>
+                  <strong>Tasa de cambio:</strong> {gasto.tasa_cambio || "—"} BS
+                </p>
+              )}
+              <p>
+                <strong>Cotización asociada:</strong>{" "}
+                {gasto.cotizacion_codigo || "—"}
+              </p>
+              <p>
+                <strong>Porcentaje IVA:</strong>{" "}
+                {gasto.porcentaje_iva ? `${gasto.porcentaje_iva}%` : "—"}
+              </p>
+            </div>
+          </div>
+
+          <div className="text-sm text-gray-300 mb-4">
             <p>
               <strong>Descripción:</strong> {gasto.descripcion || "—"}
             </p>
+            <p>
+              <strong>Concepto de pago:</strong> {gasto.concepto_pago || "—"}
+            </p>
           </div>
 
+          {isRechazado && gasto.motivo_rechazo && (
+            <div className="bg-red-900/30 border border-red-700 rounded p-3 mb-4">
+              <p className="font-semibold text-red-300">Motivo de rechazo:</p>
+              <p className="text-red-200">{gasto.motivo_rechazo}</p>
+            </div>
+          )}
+
           <div className="overflow-x-auto mt-4">
-            <table className="w-full text-sm text-left  text-gray-400">
-              <thead className="text-xs text-gray-700 uppercase bg-gray-700 ">
+            <table className="w-full text-sm text-left text-gray-400">
+              <thead className="text-xs text-gray-700 uppercase bg-gray-700">
                 <tr>
                   <th className="px-4 py-2">CONCEPTO</th>
                   {isBolivares && <th className="px-4 py-2">TASA DE CAMBIO</th>}
