@@ -50,7 +50,7 @@ export default function ModalEditarGasto({
       tipoObj.nombre
     );
     const requiereCotizacion =
-      tipoObj.rentable === 1 || /servicio\\s+prestado/i.test(tipoObj.nombre);
+      tipoObj.rentable === 1 || /servicio\s+prestado/i.test(tipoObj.nombre);
 
     setCamposVisibles({
       proveedor: requiereProveedor,
@@ -61,9 +61,7 @@ export default function ModalEditarGasto({
     setForm((prev) => ({
       ...prev,
       proveedor_id:
-        requiereProveedor || prev.proveedor_id 
-          ? prev.proveedor_id
-          : "",
+        requiereProveedor || prev.proveedor_id ? prev.proveedor_id : "",
       cotizacion_id: requiereCotizacion ? prev.cotizacion_id : "",
     }));
 
@@ -84,29 +82,30 @@ export default function ModalEditarGasto({
     }
   };
 
-  /** Descarga proveedores / sucursales / tiposGasto si no los recibimos por props */
   const cargarListasAdicionales = async () => {
     setLoadingLists(true);
     try {
       const [prov, suc, tipos] = await Promise.all([
-        proveedores.length === 0
+        proveedoresLocal.length === 0
           ? api.get("/proveedores")
-          : Promise.resolve({ data: proveedores }),
-        sucursales.length === 0
+          : Promise.resolve({ data: proveedoresLocal }),
+        sucursalesLocal.length === 0
           ? api.get("/sucursales")
-          : Promise.resolve({ data: sucursales }),
-        tiposGasto.length === 0
+          : Promise.resolve({ data: sucursalesLocal }),
+        tiposGastoLocal.length === 0
           ? api.get("/gastos/tipos")
-          : Promise.resolve({ data: tiposGasto }),
+          : Promise.resolve({ data: tiposGastoLocal }),
       ]);
-      // Solo actualizamos si vinieron vacías para evitar sobrescribir props
-      if (proveedores.length === 0) proveedores = prov.data;
-      if (sucursales.length === 0) sucursales = suc.data;
-      if (tiposGasto.length === 0) tiposGasto = tipos.data;
+
+      if (proveedoresLocal.length === 0) setProveedoresLocal(prov.data);
+      if (sucursalesLocal.length === 0) setSucursalesLocal(suc.data);
+      if (tiposGastoLocal.length === 0) setTiposGastoLocal(tipos.data);
     } catch (e) {
       console.error("Error cargando listas adicionales:", e);
     } finally {
       setLoadingLists(false);
+      // Re-evalúa visibilidad con catálogos completos
+      if (form.tipo_gasto_id) actualizarCamposVisibles(form.tipo_gasto_id);
     }
   };
 
