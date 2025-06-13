@@ -368,7 +368,7 @@ export default function ModalEditarGasto({
                       sucursales,
                       "nombre"
                     ) ||
-                    gasto?.cotizacion_codigo ||
+                    gasto?.sucursal_id ||
                     ""
                   }
                   readOnly
