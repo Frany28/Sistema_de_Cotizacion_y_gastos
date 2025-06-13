@@ -132,6 +132,23 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
                   </p>
                 </div>
               </div>
+              {/* Motivo de rechazo - Ahora más prominente */}
+              {gasto.estado === "rechazado" && (
+                <div className="bg-red-900/30 p-4 rounded-lg border border-red-700">
+                  <div className="flex items-start">
+                    <AlertCircle className="w-5 h-5 text-red-400 mr-2 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <h4 className="font-medium text-red-300 mb-1">
+                        Motivo de rechazo
+                      </h4>
+
+                      <span className="text-red-400 italic">
+                        {gasto.motivo_rechazo}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Columna central - Detalles adicionales y motivo de rechazo */}
@@ -152,24 +169,6 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
                   </div>
                 </div>
               </div>
-
-              {/* Motivo de rechazo - Ahora más prominente */}
-              {gasto.estado === "rechazado" && (
-                <div className="bg-red-900/30 p-4 rounded-lg border border-red-700">
-                  <div className="flex items-start">
-                    <AlertCircle className="w-5 h-5 text-red-400 mr-2 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <h4 className="font-medium text-red-300 mb-1">
-                        Motivo de rechazo
-                      </h4>
-
-                      <span className="text-red-400 italic">
-                        {gasto.motivo_rechazo}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* Tabla de montos */}
               <div className="bg-gray-700 rounded-lg border border-gray-600 overflow-hidden">
