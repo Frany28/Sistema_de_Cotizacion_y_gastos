@@ -134,7 +134,7 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
               </div>
             </div>
 
-            {/* Columna central - Detalles adicionales */}
+            {/* Columna central - Detalles adicionales y motivo de rechazo */}
             <div className="lg:col-span-2 space-y-4">
               <div className="bg-gray-700 p-4 rounded-lg border border-gray-600">
                 <h3 className="font-medium text-gray-300 mb-2 flex items-center">
@@ -153,7 +153,7 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
                 </div>
               </div>
 
-              {/* Motivo de rechazo */}
+              {/* Motivo de rechazo - Ahora más prominente */}
               {isRechazado && gasto.motivo_rechazo && (
                 <div className="bg-red-900/30 p-4 rounded-lg border border-red-700">
                   <div className="flex items-start">
