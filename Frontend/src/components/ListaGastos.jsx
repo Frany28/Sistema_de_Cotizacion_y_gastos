@@ -460,6 +460,7 @@ function ListaGastos() {
                     onClick={() => iniciarEdicion(gasto)}
                     titulo="Editar gasto"
                     disabled={gasto.estado === "aprobado"}
+                    
                     className={`${
                       gasto.estado === "aprobado"
                         ? "opacity-50 cursor-not-allowed"

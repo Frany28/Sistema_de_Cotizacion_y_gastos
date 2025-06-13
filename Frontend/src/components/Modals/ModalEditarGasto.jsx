@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Pencil, Search, X } from "lucide-react";
 import api from "../../api/index";
+import ModalExito from "./ModalExito";
+import ModalError from "./ModalError";
 
 export default function ModalEditarGasto({
   visible,
@@ -195,7 +197,11 @@ export default function ModalEditarGasto({
     e.preventDefault();
 
     // 1 Validaciones
-    if (!form.tipo_gasto_id) return alert("Debe seleccionar un tipo de gasto");
+    if (!form.tipo_gasto_id)
+      return (
+        setErrorMsg("Debe seleccionar un tipo de gasto"), setShowError(true)
+      );
+
     if (!form.concepto_pago) return alert("El concepto de pago es requerido");
     if (!form.fecha) return alert("La fecha es requerida");
 
@@ -207,7 +213,8 @@ export default function ModalEditarGasto({
     }
 
     const sub = parseFloat(form.subtotal);
-    if (isNaN(sub) || sub <= 0) return alert("El subtotal debe ser mayor a 0");
+    if (isNaN(sub) || sub <= 0)
+      return setErrorMsg("El subtotal debe ser mayor a 0"), setShowError(true);
 
     // 2 Cálculo impuesto y total
     const iva = parseFloat(form.porcentaje_iva);
@@ -249,10 +256,11 @@ export default function ModalEditarGasto({
         headers: { "Content-Type": "multipart/form-data" },
       });
 
-      onSave(); // refrescar lista en el padre
-      onClose(); // cerrar modal
+      onSave();
+      setShowExito(true);
     } catch (err) {
-      alert(err.response?.data?.message || "Error al actualizar gasto");
+      setErrorMsg(err.response?.data?.message || "Error al actualizar gasto");
+      setShowError(true);
     }
   };
 
@@ -653,6 +661,22 @@ export default function ModalEditarGasto({
                 Guardar Cambios
               </button>
             </div>
+            <ModalExito
+              visible={showExito}
+              onClose={() => {
+                setShowExito(false);
+                onClose(); // ahora sí cerramos el formulario
+              }}
+              titulo="¡Gasto actualizado!"
+              mensaje="Los cambios se han guardado correctamente."
+            />
+
+            <ModalError
+              visible={showError}
+              onClose={() => setShowError(false)}
+              titulo="Error"
+              mensaje={errorMsg}
+            />
           </motion.div>
         </motion.div>
       )}
