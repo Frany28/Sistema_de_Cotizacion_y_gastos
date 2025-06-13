@@ -113,10 +113,8 @@ function ListaGastos() {
   const fetchGastos = useCallback(async () => {
     setLoading(true);
     try {
-      const params = { page, limit };
-      if (busqueda.trim()) params.search = busqueda.trim();
-      const response = await api.get("/gastos", {
-        params,
+      const res = await api.get("/gastos", {
+        params: { page, limit, search: busqueda.trim() },
         withCredentials: true,
       });
 
@@ -150,6 +148,11 @@ function ListaGastos() {
     }
   }, []);
 
+  useEffect(() => {
+    const timer = setTimeout(fetchGastos, 300); // debounce 300 ms
+    return () => clearTimeout(timer);
+  }, [fetchGastos]);
+
   // Verificación de permisos
   useEffect(() => {
     const verificarPermisos = async () => {
@@ -175,7 +178,7 @@ function ListaGastos() {
   // Manejo de búsqueda
   const manejarBusqueda = (e) => {
     setBusqueda(e.target.value);
-    setPage(1);
+    setPage(1); // siempre vuelvo al inicio del resultado
   };
 
   const iniciarEdicion = async (gasto) => {
@@ -205,24 +208,6 @@ function ListaGastos() {
       setMostrarModalEditar(true);
     } catch (err) {
       console.error("Error al cargar el gasto para edición:", err);
-    }
-  };
-
-  const guardarGastoEditado = async (datos) => {
-    try {
-      const response = await api.put(`/gastos/${datos.id}`, datos);
-
-      const actualizado = response.data?.data;
-      if (!actualizado) throw new Error("Datos de respuesta inválidos");
-
-      setGastos((prev) =>
-        prev.map((g) => (g.id === actualizado.id ? actualizado : g))
-      );
-
-      setMostrarModalEditar(false);
-      setEditandoGasto(null);
-    } catch (error) {
-      console.error("Error al actualizar gasto:", error);
     }
   };
 
@@ -303,6 +288,7 @@ function ListaGastos() {
     );
 
   const totalPaginas = Math.ceil(totalGastos / limit);
+
   const gastosPaginados = gastosFiltrados;
 
   const cambiarLimite = (nuevoLimite) => {

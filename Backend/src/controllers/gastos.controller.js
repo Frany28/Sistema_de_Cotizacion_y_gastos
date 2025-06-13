@@ -2,57 +2,53 @@
 import db from "../config/database.js";
 import { generarUrlPrefirmadaLectura } from "../utils/s3.js";
 
+// controllers/gastos.controller.js
 export const getGastos = async (req, res) => {
-  // 1) Parseo seguro de page y limit (por defecto page=1, limit=5)
-  const page = Number.isNaN(Number(req.query.page))
-    ? 1
-    : Number(req.query.page);
-  const limit = Number.isNaN(Number(req.query.limit))
-    ? 5
-    : Number(req.query.limit);
+  const page = +req.query.page || 1;
+  const limit = +req.query.limit || 5;
   const offset = (page - 1) * limit;
-
-  // 2) Validación básica de parámetros
-  if (page < 1 || limit < 1) {
-    return res
-      .status(400)
-      .json({ message: "Parámetros de paginación inválidos" });
-  }
+  const q = (req.query.search || "").trim(); 
 
   try {
-    // 3) Total de registros (sin paginación)
+    // 1) TOTAL filtrado
     const [[{ total }]] = await db.query(
-      "SELECT COUNT(*) AS total FROM gastos"
+      q
+        ? `SELECT COUNT(*) AS total
+          FROM gastos g
+          LEFT JOIN proveedores p ON p.id = g.proveedor_id
+          WHERE g.codigo        LIKE ? OR
+                  p.nombre        LIKE ? OR
+                  g.concepto_pago LIKE ?`
+        : `SELECT COUNT(*) AS total FROM gastos`,
+      q ? [`%${q}%`, `%${q}%`, `%${q}%`] : []
     );
 
-    // 4) Datos paginados, inyectando limit y offset como literales
-    const [gastos] = await db.query(`
-      SELECT 
-        g.id, g.codigo, g.proveedor_id, p.nombre AS proveedor,
-        g.concepto_pago, g.subtotal, g.porcentaje_iva, g.impuesto,
-        g.total, g.descripcion, g.fecha, g.estado, g.motivo_rechazo,
-        g.tipo_gasto_id, g.sucursal_id, s.nombre AS sucursal,
-        g.cotizacion_id, g.moneda, g.tasa_cambio, g.usuario_id,
-        CASE WHEN g.moneda = 'VES' THEN (g.subtotal * g.tasa_cambio) ELSE g.subtotal END AS subtotal_bs,
-        CASE WHEN g.moneda = 'VES' THEN (g.impuesto * g.tasa_cambio) ELSE g.impuesto END AS impuesto_bs,
-        CASE WHEN g.moneda = 'VES' THEN (g.total * g.tasa_cambio) ELSE g.total END AS total_bs
-      FROM gastos g
-      LEFT JOIN proveedores p ON p.id = g.proveedor_id
-      LEFT JOIN sucursales s ON s.id = g.sucursal_id
+    // 2) LISTA paginada filtrada
+    const [gastos] = await db.query(
+      `
+      SELECT g.id, g.codigo, g.fecha, g.total, g.estado,
+          p.nombre AS proveedor, s.nombre AS sucursal,
+          g.concepto_pago, g.subtotal, g.impuesto, g.moneda
+        FROM gastos g
+        LEFT JOIN proveedores p ON p.id = g.proveedor_id
+        LEFT JOIN sucursales  s ON s.id = g.sucursal_id
+       ${
+         q
+           ? `WHERE g.codigo        LIKE ? OR
+            p.nombre        LIKE ? OR
+            g.concepto_pago LIKE ?`
+           : ""
+       }
       ORDER BY g.fecha DESC, g.id DESC
       LIMIT ${limit} OFFSET ${offset}
-    `);
+      `,
+      q ? [`%${q}%`, `%${q}%`, `%${q}%`] : []
+    );
 
-    // 5) Respuesta con paginación coherente
-    return res.json({
-      data: gastos,
-      total,
-      page,
-      limit,
-    });
-  } catch (error) {
-    console.error("Error interno al obtener gastos:", error);
-    return res.status(500).json({ message: "Error interno del servidor" });
+    res.json({ data: gastos, total, page, limit });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error interno" });
   }
 };
 
