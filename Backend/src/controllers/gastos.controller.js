@@ -77,6 +77,7 @@ export const updateGasto = async (req, res) => {
         .json({ message: "No puedes editar un gasto aprobado." });
     }
 
+    // Obtener datos del body o del FormData
     const {
       proveedor_id,
       concepto_pago,
@@ -93,14 +94,17 @@ export const updateGasto = async (req, res) => {
       motivo_rechazo,
     } = req.body;
 
+    // Manejar el documento si se subió uno nuevo
+    const documento = req.file ? req.file.key : undefined;
+
     // Validar y calcular valores
     const subtotalNum = parseFloat(subtotal);
-    if (isNaN(subtotalNum) || subtotalNum <= 0) {
+    if (isNaN(subtotalNum)) {
       return res.status(400).json({ message: "Subtotal inválido." });
     }
 
     const ivaNum = parseFloat(porcentaje_iva);
-    if (isNaN(ivaNum) || ivaNum < 0) {
+    if (isNaN(ivaNum)) {
       return res.status(400).json({ message: "Porcentaje de IVA inválido." });
     }
 
@@ -155,6 +159,7 @@ export const updateGasto = async (req, res) => {
         tasa_cambio = ?, 
         estado = ?, 
         motivo_rechazo = ?, 
+        ${documento ? "documento = ?," : ""}
         updated_at = NOW()
       WHERE id = ?`,
       [
@@ -173,6 +178,7 @@ export const updateGasto = async (req, res) => {
         tasaCambioFinal,
         nuevoEstado,
         motivoRechazoFinal,
+        ...(documento ? [documento] : []),
         id,
       ]
     );
@@ -183,7 +189,21 @@ export const updateGasto = async (req, res) => {
       [id]
     );
 
-    res.json({ message: "Gasto actualizado", data: gastoActualizado });
+    // Generar URL prefirmada si hay documento
+    let urlFacturaFirmada = null;
+    if (gastoActualizado.documento) {
+      urlFacturaFirmada = generarUrlPrefirmadaLectura(
+        gastoActualizado.documento
+      );
+    }
+
+    res.json({
+      message: "Gasto actualizado",
+      data: {
+        ...gastoActualizado,
+        urlFacturaFirmada,
+      },
+    });
   } catch (error) {
     console.error("Error al actualizar gasto:", error);
     res.status(500).json({ message: "Error interno al actualizar gasto" });
