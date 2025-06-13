@@ -1,5 +1,5 @@
 import puppeteer from "puppeteer-core";
-import chromium from "@sparticuz/chromium-min";
+import chromium from "@sparticuz/chromium";
 import { generarHTMLCotizacion } from "../../templates/generarHTMLCotizacion.js";
 import path from "path";
 import { fileURLToPath } from "url";

@@ -2,7 +2,8 @@
 import db from "../config/database.js";
 import path from "path";
 import puppeteer from "puppeteer-core";
-import chromium from "@sparticuz/chromium-min";
+import chromium from "@sparticuz/chromium";
+
 import { generarHTMLCotizacion } from "../../templates/generarHTMLCotizacion.js";
 import { fileURLToPath } from "url";
 
