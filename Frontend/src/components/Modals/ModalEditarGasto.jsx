@@ -79,8 +79,16 @@ export default function ModalEditarGasto({
   /** Descarga cotizaciones para el desplegable cuando es necesario */
   const cargarCotizaciones = async () => {
     try {
-      const { data } = await api.get("/cotizaciones");
-      setCotizaciones(Array.isArray(data) ? data : []);
+      const { data } = await api.get("/cotizaciones", {
+        params: { page: 1, limit: 1000 },
+      });
+
+      const lista = Array.isArray(data?.data)
+        ? data.data
+        : Array.isArray(data)
+        ? data
+        : [];
+      setCotizaciones(lista);
     } catch (err) {
       console.error("Error cargando cotizaciones:", err);
       setCotizaciones([]);
