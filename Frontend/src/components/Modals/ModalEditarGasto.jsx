@@ -48,7 +48,8 @@ export default function ModalEditarGasto({
     const requiereProveedor = /proveedor|servicio\s+prestado/i.test(
       tipoObj.nombre
     );
-    const requiereCotizacion = tipoObj.rentable === 1;
+    const requiereCotizacion =
+      tipoObj.rentable === 1 || /servicio\\s+prestado/i.test(tipoObj.nombre);
 
     setCamposVisibles({
       proveedor: requiereProveedor,
