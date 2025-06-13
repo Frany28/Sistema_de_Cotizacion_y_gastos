@@ -11,6 +11,7 @@ export default function ModalEditarGasto({
   proveedores = [],
   sucursales = [],
   tiposGasto = [],
+  cotizacionesIniciales = [],
 }) {
   const [form, setForm] = useState({
     id: "",
@@ -32,7 +33,7 @@ export default function ModalEditarGasto({
     cotizacion: false,
   });
 
-  const [cotizaciones, setCotizaciones] = useState([]);
+  const [cotizaciones, setCotizaciones] = useState(cotizacionesIniciales);
   const [busquedaSucursal, setBusquedaSucursal] = useState("");
   const [busquedaCotizacion, setBusquedaCotizacion] = useState("");
   const [showSucursales, setShowSucursales] = useState(false);
@@ -64,11 +65,16 @@ export default function ModalEditarGasto({
       cotizacion_id: requiereCotizacion ? prev.cotizacion_id : "",
     }));
 
-    // Si ahora se requiere cotización y la lista aún no está cargada ⇒ fetch
     if (requiereCotizacion && cotizaciones.length === 0) {
       cargarCotizaciones();
     }
   };
+
+  useEffect(() => {
+    if (Array.isArray(cotizacionesIniciales) && cotizacionesIniciales.length) {
+      setCotizaciones(cotizacionesIniciales);
+    }
+  }, [cotizacionesIniciales]);
 
   /** Descarga cotizaciones para el desplegable cuando es necesario */
   const cargarCotizaciones = async () => {

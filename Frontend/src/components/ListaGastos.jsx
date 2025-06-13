@@ -167,6 +167,7 @@ function ListaGastos() {
       );
 
       setEditandoGasto(gastoCompleto);
+      setCotizacionesModal(opciones.cotizaciones || []);
       setMostrarModalEditar(true);
     } catch (err) {
       console.error("Error al cargar el gasto para edición:", err);
@@ -598,6 +599,7 @@ function ListaGastos() {
         visible={mostrarModalEditar}
         onClose={() => setMostrarModalEditar(false)}
         gasto={editandoGasto}
+        cotizacionesIniciales={cotizacionesModal}
         onSave={guardarGastoEditado}
         proveedores={proveedores}
         sucursales={sucursales}
