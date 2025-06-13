@@ -225,7 +225,9 @@ const CrearRegistro = () => {
 
   const verVistaPrevia = async (datosGenerales) => {
     try {
-      const usuarioGuardado = JSON.parse(localStorage.getItem("usuario"));
+      const usuarioGuardado =
+        JSON.parse(localStorage.getItem("usuario")) ||
+        JSON.parse(sessionStorage.getItem("usuario"));
       const nombreDeclarante = usuarioGuardado?.nombre || "Usuario Desconocido";
 
       const subtotalSinIva = itemsAgregados.reduce(

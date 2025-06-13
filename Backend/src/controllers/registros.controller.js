@@ -23,7 +23,7 @@ export const getDatosRegistro = async (req, res) => {
       LEFT JOIN sucursales s ON s.id = c.sucursal_id
       ORDER BY c.id DESC
     `);
-
+   
     const [proveedores] = await db.query("SELECT id, nombre FROM proveedores");
 
     res.json({
@@ -52,7 +52,7 @@ export const createRegistro = async (req, res) => {
       .json({ message: "Debe indicar el tipo de registro" });
   }
 
-  // Desempaquetamos todo el body
+  
   const datos = { ...req.body };
 
   try {
@@ -357,7 +357,6 @@ export const generarVistaPreviaCotizacion = async (req, res) => {
     // 1) Plantilla HTML
     const html = generarHTMLCotizacion(datosCotizacion, "preview");
 
-    // 2) Lanzar Chromium optimizado para Lambda/Vercel
     const browser = await puppeteer.launch({
       args: chromium.args,
       defaultViewport: chromium.defaultViewport,
