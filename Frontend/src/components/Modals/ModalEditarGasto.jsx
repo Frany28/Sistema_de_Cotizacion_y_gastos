@@ -39,9 +39,6 @@ export default function ModalEditarGasto({
   const [showSucursales, setShowSucursales] = useState(false);
   const [showCotizaciones, setShowCotizaciones] = useState(false);
   const [loadingLists, setLoadingLists] = useState(false);
-  const [proveedoresLocal, setProveedoresLocal] = useState(proveedores);
-  const [sucursalesLocal, setSucursalesLocal] = useState(sucursales);
-  const [tiposGastoLocal, setTiposGastoLocal] = useState(tiposGasto);
 
   const actualizarCamposVisibles = (tipoGastoId) => {
     const tipoObj = (Array.isArray(tiposGasto) ? tiposGasto : []).find(
@@ -286,14 +283,13 @@ export default function ModalEditarGasto({
                     required={camposVisibles.proveedor}
                   >
                     <option value="">Seleccione proveedor</option>
-                    {(Array.isArray(proveedoresLocal)
-                      ? proveedoresLocal
-                      : []
-                    ).map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.nombre}
-                      </option>
-                    ))}
+                    {(Array.isArray(proveedores) ? proveedores : []).map(
+                      (p) => (
+                        <option key={p.id} value={p.id.toString()}>
+                          {p.nombre}
+                        </option>
+                      )
+                    )}
                   </select>
                 </div>
               )}
@@ -366,10 +362,15 @@ export default function ModalEditarGasto({
                 </label>
                 <input
                   type="text"
-                  value={getNombreSeleccionado(
-                    form.sucursal_id,
-                    sucursalesLocal
-                  )}
+                  value={
+                    getNombreSeleccionado(
+                      form.cotizacion_id,
+                      cotizaciones,
+                      "codigo"
+                    ) ||
+                    gasto?.cotizacion_codigo ||
+                    ""
+                  }
                   readOnly
                   onClick={() => setShowSucursales(!showSucursales)}
                   className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white cursor-pointer"
@@ -390,13 +391,20 @@ export default function ModalEditarGasto({
                         />
                       </div>
                     </div>
-                    {sucursalesLocal
-                      .filter((s) =>
+                    {(() => {
+                      const resultados = sucursales.filter((s) =>
                         s.nombre
                           .toLowerCase()
                           .includes(busquedaSucursal.toLowerCase())
-                      )
-                      .map((s) => (
+                      );
+                      if (resultados.length === 0) {
+                        return (
+                          <div className="px-4 py-2 text-gray-400">
+                            No hay resultados
+                          </div>
+                        );
+                      }
+                      return resultados.map((s) => (
                         <div
                           key={s.id}
                           className={`px-4 py-2 hover:bg-gray-600 cursor-pointer ${
@@ -415,11 +423,8 @@ export default function ModalEditarGasto({
                         >
                           {s.nombre}
                         </div>
-                      )).length === 0 && (
-                      <div className="px-4 py-2 text-gray-400">
-                        No hay resultados
-                      </div>
-                    )}
+                      ));
+                    })()}
                   </div>
                 )}
               </div>
@@ -454,7 +459,7 @@ export default function ModalEditarGasto({
                               setBusquedaCotizacion(e.target.value)
                             }
                             className="w-full pl-10 pr-4 py-2 bg-gray-800 text-white rounded focus:outline-none"
-                            placeholder="Buscar cotización"
+                            placeholder="Buscar cotización…"
                             autoFocus
                           />
                         </div>
