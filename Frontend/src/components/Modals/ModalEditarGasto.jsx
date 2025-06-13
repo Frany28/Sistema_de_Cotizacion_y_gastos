@@ -40,7 +40,6 @@ export default function ModalEditarGasto({
   const [loadingLists, setLoadingLists] = useState(false);
 
   const actualizarCamposVisibles = (tipoGastoId) => {
-    // Buscar el objeto completo del tipo de gasto seleccionado
     const tipoObj = (Array.isArray(tiposGasto) ? tiposGasto : []).find(
       (t) => t.id.toString() === tipoGastoId.toString()
     ) || { nombre: "", rentable: 0 };
@@ -104,7 +103,6 @@ export default function ModalEditarGasto({
       console.error("Error cargando listas adicionales:", e);
     } finally {
       setLoadingLists(false);
-      // Re-evalúa visibilidad con catálogos completos
       if (form.tipo_gasto_id) actualizarCamposVisibles(form.tipo_gasto_id);
     }
   };
@@ -397,54 +395,6 @@ export default function ModalEditarGasto({
                 )}
               </div>
 
-              {/* Tasa de cambio (solo si moneda = VES) */}
-              {form.moneda === "VES" && (
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Tasa de Cambio (BS/USD) *
-                  </label>
-                  <input
-                    type="number"
-                    name="tasa_cambio"
-                    value={form.tasa_cambio}
-                    onChange={handleChange}
-                    min="0"
-                    step="0.0001"
-                    className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
-                    required
-                  />
-                </div>
-              )}
-
-              {/* Concepto de Pago */}
-              <div className="col-span-2">
-                <label className="block text-sm font-medium mb-1">
-                  Concepto de Pago *
-                </label>
-                <input
-                  type="text"
-                  name="concepto_pago"
-                  value={form.concepto_pago}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
-                  required
-                />
-              </div>
-
-              {/* Descripción */}
-              <div className="col-span-2">
-                <label className="block text-sm font-medium mb-1">
-                  Descripción
-                </label>
-                <textarea
-                  name="descripcion"
-                  value={form.descripcion}
-                  onChange={handleChange}
-                  rows="3"
-                  className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
-                />
-              </div>
-
               {/* Cotización (condicional) */}
               {camposVisibles.cotizacion && (
                 <div className="col-span-2 relative">
@@ -514,6 +464,54 @@ export default function ModalEditarGasto({
                   )}
                 </div>
               )}
+
+              {/* Tasa de cambio (solo si moneda = VES) */}
+              {form.moneda === "VES" && (
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Tasa de Cambio (BS/USD) *
+                  </label>
+                  <input
+                    type="number"
+                    name="tasa_cambio"
+                    value={form.tasa_cambio}
+                    onChange={handleChange}
+                    min="0"
+                    step="0.0001"
+                    className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
+                    required
+                  />
+                </div>
+              )}
+
+              {/* Concepto de Pago */}
+              <div className="col-span-2">
+                <label className="block text-sm font-medium mb-1">
+                  Concepto de Pago *
+                </label>
+                <input
+                  type="text"
+                  name="concepto_pago"
+                  value={form.concepto_pago}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
+                  required
+                />
+              </div>
+
+              {/* Descripción */}
+              <div className="col-span-2">
+                <label className="block text-sm font-medium mb-1">
+                  Descripción
+                </label>
+                <textarea
+                  name="descripcion"
+                  value={form.descripcion}
+                  onChange={handleChange}
+                  rows="3"
+                  className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
+                />
+              </div>
             </form>
 
             <div className="sticky bottom-0 bg-gray-800 p-4 border-t border-gray-700 flex justify-end gap-2">
