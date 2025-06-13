@@ -5,7 +5,6 @@ import BotonIcono from "./general/BotonIcono";
 import ModalExito from "../components/Modals/ModalExito";
 import ModalError from "../components/Modals/ModalError";
 import ModalConfirmacion from "../components/Modals/ModalConfirmacion";
-import ModalEditar from "../components/Modals/ModalEditar";
 import Paginacion from "../components/general/Paginacion";
 import Loader from "./general/Loader";
 import ModalCambioEstado from "../components/Modals/ModalCambiosEstado";
@@ -46,6 +45,35 @@ function ListaGastos() {
   const [proveedores, setProveedores] = useState([]);
   const [sucursales, setSucursales] = useState([]);
   const [tiposGasto, setTiposGasto] = useState([]);
+
+  const actualizarGastoEnLista = useCallback(
+    (gastoActualizado) => {
+      // 1. Buscar nombres en las listas que ya tienes cargadas
+      const nombreProveedor =
+        proveedores.find((p) => p.id === gastoActualizado.proveedor_id)
+          ?.nombre ||
+        gastoActualizado.proveedor ||
+        "—";
+
+      const nombreSucursal =
+        sucursales.find((s) => s.id === gastoActualizado.sucursal_id)?.nombre ||
+        gastoActualizado.sucursal ||
+        "—";
+
+      // 2. Enriquecer el objeto antes de meterlo al estado
+      const gastoConNombres = {
+        ...gastoActualizado,
+        proveedor: nombreProveedor,
+        sucursal: nombreSucursal,
+      };
+
+      // 3. Reemplazar el registro en la tabla
+      setGastos((prev) =>
+        prev.map((g) => (g.id === gastoConNombres.id ? gastoConNombres : g))
+      );
+    },
+    [proveedores, sucursales]
+  );
 
   const [modalErrorData, setModalErrorData] = useState({
     visible: false,
@@ -281,34 +309,6 @@ function ListaGastos() {
       </div>
     );
   }
-  const actualizarGastoEnLista = useCallback(
-    (gastoActualizado) => {
-      // 1. Buscar nombres en las listas que ya tienes cargadas
-      const nombreProveedor =
-        proveedores.find((p) => p.id === gastoActualizado.proveedor_id)
-          ?.nombre ||
-        gastoActualizado.proveedor ||
-        "—";
-
-      const nombreSucursal =
-        sucursales.find((s) => s.id === gastoActualizado.sucursal_id)?.nombre ||
-        gastoActualizado.sucursal ||
-        "—";
-
-      // 2. Enriquecer el objeto antes de meterlo al estado
-      const gastoConNombres = {
-        ...gastoActualizado,
-        proveedor: nombreProveedor,
-        sucursal: nombreSucursal,
-      };
-
-      // 3. Reemplazar el registro en la tabla
-      setGastos((prev) =>
-        prev.map((g) => (g.id === gastoConNombres.id ? gastoConNombres : g))
-      );
-    },
-    [proveedores, sucursales]
-  );
 
   return (
     <div>
