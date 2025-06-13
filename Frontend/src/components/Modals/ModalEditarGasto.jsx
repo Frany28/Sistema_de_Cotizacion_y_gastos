@@ -133,7 +133,15 @@ export default function ModalEditarGasto({
       const fechaFormateada = gasto.fecha
         ? new Date(gasto.fecha).toISOString().split("T")[0]
         : new Date().toISOString().split("T")[0];
-
+      // Limpiar campos de búsqueda
+      if (
+        Array.isArray(cotizacionesIniciales) &&
+        cotizacionesIniciales.length
+      ) {
+        setCotizaciones(cotizacionesIniciales);
+      }
+      
+      // Inicializar el formulario con los datos del gasto
       setForm({
         id: gasto.id,
         concepto_pago: gasto.concepto_pago || "",
