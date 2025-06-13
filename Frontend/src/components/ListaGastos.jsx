@@ -46,7 +46,12 @@ function ListaGastos() {
   const [proveedores, setProveedores] = useState([]);
   const [sucursales, setSucursales] = useState([]);
   const [tiposGasto, setTiposGasto] = useState([]);
-
+  const actualizarGastoEnLista = useCallback((gastoActualizado) => {
+    if (!gastoActualizado?.id) return;
+    setGastos((prev) =>
+      prev.map((g) => (g.id === gastoActualizado.id ? gastoActualizado : g))
+    );
+  }, []);
   // Estados para modales de feedback
   const [modalExitoData, setModalExitoData] = useState({
     visible: false,
