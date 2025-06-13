@@ -39,6 +39,7 @@ function ListaGastos() {
   const [gastoAEliminar, setGastoAEliminar] = useState(null);
   const [gastoSeleccionado, setGastoSeleccionado] = useState(null);
   const [gastoCambioEstado, setGastoCambioEstado] = useState(null);
+  const [cotizacionesModal, setCotizacionesModal] = useState([]);
 
   // Estados para filtros y datos de apoyo
   const [tipoFiltro, setTipoFiltro] = useState("todos");
