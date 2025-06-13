@@ -7,18 +7,18 @@ export const getGastos = async (req, res) => {
   const page = +req.query.page || 1;
   const limit = +req.query.limit || 5;
   const offset = (page - 1) * limit;
-  const q = (req.query.search || "").trim(); 
+  const q = (req.query.search || "").trim();
 
   try {
     // 1) TOTAL filtrado
     const [[{ total }]] = await db.query(
       q
         ? `SELECT COUNT(*) AS total
-          FROM gastos g
-          LEFT JOIN proveedores p ON p.id = g.proveedor_id
-          WHERE g.codigo        LIKE ? OR
-                  p.nombre        LIKE ? OR
-                  g.concepto_pago LIKE ?`
+            FROM gastos g
+            LEFT JOIN proveedores p ON p.id = g.proveedor_id
+            WHERE g.codigo        LIKE ? OR
+            p.nombre        LIKE ? OR
+            g.concepto_pago LIKE ?`
         : `SELECT COUNT(*) AS total FROM gastos`,
       q ? [`%${q}%`, `%${q}%`, `%${q}%`] : []
     );

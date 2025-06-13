@@ -302,6 +302,21 @@ function ListaGastos() {
     setPage(1);
   };
 
+  const formatearMonto = (valor, moneda, tasa) => {
+    if (valor === null || valor === undefined) return "—";
+
+    const num = parseFloat(valor);
+    if (isNaN(num)) return "—";
+
+    if (moneda === "VES") {
+      // si tasa viene null o 0 asumimos 1 para no romper la vista
+      const tc = parseFloat(tasa) || 1;
+      return `${(num * tc).toFixed(2)} BS`;
+    }
+    // USD u otra moneda
+    return `$${num.toFixed(2)}`;
+  };
+
   // Renderizado condicional
   if (loadingInicial) {
     return (
@@ -430,25 +445,21 @@ function ListaGastos() {
                 </td>
                 <td>{gasto.concepto_pago || "—"}</td>
                 <td>
-                  {gasto.subtotal !== null && gasto.subtotal !== undefined
-                    ? isBolivares
-                      ? `${(gasto.subtotal * gasto.tasa_cambio).toFixed(2)} BS`
-                      : `$${parseFloat(gasto.subtotal).toFixed(2)}`
-                    : "—"}
+                  {formatearMonto(
+                    gasto.subtotal,
+                    gasto.moneda,
+                    gasto.tasa_cambio
+                  )}
                 </td>
                 <td className="px-5 py-3">
-                  {gasto.impuesto !== undefined && gasto.impuesto !== null
-                    ? isBolivares
-                      ? `${(gasto.impuesto * gasto.tasa_cambio).toFixed(2)} BS`
-                      : `$${parseFloat(gasto.impuesto).toFixed(2)}`
-                    : "—"}
+                  {formatearMonto(
+                    gasto.impuesto,
+                    gasto.moneda,
+                    gasto.tasa_cambio
+                  )}
                 </td>
                 <td>
-                  {gasto.total !== null && gasto.total !== undefined
-                    ? isBolivares
-                      ? `${(gasto.total * gasto.tasa_cambio).toFixed(2)} BS`
-                      : `$${parseFloat(gasto.total).toFixed(2)}`
-                    : "—"}
+                  {formatearMonto(gasto.total, gasto.moneda, gasto.tasa_cambio)}
                 </td>
                 <td>{gasto.sucursal || "—"}</td>
 
