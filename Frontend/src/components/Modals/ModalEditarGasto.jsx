@@ -43,6 +43,9 @@ export default function ModalEditarGasto({
   const [showCotizaciones, setShowCotizaciones] = useState(false);
   const [loadingLists, setLoadingLists] = useState(false);
   const [documentoArchivo, setDocumentoArchivo] = useState(null);
+  const [showExito, setShowExito] = useState(false);
+  const [showError, setShowError] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   const handleFileChange = (e) => {
     setDocumentoArchivo(e.target.files[0] || null);
