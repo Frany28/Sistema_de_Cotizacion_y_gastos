@@ -1,5 +1,4 @@
 import React from "react";
-// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 
@@ -38,69 +37,46 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
             <X className="w-5 h-5" />
           </button>
 
-          <h2 className="text-2xl font-semibold text-gray-100 mb-4">
-            Detalles del Gasto
-          </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-300 mb-4">
-            <div>
-              <p>
-                <strong>Código:</strong> {gasto.codigo || "—"}
-              </p>
-              <p>
-                <strong>Proveedor:</strong> {gasto.proveedor || "—"}
-              </p>
-              <p>
-                <strong>Tipo de gasto:</strong> {gasto.tipo_gasto || "—"}
-              </p>
-              <p>
-                <strong>Fecha:</strong>{" "}
-                {new Date(gasto.fecha).toLocaleDateString("es-VE")}
-              </p>
-              <p>
-                <strong>Sucursal:</strong> {gasto.sucursal || "—"}
-              </p>
+          <div className="mb-4">
+            <div className="flex justify-between items-center mr-6">
+              <h2 className="text-xl font-semibold text-white">
+                Gasto {gasto.codigo}
+              </h2>
+              <span
+                className={`px-2 py-1 rounded-full text-sm font-medium ${
+                  gasto.estado === "aprobado"
+                    ? "bg-green-100 text-green-800"
+                    : gasto.estado === "pendiente"
+                    ? "bg-yellow-100 text-yellow-800"
+                    : "bg-red-100 text-red-800"
+                }`}
+              >
+                {gasto.estado}
+              </span>
             </div>
-            <div>
-              <p>
-                <strong>Estado:</strong>{" "}
-                <span
-                  className={`capitalize ${
-                    gasto.estado === "aprobado"
-                      ? "text-green-400"
-                      : gasto.estado === "rechazado"
-                      ? "text-red-400"
-                      : "text-yellow-400"
-                  }`}
-                >
-                  {gasto.estado}
-                </span>
-              </p>
-              <p>
-                <strong>Moneda:</strong> {gasto.moneda || "—"}
-              </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3 text-sm text-gray-300">
+              <p>Proveedor: {gasto.proveedor || "-"}</p>
+              <p>Fecha: {new Date(gasto.fecha).toLocaleDateString("es-VE")}</p>
+              <p>Tipo de gasto: {gasto.tipo_gasto || "-"}</p>
+              <p>Sucursal: {gasto.sucursal || "-"}</p>
+              <p>Moneda: {gasto.moneda || "-"}</p>
               {isBolivares && (
-                <p>
-                  <strong>Tasa de cambio:</strong> {gasto.tasa_cambio || "—"} BS
-                </p>
+                <p>Tasa de cambio: {gasto.tasa_cambio || "-"} BS</p>
               )}
+              <p>Cotización asociada: {gasto.cotizacion_codigo || "-"}</p>
               <p>
-                <strong>Cotización asociada:</strong>{" "}
-                {gasto.cotizacion_codigo || "—"}
-              </p>
-              <p>
-                <strong>Porcentaje IVA:</strong>{" "}
-                {gasto.porcentaje_iva ? `${gasto.porcentaje_iva}%` : "—"}
+                Porcentaje IVA:{" "}
+                {gasto.porcentaje_iva ? `${gasto.porcentaje_iva}%` : "-"}
               </p>
             </div>
           </div>
 
           <div className="text-sm text-gray-300 mb-4">
             <p>
-              <strong>Descripción:</strong> {gasto.descripcion || "—"}
+              <strong>Descripción:</strong> {gasto.descripcion || "-"}
             </p>
             <p>
-              <strong>Concepto de pago:</strong> {gasto.concepto_pago || "—"}
+              <strong>Concepto de pago:</strong> {gasto.concepto_pago || "-"}
             </p>
           </div>
 
@@ -111,9 +87,9 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
             </div>
           )}
 
-          <div className="overflow-x-auto mt-4">
+          <div className="overflow-x-auto mb-4">
             <table className="w-full text-sm text-left text-gray-400">
-              <thead className="text-xs text-gray-700 uppercase bg-gray-700">
+              <thead className="text-xs uppercase bg-gray-700 text-gray-400">
                 <tr>
                   <th className="px-4 py-2">CONCEPTO</th>
                   {isBolivares && <th className="px-4 py-2">TASA DE CAMBIO</th>}
@@ -125,7 +101,11 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
               <tbody>
                 <tr className="border-b border-gray-600">
                   <td className="px-4 py-2">{gasto.concepto_pago}</td>
-                  {isBolivares && <td>{gasto.tasa_cambio || "N/A"} BS</td>}
+                  {isBolivares && (
+                    <td className="px-4 py-2">
+                      {gasto.tasa_cambio || "N/A"} BS
+                    </td>
+                  )}
                   <td className="px-4 py-2">
                     {isBolivares
                       ? `${mostrarMonto(gasto.subtotal * gasto.tasa_cambio)} BS`
@@ -146,7 +126,7 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
             </table>
           </div>
 
-          <div className="flex justify-end gap-6 mt-4 text-sm text-gray-200">
+          <div className="flex justify-end gap-6 mt-4 text-sm text-gray-300">
             <div>
               <div className="flex justify-between">
                 <span>Subtotal: </span>
@@ -165,11 +145,11 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
                 </span>
               </div>
               <div className="flex justify-between font-bold text-lg">
-                <span>Total:</span>
+                <span>Total: </span>
                 <span>
                   {isBolivares
-                    ? ` ${mostrarMonto(gasto.total * gasto.tasa_cambio)} BS`
-                    : ` $${mostrarMonto(gasto.total)}`}
+                    ? `${mostrarMonto(gasto.total * gasto.tasa_cambio)} BS`
+                    : `$${mostrarMonto(gasto.total)}`}
                 </span>
               </div>
             </div>
@@ -178,7 +158,7 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
           <div className="mt-6 text-right">
             <button
               onClick={onClose}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition duration-200"
+              className="bg-blue-600 text-white text-sm px-4 py-2 rounded hover:bg-blue-700"
             >
               Cerrar
             </button>
