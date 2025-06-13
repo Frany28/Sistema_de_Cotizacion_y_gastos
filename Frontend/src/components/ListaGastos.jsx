@@ -151,14 +151,21 @@ function ListaGastos() {
     setPage(1);
   };
 
-  // Funciones para gestión de gastos
-  // src/components/ListaGastos.jsx
-  // src/components/ListaGastos.jsx
   const iniciarEdicion = async (gasto) => {
     console.log("🔧 Iniciar Edición:", gasto);
     try {
-      const response = await api.get(`/gastos/${gasto.id}`);
-      const { gasto: gastoCompleto } = response.data;
+      const { data } = await api.get(`/gastos/${gasto.id}`);
+      const { gasto: gastoCompleto, opciones } = data;
+
+      setProveedores(
+        Array.isArray(opciones.proveedores) ? opciones.proveedores : []
+      );
+      setSucursales(
+        Array.isArray(opciones.sucursales) ? opciones.sucursales : []
+      );
+      setTiposGasto(
+        Array.isArray(opciones.tiposGasto) ? opciones.tiposGasto : []
+      );
 
       setEditandoGasto(gastoCompleto);
       setMostrarModalEditar(true);

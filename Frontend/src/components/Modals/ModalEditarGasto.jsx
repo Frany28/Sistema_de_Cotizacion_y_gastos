@@ -45,8 +45,8 @@ export default function ModalEditarGasto({
 
   const actualizarCamposVisibles = (tipoGastoId) => {
     setCamposVisibles({
-      proveedor: tipoGastoId === "1" || tipoGastoId === "5", // Operativo o Proveedor No Rentable
-      cotizacion: tipoGastoId === "2", // Servicio Prestado
+      proveedor: tipoGastoId === "1" || tipoGastoId === "5", 
+      cotizacion: tipoGastoId === "2", 
     });
 
     // Resetear campos no aplicables
@@ -620,3 +620,4 @@ export default function ModalEditarGasto({
     </AnimatePresence>
   );
 }
+
