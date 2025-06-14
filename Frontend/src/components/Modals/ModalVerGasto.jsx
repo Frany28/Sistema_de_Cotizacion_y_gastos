@@ -1,6 +1,13 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, FileText, AlertCircle, CheckCircle2, Clock } from "lucide-react";
+import {
+  X,
+  FileText,
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  Download,
+} from "lucide-react";
 
 export default function ModalVerGasto({ visible, onClose, gasto }) {
   if (!visible || !gasto) return null;
@@ -9,6 +16,8 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
   const isRechazado = gasto.estado === "rechazado";
   const isAprobado = gasto.estado === "aprobado";
   const isPendiente = gasto.estado === "pendiente";
+  const isServicioPrestado =
+    gasto.tipo_gasto?.toLowerCase() === "servicio prestado";
 
   const mostrarMonto = (valor, multiplicador = 1) => {
     if (valor === undefined || valor === null) return "0.00";
@@ -103,6 +112,14 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
                       {gasto.tipo_gasto || "-"}
                     </span>
                   </p>
+                  {isServicioPrestado && gasto.cotizacion_codigo && (
+                    <p>
+                      <span className="text-gray-400">Cotización:</span>{" "}
+                      <span className="font-medium">
+                        {gasto.cotizacion_codigo || "-"}
+                      </span>
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -270,9 +287,11 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
                 href={gasto.urlFacturaFirmada || "#"}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                download
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center"
               >
-                Ver Documento
+                <Download className="w-4 h-4 mr-2" />
+                Descargar Documento
               </a>
             )}
           </div>
