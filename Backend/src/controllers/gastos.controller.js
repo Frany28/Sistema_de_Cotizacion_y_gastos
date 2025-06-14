@@ -42,7 +42,7 @@ export const getGastos = async (req, res) => {
         g.impuesto,
         g.moneda
         g.porcentaje_iva, 
-        g.tasa_cambio,
+        g.tasa_cambio
         FROM gastos g
         LEFT JOIN proveedores p ON p.id = g.proveedor_id
         LEFT JOIN sucursales  s ON s.id = g.sucursal_id
