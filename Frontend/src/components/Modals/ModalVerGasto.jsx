@@ -10,10 +10,10 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
   const isAprobado = gasto.estado === "aprobado";
   const isPendiente = gasto.estado === "pendiente";
 
-  const mostrarMonto = (valor) => {
+  const mostrarMonto = (valor, multiplicador = 1) => {
     if (valor === undefined || valor === null) return "0.00";
-    const numero = parseFloat(valor);
-    return isNaN(numero) ? "0.00" : numero.toFixed(2);
+    const num = parseFloat(valor) * (multiplicador ?? 1);
+    return isNaN(num) ? "0.00" : num.toFixed(2);
   };
 
   const EstadoIcon = () => {
@@ -191,21 +191,24 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
                       <td className="p-3 text-right font-medium">
                         {isBolivares
                           ? `${mostrarMonto(
-                              gasto.subtotal * gasto.tasa_cambio
+                              gasto.subtotal,
+                              gasto.tasa_cambio || 1
                             )} BS`
                           : `$${mostrarMonto(gasto.subtotal)}`}
                       </td>
                       <td className="p-3 text-right font-medium">
                         {isBolivares
                           ? `${mostrarMonto(
-                              gasto.impuesto * gasto.tasa_cambio
+                              gasto.impuesto,
+                              gasto.tasa_cambio || 1
                             )} BS`
                           : `$${mostrarMonto(gasto.impuesto)}`}
                       </td>
                       <td className="p-3 text-right font-medium text-blue-400">
                         {isBolivares
                           ? `${mostrarMonto(
-                              gasto.total * gasto.tasa_cambio
+                              gasto.tasa_cambio,
+                              gasto.tasa_cambio || 1
                             )} BS`
                           : `$${mostrarMonto(gasto.total)}`}
                       </td>
