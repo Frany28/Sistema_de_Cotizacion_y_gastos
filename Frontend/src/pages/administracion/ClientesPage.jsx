@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
-import ModalEditar from "../../components/Modals/ModalEditar"; // Modal para editar cliente
-import ModalExito from "../../components/Modals/ModalExito"; // Modal de éxito
-import ListaClientes from "../../components/ClientesCRUD"; // Lista de clientes
-import api from "../../api/index"; // API para manejar las peticiones
+import ModalEditar from "../../components/Modals/ModalEditar";
+import ModalExito from "../../components/Modals/ModalExito";
+import ListaClientes from "../../components/ClientesCRUD";
+import api from "../../api/index";
 
 function ClientesPage() {
   const [clientes, setClientes] = useState([]);

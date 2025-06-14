@@ -5,9 +5,6 @@ export const validarRegistro = async (req, res, next) => {
     comprobante: req.file?.key, // ← Cambiado de 'documento' a 'comprobante'
   };
 
-  console.log("🧾 Datos combinados recibidos:", datosCombinados);
-  console.log("🧾 Archivo recibido:", req.file);
-
   // 2. Extraemos el tipo de los datos combinados
   const { tipo } = datosCombinados;
 

@@ -8,9 +8,8 @@ export default function RutaPrivada({ children }) {
   const [autenticado, setAutenticado] = useState(false);
 
   useEffect(() => {
-    // Llamamos al backend usando la instancia preconfigurada
     api
-      .get("/auth/verificar-sesion") // baseURL + /auth/verificar-sesion
+      .get("/auth/verificar-sesion")
       .then(() => {
         setAutenticado(true);
         setVerificando(false);

@@ -1,4 +1,3 @@
-// src/components/Modals/ModalAñadirProveedor.jsx
 import { useState } from "react";
 import api from "../../api/index";
 import { Building2 } from "lucide-react";
@@ -202,8 +201,8 @@ export default function ModalAñadirProveedor({
                     Correo Electrónico
                   </label>
                   <input
-                    type="email" // Tipo correcto para email
-                    name="email" // Nombre correcto del campo
+                    type="email"
+                    name="email" 
                     value={form.email}
                     onChange={handleChange}
                     className=" text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"

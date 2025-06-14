@@ -44,8 +44,7 @@ export const getDatosRegistro = async (req, res) => {
 };
 
 export const createRegistro = async (req, res) => {
-  console.log(" Datos combinados:", req.combinedData);
-  const tipo = req.combinedData.tipo; // Usa los datos del middleware
+  const tipo = req.combinedData.tipo; 
   if (!tipo) {
     return res
       .status(400)
@@ -345,8 +344,6 @@ export const crearCotizacionDesdeRegistro = async (datos) => {
 };
 
 export const generarVistaPreviaCotizacion = async (req, res) => {
-  console.log("Recibido para Preview:", JSON.stringify(req.body, null, 2));
-
   try {
     const datosCotizacion = req.body.datos;
     if (!datosCotizacion)

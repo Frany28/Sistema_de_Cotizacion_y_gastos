@@ -1,4 +1,3 @@
-// src/components/ModalAñadirServicioProducto.jsx
 import { useState } from "react";
 import api from "../../api/index";
 import { motion, AnimatePresence } from "framer-motion";
@@ -112,7 +111,6 @@ export default function ModalAñadirServicioProducto({
         datosEnviar.cantidad_actual = parseInt(form.cantidad_actual);
         datosEnviar.cantidad_anterior = 0;
       } else {
-        // Si es un servicio, eliminamos cantidades innecesarias
         delete datosEnviar.cantidad_actual;
         delete datosEnviar.cantidad_anterior;
       }

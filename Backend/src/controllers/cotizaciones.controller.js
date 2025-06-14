@@ -25,7 +25,7 @@ export const getCotizaciones = async (req, res) => {
   // 2) Parámetro de búsqueda (opcional)
   const q = (req.query.search || "").trim();
 
-  console.log("Paginación cotizaciones:", { page, limit, offset, search: q });
+  
 
   try {
     // 3) Total de registros (filtrado si hay búsqueda)

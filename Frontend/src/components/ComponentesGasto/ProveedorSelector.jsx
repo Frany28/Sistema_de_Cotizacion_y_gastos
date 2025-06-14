@@ -32,11 +32,8 @@ const ProveedorSelector = ({
   };
 
   const añadirProveedor = (nuevoProveedor) => {
-    // Actualiza lista de proveedores en el estado padre
     setProveedores((prev) => [...prev, nuevoProveedor]);
-    // Asigna el nuevo proveedor directamente
     onSeleccionar(nuevoProveedor);
-    // Muestra rif + nombre
     setBusqueda(nuevoProveedor.rif + " - " + nuevoProveedor.nombre);
   };
 

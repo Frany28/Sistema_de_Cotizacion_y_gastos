@@ -33,10 +33,10 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
     try {
       setDescargando(true);
       const { data } = await api.get(`/gastos/${gasto.id}/comprobante`);
-      window.open(data.url, "_blank"); // inicia la descarga en nueva pestaña
+      window.open(data.url, "_blank"); 
     } catch (err) {
       console.error(err);
-      alert("No se pudo descargar el documento"); // o tu modal de error
+      alert("No se pudo descargar el documento"); 
     } finally {
       setDescargando(false);
     }

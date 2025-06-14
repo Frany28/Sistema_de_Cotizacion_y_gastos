@@ -91,7 +91,6 @@ export default function ItemsSeleccionados({ items = [], onUpdate, onRemove }) {
                 </td>
                 <td className="px-3 py-2">
                   {item.porcentaje_iva ?? 0}%{" "}
-                  {/* Muestra 0% si porcentaje_iva es null/undefined */}
                 </td>
                 <td className="px-3 py-2">
                   ${((item.precio || 0) * item.cantidad).toFixed(2)}

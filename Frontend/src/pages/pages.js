@@ -16,8 +16,6 @@ export { default as BancosPage } from "./administracion/BancosPage";
 export { default as Operaciones } from "./Operaciones/Operaciones";
 export { default as CXC } from "./Operaciones/CXC";
 export { default as CotizacionesPage } from "./Operaciones/CotizacionesPage";
-export { default as NuevaCotizacion } from "./Operaciones/NuevaCotizacion";
-export { default as ListaCorizaciones } from "./Operaciones/ListaCorizaciones";
 export { default as DetalleCotizacion } from "./Operaciones/DetalleCotizacion";
 // Operaciones
 export { default as GastosPage } from "./Operaciones/GastosPage";

@@ -77,7 +77,6 @@ export const obtenerSolicitudPagoPorId = async (req, res) => {
     }
 
     const usuarioFirma = req.session.usuario?.ruta_firma || null;
-    console.log("Usuario autenticado:", req.session.usuario);
 
     const [bancosDisponibles] = await db.execute(
       `SELECT id, nombre, identificador 
@@ -89,7 +88,7 @@ export const obtenerSolicitudPagoPorId = async (req, res) => {
 
     res.json({
       ...sol,
-      usuario_firma: usuarioFirma, // Enviamos la firma del usuario autenticado
+      usuario_firma: usuarioFirma,
       bancosDisponibles,
     });
   } catch (error) {

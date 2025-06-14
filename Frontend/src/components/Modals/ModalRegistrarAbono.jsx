@@ -40,7 +40,6 @@ export default function ModalRegistrarAbono({
     if (cuentaId) obtenerSaldo();
   }, [cuentaId]);
 
-  // Obtener tasa de cambio si es en bolívares
   useEffect(() => {
     const obtenerTasa = async () => {
       if (form.moneda_pago === "VES") {
@@ -66,7 +65,7 @@ export default function ModalRegistrarAbono({
     obtenerTasa();
   }, [form.moneda_pago]);
 
-  // Calcular equivalente en USD si es VES
+
   useEffect(() => {
     if (form.moneda_pago === "VES" && form.tasa_cambio && form.monto_abonado) {
       const usd = parseFloat(form.monto_abonado / form.tasa_cambio).toFixed(2);

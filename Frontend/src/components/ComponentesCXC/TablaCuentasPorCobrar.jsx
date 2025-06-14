@@ -114,12 +114,12 @@ const TablaCuentasPorCobrar = ({ clienteId }) => {
       {mostrarModalAbono && cuentaSeleccionada && (
         <ModalRegistrarAbono
           cuentaId={cuentaSeleccionada.id}
-          usuarioId={1} // ← reemplazar con ID real del usuario autenticado
+          usuarioId={1} 
           onCancel={() => setMostrarModalAbono(false)}
           onSuccess={(msg) => {
             setModalExito(msg);
             setMostrarModalAbono(false);
-            fetchCuentas(); // 🔄 Refresca la tabla tras éxito
+            fetchCuentas(); 
           }}
           onError={(msg) => setModalError(msg)}
         />

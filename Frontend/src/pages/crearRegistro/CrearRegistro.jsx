@@ -367,8 +367,6 @@ const CrearRegistro = () => {
         formData.append("tasa_cambio", datosGasto.tasa_cambio);
       }
 
-      // Debug
-      console.log("Contenido de FormData:");
       for (let [key, value] of formData.entries()) {
         console.log(key, value);
       }

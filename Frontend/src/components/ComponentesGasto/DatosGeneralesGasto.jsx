@@ -1,7 +1,6 @@
 import React from "react";
 
 const DatosBasicosGasto = ({ gasto, setGasto, sucursales = [] }) => {
-  /* -------------------- Handlers -------------------- */
   const handleChange = (e) => {
     const { name, value } = e.target;
     setGasto((prev) => ({ ...prev, [name]: value }));

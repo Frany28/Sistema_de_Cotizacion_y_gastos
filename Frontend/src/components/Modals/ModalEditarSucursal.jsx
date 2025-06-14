@@ -5,7 +5,6 @@ import api from "../../api/index";
 import ModalExito from "./ModalExito";
 import ModalError from "./ModalError";
 
-// Expresiones regulares para validación
 const regexCodigo = /^[A-Z0-9]{2,10}$/;
 const regexTelefono = /^\+?[0-9\s\-]{7,15}$/;
 const regexEmail = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -34,7 +33,6 @@ export default function ModalEditarSucursal({
   const [showError, setShowError] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
-  // Carga inicial de datos
   useEffect(() => {
     if (sucursal) {
       setForm({
@@ -94,7 +92,6 @@ export default function ModalEditarSucursal({
         params: { codigo: form.codigo.trim() },
         withCredentials: true,
       });
-      // Solo retorna true si el código existe y no pertenece a esta sucursal
       return response.data.exists && form.codigo !== sucursal.codigo;
     } catch (error) {
       console.error("Error al verificar código:", error);
@@ -111,7 +108,6 @@ export default function ModalEditarSucursal({
     setIsSubmitting(true);
 
     try {
-      // Verificar si el código ya está en uso por otra sucursal
       const codeExists = await checkExistingCode();
       if (codeExists) {
         setErrorMsg("El código de sucursal ya está en uso");
@@ -120,7 +116,6 @@ export default function ModalEditarSucursal({
         return;
       }
 
-      // Preparar datos para enviar (solo campos modificados)
       const cambios = {};
       Object.keys(form).forEach((key) => {
         if (form[key] !== sucursal[key]) {
@@ -128,7 +123,6 @@ export default function ModalEditarSucursal({
         }
       });
 
-      // Si no hay cambios
       if (Object.keys(cambios).length === 0) {
         setErrorMsg("No se detectaron cambios");
         setShowError(true);
@@ -136,12 +130,11 @@ export default function ModalEditarSucursal({
         return;
       }
 
-      // Enviar actualización
       await api.put(`/sucursales/${sucursal.id}`, cambios, {
         withCredentials: true,
       });
 
-      setShowExito(true); // Mostrar modal de éxito
+      setShowExito(true); 
     } catch (error) {
       console.error("Error al actualizar sucursal:", error);
       setErrorMsg(

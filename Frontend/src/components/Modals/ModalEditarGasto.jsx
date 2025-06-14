@@ -190,7 +190,6 @@ export default function ModalEditarGasto({
     }
   }, [visible, gasto]);
 
-  // – Cada vez que cargamos tiposGasto o cambiamos el seleccionado –
   useEffect(() => {
     if (visible && form.tipo_gasto_id) {
       actualizarCamposVisibles(form.tipo_gasto_id);
@@ -230,12 +229,10 @@ export default function ModalEditarGasto({
     if (isNaN(sub) || sub <= 0)
       return setErrorMsg("El subtotal debe ser mayor a 0"), setShowError(true);
 
-    // 2 Cálculo impuesto y total
     const iva = parseFloat(form.porcentaje_iva);
     const impuesto = parseFloat(((sub * iva) / 100).toFixed(2));
     const total = parseFloat((sub + impuesto).toFixed(2));
 
-    // 3 Construir FormData
     const data = new FormData();
     data.append("concepto_pago", form.concepto_pago);
     data.append("descripcion", form.descripcion);
@@ -264,7 +261,7 @@ export default function ModalEditarGasto({
     }
 
     if (documentoArchivo) {
-      data.append("documento", documentoArchivo); // archivo nuevo
+      data.append("documento", documentoArchivo); 
     }
 
     // 4 Enviar
@@ -275,7 +272,7 @@ export default function ModalEditarGasto({
       });
 
       if (onSave) onSave(resp.data || resp);
-      setShowExito(true); // dispara ventana de éxito
+      setShowExito(true);
       onClose();
     } catch (err) {
       setErrorMsg(err.response?.data?.message || "Error al actualizar gasto");

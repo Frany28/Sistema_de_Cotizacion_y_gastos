@@ -322,7 +322,7 @@ export const getGastoById = async (req, res) => {
     const [cotizaciones] = await db.query(
       "SELECT id, codigo_referencia AS codigo FROM cotizaciones"
     );
-    console.log("Cotizaciones obtenidas:", cotizaciones);
+   
 
     // 3) Enviar la respuesta JSON, añadiendo urlFacturaFirmada dentro del objeto "gasto"
     res.json({

@@ -150,8 +150,6 @@ export const obtenerClientes = async (req, res) => {
     : Number(req.query.limit);
   const offset = (page - 1) * limit;
 
-  console.log("Valores de paginación:", { limit, offset });
-
   try {
     // 1. Total de registros
     const [[{ total }]] = await db.query(

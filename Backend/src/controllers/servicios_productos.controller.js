@@ -54,7 +54,6 @@ export const crearServicioProducto = async (req, res) => {
       });
     }
 
-    console.log("Datos recibidos en backend:", req.body);
     const insertQuery =
       tipo === "producto"
         ? `INSERT INTO servicios_productos (nombre, descripcion, precio, tipo, porcentaje_iva, cantidad_actual, cantidad_anterior) VALUES (?, ?, ?, ?, ?, ?, ?)`
@@ -135,8 +134,6 @@ export const obtenerServiciosProductos = async (req, res) => {
     ? 10
     : Number(req.query.limit);
   const offset = (page - 1) * limit;
-
-  console.log("Valores de paginación (servicios):", { limit, offset });
 
   // 2) Construir cláusulas SQL con filtro opcional por tipo
   const { tipo } = req.query;

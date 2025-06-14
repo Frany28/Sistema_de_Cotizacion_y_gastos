@@ -1,4 +1,3 @@
-// ModalAñadirGasto.jsx (actualizado con campo concepto manual y selección de sucursal)
 import { useState, useEffect } from "react";
 import api from "../../api/index";
 import { motion, AnimatePresence } from "framer-motion";

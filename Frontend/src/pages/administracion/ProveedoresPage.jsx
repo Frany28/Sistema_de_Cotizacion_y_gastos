@@ -30,7 +30,6 @@ function ProveedoresPage() {
       const { data, status } = await api.post("/proveedores", nuevoProveedor);
       if (status >= 200 && status < 300) {
         alert(" Proveedor registrado exitosamente.");
-        console.log(" Proveedor creado:", data);
         await obtenerProveedores();
         setMostrarFormulario(false);
       } else {

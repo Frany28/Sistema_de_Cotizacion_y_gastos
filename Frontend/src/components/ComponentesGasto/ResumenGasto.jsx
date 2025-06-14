@@ -7,7 +7,6 @@ export default function ResumenGasto({ gasto = {}, onRegistrar }) {
   const porcentaje_iva = parseFloat(gasto.porcentaje_iva) || 0;
   const tasaCambio = parseFloat(gasto.tasa_cambio) || 0;
 
-  // Preferir valores del backend si existen
   const impuesto =
     gasto.impuesto !== undefined
       ? parseFloat(gasto.impuesto)

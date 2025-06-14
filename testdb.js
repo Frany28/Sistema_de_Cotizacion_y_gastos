@@ -13,9 +13,9 @@ import mysql from "mysql2/promise";
       password: process.env.DB_PASS,
       database: process.env.DB_NAME,
     });
-    console.log("✅ Conexión satisfactoria");
+    console.log(" Conexión satisfactoria");
     await conn.end();
   } catch (err) {
-    console.error("❌ Error en test de conexión:", err);
+    console.error(" Error en test de conexión:", err);
   }
 })();

@@ -11,8 +11,6 @@ export const obtenerSucursales = async (req, res) => {
     : Number(req.query.limit);
   const offset = (page - 1) * limit;
 
-  console.log("Valores de paginación (sucursales):", { limit, offset });
-
   try {
     // 2) Total de registros sin paginar
     const [[{ total }]] = await db.query(

@@ -35,13 +35,11 @@ export default function ModalAñadirCliente({ onCancel, onSubmit, onSuccess }) {
   useEffect(() => {
     const cargarSucursales = async () => {
       try {
-        // 1) Usa fetch en lugar de axios para poder llamar a .json()
         const res = await fetch(
           `${import.meta.env.VITE_API_URL}/sucursales/dropdown/list`,
           { credentials: "include" }
         );
-        if (!res.ok) throw new Error(`Status ${res.status}`);
-        // 2) parsea JSON exactamente como en ClientesPage
+        if (!res.ok) throw new Error(`Status ${res.status}`); 
         const lista = await res.json();
         setSucursales(lista);
       } catch (error) {
@@ -116,20 +114,19 @@ export default function ModalAñadirCliente({ onCancel, onSubmit, onSuccess }) {
 
     if (!validateForm()) return;
 
-    // Crear objeto con el formato que espera el backend
+
     const clienteData = {
       nombre: form.nombre.trim(),
       email: form.email.trim(),
       telefono: form.telefono.trim(),
       direccion: form.direccion.trim(),
       sucursal_id: form.sucursal_id,
-      identificacion: `${form.tipo_ci}${form.numero_ci}`, // Combina V/E con números
+      identificacion: `${form.tipo_ci}${form.numero_ci}`, 
     };
 
     setIsSubmitting(true);
 
     try {
-      // 1. Verificar si el cliente ya existe
       const { exists } = await checkExistingClient();
       if (exists) {
         setServerError("El cliente ya está registrado");
