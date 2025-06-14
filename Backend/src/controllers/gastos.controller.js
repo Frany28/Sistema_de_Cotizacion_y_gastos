@@ -43,7 +43,7 @@ export const getGastos = async (req, res) => {
         g.moneda,
         g.porcentaje_iva, 
         g.tasa_cambio,
-        g.cotizacion_id
+        g.cotizacion_id,
         g.documento
         FROM gastos g
         LEFT JOIN proveedores p ON p.id = g.proveedor_id
