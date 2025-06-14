@@ -40,7 +40,7 @@ export const getGastos = async (req, res) => {
         g.descripcion, 
         g.subtotal,
         g.impuesto,
-        g.moneda
+        g.moneda,
         g.porcentaje_iva, 
         g.tasa_cambio
         FROM gastos g
