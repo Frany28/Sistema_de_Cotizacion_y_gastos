@@ -69,6 +69,27 @@ export const getGastos = async (req, res) => {
   }
 };
 
+export const obtenerUrlComprobante = async (req, res) => {
+  const { id } = req.params;
+
+  // 1) Buscar la key que guardaste en la BD
+  const [[fila]] = await db.query(
+    "SELECT url_factura AS keyS3 FROM gastos WHERE id = ?",
+    [id]
+  );
+
+  if (!fila || !fila.keyS3) {
+    return res
+      .status(404)
+      .json({ message: "Este gasto no tiene un comprobante adjunto" });
+  }
+
+  // 2) Generar URL pre-firmada (5 min)
+  const url = await generarUrlPrefirmadaLectura(fila.keyS3, 300);
+
+  res.json({ url });
+};
+
 export const updateGasto = async (req, res) => {
   try {
     const { id } = req.params;

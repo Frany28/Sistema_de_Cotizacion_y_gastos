@@ -1,4 +1,5 @@
 import React from "react";
+import api from "@/services/api";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
@@ -23,6 +24,19 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
     if (valor === undefined || valor === null) return "0.00";
     const num = parseFloat(valor) * (multiplicador ?? 1);
     return isNaN(num) ? "0.00" : num.toFixed(2);
+  };
+
+  const handleDescargar = async () => {
+    try {
+      setDescargando(true);
+      const { data } = await api.get(`/gastos/${gasto.id}/comprobante`);
+      window.open(data.url, "_blank"); // inicia la descarga en nueva pestaña
+    } catch (err) {
+      console.error(err);
+      alert("No se pudo descargar el documento"); // o tu modal de error
+    } finally {
+      setDescargando(false);
+    }
   };
 
   const EstadoIcon = () => {
@@ -282,17 +296,16 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
             >
               Cerrar
             </button>
-            {gasto.documento && (
-              <a
-                href={gasto.urlFacturaFirmada || "#"}
-                target="_blank"
-                rel="noopener noreferrer"
-                download
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center"
+            {/* Botón de descarga si existe archivo */}
+            {gasto.tiene_comprobante && (
+              <button
+                onClick={handleDescargar}
+                disabled={descargando}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium flex items-center"
               >
                 <Download className="w-4 h-4 mr-2" />
-                Descargar Documento
-              </a>
+                {descargando ? "Descargando…" : "Descargar documento"}
+              </button>
             )}
           </div>
         </motion.div>

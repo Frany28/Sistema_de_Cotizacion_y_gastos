@@ -8,6 +8,7 @@ import {
   getProveedores,
   actualizarEstadoGasto,
   getTiposGasto,
+  obtenerUrlComprobante,
 } from "../controllers/gastos.controller.js";
 
 // Importamos el middleware de multer-s3:
@@ -79,7 +80,13 @@ router.post(
   }
 );
 
-// Resto de rutas: PUT /:id, PUT /:id/estado, DELETE /:id
+router.get(
+  "/:id/comprobante",
+  autenticarUsuario,
+  verificarPermiso("ver_gastos"),
+  obtenerUrlComprobante
+);
+
 router.put(
   "/:id",
   autenticarUsuario,
