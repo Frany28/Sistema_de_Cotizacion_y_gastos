@@ -1,6 +1,8 @@
 import React from "react";
-import api from "@/services/api";
 import { motion, AnimatePresence } from "framer-motion";
+import api from "../../api/index";
+import React, { useState } from "react";
+
 import {
   X,
   FileText,
@@ -19,6 +21,7 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
   const isPendiente = gasto.estado === "pendiente";
   const isServicioPrestado =
     gasto.tipo_gasto?.toLowerCase() === "servicio prestado";
+  const [descargando, setDescargando] = useState(false);
 
   const mostrarMonto = (valor, multiplicador = 1) => {
     if (valor === undefined || valor === null) return "0.00";
@@ -238,7 +241,7 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
                       <td className="p-3 text-right font-medium text-blue-400">
                         {isBolivares
                           ? `${mostrarMonto(
-                              gasto.tasa_cambio,
+                              gasto.total,
                               gasto.tasa_cambio || 1
                             )} BS`
                           : `$${mostrarMonto(gasto.total)}`}
