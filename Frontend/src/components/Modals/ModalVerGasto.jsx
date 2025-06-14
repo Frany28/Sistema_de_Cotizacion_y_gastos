@@ -1,4 +1,3 @@
-import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "../../api/index";
 import React, { useState } from "react";
@@ -33,10 +32,10 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
     try {
       setDescargando(true);
       const { data } = await api.get(`/gastos/${gasto.id}/comprobante`);
-      window.open(data.url, "_blank"); 
+      window.open(data.url, "_blank");
     } catch (err) {
       console.error(err);
-      alert("No se pudo descargar el documento"); 
+      alert("No se pudo descargar el documento");
     } finally {
       setDescargando(false);
     }
