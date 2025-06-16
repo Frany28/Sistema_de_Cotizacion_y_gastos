@@ -9,7 +9,7 @@ import {
 } from "../controllers/solicitudesPago.controller.js";
 import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
 import { verificarPermiso } from "../Middleware/verificarPermiso.js";
-import { uploadComprobante } from "../utils/s3.js";
+import { uploadComprobanteSolicitud } from "../utils/s3.js";
 
 const router = express.Router();
 
@@ -21,7 +21,7 @@ router.get(
   obtenerSolicitudesPago
 );
 
-// GET   /api/solicitudes-pago/:id      
+// GET   /api/solicitudes-pago/:id
 router.get(
   "/:id",
   autenticarUsuario,
@@ -29,7 +29,7 @@ router.get(
   obtenerSolicitudPagoPorId
 );
 
-// PATCH /api/solicitudes-pago/:id     
+// PATCH /api/solicitudes-pago/:id
 router.patch(
   "/:id",
   autenticarUsuario,
@@ -50,7 +50,7 @@ router.patch(
   "/:id/pagar",
   autenticarUsuario,
   verificarPermiso("pagar_solicitud_pago"),
-  uploadComprobante.single("ruta_comprobante"),
+  uploadComprobanteSolicitud.single("comprobante"),
   pagarSolicitudPago
 );
 
