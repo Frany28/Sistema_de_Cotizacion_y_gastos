@@ -96,21 +96,17 @@ export default function ModalRegistrarPago({
       }
       formData.append("observaciones", form.observaciones);
 
-
       const url = `/solicitudes-pago/${solicitudId}/pagar`;
       const { data } = await api.patch(url, formData, {
         withCredentials: true,
       });
 
       setModalExito({ visible: true, mensaje: data.message });
-      onPaid();
-      onClose();
     } catch (err) {
       console.error("Error al registrar pago:", err);
       setModalError({
         visible: true,
-        mensaje:
-          err.response?.data?.message || "Error interno al procesar el pago.",
+        mensaje: "Esta solicitud ya está pagada y no se puede modificar.",
       });
     } finally {
       setIsSubmitting(false);
