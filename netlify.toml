@@ -1,7 +1,7 @@
 [build]
   base    = "Frontend"         # <-- entra al sub-directorio
   command = "npm run build"
-  publish = "Frontend/dist"    # carpeta que crea Vite
+  publish = "dist"    # carpeta que crea Vite
 
 [dev]
   command = "npm run dev"
