@@ -13,7 +13,7 @@ import { uploadComprobante } from "../utils/s3.js";
 
 const router = express.Router();
 
-// GET   /api/solicitudes-pago           → Listar todas
+// GET   /api/solicitudes-pago
 router.get(
   "/",
   autenticarUsuario,
@@ -21,7 +21,7 @@ router.get(
   obtenerSolicitudesPago
 );
 
-// GET   /api/solicitudes-pago/:id       → Detalle de una
+// GET   /api/solicitudes-pago/:id      
 router.get(
   "/:id",
   autenticarUsuario,
@@ -29,7 +29,7 @@ router.get(
   obtenerSolicitudPagoPorId
 );
 
-// PATCH /api/solicitudes-pago/:id       → Actualizar campos generales
+// PATCH /api/solicitudes-pago/:id     
 router.patch(
   "/:id",
   autenticarUsuario,
@@ -46,7 +46,6 @@ router.patch(
 );
 
 // PATCH /api/solicitudes-pago/:id/pagar
-//    → Sube comprobante y marca como pagada
 router.patch(
   "/:id/pagar",
   autenticarUsuario,

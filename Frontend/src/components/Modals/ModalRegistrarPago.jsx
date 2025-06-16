@@ -31,7 +31,7 @@ export default function ModalRegistrarPago({
     banco_id: "",
     referencia_pago: "",
     fecha_pago: "",
-    ruta_comprobante: null,
+    comprobante: null,
     observaciones: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -112,12 +112,8 @@ export default function ModalRegistrarPago({
       }
       formData.append("referencia_pago", form.referencia_pago);
       formData.append("fecha_pago", fechaPago);
-      if (form.ruta_comprobante) {
-        formData.append(
-          "ruta_comprobante",
-          form.ruta_comprobante,
-          form.ruta_comprobante.name
-        );
+      if (form.comprobante) {
+        formData.append("comprobante", form.comprobante, form.comprobante.name);
       }
       formData.append("observaciones", form.observaciones);
 
@@ -286,7 +282,7 @@ export default function ModalRegistrarPago({
                   </label>
                   <input
                     type="file"
-                    name="ruta_comprobante"
+                    name="comprobante"
                     accept="application/pdf,image/*"
                     onChange={handleChange}
                     disabled={isSubmitting}

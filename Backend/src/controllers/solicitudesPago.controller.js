@@ -1,15 +1,16 @@
 // controllers/solicitudes_pago.controller.js
 import db from "../config/database.js";
+import { generarUrlPrefirmadaLectura } from "../utils/s3.js"; // ─► NUEVO
 
+/* 1. LISTAR */
 export const obtenerSolicitudesPago = async (req, res) => {
-  // 1) Extraer page, limit y estado del query string
   const page = parseInt(req.query.page, 10) || 1;
   const limit = parseInt(req.query.limit, 10) || 10;
   const offset = (page - 1) * limit;
-  const { estado } = req.query; // <-- Aquí definimos 'estado'
+  const { estado } = req.query;
 
   try {
-    // 2) Contar el total (con filtro opcional por estado)
+    // total
     let countSQL = "SELECT COUNT(*) AS total FROM solicitudes_pago";
     const countParams = [];
     if (estado) {
@@ -18,7 +19,7 @@ export const obtenerSolicitudesPago = async (req, res) => {
     }
     const [[{ total }]] = await db.query(countSQL, countParams);
 
-    // 3) Obtener los datos paginados
+    // data
     let dataSQL = `
       SELECT 
         sp.id,
@@ -46,13 +47,7 @@ export const obtenerSolicitudesPago = async (req, res) => {
     `;
     const [solicitudes] = await db.query(dataSQL, dataParams);
 
-    // 4) Responder en el mismo esquema de paginación
-    return res.json({
-      solicitudes,
-      total,
-      page,
-      limit,
-    });
+    return res.json({ solicitudes, total, page, limit });
   } catch (error) {
     console.error("Error al listar solicitudes de pago:", error);
     return res
@@ -61,35 +56,40 @@ export const obtenerSolicitudesPago = async (req, res) => {
   }
 };
 
+/* 2. DETALLE */
 export const obtenerSolicitudPagoPorId = async (req, res) => {
   const { id } = req.params;
   try {
     const [[sol]] = await db.execute(
       `SELECT sp.*, p.nombre AS proveedor_nombre
-       FROM solicitudes_pago sp
-       LEFT JOIN proveedores p ON p.id = sp.proveedor_id
-       WHERE sp.id = ?`,
+         FROM solicitudes_pago sp
+         LEFT JOIN proveedores p ON p.id = sp.proveedor_id
+        WHERE sp.id = ?`,
       [id]
     );
 
-    if (!sol) {
+    if (!sol)
       return res.status(404).json({ message: "Solicitud no encontrada" });
-    }
 
     const usuarioFirma = req.session.usuario?.ruta_firma || null;
 
     const [bancosDisponibles] = await db.execute(
-      `SELECT id, nombre, identificador 
-       FROM bancos 
-       WHERE (moneda = ? OR ? IS NULL) 
-         AND estado = 'activo'`,
+      `SELECT id, nombre, identificador
+         FROM bancos
+        WHERE (moneda = ? OR ? IS NULL) AND estado = 'activo'`,
       [sol.moneda, sol.moneda]
     );
+
+    /* ---------- URL pre-firmada para el comprobante ---------- */
+    const comprobante_url = sol.ruta_comprobante
+      ? await generarUrlPrefirmadaLectura(sol.ruta_comprobante, 600)
+      : null;
 
     res.json({
       ...sol,
       usuario_firma: usuarioFirma,
       bancosDisponibles,
+      comprobante_url, // ─► NUEVO
     });
   } catch (error) {
     console.error("Error al obtener solicitud de pago:", error);
@@ -97,7 +97,7 @@ export const obtenerSolicitudPagoPorId = async (req, res) => {
   }
 };
 
-/* 3. EDITAR (solo mientras estado = por_pagar) */
+/* 3. EDITAR (solo estado = por_pagar) */
 export const actualizarSolicitudPago = async (req, res) => {
   const { id } = req.params;
   const campos = req.body;
@@ -124,7 +124,7 @@ export const actualizarSolicitudPago = async (req, res) => {
   res.json({ message: "Solicitud actualizada correctamente" });
 };
 
-/* 4. CANCELAR (solo si está por_pagar) */
+/* 4. CANCELAR (solo estado = por_pagar) */
 export const cancelarSolicitudPago = async (req, res) => {
   const { id } = req.params;
   const { motivo } = req.body;
@@ -151,6 +151,7 @@ export const cancelarSolicitudPago = async (req, res) => {
   res.json({ message: "Solicitud cancelada" });
 };
 
+/* 5. PAGAR */
 export const pagarSolicitudPago = async (req, res) => {
   const { id } = req.params;
   const {
@@ -162,35 +163,31 @@ export const pagarSolicitudPago = async (req, res) => {
   } = req.body;
   const comprobanteFile = req.file;
 
-  // Si es efectivo, no requerimos banco
   const bancoId = metodo_pago === "Efectivo" ? null : rawBancoId || null;
-  // ID del usuario autenticado (de tu middleware de auth)
   const usuarioFirmaId = req.user?.id;
 
   try {
-    // 1) Obtenemos la solicitud y validamos estado
+    /* --- validar solicitud --- */
     const [[sol]] = await db.execute(
       `SELECT estado, monto_total, moneda, tasa_cambio
          FROM solicitudes_pago
         WHERE id = ?`,
       [id]
     );
-    if (!sol) {
+    if (!sol)
       return res.status(404).json({ message: "Solicitud no encontrada." });
-    }
     if (sol.estado !== "por_pagar") {
       return res
         .status(400)
         .json({ message: `Estado inválido: ${sol.estado}` });
     }
 
-    // 2) Preparamos datos para la actualización
-    const rutaComprobante = comprobanteFile
-      ? `/uploads/comprobantes/${comprobanteFile.filename}`
-      : null;
+    /* --- clave real del comprobante --- */
+    const rutaComprobante = comprobanteFile ? comprobanteFile.key : null;
+
     const fechaPagoFinal = fecha_pago ? new Date(fecha_pago) : new Date();
 
-    // 3) Actualizamos la solicitud de pago
+    /* --- actualizar solicitud --- */
     await db.execute(
       `UPDATE solicitudes_pago
           SET banco_id         = ?,
@@ -215,7 +212,7 @@ export const pagarSolicitudPago = async (req, res) => {
       ]
     );
 
-    // 4) Insertamos el pago en el histórico
+    /* --- histórico --- */
     await db.execute(
       `INSERT INTO pagos_realizados
          (solicitud_pago_id,
@@ -245,14 +242,12 @@ export const pagarSolicitudPago = async (req, res) => {
       ]
     );
 
-    return res.status(200).json({
+    res.json({
       message: "Pago registrado y guardado en histórico.",
       solicitud_id: id,
     });
   } catch (error) {
     console.error("Error al registrar pago:", error);
-    return res
-      .status(500)
-      .json({ message: "Error interno al registrar el pago." });
+    res.status(500).json({ message: "Error interno al registrar el pago." });
   }
 };
