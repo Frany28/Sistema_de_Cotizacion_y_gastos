@@ -74,7 +74,7 @@ export const obtenerUrlComprobante = async (req, res) => {
 
   // 1) Buscar la key que guardaste en la BD
   const [[fila]] = await db.query(
-    "SELECT url_factura AS keyS3 FROM gastos WHERE id = ?",
+    "SELECT documento AS keyS3 FROM gastos WHERE id = ?",
     [id]
   );
 
@@ -277,12 +277,11 @@ export const getGastoById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // 1) Consultar el gasto, incluyendo la columna url_factura
     const [[gasto]] = await db.query(
       `
       SELECT 
         g.*,
-        g.url_factura,                 -- incluimos la columna que guarda la "key" en S3
+        g.documento,                 -- incluimos la columna que guarda la "key" en S3
         p.nombre AS proveedor_nombre, 
         p.id AS proveedor_id,
         s.nombre AS sucursal_nombre, 
@@ -306,11 +305,11 @@ export const getGastoById = async (req, res) => {
       return res.status(404).json({ message: "Gasto no encontrado" });
     }
 
-    // 1.5) Si existe un valor en gasto.url_factura, generamos la URL prefirmada para lectura
+    // 1) Generar la URL pre-firmada para el documento, si existe
     let urlFacturaFirmada = null;
-    if (gasto.url_factura) {
+    if (gasto.documento) {
       // Por defecto, la URL expira en 300 segundos (5 minutos). Puedes ajustar el segundo parámetro si necesitas más o menos tiempo.
-      urlFacturaFirmada = generarUrlPrefirmadaLectura(gasto.url_factura);
+      urlFacturaFirmada = generarUrlPrefirmadaLectura(gasto.documento);
     }
 
     // 2) Obtener listas para poblar los dropdowns en el frontend
@@ -322,7 +321,6 @@ export const getGastoById = async (req, res) => {
     const [cotizaciones] = await db.query(
       "SELECT id, codigo_referencia AS codigo FROM cotizaciones"
     );
-   
 
     // 3) Enviar la respuesta JSON, añadiendo urlFacturaFirmada dentro del objeto "gasto"
     res.json({

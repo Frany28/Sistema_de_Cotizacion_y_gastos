@@ -63,8 +63,8 @@ router.post(
       //    Ejemplo: “comprobantes/1689481234567-factura.png”
       const keyFactura = req.file.key;
 
-      // 4) Guardar esa key en la BD, en la columna url_factura
-      await db.execute("UPDATE gastos SET url_factura = ? WHERE id = ?", [
+      // 4) Guardar esa key en la BD, en la columna
+      await db.execute("UPDATE gastos SET documento = ? WHERE id = ?", [
         keyFactura,
         idGasto,
       ]);
