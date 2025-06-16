@@ -1,5 +1,6 @@
 import UsuariosCRUD from "../../components/UsuariosCRUD";
 
+
 function UsuariosPage() {
   return (
     <>
@@ -9,6 +10,7 @@ function UsuariosPage() {
             Lista de Usuarios
           </h1>
           <div className="bg-gray-800 shadow-lg rounded-xl overflow-auto p-4 sm:p-6">
+            {/* Render the lazy loaded UsuariosCRUD component */}
             <UsuariosCRUD />
           </div>
         </section>

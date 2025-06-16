@@ -1,9 +1,8 @@
 [build]
-  base    = "Frontend"           # aquí está tu package.json y tu código React
-  command = "npm install && npm run build" 
-  publish = "dist"               # relativo a “base”, genera Frontend/dist
+  base    = "Frontend"         # <-- entra al sub-directorio
+  command = "npm run build"
+  publish = "Frontend/dist"    # carpeta que crea Vite
 
-[[redirects]]
-  from   = "/*"
-  to     = "/index.html"
-  status = 200
+[dev]
+  command = "npm run dev"
+  targetPort = 5173
