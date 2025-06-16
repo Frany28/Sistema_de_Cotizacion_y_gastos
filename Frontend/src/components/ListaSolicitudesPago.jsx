@@ -114,6 +114,14 @@ function ListaSolicitudesPago() {
   };
 
   const handleAgregarPago = (solicitud) => {
+    if (solicitud.estado !== "por_pagar") {
+      mostrarError({
+        titulo: "Solicitud no disponible",
+        mensaje:
+          "Esta solicitud ya fue pagada o cancelada y no se puede registrar un nuevo pago.",
+      });
+      return;
+    }
     setPagarData({ visible: true, solicitudId: solicitud.id });
   };
 
@@ -228,8 +236,7 @@ function ListaSolicitudesPago() {
         {/* Cuerpo de tabla */}
         <tbody>
           {solicitudesPaginadas.map((solicitud) => {
-            const saldoPendiente =
-              solicitud.monto - solicitud.pagado;
+            const saldoPendiente = solicitud.monto - solicitud.pagado;
             const isBolivares = solicitud.moneda === "VES";
 
             return (
