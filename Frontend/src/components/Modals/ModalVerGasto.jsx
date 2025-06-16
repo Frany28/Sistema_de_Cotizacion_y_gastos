@@ -299,7 +299,9 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
               Cerrar
             </button>
             {/* Botón de descarga si existe archivo */}
-            {gasto.tiene_comprobante && (
+            {(gasto.documento ||
+              gasto.url_factura ||
+              gasto.tiene_comprobante) && (
               <button
                 onClick={handleDescargar}
                 disabled={descargando}
