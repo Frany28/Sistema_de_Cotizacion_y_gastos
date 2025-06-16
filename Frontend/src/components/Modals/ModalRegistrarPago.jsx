@@ -8,6 +8,15 @@ import ModalError from "./ModalError";
 
 api.defaults.baseURL = import.meta.env.VITE_API_URL;
 
+/**
+ * Devuelve la fecha‑hora local actual en formato
+ * compatible con <input type="datetime-local"> (YYYY‑MM‑DDTHH:MM).
+ */
+const nowLocalISO = () =>
+  new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 16);
+
 export default function ModalRegistrarPago({
   visible,
   solicitudId,
@@ -29,6 +38,18 @@ export default function ModalRegistrarPago({
   const [modalExito, setModalExito] = useState({ visible: false, mensaje: "" });
   const [modalError, setModalError] = useState({ visible: false, mensaje: "" });
 
+  /**
+   * Pre‑carga la fecha actual cada vez que el modal se abre.
+   */
+  useEffect(() => {
+    if (visible) {
+      setForm((prev) => ({ ...prev, fecha_pago: nowLocalISO() }));
+    }
+  }, [visible]);
+
+  /**
+   * Carga detalle y bancos disponibles.
+   */
   useEffect(() => {
     if (!visible) return;
     (async () => {
@@ -36,14 +57,15 @@ export default function ModalRegistrarPago({
         const { data } = await api.get(`/solicitudes-pago/${solicitudId}`, {
           withCredentials: true,
         });
+
         if (data.estado === "pagada") {
           setModalError({
             visible: true,
             mensaje: "Esta solicitud ya está pagada y no se puede modificar.",
           });
-          onClose();
-          return;
+          return; // No cerramos el modal para que el usuario vea el mensaje
         }
+
         setDetalle(data);
         setBanks(data.bancosDisponibles || []);
         setForm((prev) => ({
@@ -80,13 +102,16 @@ export default function ModalRegistrarPago({
     setIsSubmitting(true);
 
     try {
+      // Si el usuario borró el campo, usamos la fecha actual
+      const fechaPago = form.fecha_pago || nowLocalISO();
+
       const formData = new FormData();
       formData.append("metodo_pago", form.metodo_pago);
       if (form.metodo_pago !== "Efectivo") {
         formData.append("banco_id", form.banco_id);
       }
       formData.append("referencia_pago", form.referencia_pago);
-      formData.append("fecha_pago", form.fecha_pago);
+      formData.append("fecha_pago", fechaPago);
       if (form.ruta_comprobante) {
         formData.append(
           "ruta_comprobante",
@@ -106,7 +131,9 @@ export default function ModalRegistrarPago({
       console.error("Error al registrar pago:", err);
       setModalError({
         visible: true,
-        mensaje: "Esta solicitud ya está pagada y no se puede modificar.",
+        mensaje:
+          err.response?.data?.message ||
+          "No se pudo registrar el pago. Intente nuevamente.",
       });
     } finally {
       setIsSubmitting(false);
