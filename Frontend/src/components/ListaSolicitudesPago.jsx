@@ -4,6 +4,7 @@ import api from "../api/index";
 import BotonIcono from "./general/BotonIcono";
 import ModalExito from "../components/Modals/ModalExito";
 import ModalError from "../components/Modals/ModalError";
+import ModalVerSolicitudDePago from "../components/Modals/ModalVerSolicitudDePago";
 import ModalRegistrarPago from "../components/Modals/ModalRegistrarPago";
 import Paginacion from "../components/general/Paginacion";
 import Loader from "./general/Loader";
@@ -22,9 +23,15 @@ function ListaSolicitudesPago() {
   const [loading, setLoading] = useState(true);
   const [estadoFiltro, setEstadoFiltro] = useState("todos");
 
+  // Estados para modales
   const [pagarData, setPagarData] = useState({
     visible: false,
     solicitudId: null,
+  });
+
+  const [verSolicitudData, setVerSolicitudData] = useState({
+    visible: false,
+    solicitud: null,
   });
 
   // Estados para modales de feedback
@@ -123,6 +130,13 @@ function ListaSolicitudesPago() {
       return;
     }
     setPagarData({ visible: true, solicitudId: solicitud.id });
+  };
+
+  const handleVerSolicitud = (solicitud) => {
+    setVerSolicitudData({
+      visible: true,
+      solicitud: solicitud,
+    });
   };
 
   // Renderizado condicional
@@ -289,13 +303,7 @@ function ListaSolicitudesPago() {
                 <td className="px-4 py-3 flex space-x-2 items-center">
                   <BotonIcono
                     tipo="ver"
-                    onClick={() =>
-                      mostrarError({
-                        titulo: "Función no implementada",
-                        mensaje:
-                          "La visualización detallada de solicitudes estará disponible en una próxima actualización.",
-                      })
-                    }
+                    onClick={() => handleVerSolicitud(solicitud)}
                     titulo="Ver solicitud"
                   />
 
@@ -324,6 +332,7 @@ function ListaSolicitudesPago() {
         onCambiarPagina={setPage}
       />
 
+      {/* Modales */}
       <ModalRegistrarPago
         visible={pagarData.visible}
         solicitudId={pagarData.solicitudId}
@@ -331,7 +340,14 @@ function ListaSolicitudesPago() {
         onPaid={onPagoExitoso}
       />
 
-      {/* Modales */}
+      <ModalVerSolicitudDePago
+        visible={verSolicitudData.visible}
+        onClose={() =>
+          setVerSolicitudData({ ...verSolicitudData, visible: false })
+        }
+        solicitud={verSolicitudData.solicitud}
+      />
+
       <ModalExito
         visible={modalExitoData.visible}
         onClose={() => setModalExitoData({ ...modalExitoData, visible: false })}
@@ -339,6 +355,7 @@ function ListaSolicitudesPago() {
         mensaje={modalExitoData.mensaje}
         textoBoton={modalExitoData.textoBoton}
       />
+
       <ModalError
         visible={modalErrorData.visible}
         onClose={() => setModalErrorData({ ...modalErrorData, visible: false })}
