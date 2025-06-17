@@ -9,7 +9,7 @@ import {
   Clock,
   Download,
 } from "lucide-react";
-import api from "../../api"; // ← ajusta la ruta a tu helper de Axios
+import api from "../../api/index"; // ← ajusta la ruta a tu helper de Axios
 
 export default function ModalVerSolicitudDePago({
   visible,

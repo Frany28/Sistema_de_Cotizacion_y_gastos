@@ -341,9 +341,11 @@ function ListaSolicitudesPago() {
       />
 
       <ModalVerSolicitudDePago
-        visible={showModal}
-        solicitudId={itemSeleccionado.id}
-        onClose={() => setShowModal(false)}
+        visible={verSolicitudData.visible}
+        onClose={() =>
+          setVerSolicitudData({ ...verSolicitudData, visible: false })
+        }
+        solicitud={verSolicitudData.solicitud}
       />
 
       <ModalExito

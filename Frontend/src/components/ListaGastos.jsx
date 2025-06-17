@@ -33,6 +33,7 @@ function ListaGastos() {
   const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false);
   const [mostrarModalVer, setMostrarModalVer] = useState(false);
   const [mostrarModalCambio, setMostrarModalCambio] = useState(false);
+  const [solicitudSeleccionada, setSolicitudSeleccionada] = useState(null);
 
   // Estados para datos seleccionados
   const [editandoGasto, setEditandoGasto] = useState(null);
@@ -513,10 +514,10 @@ function ListaGastos() {
                   <BotonIcono
                     tipo="ver"
                     onClick={() => {
-                      setGastoSeleccionado(gasto);
+                      setSolicitudSeleccionada(solicitud.id);
                       setMostrarModalVer(true);
                     }}
-                    titulo="Ver gasto"
+                    titulo="Ver solicitud"
                   />
 
                   <BotonIcono
@@ -583,6 +584,15 @@ function ListaGastos() {
           mensaje={`¿Seguro que deseas eliminar el gasto con código ${gastoAEliminar.codigo}? Esta acción no se puede deshacer.`}
         />
       )}
+
+      <ModalVerSolicitudDePago
+        visible={mostrarModalVer}
+        solicitudId={solicitudSeleccionada}
+        onClose={() => {
+          setMostrarModalVer(false);
+          setSolicitudSeleccionada(null);
+        }}
+      />
 
       <ModalCambioEstado
         visible={mostrarModalCambio}
