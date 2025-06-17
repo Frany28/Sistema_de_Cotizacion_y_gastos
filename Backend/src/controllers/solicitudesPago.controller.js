@@ -3,7 +3,7 @@ import db from "../config/database.js";
 import { generarUrlPrefirmadaLectura } from "../utils/s3.js";
 
 /* ============================================================
- * 1. LISTAR SOLICITUDES DE PAGO
+ * 1. LISTAR SOLICITUDES DE PAGO  ➜  tabla principal
  * ========================================================== */
 export const obtenerSolicitudesPago = async (req, res) => {
   const page = parseInt(req.query.page, 10) || 1;
@@ -12,16 +12,16 @@ export const obtenerSolicitudesPago = async (req, res) => {
   const { estado } = req.query;
 
   try {
-    /* ---------- total de registros ---------- */
+    /* ---------- total ---------- */
     let countSQL = "SELECT COUNT(*) AS total FROM solicitudes_pago";
-    const countParams = [];
+    const countPar = [];
     if (estado) {
       countSQL += " WHERE estado = ?";
-      countParams.push(estado);
+      countPar.push(estado);
     }
-    const [[{ total }]] = await db.query(countSQL, countParams);
+    const [[{ total }]] = await db.query(countSQL, countPar);
 
-    /* ---------- datos paginados ---------- */
+    /* ---------- datos ---------- */
     let dataSQL = `
       SELECT
         sp.id,
@@ -29,85 +29,82 @@ export const obtenerSolicitudesPago = async (req, res) => {
         sp.gasto_id,
         sp.usuario_solicita_id,
         sp.usuario_aprueba_id,
-        us.nombre AS usuario_solicita_nombre,
-        ua.nombre AS usuario_aprueba_nombre,
-        p.nombre  AS proveedor_nombre,
-        sp.monto_total  AS monto,
-        sp.monto_pagado AS pagado,
+        us.nombre            AS usuario_solicita_nombre,
+        ua.nombre            AS usuario_aprueba_nombre,
+        p.nombre             AS proveedor_nombre,
         sp.moneda,
-        sp.fecha_solicitud AS fecha,
+        sp.tasa_cambio,
+        sp.monto_total,               -- ← el modal espera este nombre
+        sp.monto_pagado,
+        sp.metodo_pago,
+        sp.referencia_pago,
+        sp.banco_id,
+        b.nombre             AS banco_nombre,
+        sp.observaciones,
+        sp.fecha_solicitud,           -- ← el modal usa fecha_solicitud
+        sp.fecha_pago,
         sp.estado
       FROM solicitudes_pago sp
-      LEFT JOIN proveedores p ON p.id  = sp.proveedor_id
+      LEFT JOIN proveedores p ON p.id = sp.proveedor_id
       LEFT JOIN usuarios    us ON us.id = sp.usuario_solicita_id
       LEFT JOIN usuarios    ua ON ua.id = sp.usuario_aprueba_id
+      LEFT JOIN bancos      b  ON b.id = sp.banco_id
     `;
-    const dataParams = [];
+    const dataPar = [];
     if (estado) {
       dataSQL += " WHERE sp.estado = ?";
-      dataParams.push(estado);
+      dataPar.push(estado);
     }
     dataSQL += `
       ORDER BY sp.fecha_solicitud DESC
       LIMIT ${limit} OFFSET ${offset}
     `;
-    const [solicitudes] = await db.query(dataSQL, dataParams);
+    const [solicitudes] = await db.query(dataSQL, dataPar);
 
-    return res.json({ solicitudes, total, page, limit });
+    res.json({ solicitudes, total, page, limit });
   } catch (error) {
     console.error("Error al listar solicitudes de pago:", error);
-    return res
-      .status(500)
-      .json({ message: "Error al listar solicitudes de pago" });
+    res.status(500).json({ message: "Error al listar solicitudes de pago" });
   }
 };
 
 /* ============================================================
- * 2. DETALLE DE UNA SOLICITUD
+ * 2. DETALLE COMPLETO  ➜  se mantiene igual
  * ========================================================== */
 export const obtenerSolicitudPagoPorId = async (req, res) => {
   const { id } = req.params;
-
   try {
-    /* ---------- solicitud + info vinculada ---------- */
     const [[sol]] = await db.execute(
-      `SELECT
-         sp.*,
-         p.nombre  AS proveedor_nombre,
-         us.nombre AS usuario_solicita_nombre,
-         ua.nombre AS usuario_aprueba_nombre,
-         b.nombre  AS banco_nombre
-       FROM solicitudes_pago sp
-       LEFT JOIN proveedores p ON p.id  = sp.proveedor_id
-       LEFT JOIN usuarios    us ON us.id = sp.usuario_solicita_id
-       LEFT JOIN usuarios    ua ON ua.id = sp.usuario_aprueba_id
-       LEFT JOIN bancos      b  ON b.id  = sp.banco_id
-       WHERE sp.id = ?`,
+      `SELECT sp.*,
+              p.nombre  AS proveedor_nombre,
+              us.nombre AS usuario_solicita_nombre,
+              ua.nombre AS usuario_aprueba_nombre,
+              b.nombre  AS banco_nombre
+         FROM solicitudes_pago sp
+         LEFT JOIN proveedores p ON p.id = sp.proveedor_id
+         LEFT JOIN usuarios    us ON us.id = sp.usuario_solicita_id
+         LEFT JOIN usuarios    ua ON ua.id = sp.usuario_aprueba_id
+         LEFT JOIN bancos      b  ON b.id = sp.banco_id
+        WHERE sp.id = ?`,
       [id]
     );
-
-    if (!sol) {
+    if (!sol)
       return res.status(404).json({ message: "Solicitud no encontrada" });
-    }
 
-    /* ---------- firma del usuario logueado ---------- */
     const usuarioFirma = req.session.usuario?.ruta_firma || null;
 
-    /* ---------- bancos disponibles (según moneda) ---------- */
     const [bancosDisponibles] = await db.execute(
       `SELECT id, nombre, identificador
          FROM bancos
-        WHERE (moneda = ? OR ? IS NULL)
-          AND estado = 'activo'`,
+        WHERE (moneda = ? OR ? IS NULL) AND estado = 'activo'`,
       [sol.moneda, sol.moneda]
     );
 
-    /* ---------- URL pre-firmada del comprobante ---------- */
     const comprobante_url = sol.ruta_comprobante
-      ? await generarUrlPrefirmadaLectura(sol.ruta_comprobante, 600) // 10 min
+      ? await generarUrlPrefirmadaLectura(sol.ruta_comprobante, 600)
       : null;
 
-    return res.json({
+    res.json({
       ...sol,
       usuario_firma: usuarioFirma,
       bancosDisponibles,
@@ -115,9 +112,7 @@ export const obtenerSolicitudPagoPorId = async (req, res) => {
     });
   } catch (error) {
     console.error("Error al obtener solicitud de pago:", error);
-    return res
-      .status(500)
-      .json({ message: "Error interno al obtener la solicitud" });
+    res.status(500).json({ message: "Error interno al obtener la solicitud" });
   }
 };
 
