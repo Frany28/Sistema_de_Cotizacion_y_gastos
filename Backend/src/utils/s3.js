@@ -3,7 +3,7 @@
 // Estructura resultante en el bucket:
 //
 //   firmas/AAAA/...                     ← firmas de usuarios
-//   comprobantes/AAAA/...               ← facturas / comprobantes de GASTOS
+//  facturas_gastos/AAAA/...               ← facturas / comprobantes de GASTOS
 //   comprobantes_solicitudes/AAAA/...   ← comprobantes de ÓRDENES de pago
 //
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
@@ -70,14 +70,14 @@ export const uploadFirma = makeUploader({
 
 // Comprobantes / facturas de GASTOS
 export const uploadComprobante = makeUploader({
-  folder: "comprobantes",
+  folder: "facturas_gastos",
   maxSizeMb: 8,
   allowPdf: true,
 });
 
 // Comprobantes de ÓRDENES de pago (solicitudes)
 export const uploadComprobanteSolicitud = makeUploader({
-  folder: "comprobantes_solicitudes",
+  folder: "ordenes_pago",
   maxSizeMb: 8,
   allowPdf: true,
 });

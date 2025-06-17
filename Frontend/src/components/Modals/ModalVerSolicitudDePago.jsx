@@ -13,7 +13,7 @@ import api from "../../api/index"; // ← ajusta la ruta a tu helper de Axios
 
 export default function ModalVerSolicitudDePago({
   visible,
-  solicitudId, // ← ① ahora recibimos SOLO el id
+  solicitudId, 
   onClose,
 }) {
   /* ------------------------ estado local ------------------------- */

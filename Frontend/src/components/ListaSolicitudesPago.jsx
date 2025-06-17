@@ -33,6 +33,7 @@ function ListaSolicitudesPago() {
     visible: false,
     solicitud: null,
   });
+  
 
   // Estados para modales de feedback
   const [modalExitoData, setModalExitoData] = useState({
