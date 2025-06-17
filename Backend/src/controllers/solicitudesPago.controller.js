@@ -23,24 +23,26 @@ export const obtenerSolicitudesPago = async (req, res) => {
 
     /* ---------- datos ---------- */
     let dataSQL = `
-      SELECT
-        sp.id, sp.codigo,
-        sp.gasto_id,
-        g.codigo        AS gasto_codigo,      -- trae el código del gasto
-        sp.usuario_solicita_id,
-        sp.usuario_aprueba_id,
-        us.nombre       AS usuario_solicita_nombre,
-        ua.nombre       AS usuario_aprueba_nombre,
-        p.nombre        AS proveedor_nombre,
-        sp.moneda, sp.tasa_cambio,
-        sp.monto_total, sp.monto_pagado,
-        sp.metodo_pago, sp.referencia_pago,
-        sp.banco_id,    b.nombre AS banco_nombre,
-        sp.observaciones,
-        sp.fecha_solicitud, sp.fecha_pago,
+        SELECT
+        sp.id,
+        sp.codigo,
+        DATE(sp.fecha_solicitud)                 AS fecha,          
+        g.codigo                                 AS gasto_codigo,
+        p.nombre                                 AS proveedor_nombre,
+        sp.moneda,
+        sp.tasa_cambio,
+        IFNULL(sp.monto_total,   0)              AS monto_total,    
+        IFNULL(sp.monto_pagado,  0)              AS monto_pagado, 
+        (IFNULL(sp.monto_total,0) -
+        IFNULL(sp.monto_pagado,0))              AS saldo_pendiente,
+        sp.metodo_pago,
+        sp.referencia_pago,
+        b.nombre                                 AS banco_nombre,
+        us.nombre                                AS usuario_solicita_nombre,
+        ua.nombre                                AS usuario_aprueba_nombre,
         sp.estado
       FROM solicitudes_pago sp
-      LEFT JOIN gastos      g  ON g.id  = sp.gasto_id      -- ← JOIN añadido
+      LEFT JOIN gastos      g  ON g.id  = sp.gasto_id
       LEFT JOIN proveedores p  ON p.id  = sp.proveedor_id
       LEFT JOIN usuarios    us ON us.id = sp.usuario_solicita_id
       LEFT JOIN usuarios    ua ON ua.id = sp.usuario_aprueba_id
