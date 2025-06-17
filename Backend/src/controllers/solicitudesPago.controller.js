@@ -76,6 +76,7 @@ export const obtenerSolicitudPagoPorId = async (req, res) => {
   try {
     const [[sol]] = await db.execute(
       `SELECT sp.*,
+              g.codigo   AS gasto_codigo, 
               p.nombre  AS proveedor_nombre,
               us.nombre AS usuario_solicita_nombre,
               ua.nombre AS usuario_aprueba_nombre,

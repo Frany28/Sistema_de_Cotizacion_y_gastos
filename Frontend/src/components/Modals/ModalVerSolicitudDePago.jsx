@@ -132,7 +132,7 @@ export default function ModalVerSolicitudDePago({
                   <p>
                     <span className="text-gray-400">Gasto asociado:</span>{" "}
                     <span className="font-medium">
-                      {solicitud.gasto_id ? `#${solicitud.gasto_id}` : "-"}
+                      {solicitud.gasto_codigo || "-"}
                     </span>
                   </p>
                   <p>
