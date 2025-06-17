@@ -126,7 +126,7 @@ export default function ModalVerSolicitudDePago({
                   <p>
                     <span className="text-gray-400">Proveedor:</span>{" "}
                     <span className="font-medium">
-                      {solicitud.proveedor_nombre || "-"}
+                      {solicitud.proveedor_nombre || "N/A"}
                     </span>
                   </p>
                   <p>

@@ -3,7 +3,7 @@ import db from "../config/database.js";
 import { generarUrlPrefirmadaLectura } from "../utils/s3.js";
 
 /* ============================================================
- * 1. LISTAR SOLICITUDES DE PAGO  ➜  tabla principal
+ * 1. LISTAR SOLICITUDES DE PAGO
  * ========================================================== */
 export const obtenerSolicitudesPago = async (req, res) => {
   const page = parseInt(req.query.page, 10) || 1;
@@ -24,68 +24,62 @@ export const obtenerSolicitudesPago = async (req, res) => {
     /* ---------- datos ---------- */
     let dataSQL = `
       SELECT
-        sp.id,
-        sp.codigo,
+        sp.id, sp.codigo,
         sp.gasto_id,
+        g.codigo        AS gasto_codigo,      -- trae el código del gasto
         sp.usuario_solicita_id,
         sp.usuario_aprueba_id,
-        us.nombre            AS usuario_solicita_nombre,
-        ua.nombre            AS usuario_aprueba_nombre,
-        p.nombre             AS proveedor_nombre,
-        sp.moneda,
-        sp.tasa_cambio,
-        sp.monto_total,               -- ← el modal espera este nombre
-        sp.monto_pagado,
-        sp.metodo_pago,
-        sp.referencia_pago,
-        sp.banco_id,
-        b.nombre             AS banco_nombre,
+        us.nombre       AS usuario_solicita_nombre,
+        ua.nombre       AS usuario_aprueba_nombre,
+        p.nombre        AS proveedor_nombre,
+        sp.moneda, sp.tasa_cambio,
+        sp.monto_total, sp.monto_pagado,
+        sp.metodo_pago, sp.referencia_pago,
+        sp.banco_id,    b.nombre AS banco_nombre,
         sp.observaciones,
-        sp.fecha_solicitud,           -- ← el modal usa fecha_solicitud
-        sp.fecha_pago,
+        sp.fecha_solicitud, sp.fecha_pago,
         sp.estado
       FROM solicitudes_pago sp
-      LEFT JOIN proveedores p ON p.id = sp.proveedor_id
+      LEFT JOIN gastos      g  ON g.id  = sp.gasto_id      -- ← JOIN añadido
+      LEFT JOIN proveedores p  ON p.id  = sp.proveedor_id
       LEFT JOIN usuarios    us ON us.id = sp.usuario_solicita_id
       LEFT JOIN usuarios    ua ON ua.id = sp.usuario_aprueba_id
-      LEFT JOIN bancos      b  ON b.id = sp.banco_id
+      LEFT JOIN bancos      b  ON b.id  = sp.banco_id
     `;
     const dataPar = [];
     if (estado) {
       dataSQL += " WHERE sp.estado = ?";
       dataPar.push(estado);
     }
-    dataSQL += `
-      ORDER BY sp.fecha_solicitud DESC
-      LIMIT ${limit} OFFSET ${offset}
-    `;
+    dataSQL += ` ORDER BY sp.fecha_solicitud DESC LIMIT ${limit} OFFSET ${offset}`;
     const [solicitudes] = await db.query(dataSQL, dataPar);
 
     res.json({ solicitudes, total, page, limit });
-  } catch (error) {
-    console.error("Error al listar solicitudes de pago:", error);
+  } catch (err) {
+    console.error("Error al listar solicitudes de pago:", err);
     res.status(500).json({ message: "Error al listar solicitudes de pago" });
   }
 };
 
 /* ============================================================
- * 2. DETALLE COMPLETO  ➜  se mantiene igual
+ * 2. DETALLE DE UNA SOLICITUD
  * ========================================================== */
 export const obtenerSolicitudPagoPorId = async (req, res) => {
   const { id } = req.params;
   try {
     const [[sol]] = await db.execute(
       `SELECT sp.*,
-              g.codigo   AS gasto_codigo, 
+              g.codigo  AS gasto_codigo,      -- trae el código del gasto
               p.nombre  AS proveedor_nombre,
               us.nombre AS usuario_solicita_nombre,
               ua.nombre AS usuario_aprueba_nombre,
               b.nombre  AS banco_nombre
          FROM solicitudes_pago sp
-         LEFT JOIN proveedores p ON p.id = sp.proveedor_id
+         LEFT JOIN gastos      g  ON g.id  = sp.gasto_id   -- ← JOIN añadido
+         LEFT JOIN proveedores p  ON p.id  = sp.proveedor_id
          LEFT JOIN usuarios    us ON us.id = sp.usuario_solicita_id
          LEFT JOIN usuarios    ua ON ua.id = sp.usuario_aprueba_id
-         LEFT JOIN bancos      b  ON b.id = sp.banco_id
+         LEFT JOIN bancos      b  ON b.id  = sp.banco_id
         WHERE sp.id = ?`,
       [id]
     );
@@ -111,8 +105,8 @@ export const obtenerSolicitudPagoPorId = async (req, res) => {
       bancosDisponibles,
       comprobante_url,
     });
-  } catch (error) {
-    console.error("Error al obtener solicitud de pago:", error);
+  } catch (err) {
+    console.error("Error al obtener solicitud de pago:", err);
     res.status(500).json({ message: "Error interno al obtener la solicitud" });
   }
 };
