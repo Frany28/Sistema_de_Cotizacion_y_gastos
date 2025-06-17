@@ -12,54 +12,49 @@ export const obtenerSolicitudesPago = async (req, res) => {
   const { estado } = req.query;
 
   try {
-    /* ---------- total ---------- */
+    // total
     let countSQL = "SELECT COUNT(*) AS total FROM solicitudes_pago";
-    const countPar = [];
+    const countParams = [];
     if (estado) {
       countSQL += " WHERE estado = ?";
-      countPar.push(estado);
+      countParams.push(estado);
     }
-    const [[{ total }]] = await db.query(countSQL, countPar);
+    const [[{ total }]] = await db.query(countSQL, countParams);
 
-    /* ---------- datos ---------- */
+    // data
     let dataSQL = `
-        SELECT
+      SELECT 
         sp.id,
         sp.codigo,
-        DATE(sp.fecha_solicitud)                 AS fecha,          
-        g.codigo                                 AS gasto_codigo,
-        p.nombre                                 AS proveedor_nombre,
+        sp.gasto_id,
+        sp.usuario_solicita_id,
+        sp.usuario_aprueba_id,
+        p.nombre AS proveedor_nombre,
+        sp.monto_total    AS monto,
+        sp.monto_pagado   AS pagado,
         sp.moneda,
-        sp.tasa_cambio,
-        IFNULL(sp.monto_total,   0)              AS monto_total,    
-        IFNULL(sp.monto_pagado,  0)              AS monto_pagado, 
-        (IFNULL(sp.monto_total,0) -
-        IFNULL(sp.monto_pagado,0))              AS saldo_pendiente,
-        sp.metodo_pago,
-        sp.referencia_pago,
-        b.nombre                                 AS banco_nombre,
-        us.nombre                                AS usuario_solicita_nombre,
-        ua.nombre                                AS usuario_aprueba_nombre,
+        sp.fecha_solicitud AS fecha,
         sp.estado
       FROM solicitudes_pago sp
-      LEFT JOIN gastos      g  ON g.id  = sp.gasto_id
-      LEFT JOIN proveedores p  ON p.id  = sp.proveedor_id
-      LEFT JOIN usuarios    us ON us.id = sp.usuario_solicita_id
-      LEFT JOIN usuarios    ua ON ua.id = sp.usuario_aprueba_id
-      LEFT JOIN bancos      b  ON b.id  = sp.banco_id
+      LEFT JOIN proveedores p ON p.id = sp.proveedor_id
     `;
-    const dataPar = [];
+    const dataParams = [];
     if (estado) {
       dataSQL += " WHERE sp.estado = ?";
-      dataPar.push(estado);
+      dataParams.push(estado);
     }
-    dataSQL += ` ORDER BY sp.fecha_solicitud DESC LIMIT ${limit} OFFSET ${offset}`;
-    const [solicitudes] = await db.query(dataSQL, dataPar);
+    dataSQL += `
+      ORDER BY sp.fecha_solicitud DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `;
+    const [solicitudes] = await db.query(dataSQL, dataParams);
 
-    res.json({ solicitudes, total, page, limit });
-  } catch (err) {
-    console.error("Error al listar solicitudes de pago:", err);
-    res.status(500).json({ message: "Error al listar solicitudes de pago" });
+    return res.json({ solicitudes, total, page, limit });
+  } catch (error) {
+    console.error("Error al listar solicitudes de pago:", error);
+    return res
+      .status(500)
+      .json({ message: "Error al listar solicitudes de pago" });
   }
 };
 
