@@ -1,4 +1,4 @@
-// controllers/solicitudes_pago.controller.js
+// controllers/solicitudesPago.controller.js
 import db from "../config/database.js";
 import { generarUrlPrefirmadaLectura } from "../utils/s3.js";
 
@@ -6,14 +6,14 @@ import { generarUrlPrefirmadaLectura } from "../utils/s3.js";
  * 1. LISTAR SOLICITUDES DE PAGO
  * ========================================================== */
 export const obtenerSolicitudesPago = async (req, res) => {
-  const page   = parseInt(req.query.page, 10)  || 1;
-  const limit  = parseInt(req.query.limit, 10) || 10;
+  const page = parseInt(req.query.page, 10) || 1;
+  const limit = parseInt(req.query.limit, 10) || 10;
   const offset = (page - 1) * limit;
   const { estado } = req.query;
 
   try {
     /* ---------- total de registros ---------- */
-    let countSQL   = "SELECT COUNT(*) AS total FROM solicitudes_pago";
+    let countSQL = "SELECT COUNT(*) AS total FROM solicitudes_pago";
     const countParams = [];
     if (estado) {
       countSQL += " WHERE estado = ?";
@@ -38,9 +38,9 @@ export const obtenerSolicitudesPago = async (req, res) => {
         sp.fecha_solicitud AS fecha,
         sp.estado
       FROM solicitudes_pago sp
-      LEFT JOIN proveedores p  ON p.id  = sp.proveedor_id
-      LEFT JOIN empleados  us ON us.id = sp.usuario_solicita_id
-      LEFT JOIN empleados  ua ON ua.id = sp.usuario_aprueba_id
+      LEFT JOIN proveedores p ON p.id  = sp.proveedor_id
+      LEFT JOIN usuarios    us ON us.id = sp.usuario_solicita_id
+      LEFT JOIN usuarios    ua ON ua.id = sp.usuario_aprueba_id
     `;
     const dataParams = [];
     if (estado) {
@@ -56,7 +56,9 @@ export const obtenerSolicitudesPago = async (req, res) => {
     return res.json({ solicitudes, total, page, limit });
   } catch (error) {
     console.error("Error al listar solicitudes de pago:", error);
-    return res.status(500).json({ message: "Error al listar solicitudes de pago" });
+    return res
+      .status(500)
+      .json({ message: "Error al listar solicitudes de pago" });
   }
 };
 
@@ -76,10 +78,10 @@ export const obtenerSolicitudPagoPorId = async (req, res) => {
          ua.nombre AS usuario_aprueba_nombre,
          b.nombre  AS banco_nombre
        FROM solicitudes_pago sp
-       LEFT JOIN proveedores p  ON p.id  = sp.proveedor_id
-       LEFT JOIN empleados  us ON us.id = sp.usuario_solicita_id
-       LEFT JOIN empleados  ua ON ua.id = sp.usuario_aprueba_id
-       LEFT JOIN bancos     b  ON b.id  = sp.banco_id
+       LEFT JOIN proveedores p ON p.id  = sp.proveedor_id
+       LEFT JOIN usuarios    us ON us.id = sp.usuario_solicita_id
+       LEFT JOIN usuarios    ua ON ua.id = sp.usuario_aprueba_id
+       LEFT JOIN bancos      b  ON b.id  = sp.banco_id
        WHERE sp.id = ?`,
       [id]
     );
@@ -105,7 +107,6 @@ export const obtenerSolicitudPagoPorId = async (req, res) => {
       ? await generarUrlPrefirmadaLectura(sol.ruta_comprobante, 600) // 10 min
       : null;
 
-    /* ---------- respuesta ---------- */
     return res.json({
       ...sol,
       usuario_firma: usuarioFirma,
@@ -114,7 +115,9 @@ export const obtenerSolicitudPagoPorId = async (req, res) => {
     });
   } catch (error) {
     console.error("Error al obtener solicitud de pago:", error);
-    return res.status(500).json({ message: "Error interno al obtener la solicitud" });
+    return res
+      .status(500)
+      .json({ message: "Error interno al obtener la solicitud" });
   }
 };
 
@@ -123,17 +126,22 @@ export const obtenerSolicitudPagoPorId = async (req, res) => {
  * ========================================================== */
 export const actualizarSolicitudPago = async (req, res) => {
   const { id } = req.params;
-  const campos  = req.body;
+  const campos = req.body;
 
   const [[s]] = await db.execute(
-    "SELECT estado FROM solicitudes_pago WHERE id = ?", [id]
+    "SELECT estado FROM solicitudes_pago WHERE id = ?",
+    [id]
   );
   if (!s) return res.status(404).json({ message: "Solicitud no encontrada" });
   if (s.estado !== "por_pagar") {
-    return res.status(400).json({ message: "Solo se puede modificar cuando está por pagar" });
+    return res
+      .status(400)
+      .json({ message: "Solo se puede modificar cuando está por pagar" });
   }
 
-  const setCols = Object.keys(campos).map(k => `${k} = ?`).join(", ");
+  const setCols = Object.keys(campos)
+    .map((k) => `${k} = ?`)
+    .join(", ");
   await db.execute(`UPDATE solicitudes_pago SET ${setCols} WHERE id = ?`, [
     ...Object.values(campos),
     id,
@@ -150,11 +158,14 @@ export const cancelarSolicitudPago = async (req, res) => {
   const { motivo } = req.body;
 
   const [[s]] = await db.execute(
-    "SELECT estado FROM solicitudes_pago WHERE id = ?", [id]
+    "SELECT estado FROM solicitudes_pago WHERE id = ?",
+    [id]
   );
   if (!s) return res.status(404).json({ message: "Solicitud no encontrada" });
   if (s.estado !== "por_pagar") {
-    return res.status(400).json({ message: "Solo se puede cancelar cuando está por pagar" });
+    return res
+      .status(400)
+      .json({ message: "Solo se puede cancelar cuando está por pagar" });
   }
 
   await db.execute(
@@ -185,7 +196,7 @@ export const pagarSolicitudPago = async (req, res) => {
   } = req.body;
   const comprobanteFile = req.file;
 
-  const bancoId        = metodo_pago === "Efectivo" ? null : rawBancoId || null;
+  const bancoId = metodo_pago === "Efectivo" ? null : rawBancoId || null;
   const usuarioFirmaId = req.user?.id;
 
   try {
@@ -200,7 +211,9 @@ export const pagarSolicitudPago = async (req, res) => {
       return res.status(404).json({ message: "Solicitud no encontrada." });
     }
     if (sol.estado !== "por_pagar") {
-      return res.status(400).json({ message: `Estado inválido: ${sol.estado}` });
+      return res
+        .status(400)
+        .json({ message: `Estado inválido: ${sol.estado}` });
     }
 
     /* --- clave real del comprobante --- */
@@ -261,6 +274,8 @@ export const pagarSolicitudPago = async (req, res) => {
     });
   } catch (error) {
     console.error("Error al registrar pago:", error);
-    return res.status(500).json({ message: "Error interno al registrar el pago." });
+    return res
+      .status(500)
+      .json({ message: "Error interno al registrar el pago." });
   }
 };
