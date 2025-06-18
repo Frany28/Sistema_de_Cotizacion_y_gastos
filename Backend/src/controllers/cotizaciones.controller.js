@@ -86,6 +86,7 @@ export const getCotizaciones = async (req, res) => {
             c.codigo_referencia AS codigo,
             c.subtotal,
             c.impuesto,
+            c.usuario_id, 
             c.cliente_id,
             c.sucursal_id,
             c.confirmacion_cliente,
