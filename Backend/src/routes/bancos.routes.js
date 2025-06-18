@@ -15,12 +15,12 @@ const router = express.Router();
 // Listar → sólo autenticado
 router.get(
   "/",
-  verificarPermiso(), // sin argumento valida sólo sesión
+  verificarPermiso(), 
   obtenerBancos
 );
 
 // Crear → permiso 'crear_banco'
-router.post("/", verificarPermiso("crear_banco"), validarBanco, crearBanco);
+router.post("/", verificarPermiso("crearBanco"), validarBanco, crearBanco);
 
 // Detalle → sólo autenticado
 router.get("/:id", verificarPermiso(), obtenerBancoPorId);
@@ -28,12 +28,12 @@ router.get("/:id", verificarPermiso(), obtenerBancoPorId);
 // Editar → permiso 'editar_banco'
 router.put(
   "/:id",
-  verificarPermiso("editar_banco"),
+  verificarPermiso("editarBanco"),
   validarBanco,
   actualizarBanco
 );
 
 // Borrar → permiso 'eliminar_banco'
-router.delete("/:id", verificarPermiso("eliminar_banco"), eliminarBanco);
+router.delete("/:id", verificarPermiso("eliminarBanco"), eliminarBanco);
 
 export default router;

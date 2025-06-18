@@ -9,14 +9,42 @@ import {
 } from "../controllers/clientes.controller.js";
 
 import { validarCliente } from "../Middleware/validarCliente.js";
+import { verificarPermiso } from "../Middleware/verificarPermiso.js";
+import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
 
 const router = express.Router();
+// Rutas para manejar clientes
+//crear, obtener, actualizar, eliminar clientes
+// y verificar si un cliente ya existe
+router.post(
+  "/",
+  validarCliente,
+  crearCliente,
+  autenticarUsuario,
+  verificarPermiso("crearCliente")
+);
 
-router.post("/", validarCliente, crearCliente);
-router.put("/:id", validarCliente, actualizarCliente);
+router.put(
+  "/:id",
+  validarCliente,
+  actualizarCliente,
+  autenticarUsuario,
+  verificarPermiso("editarCliente")
+);
 
-router.get("/", obtenerClientes);
+router.get(
+  "/",
+  obtenerClientes,
+  autenticarUsuario,
+  verificarPermiso("verClientes")
+);
 router.get("/check", verificarClienteExistente);
-router.delete("/:id", eliminarCliente);
+
+router.delete(
+  "/:id",
+  eliminarCliente,
+  autenticarUsuario,
+  verificarPermiso("eliminarCliente")
+);
 
 export default router;

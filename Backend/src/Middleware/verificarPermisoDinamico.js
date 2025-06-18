@@ -16,9 +16,9 @@ export const verificaPermisoDinamico = [
     const tipo = req.body?.tipo;
     const permisoClave =
       tipo === "gasto"
-        ? "crear_gasto"
+        ? "crearGasto"
         : tipo === "cotizacion"
-        ? "crear_cotizacion"
+        ? "crearCotizacion"
         : null;
 
     if (!permisoClave) {

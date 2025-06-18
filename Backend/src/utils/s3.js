@@ -75,9 +75,17 @@ export const uploadComprobante = makeUploader({
   allowPdf: true,
 });
 
-// Comprobantes de ÓRDENES de pago (solicitudes)
-export const uploadComprobanteSolicitud = makeUploader({
-  folder: "ordenes_pago",
+
+//comprobantes de pagos realizados
+export const uploadComprobantePago = makeUploader({
+  folder: "comprobantes_pagos",
+  maxSizeMb: 8,
+  allowPdf: true,
+});
+
+// Comprobantes de ABONOS (CXC)
+export const uploadComprobanteAbono = makeUploader({
+  folder: "cxcAbonos", 
   maxSizeMb: 8,
   allowPdf: true,
 });

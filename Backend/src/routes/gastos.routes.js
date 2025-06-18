@@ -33,7 +33,7 @@ router.get("/", autenticarUsuario, verificarPermiso("ver_gastos"), getGastos);
 router.get(
   "/:id",
   autenticarUsuario,
-  verificarPermiso("ver_gastos"),
+  verificarPermiso("verGastos"),
   getGastoById
 );
 
@@ -59,8 +59,6 @@ router.post(
         return res.status(400).json({ error: "No se envió ningún archivo" });
       }
 
-      // 3) Obtenemos la “key” interna en S3
-      //    Ejemplo: “comprobantes/1689481234567-factura.png”
       const keyFactura = req.file.key;
 
       // 4) Guardar esa key en la BD, en la columna
@@ -83,14 +81,14 @@ router.post(
 router.get(
   "/:id/comprobante",
   autenticarUsuario,
-  verificarPermiso("ver_gastos"),
+  verificarPermiso("verGastos"),
   obtenerUrlComprobante
 );
 
 router.put(
   "/:id",
   autenticarUsuario,
-  verificarPermiso("editar_gasto"),
+  verificarPermiso("editarGasto"),
   scopeEdicionGasto,
   uploadComprobante.single("documento"),
   validarGasto,
@@ -100,14 +98,14 @@ router.put(
 router.put(
   "/:id/estado",
   autenticarUsuario,
-  verificarPermiso("aprobar_gasto"),
+  verificarPermiso("aprobarGasto"),
   actualizarEstadoGasto
 );
 
 router.delete(
   "/:id",
   autenticarUsuario,
-  verificarPermiso("eliminar_gasto"),
+  verificarPermiso("eliminarGasto"),
   deleteGasto
 );
 

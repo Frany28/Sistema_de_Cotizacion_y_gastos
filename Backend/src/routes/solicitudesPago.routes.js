@@ -9,7 +9,7 @@ import {
 } from "../controllers/solicitudesPago.controller.js";
 import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
 import { verificarPermiso } from "../Middleware/verificarPermiso.js";
-import { uploadComprobanteSolicitud } from "../utils/s3.js";
+import { uploadComprobantePago } from "../utils/s3.js";
 
 const router = express.Router();
 
@@ -50,7 +50,7 @@ router.patch(
   "/:id/pagar",
   autenticarUsuario,
   verificarPermiso("pagar_solicitud_pago"),
-  uploadComprobanteSolicitud.single("comprobante"),
+  uploadComprobantePago.single("comprobante"),
   pagarSolicitudPago
 );
 
