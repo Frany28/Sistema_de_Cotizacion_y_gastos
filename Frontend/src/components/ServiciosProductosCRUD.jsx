@@ -10,6 +10,7 @@ import ModalAñadirServicioProducto from "../components/Modals/ModalAñadirServi
 import Paginacion from "../components/general/Paginacion";
 import Loader from "./general/Loader";
 import api from "../api/index";
+import { verificarPermisoFront } from "../../utils/verificarPermisoFront.js";
 
 function ListaServiciosProductos() {
   const [servicios, setServicios] = useState([]);
@@ -21,6 +22,9 @@ function ListaServiciosProductos() {
     return stored ? parseInt(stored, 10) : 5;
   });
   const [loading, setLoading] = useState(true);
+  const [puedeCrear, setPuedeCrear] = useState(false);
+  const [puedeEditar, setPuedeEditar] = useState(false);
+  const [puedeEliminar, setPuedeEliminar] = useState(false);
   const [editandoServicio, setEditandoServicio] = useState(null);
   const [mostrarModalEditar, setMostrarModalEditar] = useState(false);
   const [mostrarModal, setMostrarModal] = useState(false);
@@ -81,6 +85,14 @@ function ListaServiciosProductos() {
     fetchServicios();
   }, [fetchServicios]);
 
+  useEffect(() => {
+    (async () => {
+      setPuedeCrear(await verificarPermisoFront("crearServicio"));
+      setPuedeEditar(await verificarPermisoFront("editarServicio"));
+      setPuedeEliminar(await verificarPermisoFront("eliminarServicio"));
+    })();
+  }, []);
+
   const manejarBusqueda = (e) => {
     const termino = e.target.value;
     setBusqueda(termino);
@@ -111,7 +123,6 @@ function ListaServiciosProductos() {
 
   const guardarServicioEditado = async (datos) => {
     try {
-
       const datosValidados = {
         ...datos,
         precio: parseFloat(datos.precio),
@@ -207,10 +218,12 @@ function ListaServiciosProductos() {
     <div>
       <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 p-4 gap-2">
         <div className="grid grid-cols-1 md:grid-cols-2 items-center gap-2">
-          <BotonAgregar
-            onClick={abrirModal}
-            texto="Nuevo Producto o Servicio"
-          />
+          {puedeCrear && (
+            <BotonAgregar
+              onClick={abrirModal}
+              texto="Nuevo Producto o Servicio"
+            />
+          )}
         </div>
 
         <div className="flex w-full md:w-1/2 gap-2">
@@ -319,22 +332,26 @@ function ListaServiciosProductos() {
               <td className="px-4 py-3">{item.cantidad_actual || "—"}</td>
               <td className="px-4 py-3">{item.cantidad_anterior || "—"}</td>
               <td className="px-4 py-3 flex space-x-2">
-                <BotonIcono
-                  tipo="editar"
-                  onClick={() => {
-                    iniciarEdicion(item);
-                    setMostrarModalEditar(true);
-                  }}
-                  titulo="Editar"
-                />
-                <BotonIcono
-                  tipo="eliminar"
-                  onClick={() => {
-                    setEditandoServicio(item);
-                    setMostrarConfirmacion(true);
-                  }}
-                  titulo="Eliminar"
-                />
+                {puedeEditar && (
+                  <BotonIcono
+                    tipo="editar"
+                    onClick={() => {
+                      iniciarEdicion(item);
+                      setMostrarModalEditar(true);
+                    }}
+                    titulo="Editar"
+                  />
+                )}
+                {puedeEliminar && (
+                  <BotonIcono
+                    tipo="eliminar"
+                    onClick={() => {
+                      setEditandoServicio(item);
+                      setMostrarConfirmacion(true);
+                    }}
+                    titulo="Eliminar"
+                  />
+                )}
               </td>
             </tr>
           ))}
