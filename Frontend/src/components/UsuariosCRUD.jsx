@@ -10,6 +10,7 @@ import ModalEditarUsuario from "../components/Modals/ModalEditarUsuario";
 import ModalConfirmacion from "../components/Modals/ModalConfirmacion";
 import ModalExito from "../components/Modals/ModalExito";
 import ModalError from "../components/Modals/ModalError";
+import { verificarPermisoFront } from "../../utils/verificarPermisoFront";
 
 export default function UsuariosCRUD() {
   const [usuarios, setUsuarios] = useState([]);
