@@ -149,7 +149,7 @@ export default function ModalAñadirBanco({ onCancel, onSubmit }) {
                     name="moneda"
                     value={form.moneda}
                     onChange={handleChange}
-                    className="border text-sm rounded-lg block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
+                    className="cursor-pointer border text-sm rounded-lg block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
                   >
                     <option value="VES">VES</option>
                     <option value="USD">USD</option>
@@ -165,7 +165,7 @@ export default function ModalAñadirBanco({ onCancel, onSubmit }) {
                     name="tipo_identificador"
                     value={form.tipo_identificador}
                     onChange={handleChange}
-                    className="border text-sm rounded-lg block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
+                    className="cursor-pointer border text-sm rounded-lg block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
                   >
                     <option value="nro_cuenta">Número de cuenta</option>
                     <option value="email">Email</option>

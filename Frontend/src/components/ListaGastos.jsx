@@ -344,7 +344,7 @@ function ListaGastos() {
               id="cantidad"
               value={limit}
               onChange={(e) => cambiarLimite(Number(e.target.value))}
-              className="text-sm rounded-md border-gray-600 bg-gray-700 text-white"
+              className="cursor-pointer text-sm rounded-md border-gray-600 bg-gray-700 text-white"
             >
               <option value="5">5</option>
               <option value="10">10</option>

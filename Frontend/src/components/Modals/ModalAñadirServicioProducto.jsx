@@ -255,7 +255,7 @@ export default function ModalAñadirServicioProducto({
                     name="porcentaje_iva"
                     value={form.porcentaje_iva}
                     onChange={handleChange}
-                    className="text-sm rounded-lg block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
+                    className="cursor-pointer text-sm rounded-lg block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
                     required
                   >
                     <option value="">Seleccione un tipo de impuesto</option>
@@ -278,7 +278,7 @@ export default function ModalAñadirServicioProducto({
                     name="tipo"
                     value={form.tipo}
                     onChange={handleChange}
-                    className="text-sm rounded-lg block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
+                    className="cursor-pointer text-sm rounded-lg block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
                     required
                   >
                     <option value="servicio">Servicio</option>

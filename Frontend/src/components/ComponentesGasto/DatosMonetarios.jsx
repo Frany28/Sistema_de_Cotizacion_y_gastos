@@ -50,7 +50,7 @@ const DatosMonetarios = ({ gasto, setGasto }) => {
           name="moneda"
           value={gasto.moneda ?? "USD"}
           onChange={handleChange}
-          className="w-full p-2 rounded bg-gray-700 border border-gray-600"
+          className="cursor-pointer w-full p-2 rounded bg-gray-700 border border-gray-600"
         >
           <option value="USD">USD (Dólares)</option>
           <option value="VES">VES (Bolívares)</option>
@@ -81,7 +81,7 @@ const DatosMonetarios = ({ gasto, setGasto }) => {
           name="porcentaje_iva"
           value={gasto.porcentaje_iva ?? ""}
           onChange={handleChange}
-          className="w-full p-2 rounded bg-gray-700 border border-gray-600"
+          className="cursor-pointer w-full p-2 rounded bg-gray-700 border border-gray-600"
         >
           <option value="">Seleccione el porcentaje de IVA</option>
           <option value="0">0% (Exento)</option>

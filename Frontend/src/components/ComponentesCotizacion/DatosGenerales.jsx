@@ -48,7 +48,7 @@ export default function DatosGeneralesCotizacion({
                 name="operacion"
                 value={datos.operacion || ""}
                 onChange={handleInputChange}
-                className="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white"
+                className="cursor-pointer w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white"
               >
                 <option value="">Seleccione tipo de operación</option>
                 <option value="importacion">Importación</option>

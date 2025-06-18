@@ -276,7 +276,7 @@ export default function ModalAñadirProveedor({
                     name="estado"
                     value={form.estado}
                     onChange={handleChange}
-                    className=" text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
+                    className="cursor-pointer text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
                     required
                   >
                     <option value="activo">Activo</option>

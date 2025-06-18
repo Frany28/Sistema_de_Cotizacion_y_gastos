@@ -49,7 +49,7 @@ const ClienteSelector = ({
       <select
         value={clienteId}
         onChange={(e) => manejarSeleccion(e.target.value)}
-        className="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg block w-full p-2.5"
+        className="cursor-pointer bg-gray-700 border border-gray-600 text-white text-sm rounded-lg block w-full p-2.5"
         required
       >
         <option value="">Seleccione un cliente</option>

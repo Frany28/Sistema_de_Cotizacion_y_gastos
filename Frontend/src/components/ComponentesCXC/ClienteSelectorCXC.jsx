@@ -32,7 +32,7 @@ const ClienteSelectorCXC = ({ onClienteSeleccionado }) => {
       <select
         value={clienteIdSeleccionado}
         onChange={manejarCambio}
-        className="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg block w-full p-2.5"
+        className="cursor-pointer bg-gray-700 border border-gray-600 text-white text-sm rounded-lg block w-full p-2.5"
       >
         <option value="">Seleccione un cliente</option>
         {Array.isArray(clientes) && clientes.length > 0 ? (

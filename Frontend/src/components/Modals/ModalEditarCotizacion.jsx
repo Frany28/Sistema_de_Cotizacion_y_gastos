@@ -361,7 +361,7 @@ export default function ModalEditarCotizacion({
                     name="estado"
                     value={form.estado}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
+                    className="cursor-pointer w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
                   >
                     <option value="pendiente">Pendiente</option>
                     <option value="aprobada">Aprobada</option>
@@ -378,7 +378,7 @@ export default function ModalEditarCotizacion({
                     name="confirmacion_cliente"
                     value={form.confirmacion_cliente}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
+                    className="cursor-pointer w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
                   >
                     <option value="0">No confirmado</option>
                     <option value="1">Confirmado</option>
@@ -608,7 +608,7 @@ export default function ModalEditarCotizacion({
                           {/* % IVA */}
                           <td className="px-4 py-2">
                             <select
-                              className="w-full px-3 py-1 border rounded bg-gray-700 text-white"
+                              className="cursor-pointer w-full px-3 py-1 border rounded bg-gray-700 text-white"
                               value={item.porcentaje_iva}
                               onChange={(e) =>
                                 handleDetalleChange(

@@ -187,7 +187,7 @@ export default function ModalRegistrarAbono({
                     name="moneda_pago"
                     value={form.moneda_pago}
                     onChange={handleChange}
-                    className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600"
+                    className="cursor-pointer w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600"
                   >
                     <option value="USD">USD</option>
                     <option value="VES">VES</option>

@@ -160,7 +160,7 @@ export default function ModalAñadirGasto({ onCancel, onSubmit }) {
                     name="tipo_gasto_id"
                     value={form.tipo_gasto_id}
                     onChange={handleChange}
-                    className="  text-sm rounded-lg block w-full p-2.5 bg-gray-700 border-gray-600 text-white"
+                    className="cursor-pointer text-sm rounded-lg block w-full p-2.5 bg-gray-700 border-gray-600 text-white"
                   >
                     <option value="">Seleccione tipo</option>
                     <option value="1">Fijo</option>
@@ -182,7 +182,7 @@ export default function ModalAñadirGasto({ onCancel, onSubmit }) {
                     name="proveedor_id"
                     value={form.proveedor_id}
                     onChange={handleChange}
-                    className=" border  text-sm rounded-lg block w-full p-2.5 bg-gray-700 border-gray-600 text-white"
+                    className="cursor-pointer border  text-sm rounded-lg block w-full p-2.5 bg-gray-700 border-gray-600 text-white"
                   >
                     <option value="">Seleccione proveedor</option>
                     {proveedores.map((p) => (
@@ -206,7 +206,7 @@ export default function ModalAñadirGasto({ onCancel, onSubmit }) {
                     name="sucursal_id"
                     value={form.sucursal_id}
                     onChange={handleChange}
-                    className="text-sm rounded-lg block w-full p-2.5 bg-gray-700 border-gray-600 text-white"
+                    className="cursor-pointer text-sm rounded-lg block w-full p-2.5 bg-gray-700 border-gray-600 text-white"
                   >
                     <option value="">Seleccione sucursal</option>
                     {sucursales.map((s) => (
@@ -282,7 +282,7 @@ export default function ModalAñadirGasto({ onCancel, onSubmit }) {
                     name="estado"
                     value={form.estado}
                     onChange={handleChange}
-                    className=" text-sm rounded-lg block w-full p-2.5 bg-gray-700 border-gray-600 text-white"
+                    className="cursor-pointer text-sm rounded-lg block w-full p-2.5 bg-gray-700 border-gray-600 text-white"
                   >
                     <option value="pendiente">Pendiente</option>
                     <option value="aprobado">Aprobado</option>
@@ -299,7 +299,7 @@ export default function ModalAñadirGasto({ onCancel, onSubmit }) {
                     name="sucursal_id"
                     value={form.sucursal_id}
                     onChange={handleChange}
-                    className="text-sm rounded-lg block w-full p-2.5 bg-gray-700 border-gray-600 text-white"
+                    className="cursor-pointer text-sm rounded-lg block w-full p-2.5 bg-gray-700 border-gray-600 text-white"
                   >
                     <option value="">Seleccione sucursal</option>
                     {sucursales.map((s) => (

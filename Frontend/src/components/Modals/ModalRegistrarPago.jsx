@@ -197,7 +197,7 @@ export default function ModalRegistrarPago({
                     value={form.metodo_pago}
                     onChange={handleChange}
                     disabled={isSubmitting}
-                    className="w-full px-3 py-2 border  border-gray-600 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-gray-700 text-white"
+                    className="cursor-pointer w-full px-3 py-2 border  border-gray-600 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-gray-700 text-white"
                     required
                   >
                     <option value="">Seleccionar método...</option>
@@ -218,7 +218,7 @@ export default function ModalRegistrarPago({
                         value={form.banco_id}
                         onChange={handleChange}
                         disabled={isSubmitting}
-                        className="w-full px-3 py-2 border  border-gray-600 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-gray-700 text-white"
+                        className="cursor-pointer w-full px-3 py-2 border  border-gray-600 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-gray-700 text-white"
                         required
                       >
                         <option value="">Seleccionar banco...</option>

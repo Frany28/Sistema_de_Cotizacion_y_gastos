@@ -204,7 +204,7 @@ export default function SucursalesCRUD() {
               id="cantidad"
               value={limit}
               onChange={(e) => cambiarLimite(Number(e.target.value))}
-              className="text-sm rounded-md border border-gray-600 bg-gray-700 text-white"
+              className="cursor-pointer text-sm rounded-md border border-gray-600 bg-gray-700 text-white"
             >
               {[5, 10, 25].map((n) => (
                 <option key={n} value={n}>

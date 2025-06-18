@@ -327,7 +327,7 @@ export default function ModalEditarGasto({
                     name="tipo_gasto_id"
                     value={form.tipo_gasto_id}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
+                    className="cursor-pointer w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
                     required
                   >
                     <option value="">Seleccione tipo</option>
@@ -349,7 +349,7 @@ export default function ModalEditarGasto({
                       name="proveedor_id"
                       value={form.proveedor_id}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
+                      className="cursor-pointer w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
                       required={camposVisibles.proveedor}
                     >
                       <option value="">Seleccione proveedor</option>
@@ -388,7 +388,7 @@ export default function ModalEditarGasto({
                     name="moneda"
                     value={form.moneda}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
+                    className="cursor-pointer w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
                   >
                     <option value="USD">USD - Dólares</option>
                     <option value="VES">VES - Bolívares</option>
@@ -421,7 +421,7 @@ export default function ModalEditarGasto({
                     name="porcentaje_iva"
                     value={form.porcentaje_iva}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
+                    className="cursor-pointer w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
                   >
                     <option value="0">0% - Exento</option>
                     <option value="8">8% - Reducido</option>

@@ -199,7 +199,7 @@ export default function ModalEditarUsuario({
                     value={form.rol_id}
                     onChange={handleChange}
                     disabled={isSubmitting}
-                    className="block w-full p-2.5  border rounded-lg bg-gray-600 border-gray-500 text-white"
+                    className="cursor-pointer block w-full p-2.5  border rounded-lg bg-gray-600 border-gray-500 text-white"
                   >
                     <option value="">Seleccione rol</option>
                     {roles.map((r) => (
@@ -220,7 +220,7 @@ export default function ModalEditarUsuario({
                     value={form.estado}
                     onChange={handleChange}
                     disabled={isSubmitting}
-                    className="block w-full p-2.5  border rounded-lg bg-gray-600 border-gray-500 text-white"
+                    className="cursor-pointer block w-full p-2.5  border rounded-lg bg-gray-600 border-gray-500 text-white"
                   >
                     <option value="activo">Activo</option>
                     <option value="inactivo">Inactivo</option>

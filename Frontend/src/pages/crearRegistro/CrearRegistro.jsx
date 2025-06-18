@@ -445,7 +445,7 @@ const CrearRegistro = () => {
             setTipoRegistro(tipo);
             setItemsAgregados([]);
           }}
-          className="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+          className="cursor-pointer bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
           required
         >
           <option value="">Seleccione un tipo de registro</option>

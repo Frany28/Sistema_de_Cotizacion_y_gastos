@@ -72,7 +72,7 @@ const DatosBasicosGasto = ({ gasto, setGasto, sucursales = [] }) => {
           name="sucursal_id"
           value={gasto.sucursal_id || ""}
           onChange={handleChange}
-          className="w-full p-2 rounded bg-gray-700 border border-gray-600 text-white"
+          className="cursor-pointer w-full p-2 rounded bg-gray-700 border border-gray-600 text-white"
           required
         >
           <option value="">Seleccione una sucursal</option>
@@ -100,7 +100,7 @@ const DatosBasicosGasto = ({ gasto, setGasto, sucursales = [] }) => {
       {/* Documento */}
       <div className="col-span-1">
         <label className="block mb-1 text-sm font-medium text-white">
-            Documento (imagen o PDF) *
+          Documento (imagen o PDF) *
         </label>
         <input
           type="file"
