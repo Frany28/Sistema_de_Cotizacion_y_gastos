@@ -16,35 +16,35 @@ const router = express.Router();
 // Rutas para manejar clientes
 //crear, obtener, actualizar, eliminar clientes
 // y verificar si un cliente ya existe
+// routes/clientes.routes.js
 router.post(
   "/",
-  validarCliente,
-  crearCliente,
   autenticarUsuario,
-  verificarPermiso("crearCliente")
+  verificarPermiso("crearCliente"),
+  validarCliente,
+  crearCliente
 );
 
 router.put(
   "/:id",
-  validarCliente,
-  actualizarCliente,
   autenticarUsuario,
-  verificarPermiso("editarCliente")
+  verificarPermiso("editarCliente").validarCliente,
+  actualizarCliente
 );
 
 router.get(
   "/",
-  obtenerClientes,
   autenticarUsuario,
-  verificarPermiso("verClientes")
+  verificarPermiso("verClientes"),
+  obtenerClientes
 );
 router.get("/check", verificarClienteExistente);
 
 router.delete(
   "/:id",
-  eliminarCliente,
   autenticarUsuario,
-  verificarPermiso("eliminarCliente")
+  verificarPermiso("eliminarCliente"),
+  eliminarCliente
 );
 
 export default router;

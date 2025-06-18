@@ -31,16 +31,16 @@ router.get("/:id", obtenerSucursal); // Obtener una sucursal específica
 
 router.put(
   "/:id",
-  validarSucursal,
-  actualizarSucursal,
   autenticarUsuario,
-  verificarPermiso("editarSucursal")
+  verificarPermiso("editarSucursal"),
+  validarSucursal,
+  actualizarSucursal
 ); // Actualizar sucursal
 router.delete(
   "/:id",
-  eliminarSucursal,
   autenticarUsuario,
-  verificarPermiso("eliminarSucursal")
+  verificarPermiso("eliminarSucursal"),
+  eliminarSucursal
 ); // Eliminar sucursal
 
 // Rutas adicionales

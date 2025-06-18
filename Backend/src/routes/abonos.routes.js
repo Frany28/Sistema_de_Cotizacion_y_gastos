@@ -8,11 +8,10 @@ import { verificarPermiso } from "../Middleware/verificarPermiso.js";
 
 router.post(
   "/",
-  validarAbono,
-  registrarAbono,
   autenticarUsuario,
   verificarPermiso("registrarAbonoCliente"),
-  autenticarUsuario
+  validarAbono,
+  registrarAbono
 );
 
 export default router;

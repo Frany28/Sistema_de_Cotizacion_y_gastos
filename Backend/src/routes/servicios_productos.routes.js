@@ -26,10 +26,10 @@ router.post(
 // Rutas para editar y eliminar servicios y productos
 router.put(
   "/:id",
-  validarServicioProducto,
-  actualizarServicioProducto,
   autenticarUsuario,
-  verificarPermiso("editarServicio")
+  verificarPermiso("editarServicio"),
+  validarServicioProducto,
+  actualizarServicioProducto
 );
 
 // Ruta para restar cantidad de un producto
@@ -38,9 +38,9 @@ router.put("/restar/:id", restarCantidadProducto);
 // Rutas para obtener servicios y productos
 router.get(
   "/",
-  obtenerServiciosProductos,
   autenticarUsuario,
-  verificarPermiso("verServicios")
+  verificarPermiso("verServicios"),
+  obtenerServiciosProductos
 );
 
 // Ruta para verificar si un servicio o producto ya existe
@@ -52,9 +52,9 @@ router.get("/:id", getServicioProductoById);
 // Ruta para eliminar un servicio o producto
 router.delete(
   "/:id",
-  eliminarServicioProducto,
   autenticarUsuario,
-  verificarPermiso("eliminarServicio")
+  verificarPermiso("eliminarServicio"),
+  eliminarServicioProducto
 );
 
 export default router;

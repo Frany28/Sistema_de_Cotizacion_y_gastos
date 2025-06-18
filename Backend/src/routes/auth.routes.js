@@ -3,7 +3,6 @@ import { login } from "../controllers/auth.controller.js";
 
 const router = express.Router();
 
-
 router.get("/verificar-sesion", (req, res) => {
   if (req.session?.usuario) {
     res.json({ message: "Sesión activa", usuario: req.session.usuario });
@@ -12,10 +11,8 @@ router.get("/verificar-sesion", (req, res) => {
   }
 });
 
-// ✅ Iniciar sesión
 router.post("/login", login);
 
-// ✅ Cerrar sesión
 router.post("/logout", (req, res) => {
   req.session.destroy((err) => {
     if (err) {

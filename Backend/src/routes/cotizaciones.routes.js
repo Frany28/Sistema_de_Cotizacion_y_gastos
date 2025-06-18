@@ -23,28 +23,29 @@ router.get(
 );
 router.get(
   "/:id",
-  getCotizacionById,
   autenticarUsuario,
-  verificarPermiso("verCotizacion")
+  verificarPermiso("verCotizacion"),
+  getCotizacionById
 );
 router.get("/:id/pdf", generarPDFCotizacion);
 router.put(
   "/:id",
-  validarCotizacion,
-  editarCotizacion,
   verificarPermiso("editarCotizacion"),
-  autenticarUsuario
+  autenticarUsuario,
+  validarCotizacion,
+  editarCotizacion
 );
 router.delete(
   "/:id",
-  deleteCotizacion,
   autenticarUsuario,
-  verificarPermiso("eliminarCotizacion")
+  verificarPermiso("eliminarCotizacion"),
+  deleteCotizacion
 );
 router.put(
   "/:id/estado",
-  actualizarEstadoCotizacion,
-  verificarPermiso("aprobarCotizacion")
+  verificarPermiso("aprobarCotizacion"),
+  autenticarUsuario,
+  actualizarEstadoCotizacion
 );
 router.get("/api/cotizaciones/buscar", buscarCotizaciones);
 

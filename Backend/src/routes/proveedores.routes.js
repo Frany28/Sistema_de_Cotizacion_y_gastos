@@ -23,19 +23,24 @@ router.post(
 );
 router.get(
   "/",
-  obtenerProveedores,
   autenticarUsuario,
-  verificarPermiso("verProveedores")
+  verificarPermiso("verProveedores"),
+  obtenerProveedores
 );
 router.get("/check", verificarProveedorExistente);
 router.put(
   "/:id",
-  validarProveedor,
-  actualizarProveedor,
   autenticarUsuario,
-  verificarPermiso("editarProveedor")
+  verificarPermiso("editarProveedor"),
+  validarProveedor,
+  actualizarProveedor
 );
-router.delete("/:id", eliminarProveedor);
+router.delete(
+  "/:id",
+  autenticarUsuario,
+  validarProveedor("eliminarProveedor"),
+  eliminarProveedor
+);
 router.get("/buscar", buscarProveedores);
 
 export default router;
