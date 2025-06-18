@@ -384,17 +384,31 @@ function ListaCotizaciones() {
                 {puedeEditar && (
                   <BotonIcono
                     tipo="editar"
+                    disabled={c.usuario_id !== usuarioId}
                     titulo="Editar Cotización"
                     onClick={async () => {
+                      /* 1) Solo el autor puede editar */
+                      if (c.usuario_id !== usuarioId) {
+                        return mostrarError({
+                          titulo: "Acción no permitida",
+                          mensaje:
+                            "Solo puedes editar cotizaciones creadas por ti.",
+                        });
+                      }
+
+                      /* 2) Mantén la regla de estado aprobada */
                       if (c.estado === "aprobada") {
                         return mostrarError({
                           titulo: "Acción no permitida",
                           mensaje: "No puedes editar una cotización aprobada.",
                         });
                       }
+
+                      /* 3) Flujo normal de edición (tal cual lo tenías) */
                       setLoading(true);
                       try {
                         const { data } = await api.get(`/cotizaciones/${c.id}`);
+
                         setCotizacionSeleccionada({
                           id: data.id,
                           cliente_id: data.cliente_id?.toString() || "",

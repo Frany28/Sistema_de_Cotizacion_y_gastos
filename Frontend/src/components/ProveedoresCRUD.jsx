@@ -10,6 +10,7 @@ import Paginacion from "../components/general/Paginacion";
 import Loader from "./general/Loader";
 import ModalAñadirProveedor from "../components/Modals/ModalAñadirProveedor";
 import ModalEditar from "../components/Modals/ModalEditar";
+import { verificarPermisoFront } from "../utils/verificarPermisoFront";
 
 function ListaProveedores() {
   const [proveedores, setProveedores] = useState([]);
@@ -20,6 +21,9 @@ function ListaProveedores() {
     return stored ? parseInt(stored, 10) : 5;
   });
   const [loading, setLoading] = useState(true);
+  const [puedeCrear, setPuedeCrear] = useState(false);
+  const [puedeEditar, setPuedeEditar] = useState(false);
+  const [puedeEliminar, setPuedeEliminar] = useState(false);
   const [editandoProveedor, setEditandoProveedor] = useState(null);
   const [proveedorAEliminar, setProveedorAEliminar] = useState(null);
   const [mostrarModalEditar, setMostrarModalEditar] = useState(false);
@@ -74,6 +78,25 @@ function ListaProveedores() {
   }, []);
 
   useEffect(() => {
+    fetchProveedores();
+  }, [fetchProveedores]);
+
+  useEffect(() => {
+    const cargarPermisos = async () => {
+      try {
+        const [crear, editar, eliminar] = await Promise.all([
+          verificarPermisoFront("crearProveedor"),
+          verificarPermisoFront("editarProveedor"),
+          verificarPermisoFront("eliminarProveedor"),
+        ]);
+        setPuedeCrear(crear);
+        setPuedeEditar(editar);
+        setPuedeEliminar(eliminar);
+      } catch (e) {
+        console.error("Error obteniendo permisos:", e);
+      }
+    };
+    cargarPermisos();
     fetchProveedores();
   }, [fetchProveedores]);
 
@@ -170,7 +193,9 @@ function ListaProveedores() {
   return (
     <div>
       <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 p-4 gap-2">
-        <BotonAgregar onClick={abrirModal} texto="Nuevo Proveedor" />
+        {puedeCrear && (
+          <BotonAgregar onClick={abrirModal} texto="Nuevo Proveedor" />
+        )}
 
         <div className="flex w-full md:w-1/2 gap-2">
           <div className="flex items-center gap-2">
@@ -200,7 +225,7 @@ function ListaProveedores() {
           />
         </div>
 
-        {mostrarModal && (
+        {mostrarModal && puedeCrear && (
           <ModalAñadirProveedor
             onCancel={cerrarModal}
             onSubmit={() => {
@@ -226,7 +251,9 @@ function ListaProveedores() {
             <th className="px-4 py-3">Teléfono</th>
             <th className="px-4 py-3">Dirección</th>
             <th className="px-4 py-3">Estado</th>
-            <th className="px-4 py-3">Acciones</th>
+            {(puedeEditar || puedeEliminar) && (
+              <th className="px-4 py-3">Acciones</th>
+            )}
           </tr>
         </thead>
         <tbody>
