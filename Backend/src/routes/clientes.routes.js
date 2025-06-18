@@ -15,7 +15,6 @@ import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
 const router = express.Router();
 // Rutas para manejar clientes
 //crear, obtener, actualizar, eliminar clientes
-// y verificar si un cliente ya existe
 // routes/clientes.routes.js
 router.post(
   "/",
