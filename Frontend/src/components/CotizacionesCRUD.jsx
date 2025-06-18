@@ -215,6 +215,9 @@ function ListaCotizaciones() {
     page * limit
   );
 
+  const usuarioId =
+    JSON.parse(localStorage.getItem("user"))?.usuario?.id ?? null;
+
   return (
     <div>
       <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 p-4 gap-2">
@@ -384,7 +387,6 @@ function ListaCotizaciones() {
                 {puedeEditar && (
                   <BotonIcono
                     tipo="editar"
-                    disabled={c.usuario_id !== usuarioId}
                     titulo="Editar Cotización"
                     onClick={async () => {
                       /* 1) Solo el autor puede editar */
@@ -535,12 +537,9 @@ function ListaCotizaciones() {
               fetchCotizaciones();
             } catch (error) {
               console.error("Error al editar cotización:", error);
-              if (error.response && error.response.data) {
-                console.error(
-                  "Respuesta 400 del servidor (error.response.data):",
-                  error.response.data
-                );
-              }
+              const msg =
+                error.response?.data?.message ||
+                "Hubo un problema al actualizar la cotización.";
               mostrarError({
                 titulo: "Error",
                 mensaje:
@@ -632,6 +631,7 @@ function ListaCotizaciones() {
               mostrarError({
                 titulo: "Error",
                 mensaje: "No se pudo registrar el motivo de rechazo.",
+                mensaje: msg,
               });
             } finally {
               setMostrarModalRechazo(false);

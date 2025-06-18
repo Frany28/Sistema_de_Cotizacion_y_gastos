@@ -17,9 +17,9 @@ const router = express.Router();
 
 router.get(
   "/",
-  getCotizaciones,
   autenticarUsuario,
-  verificarPermiso("verCotizaciones")
+  verificarPermiso("verCotizaciones"),
+  getCotizaciones
 );
 router.get(
   "/:id",
@@ -30,8 +30,8 @@ router.get(
 router.get("/:id/pdf", generarPDFCotizacion);
 router.put(
   "/:id",
-  verificarPermiso("editarCotizacion"),
   autenticarUsuario,
+  verificarPermiso("editarCotizacion"),
   validarCotizacion,
   editarCotizacion
 );

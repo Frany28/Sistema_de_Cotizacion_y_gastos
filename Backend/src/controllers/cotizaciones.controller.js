@@ -25,8 +25,6 @@ export const getCotizaciones = async (req, res) => {
   // 2) Parámetro de búsqueda (opcional)
   const q = (req.query.search || "").trim();
 
-  
-
   try {
     // 3) Total de registros (filtrado si hay búsqueda)
     let total;
@@ -318,6 +316,22 @@ export const editarCotizacion = async (req, res) => {
       });
     }
 
+    const [[rowAutor]] = await conn.query(
+      `SELECT usuario_id FROM cotizaciones WHERE id = ?`,
+      [id]
+    );
+    if (!rowAutor) {
+      await conn.rollback();
+      return res.status(404).json({ message: "Cotización no encontrada." });
+    }
+
+    // B) Sólo el autor puede editarla
+    if (rowAutor.usuario_id !== req.user.id) {
+      await conn.rollback();
+      return res.status(403).json({
+        message: "Solo puedes editar cotizaciones creadas por ti.",
+      });
+    }
     // 2) Actualizar cabecera y forzar estado a 'pendiente'
     await conn.query(
       `UPDATE cotizaciones
