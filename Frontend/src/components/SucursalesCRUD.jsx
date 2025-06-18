@@ -5,7 +5,7 @@ import BotonIcono from "../components/general/BotonIcono";
 import BotonAgregar from "../components/general/BotonAgregar";
 import Paginacion from "../components/general/Paginacion";
 import Loader from "../components/general/Loader";
-import verificarPermisoFront from "../../utils/verificarPermisoFront";
+import { verificarPermisoFront } from "../../utils/verificarPermisoFront";
 
 import ModalConfirmacion from "../components/Modals/ModalConfirmacion";
 import ModalCrearSucursal from "./Modals/ModalCrearSucursal";
