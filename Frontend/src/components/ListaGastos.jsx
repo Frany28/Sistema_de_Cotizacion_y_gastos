@@ -585,15 +585,6 @@ function ListaGastos() {
         />
       )}
 
-      <ModalVerSolicitudDePago
-        visible={mostrarModalVer}
-        solicitudId={solicitudSeleccionada}
-        onClose={() => {
-          setMostrarModalVer(false);
-          setSolicitudSeleccionada(null);
-        }}
-      />
-
       <ModalCambioEstado
         visible={mostrarModalCambio}
         onClose={() => {
