@@ -32,10 +32,11 @@ function BancosCRUD() {
   useEffect(() => {
     const fetchPermisos = async () => {
       try {
-        const [crear, editar, eliminar] = await Promise.all([
+        const [crear, editar, eliminar, _] = await Promise.all([
           verificarPermisoFront("crearBanco"),
           verificarPermisoFront("editarBanco"),
           verificarPermisoFront("eliminarBanco"),
+          verificarPermisoFront("verBancos"),
         ]);
         setPuedeCrear(crear);
         setPuedeEditar(editar);
@@ -209,12 +210,7 @@ function BancosCRUD() {
     <div>
       {/* Barra superior: Nuevo + filtros */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 p-4 gap-2">
-        <BotonAgregar
-          onClick={abrirAdd}
-          texto="Nuevo Banco"
-          disabled={!puedeCrear}
-          titulo={!puedeCrear ? "Sin permiso para crear banco" : ""}
-        />
+        {puedeCrear && <BotonAgregar onClick={abrirAdd} texto="Nuevo Banco" />}
         <div className="flex w-full md:w-1/2 gap-2">
           <div className="flex items-center gap-2">
             <label htmlFor="cantidad" className="text-sm text-gray-300">
@@ -265,7 +261,9 @@ function BancosCRUD() {
             <th className="px-4 py-2">Tipo Ident.</th>
             <th className="px-4 py-2">Identificador</th>
             <th className="px-4 py-2">Estado</th>
-            <th className="px-4 py-2">Acciones</th>
+            {(puedeEditar || puedeEliminar) && (
+              <th className="px-4 py-2">Acciones</th>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -277,27 +275,33 @@ function BancosCRUD() {
               <td className="px-4 py-2">{banco.tipo_identificador}</td>
               <td className="px-4 py-2">{banco.identificador}</td>
               <td className="px-4 py-2">{banco.estado}</td>
-              <td className="px-4 py-2 flex space-x-2">
-                <BotonIcono
-                  tipo="editar"
-                  onClick={() => iniciarEdicion(banco)}
-                  titulo="Editar banco"
-                />
-                <BotonIcono
-                  tipo="eliminar"
-                  onClick={() => {
-                    if (banco.estado !== "activo") {
-                      confirmarEliminacion(banco);
-                    }
-                  }}
-                  disabled={banco.estado === "activo"}
-                  titulo={
-                    banco.estado === "activo"
-                      ? "No se puede eliminar un banco activo"
-                      : "Eliminar banco"
-                  }
-                />
-              </td>
+              {(puedeEditar || puedeEliminar) && (
+                <td className="px-4 py-2 flex space-x-2">
+                  {puedeEditar && (
+                    <BotonIcono
+                      tipo="editar"
+                      onClick={() => iniciarEdicion(banco)}
+                      titulo="Editar banco"
+                    />
+                  )}
+
+                  {puedeEliminar && (
+                    <BotonIcono
+                      tipo="eliminar"
+                      onClick={() => {
+                        if (banco.estado !== "activo")
+                          confirmarEliminacion(banco);
+                      }}
+                      disabled={banco.estado === "activo"}
+                      titulo={
+                        banco.estado === "activo"
+                          ? "No se puede eliminar un banco activo"
+                          : "Eliminar banco"
+                      }
+                    />
+                  )}
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
@@ -311,7 +315,7 @@ function BancosCRUD() {
       />
 
       {/* Modales */}
-      {mostrarModalAdd && (
+      {mostrarModalAdd && puedeCrear && (
         <ModalAñadirBanco
           onCancel={cerrarAdd}
           onSubmit={async (datos) => {
