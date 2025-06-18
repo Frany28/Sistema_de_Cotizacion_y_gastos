@@ -25,6 +25,10 @@ export default function UsuariosCRUD() {
   const [showModalEditar, setShowModalEditar] = useState(false);
   const [usuarioEditar, setUsuarioEditar] = useState(null);
 
+  const [puedeCrear, setPuedeCrear] = useState(false);
+  const [puedeEditar, setPuedeEditar] = useState(false);
+  const [puedeEliminar, setPuedeEliminar] = useState(false);
+
   // Estados para eliminación
   const [showModalEliminar, setShowModalEliminar] = useState(false);
   const [usuarioEliminarId, setUsuarioEliminarId] = useState(null);
@@ -65,6 +69,14 @@ export default function UsuariosCRUD() {
     fetchUsuarios();
     fetchRoles();
   }, [fetchUsuarios]);
+
+  useEffect(() => {
+    (async () => {
+      setPuedeCrear(await verificarPermisoFront("crearUsuario"));
+      setPuedeEditar(await verificarPermisoFront("editarUsuario"));
+      setPuedeEliminar(await verificarPermisoFront("eliminarUsuario"));
+    })();
+  }, []);
 
   const manejarBusqueda = (e) => {
     setBusqueda(e.target.value);
@@ -198,10 +210,12 @@ export default function UsuariosCRUD() {
 
       {/* Controles de búsqueda y paginación */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 p-4 gap-2">
-        <BotonAgregar
-          onClick={() => setShowModalCrear(true)}
-          texto="Nuevo Usuario"
-        />
+        {puedeCrear && (
+          <BotonAgregar
+            onClick={() => setShowModalCrear(true)}
+            texto="Nuevo Usuario"
+          />
+        )}
 
         <div className="flex w-full md:w-1/2 gap-2">
           <div className="flex items-center gap-2">
@@ -283,17 +297,21 @@ export default function UsuariosCRUD() {
               </td>
               <td className="px-4 py-3 flex space-x-2">
                 {/* Editar */}
-                <BotonIcono
-                  tipo="editar"
-                  onClick={() => abrirModalEditar(u.id)}
-                  titulo="Editar usuario"
-                />
+                {puedeEditar && (
+                  <BotonIcono
+                    tipo="editar"
+                    onClick={() => abrirModalEditar(u.id)}
+                    titulo="Editar usuario"
+                  />
+                )}
                 {/* Eliminar */}
-                <BotonIcono
-                  tipo="eliminar"
-                  onClick={() => abrirModalEliminar(u.id)}
-                  titulo="Eliminar usuario"
-                />
+                {puedeEliminar && (
+                  <BotonIcono
+                    tipo="eliminar"
+                    onClick={() => abrirModalEliminar(u.id)}
+                    titulo="Eliminar usuario"
+                  />
+                )}
               </td>
             </tr>
           ))}

@@ -5,6 +5,7 @@ import BotonIcono from "../components/general/BotonIcono";
 import BotonAgregar from "../components/general/BotonAgregar";
 import Paginacion from "../components/general/Paginacion";
 import Loader from "../components/general/Loader";
+import verificarPermisoFront from "../utils/verificarPermisoFront";
 
 import ModalConfirmacion from "../components/Modals/ModalConfirmacion";
 import ModalCrearSucursal from "./Modals/ModalCrearSucursal";
@@ -25,6 +26,10 @@ export default function SucursalesCRUD() {
   const [showModalCrear, setShowModalCrear] = useState(false);
   const [showModalEditar, setShowModalEditar] = useState(false);
   const [sucursalEditar, setSucursalEditar] = useState(null);
+  // Verificar permisos
+  const [puedeCrear, setPuedeCrear] = useState(false);
+  const [puedeEditar, setPuedeEditar] = useState(false);
+  const [puedeEliminar, setPuedeEliminar] = useState(false);
 
   // Estados para eliminación
   const [showModalEliminar, setShowModalEliminar] = useState(false);
@@ -53,6 +58,14 @@ export default function SucursalesCRUD() {
   useEffect(() => {
     fetchSucursales();
   }, [fetchSucursales]);
+
+  useEffect(() => {
+    (async () => {
+      setPuedeCrear(await verificarPermisoFront("crearSucursal"));
+      setPuedeEditar(await verificarPermisoFront("editarSucursal"));
+      setPuedeEliminar(await verificarPermisoFront("eliminarSucursal"));
+    })();
+  }, []);
 
   const manejarBusqueda = (e) => {
     setBusqueda(e.target.value);
@@ -172,10 +185,12 @@ export default function SucursalesCRUD() {
 
       {/* Controles de búsqueda y paginación */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 p-4 gap-2">
-        <BotonAgregar
-          onClick={() => setShowModalCrear(true)}
-          texto="Nueva Sucursal"
-        />
+        {puedeCrear && (
+          <BotonAgregar
+            onClick={() => setShowModalCrear(true)}
+            texto="Nueva Sucursal"
+          />
+        )}
 
         <div className="flex w-full md:w-1/2 gap-2">
           <div className="flex items-center gap-2">
@@ -249,16 +264,20 @@ export default function SucursalesCRUD() {
               <td className="px-4 py-3">{s.ciudad || "-"}</td>
               <td className="px-4 py-3">{s.responsable || "-"}</td>
               <td className="px-4 py-3 flex space-x-2">
-                <BotonIcono
-                  tipo="editar"
-                  onClick={() => abrirModalEditar(s.id)}
-                  titulo="Editar sucursal"
-                />
-                <BotonIcono
-                  tipo="eliminar"
-                  onClick={() => abrirModalEliminar(s.id)}
-                  titulo="Eliminar sucursal"
-                />
+                {puedeEditar && (
+                  <BotonIcono
+                    tipo="editar"
+                    onClick={() => abrirModalEditar(s.id)}
+                    titulo="Editar sucursal"
+                  />
+                )}
+                {puedeEliminar && (
+                  <BotonIcono
+                    tipo="eliminar"
+                    onClick={() => abrirModalEliminar(s.id)}
+                    titulo="Eliminar sucursal"
+                  />
+                )}
               </td>
             </tr>
           ))}
