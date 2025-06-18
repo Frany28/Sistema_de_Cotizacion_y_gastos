@@ -24,7 +24,7 @@ router.get(
 router.get(
   "/:id",
   autenticarUsuario,
-  verificarPermiso("verCotizacion"),
+  verificarPermiso("verCotizaciones"),
   getCotizacionById
 );
 router.get("/:id/pdf", generarPDFCotizacion);
