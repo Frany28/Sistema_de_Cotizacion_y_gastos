@@ -92,13 +92,12 @@ function ListaCotizaciones() {
   const [mostrarModalDetalle, setMostrarModalDetalle] = useState(false);
 
   useEffect(() => {
-    const verificarPermisos = async () => {
-      setPuedeCrear(await verificarPermisoFront("creaCotizacion"));
+    (async () => {
+      setPuedeCrear(await verificarPermisoFront("crearCotizacion"));
       setPuedeEditar(await verificarPermisoFront("editarCotizacion"));
-      setPuedeEliminar(await verificarPermisoFront("eliminaCotizacion"));
+      setPuedeEliminar(await verificarPermisoFront("eliminarCotizacion"));
       setPuedeAprobar(await verificarPermisoFront("aprobarCotizacion"));
-    };
-    verificarPermisos();
+    })();
   }, []);
 
   const mostrarMensajeExito = ({
@@ -215,29 +214,14 @@ function ListaCotizaciones() {
     page * limit
   );
 
-  const usuarioId =
-    JSON.parse(localStorage.getItem("user"))?.usuario?.id ?? null;
-
   return (
     <div>
       <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 p-4 gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          {puedeCrear ? (
+          {puedeCrear && (
             <BotonAgregar
               titulo="Crear Cotización"
               onClick={() => navigate("/crearRegistro")}
-            />
-          ) : (
-            <BotonAgregar
-              titulo="Crear Cotización"
-              onClick={() =>
-                setModalErrorData({
-                  visible: true,
-                  titulo: "Permiso denegado",
-                  mensaje: "No tienes permiso para crear cotizaciones.",
-                  textoBoton: "Cerrar",
-                })
-              }
             />
           )}
         </div>
@@ -389,28 +373,15 @@ function ListaCotizaciones() {
                     tipo="editar"
                     titulo="Editar Cotización"
                     onClick={async () => {
-                      /* 1) Solo el autor puede editar */
-                      if (c.usuario_id !== usuarioId) {
-                        return mostrarError({
-                          titulo: "Acción no permitida",
-                          mensaje:
-                            "Solo puedes editar cotizaciones creadas por ti.",
-                        });
-                      }
-
-                      /* 2) Mantén la regla de estado aprobada */
                       if (c.estado === "aprobada") {
                         return mostrarError({
                           titulo: "Acción no permitida",
                           mensaje: "No puedes editar una cotización aprobada.",
                         });
                       }
-
-                      /* 3) Flujo normal de edición (tal cual lo tenías) */
                       setLoading(true);
                       try {
                         const { data } = await api.get(`/cotizaciones/${c.id}`);
-
                         setCotizacionSeleccionada({
                           id: data.id,
                           cliente_id: data.cliente_id?.toString() || "",
@@ -537,9 +508,12 @@ function ListaCotizaciones() {
               fetchCotizaciones();
             } catch (error) {
               console.error("Error al editar cotización:", error);
-              const msg =
-                error.response?.data?.message ||
-                "Hubo un problema al actualizar la cotización.";
+              if (error.response && error.response.data) {
+                console.error(
+                  "Respuesta 400 del servidor (error.response.data):",
+                  error.response.data
+                );
+              }
               mostrarError({
                 titulo: "Error",
                 mensaje:
@@ -631,7 +605,6 @@ function ListaCotizaciones() {
               mostrarError({
                 titulo: "Error",
                 mensaje: "No se pudo registrar el motivo de rechazo.",
-                mensaje: msg,
               });
             } finally {
               setMostrarModalRechazo(false);
