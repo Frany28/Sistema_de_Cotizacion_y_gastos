@@ -28,7 +28,8 @@ router.post(
 router.put(
   "/:id",
   autenticarUsuario,
-  verificarPermiso("editarCliente").validarCliente,
+  verificarPermiso("editarCliente"),
+  validarCliente,
   actualizarCliente
 );
 
