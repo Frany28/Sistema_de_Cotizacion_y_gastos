@@ -115,7 +115,7 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
                   <p>
                     <span className="text-gray-400">Proveedor:</span>{" "}
                     <span className="font-medium">
-                      {gasto.proveedor || "-"}
+                      {gasto.proveedor || "N/A"}
                     </span>
                   </p>
                   <p>
@@ -132,7 +132,7 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
                     <p>
                       <span className="text-gray-400">Cotización:</span>{" "}
                       <span className="font-medium">
-                        {gasto.cotizacion_codigo || "-"}
+                        {gasto.cotizacion_codigo || "N/A"}
                       </span>
                     </p>
                   )}
