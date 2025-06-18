@@ -514,10 +514,10 @@ function ListaGastos() {
                   <BotonIcono
                     tipo="ver"
                     onClick={() => {
-                      setSolicitudSeleccionada(solicitud.id);
+                      setGastoSeleccionado(gasto);
                       setMostrarModalVer(true);
                     }}
-                    titulo="Ver solicitud"
+                    titulo="Ver gasto"
                   />
 
                   <BotonIcono
