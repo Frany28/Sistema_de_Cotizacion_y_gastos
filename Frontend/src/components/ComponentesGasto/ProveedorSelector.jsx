@@ -45,7 +45,7 @@ const ProveedorSelector = ({
         </label>
         <button
           onClick={() => setMostrarModal(true)}
-          className="text-blue-400 hover:text-blue-600 text-sm underline"
+          className="text-blue-400 hover:text-blue-600 text-sm underline cursor-pointer"
         >
           + Añadir Proveedor
         </button>

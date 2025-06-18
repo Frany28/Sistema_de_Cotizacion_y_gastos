@@ -151,7 +151,7 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                   <button
                     type="button"
                     onClick={onCancel}
-                    className="absolute right-4 top-4 text-gray-400  rounded-lg w-8 h-8 flex justify-center items-center hover:bg-gray-600"
+                    className="cursor-pointer absolute right-4 top-4 text-gray-400  rounded-lg w-8 h-8 flex justify-center items-center hover:bg-gray-600"
                   >
                     <svg
                       className="w-3 h-3"
@@ -247,7 +247,6 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                     )}
                   </div>
 
-                  
                   {/* Firma */}
                   <div className="col-span-2">
                     <label className="block mb-1 text-sm font-medium text-white">
@@ -280,7 +279,7 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                   <button
                     type="submit"
                     disabled={submitting}
-                    className={`col-span-2 w-full text-white font-medium rounded-lg p-2.5 text-center ${
+                    className={`cursor-pointer col-span-2 w-full text-white font-medium rounded-lg p-2.5 text-center ${
                       submitting
                         ? "bg-gray-400 cursor-not-allowed"
                         : " focus:ring-4  bg-blue-600 hover:bg-blue-700 focus:ring-blue-800"

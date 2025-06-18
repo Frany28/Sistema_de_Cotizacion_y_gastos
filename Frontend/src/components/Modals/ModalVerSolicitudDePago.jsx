@@ -13,7 +13,7 @@ import api from "../../api/index"; // ← ajusta la ruta a tu helper de Axios
 
 export default function ModalVerSolicitudDePago({
   visible,
-  solicitudId, 
+  solicitudId,
   onClose,
 }) {
   /* ------------------------ estado local ------------------------- */
@@ -165,17 +165,11 @@ export default function ModalVerSolicitudDePago({
           {/* botón cerrar */}
           <button
             onClick={handleClose}
-            className="absolute top-3 right-3 text-gray-400 hover:text-white"
+            className="cursor-pointer absolute top-3 right-3 text-gray-400 hover:text-white"
           >
             <X className="w-5 h-5" />
           </button>
 
-          {/* ---------- aquí va TODO el markup original ------------- */}
-          {/* Usa `solicitud` exactamente igual que antes;            */}
-          {/* el resto del archivo permanece sin cambios.            */}
-
-          {/* … (copia tu sección original desde <div className="flex items-start …"> … hasta el final) */}
-          {/* solo elimina la línea `const [descargando, …]` duplicada */}
         </motion.div>
       </motion.div>
     </AnimatePresence>

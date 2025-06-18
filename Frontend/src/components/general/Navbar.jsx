@@ -129,7 +129,7 @@ function Navbar() {
             <button
               type="button"
               onClick={toggleUserDropdown}
-              className="flex items-center text-sm bg-gray-600 rounded-full w-8 h-8 justify-center font-semibold text-white focus:ring-4  focus:ring-gray-600"
+              className=" cursor-pointer flex items-center text-sm bg-gray-600 rounded-full w-8 h-8 justify-center font-semibold text-white focus:ring-4  focus:ring-gray-600"
             >
               <span className="sr-only">Open user menu</span>
               {iniciales || "US"}
@@ -165,7 +165,7 @@ function Navbar() {
                   <li>
                     <button
                       onClick={cerrarSesion}
-                      className="w-full text-left flex items-center gap-2 px-4 py-2 text-sm  text-red-400 hover:bg-red-800"
+                      className=" cursor-pointer w-full text-left flex items-center gap-2 px-4 py-2 text-sm  text-red-400 hover:bg-red-800"
                     >
                       <LogOut size={16} /> Cerrar sesión
                     </button>
@@ -179,7 +179,7 @@ function Navbar() {
             <button
               onClick={toggleMobileMenu}
               type="button"
-              className="inline-flex items-center p-2 w-10 h-10 justify-center text-sm  rounded-lg  focus:outline-none focus:ring-2  text-gray-400 hover:bg-gray-700 focus:ring-gray-600 "
+              className=" cursor-pointer inline-flex items-center p-2 w-10 h-10 justify-center text-sm  rounded-lg  focus:outline-none focus:ring-2  text-gray-400 hover:bg-gray-700 focus:ring-gray-600 "
             >
               <span className="sr-only">Open main menu</span>
               <svg
@@ -233,7 +233,7 @@ function Navbar() {
                     <li key={item.label} className="relative">
                       <button
                         onClick={() => toggleDropdown(item.label)}
-                        className={`flex items-center justify-between w-full py-2 px-3 rounded-sm ${
+                        className={`cursor-pointer flex items-center justify-between w-full py-2 px-3 rounded-sm ${
                           isActive
                             ? "text-blue-700 font-bold"
                             : " hover:text-blue-700 text-white"
@@ -315,7 +315,7 @@ function Navbar() {
                 return (
                   <li key={item.label} className="relative group">
                     <button
-                      className={`flex items-center py-2 px-3 rounded-sm md:p-0 ${
+                      className={`cursor-pointer flex items-center py-2 px-3 rounded-sm md:p-0 ${
                         isActive
                           ? "text-blue-700 font-bold"
                           : "text-white hover:text-blue-700"

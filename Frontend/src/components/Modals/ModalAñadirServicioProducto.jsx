@@ -166,7 +166,7 @@ export default function ModalAñadirServicioProducto({
               <button
                 type="button"
                 onClick={onCancel}
-                className="absolute right-4 top-4 text-gray-400 bg-transparent  rounded-lg text-sm w-8 h-8 inline-flex justify-center items-center hover:bg-gray-600 hover:text-white"
+                className="cursor-pointer absolute right-4 top-4 text-gray-400 bg-transparent  rounded-lg text-sm w-8 h-8 inline-flex justify-center items-center hover:bg-gray-600 hover:text-white"
               >
                 <svg
                   className="w-3 h-3"
@@ -309,7 +309,7 @@ export default function ModalAñadirServicioProducto({
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className={`text-white inline-flex items-center font-medium rounded-lg text-sm px-5 py-2.5 text-center ${
+                className={`cursor-pointer text-white inline-flex items-center font-medium rounded-lg text-sm px-5 py-2.5 text-center ${
                   isSubmitting
                     ? "bg-gray-400 cursor-not-allowed"
                     : " bg-blue-600 hover:bg-blue-700 focus:ring-blue-800"

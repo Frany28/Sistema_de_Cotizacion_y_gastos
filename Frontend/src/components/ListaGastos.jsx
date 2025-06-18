@@ -391,7 +391,7 @@ function ListaGastos() {
             <button
               key={tipo.id}
               onClick={() => setTipoFiltro(tipo.id)}
-              className={`px-4 py-1 rounded-full text-sm border ${
+              className={`px-4 py-1 rounded-full text-sm border cursor-pointer ${
                 tipoFiltro === tipo.id
                   ? "bg-gray-600 text-white"
                   : "bg-gray-800 text-white hover:bg-gray-500"

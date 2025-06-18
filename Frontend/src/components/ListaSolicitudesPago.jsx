@@ -33,7 +33,6 @@ function ListaSolicitudesPago() {
     visible: false,
     solicitud: null,
   });
-  
 
   // Estados para modales de feedback
   const [modalExitoData, setModalExitoData] = useState({
@@ -215,7 +214,7 @@ function ListaSolicitudesPago() {
                 setEstadoFiltro(estado.id);
                 setPage(1);
               }}
-              className={`px-4 py-1 rounded-full text-sm border ${
+              className={`px-4 py-1 rounded-full text-sm border cursor-pointer ${
                 estadoFiltro === estado.id
                   ? "bg-gray-600 text-white"
                   : "bg-gray-800 text-white hover:bg-gray-500"

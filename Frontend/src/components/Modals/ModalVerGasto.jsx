@@ -65,7 +65,7 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
         >
           <button
             onClick={onClose}
-            className="absolute top-3 right-3 text-gray-400 hover:text-white"
+            className="cursor-pointer absolute top-3 right-3 text-gray-400 hover:text-white"
           >
             <X className="w-5 h-5" />
           </button>
@@ -294,7 +294,7 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
           <div className="mt-4 flex justify-end">
             <button
               onClick={onClose}
-              className="px-4 py-2 bg-gray-700 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors text-sm font-medium mr-2"
+              className="cursor-pointer px-4 py-2 bg-gray-700 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors text-sm font-medium mr-2"
             >
               Cerrar
             </button>
@@ -303,7 +303,7 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
               <button
                 onClick={handleDescargar}
                 disabled={descargando}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium flex items-center"
+                className="cursor-pointer px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium flex items-center"
               >
                 <Download className="w-4 h-4 mr-2" />
                 {descargando ? "Descargando…" : "Descargar comprobante"}

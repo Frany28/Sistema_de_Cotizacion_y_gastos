@@ -161,7 +161,7 @@ export default function ModalRegistrarPago({
               <button
                 onClick={onClose}
                 disabled={isSubmitting}
-                className="absolute top-3 right-3 text-gray-400  hover:text-white disabled:opacity-50"
+                className="cursor-pointer absolute top-3 right-3 text-gray-400  hover:text-white disabled:opacity-50"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -325,14 +325,14 @@ export default function ModalRegistrarPago({
                     type="button"
                     onClick={onClose}
                     disabled={isSubmitting}
-                    className="px-5 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                    className="cursor-pointer px-5 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 disabled:opacity-50 focus:outline-none"
+                    className=" cursor-pointer px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 disabled:opacity-50 focus:outline-none"
                   >
                     {isSubmitting ? "Registrando..." : "Registrar Pago"}
                   </button>

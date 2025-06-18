@@ -18,7 +18,7 @@ function Sidebar({ items }) {
         data-drawer-toggle="cta-button-sidebar"
         aria-controls="cta-button-sidebar"
         type="button"
-        className="inline-flex items-center p-2 mt-2 ms-3 text-sm  rounded-lg sm:hidden  focus:outline-none focus:ring-2  text-gray-400 hover:bg-gray-700 focus:ring-gray-600"
+        className=" cursor-pointer inline-flex items-center p-2 mt-2 ms-3 text-sm  rounded-lg sm:hidden  focus:outline-none focus:ring-2  text-gray-400 hover:bg-gray-700 focus:ring-gray-600"
       >
         <span className="sr-only">Open sidebar</span>
         <svg

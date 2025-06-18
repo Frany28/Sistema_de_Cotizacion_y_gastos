@@ -26,7 +26,7 @@ export default function ModalError({
           >
             <button
               onClick={onClose}
-              className="absolute top-3 right-3 text-gray-400  hover:text-white"
+              className="cursor-pointer absolute top-3 right-3 text-gray-400  hover:text-white"
             >
               <X className="w-5 h-5" />
             </button>
@@ -40,7 +40,7 @@ export default function ModalError({
 
             <button
               onClick={onClose}
-              className="px-5 py-2.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg focus:outline-none focus:ring-4  focus:ring-red-800"
+              className=" cursor-pointer px-5 py-2.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg focus:outline-none focus:ring-4  focus:ring-red-800"
             >
               {textoBoton}
             </button>

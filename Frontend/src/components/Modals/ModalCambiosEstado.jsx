@@ -25,7 +25,7 @@ export default function ModalCambioEstado({
           >
             <button
               onClick={onClose}
-              className="absolute top-3 right-3 text-gray-400 hover:text-white"
+              className="cursor-pointer absolute top-3 right-3 text-gray-400 hover:text-white"
             >
               <X className="w-5 h-5" />
             </button>
@@ -42,7 +42,7 @@ export default function ModalCambioEstado({
               <div className="flex flex-col items-center">
                 <button
                   onClick={() => onSeleccionar("aprobada")}
-                  className="w-16 h-16 rounded-full bg-green-400 hover:bg-green-500 flex items-center justify-center shadow-md"
+                  className="cursor-pointer w-16 h-16 rounded-full bg-green-400 hover:bg-green-500 flex items-center justify-center shadow-md"
                 >
                   <Check className="w-8 h-8 text-white" />
                 </button>
@@ -63,7 +63,7 @@ export default function ModalCambioEstado({
 
             <button
               onClick={onClose}
-              className="mt-6 px-5 py-2.5 text-sm font-medium text-white bg-blue-700 hover:bg-gray-600 rounded-lg focus:outline-none focus:ring-4 focus:ring-gray-700"
+              className="cursor-pointer mt-6 px-5 py-2.5 text-sm font-medium text-white bg-blue-700 hover:bg-gray-600 rounded-lg focus:outline-none focus:ring-4 focus:ring-gray-700"
             >
               Cancelar
             </button>

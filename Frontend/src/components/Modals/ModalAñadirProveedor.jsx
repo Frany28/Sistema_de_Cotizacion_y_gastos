@@ -151,7 +151,7 @@ export default function ModalAñadirProveedor({
               <button
                 type="button"
                 onClick={onCancel}
-                className="absolute right-4 top-4 text-gray-400 bg-transparent  hover:text-gray-900 rounded-lg text-sm w-8 h-8 inline-flex justify-center items-center hover:bg-gray-600 "
+                className="cursor-pointer absolute right-4 top-4 text-gray-400 bg-transparent  hover:text-gray-900 rounded-lg text-sm w-8 h-8 inline-flex justify-center items-center hover:bg-gray-600 "
               >
                 <svg
                   className="w-3 h-3"
@@ -202,7 +202,7 @@ export default function ModalAñadirProveedor({
                   </label>
                   <input
                     type="email"
-                    name="email" 
+                    name="email"
                     value={form.email}
                     onChange={handleChange}
                     className=" text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
@@ -290,7 +290,7 @@ export default function ModalAñadirProveedor({
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className={`text-white inline-flex items-center font-medium rounded-lg text-sm px-5 py-2.5 text-center ${
+                className={`cursor-pointer text-white inline-flex items-center font-medium rounded-lg text-sm px-5 py-2.5 text-center ${
                   isSubmitting
                     ? "bg-gray-400 cursor-not-allowed"
                     : "focus:ring-4 focus:outline-none  bg-blue-600 hover:bg-blue-700 focus:ring-blue-800"

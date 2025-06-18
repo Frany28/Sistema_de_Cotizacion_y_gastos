@@ -65,7 +65,6 @@ export default function ModalRegistrarAbono({
     obtenerTasa();
   }, [form.moneda_pago]);
 
-
   useEffect(() => {
     if (form.moneda_pago === "VES" && form.tasa_cambio && form.monto_abonado) {
       const usd = parseFloat(form.monto_abonado / form.tasa_cambio).toFixed(2);
@@ -149,7 +148,7 @@ export default function ModalRegistrarAbono({
               <button
                 type="button"
                 onClick={onCancel}
-                className="absolute top-4 right-43 text-gray-400 hover:text-white"
+                className="cursor-pointer absolute top-4 right-43 text-gray-400 hover:text-white"
               >
                 ✕
               </button>
@@ -250,7 +249,7 @@ export default function ModalRegistrarAbono({
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className={`w-full p-2 text-white rounded font-medium ${
+                className={`cursor-pointer w-full p-2 text-white rounded font-medium ${
                   isSubmitting
                     ? "bg-gray-500 cursor-not-allowed"
                     : "bg-blue-600 hover:bg-blue-700"

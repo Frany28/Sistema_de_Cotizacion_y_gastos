@@ -287,7 +287,7 @@ function ListaServiciosProductos() {
             <button
               key={tipo}
               onClick={() => cambiarTipoFiltro(tipo)}
-              className={`px-4 py-1 rounded-full text-sm border ${
+              className={`px-4 py-1 rounded-full text-sm border cursor-pointer ${
                 tipoFiltro === tipo
                   ? "bg-gray-600 text-white "
                   : " bg-gray-800 text-white hover:bg-gray-500"

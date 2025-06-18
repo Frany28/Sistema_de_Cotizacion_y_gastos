@@ -55,7 +55,7 @@ export default function ItemsSeleccionados({ items = [], onUpdate, onRemove }) {
                       onClick={() =>
                         handleChangeCantidad(item.id, item.cantidad - 1)
                       }
-                      className="p-1 rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-50"
+                      className="p-1 rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-50 cursor-pointer"
                       disabled={item.cantidad <= 1}
                     >
                       <Minus size={14} />
@@ -67,7 +67,7 @@ export default function ItemsSeleccionados({ items = [], onUpdate, onRemove }) {
                       onClick={() =>
                         handleChangeCantidad(item.id, item.cantidad + 1)
                       }
-                      className="p-1 rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-50"
+                      className="p-1 rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-50 cursor-pointer"
                       disabled={
                         item.stockDisponible &&
                         item.cantidad >= item.stockDisponible
@@ -89,9 +89,7 @@ export default function ItemsSeleccionados({ items = [], onUpdate, onRemove }) {
                     className="w-20 px-2 py-1 rounded bg-gray-700 border border-gray-600 text-white"
                   />
                 </td>
-                <td className="px-3 py-2">
-                  {item.porcentaje_iva ?? 0}%{" "}
-                </td>
+                <td className="px-3 py-2">{item.porcentaje_iva ?? 0}% </td>
                 <td className="px-3 py-2">
                   ${((item.precio || 0) * item.cantidad).toFixed(2)}
                 </td>

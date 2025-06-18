@@ -18,13 +18,13 @@ export default function Paginacion({
 
   return (
     <nav aria-label="Paginación" className="flex justify-center mt-4 mb-2">
-      <ul className="inline-flex gap-1 items-center shadow-sm  bg-gray-800 px-2 py-1 rounded-xl border border-gray-300 border-gray-700">
+      <ul className="inline-flex gap-1 items-center shadow-sm  bg-gray-800 px-2 py-1 rounded-xl border border-gray-300">
         {/* Botón Anterior */}
         <li>
           <button
             onClick={() => onCambiarPagina(paginaActual - 1)}
             disabled={paginaActual === 1}
-            className={`flex items-center justify-center w-9 h-9 rounded-md transition-colors duration-150 ${
+            className={`cursor-pointer flex items-center justify-center w-9 h-9 rounded-md transition-colors duration-150 ${
               paginaActual === 1
                 ? "text-gray-400 cursor-not-allowed"
                 : "text-gray-300 bg-gray-800 hover:bg-gray-700"
@@ -39,7 +39,7 @@ export default function Paginacion({
           <li key={pagina}>
             <button
               onClick={() => onCambiarPagina(pagina)}
-              className={`w-9 h-9 rounded-md font-medium transition-colors duration-150 ${
+              className={`cursor-pointer w-9 h-9 rounded-md font-medium transition-colors duration-150 ${
                 pagina === paginaActual
                   ? "bg-gray-900 text-white shadow-sm"
                   : " bg-gray-800 text-gray-300 hover:bg-gray-700"
@@ -55,7 +55,7 @@ export default function Paginacion({
           <button
             onClick={() => onCambiarPagina(paginaActual + 1)}
             disabled={paginaActual === totalPaginas}
-            className={`flex items-center justify-center w-9 h-9 rounded-md transition-colors duration-150 ${
+            className={`cursor-pointer flex items-center justify-center w-9 h-9 rounded-md transition-colors duration-150 ${
               paginaActual === totalPaginas
                 ? "text-gray-400 cursor-not-allowed"
                 : "text-gray-300 bg-gray-800 hover:bg-gray-700"

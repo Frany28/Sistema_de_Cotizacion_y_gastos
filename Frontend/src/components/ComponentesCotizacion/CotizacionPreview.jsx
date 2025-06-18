@@ -30,7 +30,7 @@ export default function CotizacionPreview({ cotizacion }) {
         </h1>
         <button
           onClick={() => navigate(-1)}
-          className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded"
+          className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded cursor-pointer"
         >
           Volver
         </button>

@@ -9,7 +9,7 @@ export default function BotonAgregar({
   return (
     <button
       onClick={onClick}
-      className={`inline-flex items-center border border-white text-white
+      className={`inline-flex items-center border border-white text-white cursor-pointer
         hover:bg-gray-700 hover:text-white transition-colors font-medium rounded-lg 
         px-4 py-2 text-sm ${className}`}
     >

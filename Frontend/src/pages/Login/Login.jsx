@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import api from "../../api/index.js";
 
 const Login = () => {
-
   const [email, setEmail] = useState("admin@email.com");
   const [password, setPassword] = useState("admin123");
   const [recordar, setRecordar] = useState(false);
@@ -86,7 +85,7 @@ const Login = () => {
 
           <button
             type="submit"
-            className="bg-blue-700 text-white font-bold py-2 px-4 rounded-md mt-4 hover:bg-blue-600
+            className="cursor-pointer bg-blue-700 text-white font-bold py-2 px-4 rounded-md mt-4 hover:bg-blue-600
                        focus:outline-none focus:ring-2 focus:ring-blue-500
                        focus:ring-opacity-50 transition ease-in-out duration-150"
           >

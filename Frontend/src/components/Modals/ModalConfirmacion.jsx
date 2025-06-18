@@ -28,7 +28,7 @@ export default function ModalConfirmacion({
           >
             <button
               onClick={onClose}
-              className="absolute top-3 right-3 text-gray-400  hover:text-white"
+              className="cursor-pointer absolute top-3 right-3 text-gray-400  hover:text-white"
             >
               <X className="w-5 h-5" />
             </button>
@@ -38,19 +38,17 @@ export default function ModalConfirmacion({
               <h3 className="mb-2 text-lg font-semibold  text-white">
                 {titulo}
               </h3>
-              <p className="mb-5 text-sm  text-gray-300">
-                {mensaje}
-              </p>
+              <p className="mb-5 text-sm  text-gray-300">{mensaje}</p>
 
               <button
                 onClick={onConfirmar}
-                className="text-white bg-red-600 hover:bg-red-700 focus:ring-4 focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 mr-2"
+                className="cursor-pointer text-white bg-red-600 hover:bg-red-700 focus:ring-4 focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 mr-2"
               >
                 {textoConfirmar}
               </button>
               <button
                 onClick={onClose}
-                className="px-5 py-2.5 text-sm font-medium  rounded-lg  text-gray-300 border-gray-600 hover:bg-gray-700"
+                className=" cursor-pointer px-5 py-2.5 text-sm font-medium  rounded-lg  text-gray-300 border-gray-600 hover:bg-gray-700"
               >
                 {textoCancelar}
               </button>

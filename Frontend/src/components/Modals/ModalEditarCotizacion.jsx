@@ -207,7 +207,7 @@ export default function ModalEditarCotizacion({
                 </div>
                 <button
                   onClick={onClose}
-                  className="text-gray-400 hover:text-white"
+                  className="cursor-pointer text-gray-400 hover:text-white"
                 >
                   <X className="w-6 h-6" />
                 </button>
@@ -475,7 +475,7 @@ export default function ModalEditarCotizacion({
                   <button
                     type="button"
                     onClick={addLinea}
-                    className="flex items-center gap-2 px-3 py-1 bg-green-600 hover:bg-green-500 text-white rounded text-sm"
+                    className="cursor-pointer flex items-center gap-2 px-3 py-1 bg-green-600 hover:bg-green-500 text-white rounded text-sm"
                   >
                     <span>+</span>
                     <span>Agregar Línea</span>
@@ -644,7 +644,7 @@ export default function ModalEditarCotizacion({
                             <button
                               type="button"
                               onClick={() => removeLinea(index)}
-                              className="text-red-500 hover:text-red-300"
+                              className="cursor-pointer text-red-500 hover:text-red-300"
                             >
                               Eliminar
                             </button>
@@ -683,14 +683,14 @@ export default function ModalEditarCotizacion({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-6 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded transition-colors"
+                  className="cursor-pointer px-6 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex items-center gap-2 px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="cursor-pointer flex items-center gap-2 px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? (
                     <Loader size="sm" />

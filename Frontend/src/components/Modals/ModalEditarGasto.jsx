@@ -300,11 +300,13 @@ export default function ModalEditarGasto({
               <div className="sticky top-0 bg-gray-800 p-6 border-b border-gray-700 flex justify-between items-center z-10">
                 <div className="flex items-center gap-3">
                   <Pencil className="w-6 h-6 text-blue-500" />
-                  <h2 className="text-xl font-semibold">Editar Gasto</h2>
+                  <h2 className="cursor-pointer text-xl font-semibold">
+                    Editar Gasto
+                  </h2>
                 </div>
                 <button
                   onClick={onClose}
-                  className="text-gray-400 hover:text-white"
+                  className="cursor-pointer text-gray-400 hover:text-white"
                 >
                   <X className="w-6 h-6" />
                 </button>
@@ -673,14 +675,14 @@ export default function ModalEditarGasto({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded transition-colors"
+                  className="cursor-pointer px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   form="modal-form"
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors"
+                  className="cursor-pointer px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors"
                 >
                   Guardar Cambios
                 </button>

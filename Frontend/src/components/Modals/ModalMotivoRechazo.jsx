@@ -34,7 +34,7 @@ export default function ModalMotivoRechazo({ visible, onClose, onSubmit }) {
             {/* Botón de cierre */}
             <button
               onClick={onClose}
-              className="absolute top-3 right-3 text-gray-400  hover:text-white"
+              className="cursor-pointer absolute top-3 right-3 text-gray-400  hover:text-white"
             >
               <X className="w-5 h-5" />
             </button>
@@ -44,7 +44,7 @@ export default function ModalMotivoRechazo({ visible, onClose, onSubmit }) {
             </h2>
 
             <textarea
-              className="w-full h-32 p-3 text-sm  bg-gray-800  text-white rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 resize-none border border-gray-300 border-gray-700 shadow-sm"
+              className="cursor-pointer w-full h-32 p-3 text-sm  bg-gray-800  text-white rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 resize-none border border-gray-300 border-gray-700 shadow-sm"
               placeholder="Indica el motivo del rechazo..."
               value={motivo}
               onChange={(e) => setMotivo(e.target.value)}
@@ -53,13 +53,13 @@ export default function ModalMotivoRechazo({ visible, onClose, onSubmit }) {
             <div className="flex justify-end mt-4 gap-2">
               <button
                 onClick={onClose}
-                className="px-4 py-2 text-sm font-semibold  rounded-md  bg-gray-700 text-white hover:bg-gray-600 transition"
+                className="cursor-pointer px-4 py-2 text-sm font-semibold  rounded-md  bg-gray-700 text-white hover:bg-gray-600 transition"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleSubmit}
-                className="px-4 py-2 text-sm font-semibold text-white bg-red-600 rounded-md hover:bg-red-700 transition shadow-md"
+                className="cursor-pointer px-4 py-2 text-sm font-semibold text-white bg-red-600 rounded-md hover:bg-red-700 transition shadow-md"
               >
                 Rechazar
               </button>

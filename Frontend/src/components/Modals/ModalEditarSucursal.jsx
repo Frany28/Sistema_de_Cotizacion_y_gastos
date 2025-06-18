@@ -194,7 +194,7 @@ export default function ModalEditarSucursal({
               <button
                 onClick={() => !isSubmitting && onClose()}
                 disabled={isSubmitting}
-                className="absolute top-3 right-3 text-gray-400  hover:text-white disabled:opacity-50"
+                className="cursor-pointer absolute top-3 right-3 text-gray-400  hover:text-white disabled:opacity-50"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -366,7 +366,7 @@ export default function ModalEditarSucursal({
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className={`w-full p-2.5 text-white font-medium rounded-lg ${
+                    className={`cursor-pointer w-full p-2.5 text-white font-medium rounded-lg ${
                       isSubmitting
                         ? "bg-gray-400 cursor-not-allowed"
                         : " focus:ring-4  bg-blue-600 hover:bg-blue-700 focus:ring-blue-800"

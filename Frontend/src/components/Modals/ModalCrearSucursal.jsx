@@ -105,11 +105,11 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
                 type="button"
                 onClick={() => !isSubmitting && onCancel()}
                 disabled={isSubmitting}
-                className="absolute top-4 right-4 text-gray-400  hover:text-gray-200"
+                className="cursor-pointer absolute top-4 right-4 text-gray-400  hover:text-gray-200"
               >
                 <X size={20} />
               </button>
-              <div className="flex flex-col items-center mb-4">
+              <div className="cursor-pointer flex flex-col items-center mb-4">
                 <Building2 className="w-8 h-8 text-blue-500" />
                 <h3 className="mt-2 text-lg font-semibold  text-white">
                   Crear Nueva Sucursal
@@ -244,7 +244,7 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className={`w-full py-2 px-4 rounded-md text-white font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 ${
+                  className={`cursor-pointer w-full py-2 px-4 rounded-md text-white font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 ${
                     isSubmitting
                       ? "bg-gray-400 cursor-not-allowed"
                       : "bg-blue-600 hover:bg-blue-700"

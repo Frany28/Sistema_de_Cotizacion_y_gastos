@@ -476,7 +476,7 @@ const CrearRegistro = () => {
             <div className="mt-6">
               <button
                 onClick={() => verVistaPrevia(datosGeneralesPreview)}
-                className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded text-white"
+                className="cursor-pointer bg-green-600 hover:bg-green-700 px-4 py-2 rounded text-white"
               >
                 Ver Vista Previa (PDF)
               </button>

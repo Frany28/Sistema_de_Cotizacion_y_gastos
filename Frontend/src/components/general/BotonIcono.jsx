@@ -5,11 +5,11 @@ import {
   PlusCircle,
   RefreshCw,
   DollarSign,
-} from "lucide-react"; 
+} from "lucide-react";
 
 export default function BotonIcono({ tipo, onClick, titulo = "" }) {
   const estilosBase =
-    "p-2 rounded-full text-white hover:scale-110 transition duration-150 ease-in-out";
+    "p-2 rounded-full text-white hover:scale-110 transition duration-150 ease-in-out cursor-pointer";
 
   const iconos = {
     editar: <Edit size={18} />,
