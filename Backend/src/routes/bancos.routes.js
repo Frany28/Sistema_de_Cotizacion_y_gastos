@@ -13,11 +13,7 @@ import { verificarPermiso } from "../Middleware/verificarPermiso.js";
 const router = express.Router();
 
 // Listar → sólo autenticado
-router.get(
-  "/",
-  verificarPermiso(), 
-  obtenerBancos
-);
+router.get("/", verificarPermiso("verBancos"), obtenerBancos);
 
 // Crear → permiso 'crear_banco'
 router.post("/", verificarPermiso("crearBanco"), validarBanco, crearBanco);
