@@ -96,9 +96,9 @@ function ListaClientes() {
     const cargarPermisos = async () => {
       try {
         const [crear, editar, eliminar] = await Promise.all([
-          verificarPermisoFront("crear_cliente"), // o "crearCliente"
-          verificarPermisoFront("editar_cliente"), // "
-          verificarPermisoFront("eliminar_cliente"), // "
+          verificarPermisoFront("crearCliente"),
+          verificarPermisoFront("editarCliente"),
+          verificarPermisoFront("eliminarCliente"),
         ]);
         setPuedeCrear(crear);
         setPuedeEditar(editar);

@@ -93,10 +93,10 @@ function ListaCotizaciones() {
 
   useEffect(() => {
     const verificarPermisos = async () => {
-      setPuedeCrear(await verificarPermisoFront("crear_cotizacion"));
-      setPuedeEditar(await verificarPermisoFront("editar_cotizacion"));
-      setPuedeEliminar(await verificarPermisoFront("eliminar_cotizacion"));
-      setPuedeAprobar(await verificarPermisoFront("aprobar_cotizacion"));
+      setPuedeCrear(await verificarPermisoFront("creaCotizacion"));
+      setPuedeEditar(await verificarPermisoFront("editarCotizacion"));
+      setPuedeEliminar(await verificarPermisoFront("eliminaCotizacion"));
+      setPuedeAprobar(await verificarPermisoFront("aprobarCotizacion"));
     };
     verificarPermisos();
   }, []);

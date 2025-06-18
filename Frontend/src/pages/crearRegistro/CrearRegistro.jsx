@@ -418,7 +418,7 @@ const CrearRegistro = () => {
 
             if (tipo === "cotizacion") {
               const tienePermiso = await verificarPermisoFront(
-                "crear_cotizacion"
+                "crearCotizacion"
               );
               if (!tienePermiso) {
                 setModalError({
@@ -431,7 +431,7 @@ const CrearRegistro = () => {
             }
 
             if (tipo === "gasto") {
-              const tienePermiso = await verificarPermisoFront("crear_gasto");
+              const tienePermiso = await verificarPermisoFront("crearGasto");
               if (!tienePermiso) {
                 setModalError({
                   visible: true,

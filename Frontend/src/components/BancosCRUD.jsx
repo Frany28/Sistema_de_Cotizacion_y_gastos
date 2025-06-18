@@ -33,9 +33,9 @@ function BancosCRUD() {
     const fetchPermisos = async () => {
       try {
         const [crear, editar, eliminar] = await Promise.all([
-          verificarPermisoFront("crear_banco"),
-          verificarPermisoFront("editar_banco"),
-          verificarPermisoFront("eliminar_banco"),
+          verificarPermisoFront("crearBanco"),
+          verificarPermisoFront("editarBanco"),
+          verificarPermisoFront("eliminarBanco"),
         ]);
         setPuedeCrear(crear);
         setPuedeEditar(editar);
