@@ -10,7 +10,7 @@ import Paginacion from "../components/general/Paginacion";
 import Loader from "./general/Loader";
 import ModalAñadirProveedor from "../components/Modals/ModalAñadirProveedor";
 import ModalEditar from "../components/Modals/ModalEditar";
-import { verificarPermisoFront } from "../utils/verificarPermisoFront";
+import { verificarPermisoFront } from "../../utils/verificarPermisoFront";
 
 function ListaProveedores() {
   const [proveedores, setProveedores] = useState([]);
