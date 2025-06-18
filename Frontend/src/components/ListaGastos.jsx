@@ -163,7 +163,7 @@ function ListaGastos() {
   useEffect(() => {
     const verificarPermisos = async () => {
       try {
-        const tienePermiso = await verificarPermisoFront("aprobar_gasto");
+        const tienePermiso = await verificarPermisoFront("aprobarGasto");
         setPuedeCambiarEstado(tienePermiso);
       } catch (error) {
         console.error("Error verificando permisos:", error);

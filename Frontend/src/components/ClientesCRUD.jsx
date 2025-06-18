@@ -10,6 +10,7 @@ import ModalEditar from "../components/Modals/ModalEditar";
 import ModalError from "../components/Modals/ModalError";
 import Paginacion from "../components/general/Paginacion";
 import Loader from "./general/Loader";
+import { verificarPermisoFront } from "../../utils/verificarPermisoFront.js";
 
 function ListaClientes() {
   const [clientes, setClientes] = useState([]);
@@ -20,6 +21,9 @@ function ListaClientes() {
     return stored ? parseInt(stored, 10) : 5;
   });
   const [loading, setLoading] = useState(true);
+  const [puedeCrear, setPuedeCrear] = useState(false);
+  const [puedeEditar, setPuedeEditar] = useState(false);
+  const [puedeEliminar, setPuedeEliminar] = useState(false);
   const [editandoCliente, setEditandoCliente] = useState(null);
   const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false);
   const [clienteAEliminar, setClienteAEliminar] = useState(null);
@@ -87,6 +91,25 @@ function ListaClientes() {
     fetchClientes();
   }, [fetchClientes]);
 
+  // ───── Verificar permisos sólo al montar ─────
+  useEffect(() => {
+    const cargarPermisos = async () => {
+      try {
+        const [crear, editar, eliminar] = await Promise.all([
+          verificarPermisoFront("crear_cliente"), // o "crearCliente"
+          verificarPermisoFront("editar_cliente"), // "
+          verificarPermisoFront("eliminar_cliente"), // "
+        ]);
+        setPuedeCrear(crear);
+        setPuedeEditar(editar);
+        setPuedeEliminar(eliminar);
+      } catch (err) {
+        console.error("Error obteniendo permisos:", err);
+      }
+    };
+    cargarPermisos();
+  }, []);
+
   const manejarBusqueda = (e) => {
     const termino = e.target.value;
     setBusqueda(termino);
@@ -126,7 +149,7 @@ function ListaClientes() {
     try {
       const response = await api.put(`/clientes/${editandoCliente.id}`, datos);
 
-      await fetchClientes(); 
+      await fetchClientes();
 
       setEditandoCliente(null);
       setMostrarModalEditar(false);
@@ -178,7 +201,9 @@ function ListaClientes() {
     <div>
       <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 p-4 gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <BotonAgregar onClick={abrirModal} texto="Nuevo Cliente" />
+          {puedeCrear && (
+            <BotonAgregar onClick={abrirModal} texto="Nuevo Cliente" />
+          )}
         </div>
 
         <div className="flex w-full md:w-1/2 gap-2">
@@ -252,7 +277,9 @@ function ListaClientes() {
             <th className="px-4 py-3">Teléfono</th>
             <th className="px-4 py-3">Dirección</th>
             <th className="px-4 py-3">Sucursal</th>
-            <th className="px-4 py-3">Acciones</th>
+            {(puedeEditar || puedeEliminar) && (
+              <th className="px-4 py-3">Acciones</th>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -271,24 +298,31 @@ function ListaClientes() {
                 {sucursalesMap[cliente.sucursal_id] || "—"}
               </td>
 
-              <td className="px-4 py-3 flex space-x-2">
-                <BotonIcono
-                  tipo="editar"
-                  onClick={() => {
-                    iniciarEdicion(cliente);
-                    setMostrarModalEditar(true);
-                  }}
-                  titulo="Editar cliente"
-                />
-                <BotonIcono
-                  tipo="eliminar"
-                  onClick={() => {
-                    setClienteAEliminar(cliente);
-                    setMostrarConfirmacion(true);
-                  }}
-                  titulo="Eliminar cliente"
-                />
-              </td>
+              {(puedeEditar || puedeEliminar) && (
+                <td className="px-4 py-3 flex space-x-2">
+                  {puedeEditar && (
+                    <BotonIcono
+                      tipo="editar"
+                      onClick={() => {
+                        iniciarEdicion(cliente);
+                        setMostrarModalEditar(true);
+                      }}
+                      titulo="Editar cliente"
+                    />
+                  )}
+
+                  {puedeEliminar && (
+                    <BotonIcono
+                      tipo="eliminar"
+                      onClick={() => {
+                        setClienteAEliminar(cliente);
+                        setMostrarConfirmacion(true);
+                      }}
+                      titulo="Eliminar cliente"
+                    />
+                  )}
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
