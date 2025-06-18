@@ -1,3 +1,4 @@
+// src/routes/proveedores.routes.js
 import express from "express";
 import {
   crearProveedor,
@@ -14,20 +15,16 @@ import { verificarPermiso } from "../Middleware/verificarPermiso.js";
 
 const router = express.Router();
 
+// ──────────────── POST ────────────────
 router.post(
   "/",
+  autenticarUsuario,
+  verificarPermiso("crearProveedor"),
   validarProveedor,
-  crearProveedor,
-  autenticarUsuario,
-  verificarPermiso("crearProveedor")
+  crearProveedor
 );
-router.get(
-  "/",
-  autenticarUsuario,
-  verificarPermiso("verProveedores"),
-  obtenerProveedores
-);
-router.get("/check", verificarProveedorExistente);
+
+// ──────────────── PUT ─────────────────
 router.put(
   "/:id",
   autenticarUsuario,
@@ -35,12 +32,35 @@ router.put(
   validarProveedor,
   actualizarProveedor
 );
+
+// ──────────────── DELETE ──────────────
 router.delete(
   "/:id",
   autenticarUsuario,
-  validarProveedor("eliminarProveedor"),
-  eliminarProveedor
+  verificarPermiso("eliminarProveedor"),
+  eliminarProveedor //  ← sin validarProveedor
 );
-router.get("/buscar", buscarProveedores);
+
+// ──────────────── GETs ────────────────
+router.get(
+  "/",
+  autenticarUsuario,
+  verificarPermiso("verProveedores"),
+  obtenerProveedores
+);
+
+router.get(
+  "/check",
+  autenticarUsuario,
+  verificarPermiso("verProveedores"),
+  verificarProveedorExistente
+);
+
+router.get(
+  "/buscar",
+  autenticarUsuario,
+  verificarPermiso("verProveedores"),
+  buscarProveedores
+);
 
 export default router;
