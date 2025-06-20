@@ -2,6 +2,7 @@
 import db from "../config/database.js";
 import { generarUrlPrefirmadaLectura } from "../utils/s3.js";
 import bcrypt from "bcrypt";
+import path from "path";
 
 // Crear usuario (ahora con firma y código)
 // controllers/usuarios.controller.js
