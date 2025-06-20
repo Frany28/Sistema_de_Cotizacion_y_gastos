@@ -23,7 +23,7 @@ export const getDatosRegistro = async (req, res) => {
       LEFT JOIN sucursales s ON s.id = c.sucursal_id
       ORDER BY c.id DESC
     `);
-   
+
     const [proveedores] = await db.query("SELECT id, nombre FROM proveedores");
 
     res.json({
@@ -44,14 +44,13 @@ export const getDatosRegistro = async (req, res) => {
 };
 
 export const createRegistro = async (req, res) => {
-  const tipo = req.combinedData.tipo; 
+  const tipo = req.combinedData.tipo;
   if (!tipo) {
     return res
       .status(400)
       .json({ message: "Debe indicar el tipo de registro" });
   }
 
-  
   const datos = { ...req.body };
 
   try {
@@ -67,6 +66,26 @@ export const createRegistro = async (req, res) => {
       datos.documento = req.file.key;
 
       resultado = await crearGasto(datos);
+
+      if (resultado?.registro_id && req.file) {
+        const archivoRuta = req.file.key;
+        const nombreOriginal = req.file.originalname;
+        const extension = path.extname(nombreOriginal).substring(1); // sin el punto
+
+        await db.query(
+          `INSERT INTO archivos 
+          (registro_tipo, registro_id, nombre_original, extension, ruta_s3, usuario_id, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+          [
+            "facturasGastos",
+            resultado.registro_id,
+            nombreOriginal,
+            extension,
+            archivoRuta,
+            datos.usuario_id,
+          ]
+        );
+      }
     } else if (tipo === "cotizacion") {
       resultado = await crearCotizacionDesdeRegistro(datos);
     } else {
@@ -172,6 +191,7 @@ const crearGasto = async (datos) => {
     registro_id: gastoId,
     codigo: codigoGenerado,
     tipo: "gasto",
+    nombreOriginal: documento || null,
   };
 };
 

@@ -46,7 +46,7 @@ export default function ResumenCotizacion({ items = [], onGenerar }) {
 
       <button
         onClick={onGenerar}
-        className="mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition"
+        className="cursor-pointer mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition"
       >
         Generar Cotización
       </button>

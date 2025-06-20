@@ -1,11 +1,7 @@
 // utils/s3.js
 // AWS SDK v3 + multer-s3
-// Estructura resultante en el bucket:
-//
-//   firmas/AAAA/...                     ← firmas de usuarios
-//  facturas_gastos/AAAA/...               ← facturas / comprobantes de GASTOS
-//   comprobantes_solicitudes/AAAA/...   ← comprobantes de ÓRDENES de pago
-//
+// Nueva estructura: nombreCarpeta/año/mes (nombre del mes en palabras)
+
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import multer from "multer";
@@ -32,7 +28,27 @@ export async function generarUrlPrefirmadaLectura(key, expiresInSeconds = 300) {
 }
 
 /*────────────────────  Factory de uploaders  ──────────*/
-const makeUploader = ({ folder, maxSizeMb, allowPdf = false }) =>
+const meses = [
+  "enero",
+  "febrero",
+  "marzo",
+  "abril",
+  "mayo",
+  "junio",
+  "julio",
+  "agosto",
+  "septiembre",
+  "octubre",
+  "noviembre",
+  "diciembre",
+];
+
+const makeUploader = ({
+  folder,
+  maxSizeMb,
+  allowPdf = false,
+  isFirma = false,
+}) =>
   multer({
     storage: multerS3({
       s3,
@@ -40,9 +56,19 @@ const makeUploader = ({ folder, maxSizeMb, allowPdf = false }) =>
       acl: "private",
       metadata: (req, file, cb) => cb(null, { fieldName: file.fieldname }),
       key: (req, file, cb) => {
-        const year = new Date().getFullYear(); // sub-carpeta por año
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = meses[now.getMonth()];
         const safeName = file.originalname.replace(/\s+/g, "_");
-        cb(null, `${folder}/${year}/${Date.now()}-${safeName}`);
+        if (isFirma && req.usuario && req.usuario.nombre) {
+          const userFolder = req.usuario.nombre.replace(/\s+/g, "_");
+          cb(
+            null,
+            `${folder}/${userFolder}/${year}/${month}/${Date.now()}-${safeName}`
+          );
+        } else {
+          cb(null, `${folder}/${year}/${month}/${Date.now()}-${safeName}`);
+        }
       },
     }),
     limits: { fileSize: maxSizeMb * 1024 * 1024 },
@@ -62,30 +88,26 @@ const makeUploader = ({ folder, maxSizeMb, allowPdf = false }) =>
 
 /*────────────────────  Uploaders exportados  ──────────*/
 
-// Firmas de usuarios (solo imágenes)
 export const uploadFirma = makeUploader({
   folder: "firmas",
   maxSizeMb: 5,
+  isFirma: true,
 });
 
-// Comprobantes / facturas de GASTOS
 export const uploadComprobante = makeUploader({
   folder: "facturas_gastos",
   maxSizeMb: 8,
   allowPdf: true,
 });
 
-
-//comprobantes de pagos realizados
 export const uploadComprobantePago = makeUploader({
   folder: "comprobantes_pagos",
   maxSizeMb: 8,
   allowPdf: true,
 });
 
-// Comprobantes de ABONOS (CXC)
 export const uploadComprobanteAbono = makeUploader({
-  folder: "cxcAbonos", 
+  folder: "Abonos_cxc",
   maxSizeMb: 8,
   allowPdf: true,
 });

@@ -8,7 +8,7 @@ import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 
 /* ── Pool global ─────────────────────────────────────────── */
-import db from "./config/database.js"; //  ← ruta correcta
+import db from "./config/database.js";
 
 /* ── Middlewares propios ─────────────────────────────────― */
 import { errorHandler } from "./Middleware/errorHandler.js";
@@ -26,6 +26,8 @@ import cxcRoutes from "./routes/cxc.routes.js";
 import abonosRoutes from "./routes/abonos.routes.js";
 import solicitudesPagoRoutes from "./routes/solicitudesPago.routes.js";
 import bancosRoutes from "./routes/bancos.routes.js";
+import archivosRoutes from "./routes/archivos.routes.js";
+import "./jobs/purgarPapeleras.js";
 
 /* ── Seguridad ───────────────────────────────────────────── */
 import authRoutes from "./routes/auth.routes.js";
@@ -96,6 +98,7 @@ app.use("/api/cuentas-por-cobrar", cxcRoutes);
 app.use("/api/abonos", abonosRoutes);
 app.use("/api/solicitudes-pago", solicitudesPagoRoutes);
 app.use("/api/bancos", bancosRoutes);
+app.use("/api/archivos", archivosRoutes);
 
 /* ───── Rutas de seguridad ──────────────────────────────── */
 app.use("/api/auth", authRoutes);
@@ -103,8 +106,6 @@ app.use("/api/usuarios", usuariosRoutes);
 app.use("/api/roles", rolesRoutes);
 app.use("/api/permisos", permisosRoutes);
 app.use("/api/roles-permisos", rolesPermisosRoutes);
-
-
 
 /* ───── 404 para API inexistente ─────────────────────────── */
 app.use((req, res, next) => {
