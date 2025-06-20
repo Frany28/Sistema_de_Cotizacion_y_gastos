@@ -4,17 +4,24 @@ import { generarUrlPrefirmadaLectura } from "../utils/s3.js";
 import bcrypt from "bcrypt";
 import path from "path";
 
+if (!req.usuario?.id) {
+  return res.status(401).json({ message: "Usuario autenticado requerido" });
+}
+const adminId = req.usuario.id;
+
 // Crear usuario (ahora con firma y código)
 // controllers/usuarios.controller.js
 export const crearUsuario = async (req, res) => {
   try {
+    if (!req.usuario?.id) {
+      return res.status(401).json({ message: "Usuario autenticado requerido" });
+    }
+
     const { nombre, email, password, rol_id, estado = "activo" } = req.body;
     const firma = req.file ? req.file.key : null;
     const hashed = await bcrypt.hash(password, 10);
+    const adminId = req.usuario.id;
 
-    const adminId = req.usuario?.id || null; // quien crea al usuario
-
-    // 1. Insertar en usuarios
     const [result] = await db.query(
       `INSERT INTO usuarios
        (nombre, email, password, rol_id, estado, firma, created_at)
@@ -24,14 +31,12 @@ export const crearUsuario = async (req, res) => {
 
     const usuarioId = result.insertId;
 
-    // 2. Generar código único
     const codigo = `USR${String(usuarioId).padStart(4, "0")}`;
     await db.query("UPDATE usuarios SET codigo = ? WHERE id = ?", [
       codigo,
       usuarioId,
     ]);
 
-    // 3. Si se subió firma → insertar en archivos + evento
     if (req.file) {
       const archivoRuta = req.file.key;
       const nombreOriginal = req.file.originalname;
@@ -41,7 +46,14 @@ export const crearUsuario = async (req, res) => {
         `INSERT INTO archivos
          (registroTipo, registroId, nombreOriginal, extension, rutaS3, subidoPor, creadoEn, actualizadoEn)
          VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-        ["firmas", usuarioId, nombreOriginal, extension, archivoRuta, adminId]
+        [
+          "firmas",
+          usuarioId,
+          nombreOriginal,
+          extension,
+          archivoRuta,
+          adminId, 
+        ]
       );
 
       const archivoId = resArchivo.insertId;
