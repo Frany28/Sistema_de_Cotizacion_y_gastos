@@ -4,11 +4,6 @@ import { generarUrlPrefirmadaLectura } from "../utils/s3.js";
 import bcrypt from "bcrypt";
 import path from "path";
 
-if (!req.usuario?.id) {
-  return res.status(401).json({ message: "Usuario autenticado requerido" });
-}
-const adminId = req.usuario.id;
-
 // Crear usuario (ahora con firma y código)
 // controllers/usuarios.controller.js
 export const crearUsuario = async (req, res) => {
@@ -46,14 +41,7 @@ export const crearUsuario = async (req, res) => {
         `INSERT INTO archivos
          (registroTipo, registroId, nombreOriginal, extension, rutaS3, subidoPor, creadoEn, actualizadoEn)
          VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-        [
-          "firmas",
-          usuarioId,
-          nombreOriginal,
-          extension,
-          archivoRuta,
-          adminId, 
-        ]
+        ["firmas", usuarioId, nombreOriginal, extension, archivoRuta, adminId]
       );
 
       const archivoId = resArchivo.insertId;
