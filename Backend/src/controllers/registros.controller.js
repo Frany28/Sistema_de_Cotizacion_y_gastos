@@ -45,6 +45,7 @@ export const getDatosRegistro = async (req, res) => {
 
 export const createRegistro = async (req, res) => {
   const tipo = req.combinedData.tipo;
+
   if (!tipo) {
     return res
       .status(400)
@@ -56,6 +57,7 @@ export const createRegistro = async (req, res) => {
   try {
     let resultado;
 
+    // ───────────── CASO GASTO ─────────────
     if (tipo === "gasto") {
       if (!req.file) {
         return res.status(400).json({
@@ -63,19 +65,23 @@ export const createRegistro = async (req, res) => {
         });
       }
 
+      // Guardamos la key del archivo en el campo documento
       datos.documento = req.file.key;
 
+      // Creamos el gasto
       resultado = await crearGasto(datos);
 
+      // Si se creó correctamente y hay archivo, registrar en archivos y eventos
       if (resultado?.registro_id && req.file) {
         const archivoRuta = req.file.key;
         const nombreOriginal = req.file.originalname;
         const extension = path.extname(nombreOriginal).substring(1); // sin el punto
 
-        await db.query(
+        // 1. Insertar en tabla archivos
+        const [resArchivo] = await db.query(
           `INSERT INTO archivos 
-          (registroTipo, registroId, nombreOriginal, extension, ruta_s3, usuario_id, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+           (registroTipo, registroId, nombreOriginal, extension, rutaS3, subidoPor, creadoEn, actualizadoEn)
+           VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
           [
             "facturasGastos",
             resultado.registro_id,
@@ -85,19 +91,45 @@ export const createRegistro = async (req, res) => {
             datos.usuario_id,
           ]
         );
+
+        const archivoId = resArchivo.insertId;
+
+        // 2. Insertar en eventosArchivo
+        await db.query(
+          `INSERT INTO eventosArchivo 
+           (archivoId, accion, usuarioId, fechaHora, ip, userAgent, detalles)
+           VALUES (?, ?, ?, NOW(), ?, ?, ?)`,
+          [
+            archivoId,
+            "subida",
+            datos.usuario_id,
+            req.ip || null,
+            req.get("user-agent") || null,
+            JSON.stringify({
+              nombre: nombreOriginal,
+              extension,
+              ruta: archivoRuta,
+            }),
+          ]
+        );
       }
+
+      // ───────────── CASO COTIZACIÓN ─────────────
     } else if (tipo === "cotizacion") {
       resultado = await crearCotizacionDesdeRegistro(datos);
+
+      // ───────────── TIPO NO VÁLIDO ─────────────
     } else {
       return res.status(400).json({ message: "Tipo de registro no válido" });
     }
 
+    // ───────────── RESPUESTA ÉXITO ─────────────
     res.status(201).json(resultado);
   } catch (error) {
     console.error("Error al crear el registro:", error);
-    res
-      .status(500)
-      .json({ message: `Error al crear el registro de tipo ${tipo}` });
+    res.status(500).json({
+      message: `Error al crear el registro de tipo ${tipo}`,
+    });
   }
 };
 
