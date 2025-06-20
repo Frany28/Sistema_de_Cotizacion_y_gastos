@@ -8,26 +8,62 @@ import bcrypt from "bcrypt";
 export const crearUsuario = async (req, res) => {
   try {
     const { nombre, email, password, rol_id, estado = "activo" } = req.body;
-
-    // Construimos la ruta pública
     const firma = req.file ? req.file.key : null;
-
     const hashed = await bcrypt.hash(password, 10);
 
+    const adminId = req.usuario?.id || null; // quien crea al usuario
+
+    // 1. Insertar en usuarios
     const [result] = await db.query(
       `INSERT INTO usuarios
-         (nombre, email, password, rol_id, estado, firma, created_at)
+       (nombre, email, password, rol_id, estado, firma, created_at)
        VALUES (?, ?, ?, ?, ?, ?, NOW())`,
       [nombre.trim(), email.trim(), hashed, rol_id, estado, firma]
     );
 
-    const codigo = `USR${String(result.insertId).padStart(4, "0")}`;
+    const usuarioId = result.insertId;
+
+    // 2. Generar código único
+    const codigo = `USR${String(usuarioId).padStart(4, "0")}`;
     await db.query("UPDATE usuarios SET codigo = ? WHERE id = ?", [
       codigo,
-      result.insertId,
+      usuarioId,
     ]);
 
-    res.status(201).json({ id: result.insertId, firma });
+    // 3. Si se subió firma → insertar en archivos + evento
+    if (req.file) {
+      const archivoRuta = req.file.key;
+      const nombreOriginal = req.file.originalname;
+      const extension = path.extname(nombreOriginal).substring(1);
+
+      const [resArchivo] = await db.query(
+        `INSERT INTO archivos
+         (registroTipo, registroId, nombreOriginal, extension, rutaS3, subidoPor, creadoEn, actualizadoEn)
+         VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+        ["firmas", usuarioId, nombreOriginal, extension, archivoRuta, adminId]
+      );
+
+      const archivoId = resArchivo.insertId;
+
+      await db.query(
+        `INSERT INTO eventosArchivo
+         (archivoId, accion, usuarioId, fechaHora, ip, userAgent, detalles)
+         VALUES (?, 'subida', ?, NOW(), ?, ?, ?)`,
+        [
+          archivoId,
+          adminId,
+          req.ip || null,
+          req.get("user-agent") || null,
+          JSON.stringify({
+            nombre: nombreOriginal,
+            extension,
+            ruta: archivoRuta,
+          }),
+        ]
+      );
+    }
+
+    res.status(201).json({ id: usuarioId, firma });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Error al crear usuario" });
