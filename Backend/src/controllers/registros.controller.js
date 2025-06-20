@@ -74,7 +74,7 @@ export const createRegistro = async (req, res) => {
 
         await db.query(
           `INSERT INTO archivos 
-          (registroTipo, registro_id, nombre_original, extension, ruta_s3, usuario_id, created_at, updated_at)
+          (registroTipo, registroId, nombreOriginal, extension, ruta_s3, usuario_id, created_at, updated_at)
           VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
           [
             "facturasGastos",
