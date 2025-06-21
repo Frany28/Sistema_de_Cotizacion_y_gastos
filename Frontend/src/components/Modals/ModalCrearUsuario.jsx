@@ -80,7 +80,7 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
 
   const sendRequest = async (data) => {
     try {
-      await api.post("usuarios", data, {
+      await api.post("/usuarios", data, {
         withCredentials: true,
         headers: { "Content-Type": "multipart/form-data" },
       });
