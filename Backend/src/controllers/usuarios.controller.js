@@ -3,57 +3,58 @@ import db from "../config/database.js";
 import { generarUrlPrefirmadaLectura } from "../utils/s3.js";
 import bcrypt from "bcrypt";
 
-// Crear usuario (ahora con firma y código)
-// controllers/usuarios.controller.js
+// Crear usuario (incluye registro de firma en S3, tabla archivos y eventosArchivo)
 export const crearUsuario = async (req, res) => {
-  // Obtenemos conexión y arrancamos transacción
   const conexion = await db.getConnection();
   try {
     await conexion.beginTransaction();
 
+    // 1) Datos de entrada
     const { nombre, email, password, rol_id, estado = "activo" } = req.body;
-    // esta es la key S3 (no cambia)
-    const firmaKey = req.file?.key ?? null;
+    const firmaKey = req.file?.key ?? null; // key S3
     const nombreOriginal = req.file?.originalname ?? null;
     const extension = nombreOriginal?.split(".").pop() ?? null;
     const hashed = await bcrypt.hash(password, 10);
 
-    // 1) Insertamos en usuarios (incluye firmaKey como referencia S3)
+    // 2) Insertar en usuarios
     const [uResult] = await conexion.query(
-      `INSERT INTO usuarios 
+      `INSERT INTO usuarios
          (nombre, email, password, rol_id, estado, firma, created_at)
        VALUES (?, ?, ?, ?, ?, ?, NOW())`,
       [nombre.trim(), email.trim(), hashed, rol_id, estado, firmaKey]
     );
     const usuarioId = uResult.insertId;
 
-    // 2) Generamos y guardamos código
+    // 3) Generar y guardar código de usuario
     const codigo = `USR${String(usuarioId).padStart(4, "0")}`;
-    await conexion.query(`UPDATE usuarios SET codigo = ? WHERE id = ?`, [
-      codigo,
-      usuarioId,
-    ]);
+    await conexion.query(
+      `UPDATE usuarios
+         SET codigo = ?
+       WHERE id = ?`,
+      [codigo, usuarioId]
+    );
 
-    // 3) Si existe firma, registramos el archivo en la tabla archivos
+    // 4) Si hay firma, registrar en archivos y en eventosArchivo
     if (firmaKey) {
+      // 4.1) Insertar metadatos en archivos
       const [aResult] = await conexion.query(
         `INSERT INTO archivos
            (registroTipo, registroId,
-            nombreOriginal, extension, ruta,
-            estado, usuarioId, createdAt, updatedAt)
+            nombreOriginal, extension, rutaS3,
+            estado, subidoPor, creadoEn, actualizadoEn)
          VALUES (?, ?, ?, ?, ?, 'activo', ?, NOW(), NOW())`,
         [
-          "firmas", // nuevo registroTipo
-          usuarioId, // id del usuario creado
-          nombreOriginal, // nombre original del archivo
-          extension, // ej. 'png'
-          firmaKey, // clave S3 exacta
-          req.user.id, // admin que subió la firma
+          "firmas", // registroTipo
+          usuarioId, // registroId
+          nombreOriginal, // nombreOriginal
+          extension, // extension
+          firmaKey, // rutaS3
+          req.user.id, // subidoPor (admin que sube)
         ]
       );
       const archivoId = aResult.insertId;
 
-      // 4) Registramos evento de auditoría en eventosArchivo
+      // 4.2) Registrar evento de auditoría
       await conexion.query(
         `INSERT INTO eventosArchivo
            (archivoId, versionId, tipoEvento, usuarioId,
@@ -73,13 +74,14 @@ export const crearUsuario = async (req, res) => {
     res.status(201).json({ id: usuarioId, firma: firmaKey });
   } catch (err) {
     await conexion.rollback();
-    console.error(err);
+    console.error("Error al crear usuario:", err);
     res.status(500).json({ error: "Error al crear usuario" });
   } finally {
     conexion.release();
   }
 };
 
+// Actualizar usuario (puede cambiar datos básicos y firma)
 export const actualizarUsuario = async (req, res) => {
   const conexion = await db.getConnection();
   try {
@@ -90,49 +92,39 @@ export const actualizarUsuario = async (req, res) => {
     const firmaKey = req.file?.key ?? null;
     const nombreOriginal = req.file?.originalname ?? null;
     const extension = nombreOriginal?.split(".").pop() ?? null;
-    const campos = [],
-      valores = [];
 
-    if (nombre) {
-      campos.push("nombre = ?");
-      valores.push(nombre.trim());
-    }
-    if (email) {
-      campos.push("email = ?");
-      valores.push(email.trim());
-    }
+    // 1) Preparar campos dinámicos
+    const campos = [];
+    const valores = [];
+
+    if (nombre) campos.push("nombre = ?"), valores.push(nombre.trim());
+    if (email) campos.push("email = ?"), valores.push(email.trim());
     if (password) {
       const hashed = await bcrypt.hash(password, 10);
-      campos.push("password = ?");
-      valores.push(hashed);
+      campos.push("password = ?"), valores.push(hashed);
     }
-    if (rol_id) {
-      campos.push("rol_id = ?");
-      valores.push(rol_id);
-    }
-    if (estado) {
-      campos.push("estado = ?");
-      valores.push(estado);
-    }
+    if (rol_id) campos.push("rol_id = ?"), valores.push(rol_id);
+    if (estado) campos.push("estado = ?"), valores.push(estado);
     if (firmaKey) {
       campos.push("firma = ?");
       valores.push(firmaKey);
     }
-    valores.push(id);
 
-    // 1) Actualizamos usuario
+    valores.push(id);
     await conexion.query(
-      `UPDATE usuarios SET ${campos.join(", ")} WHERE id = ?`,
+      `UPDATE usuarios
+         SET ${campos.join(", ")}
+       WHERE id = ?`,
       valores
     );
 
-    // 2) Si hay nueva firma, registramos en archivos + evento
+    // 2) Si sube nueva firma, registrar en archivos y evento
     if (firmaKey) {
       const [aResult] = await conexion.query(
         `INSERT INTO archivos
            (registroTipo, registroId,
-            nombreOriginal, extension, ruta,
-            estado, usuarioId, createdAt, updatedAt)
+            nombreOriginal, extension, rutaS3,
+            estado, subidoPor, creadoEn, actualizadoEn)
          VALUES (?, ?, ?, ?, ?, 'activo', ?, NOW(), NOW())`,
         ["firmas", id, nombreOriginal, extension, firmaKey, req.user.id]
       );
@@ -157,14 +149,14 @@ export const actualizarUsuario = async (req, res) => {
     res.json({ id, firma: firmaKey });
   } catch (err) {
     await conexion.rollback();
-    console.error(err);
+    console.error("Error al actualizar usuario:", err);
     res.status(500).json({ error: "Error al actualizar usuario" });
   } finally {
     conexion.release();
   }
 };
 
-// Obtener todos los usuarios (incluye código)
+// Obtener todos los usuarios (incluye código y rol)
 export const obtenerUsuarios = async (req, res) => {
   try {
     const [rows] = await db.query(`
@@ -180,44 +172,47 @@ export const obtenerUsuarios = async (req, res) => {
   }
 };
 
-// Obtener un usuario por ID (incluye código y firma)
+// Obtener un usuario por ID (incluye la URL de la firma)
 export const obtenerUsuarioPorId = async (req, res) => {
   const { id } = req.params;
+  try {
+    // 1) Datos básicos del usuario
+    const [[user]] = await db.query(
+      `SELECT id, codigo, nombre, email, estado, rol_id, created_at
+         FROM usuarios
+        WHERE id = ?`,
+      [id]
+    );
+    if (!user)
+      return res.status(404).json({ message: "Usuario no encontrado" });
 
-  // 1) Traemos datos básicos del usuario
-  const [[user]] = await db.query(
-    `SELECT id, codigo, nombre, email, estado, rol_id, created_at
-     FROM usuarios
-     WHERE id = ?`,
-    [id]
-  );
-  if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+    // 2) Obtener la última firma activa
+    const [files] = await db.query(
+      `SELECT rutaS3
+         FROM archivos
+        WHERE registroTipo = 'firmas'
+          AND registroId = ?
+          AND estado       = 'activo'
+        ORDER BY id DESC
+        LIMIT 1`,
+      [id]
+    );
+    const urlFirma = files.length
+      ? generarUrlPrefirmadaLectura(files[0].rutaS3)
+      : null;
 
-  // 2) Buscamos su firma en archivos (última activa)
-  const [files] = await db.query(
-    `SELECT ruta
-     FROM archivos
-     WHERE registroTipo = 'firmas'
-       AND registroId = ?
-       AND estado = 'activo'
-     ORDER BY id DESC
-     LIMIT 1`,
-    [id]
-  );
-  const urlFirma = files.length
-    ? generarUrlPrefirmadaLectura(files[0].ruta)
-    : null;
-
-  res.json({ ...user, urlFirma });
+    res.json({ ...user, urlFirma });
+  } catch (error) {
+    console.error("Error al obtener usuario por ID:", error);
+    res.status(500).json({ message: "Error al obtener usuario" });
+  }
 };
-
-// Actualizar usuario (puede cambiar contraseña, firma y rol/estado)
 
 // Eliminar usuario
 export const eliminarUsuario = async (req, res) => {
   const { id } = req.params;
   try {
-    const [result] = await db.query("DELETE FROM usuarios WHERE id = ?", [id]);
+    const [result] = await db.query(`DELETE FROM usuarios WHERE id = ?`, [id]);
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
