@@ -3,7 +3,6 @@ import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
 import { verificarPermiso } from "../Middleware/verificarPermiso.js";
 import { uploadComprobante } from "../utils/s3.js";
 import {
-  subirArchivo,
   descargarArchivo,
   listarArchivos,
   eliminarArchivo,
@@ -13,16 +12,19 @@ import {
   descargarVersion,
   restaurarVersion,
   eliminarDefinitivamente,
+  obtenerTiposArchivosUsuario,
+  sustituirArchivo,
 } from "../controllers/archivos.controller.js";
 
 const router = express.Router();
 
-router.post(
-  "/subir",
+router.get("/mis-tipos", autenticarUsuario, obtenerTiposArchivosUsuario);
+// rutas/archivos.routes.js
+router.put(
+  "/sustituir/:registroTipo/:registroId",
   autenticarUsuario,
-  verificarPermiso("subirArchivos"),
-  uploadComprobante.single("archivo"),
-  subirArchivo
+  uploadGeneric.single("archivo"),
+  sustituirArchivo
 );
 
 router.get(

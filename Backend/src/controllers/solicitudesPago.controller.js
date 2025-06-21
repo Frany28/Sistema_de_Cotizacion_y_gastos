@@ -183,11 +183,12 @@ export const pagarSolicitudPago = async (req, res) => {
   } = req.body;
   const comprobanteFile = req.file;
 
+  // Banco nulo si es efectivo
   const bancoId = metodo_pago === "Efectivo" ? null : rawBancoId || null;
   const usuarioFirmaId = req.user?.id;
 
   try {
-    /* --- validar solicitud --- */
+    // 1. Validar existencia y estado
     const [[sol]] = await db.execute(
       `SELECT estado, monto_total, moneda, tasa_cambio
          FROM solicitudes_pago
@@ -203,12 +204,15 @@ export const pagarSolicitudPago = async (req, res) => {
         .json({ message: `Estado inválido: ${sol.estado}` });
     }
 
-    /* --- clave real del comprobante --- */
+    // 2. Preparar datos del comprobante
     const rutaComprobante = comprobanteFile ? comprobanteFile.key : null;
-
+    const nombreOriginal = comprobanteFile
+      ? comprobanteFile.originalname
+      : null;
+    const extension = nombreOriginal ? nombreOriginal.split(".").pop() : null;
     const fechaPagoFinal = fecha_pago ? new Date(fecha_pago) : new Date();
 
-    /* --- actualizar solicitud --- */
+    // 3. Actualizar solicitud de pago
     await db.execute(
       `UPDATE solicitudes_pago
           SET banco_id         = ?,
@@ -233,7 +237,7 @@ export const pagarSolicitudPago = async (req, res) => {
       ]
     );
 
-    /* --- registro histórico --- */
+    // 4. Insertar en histórico de pagos
     await db.execute(
       `INSERT INTO pagos_realizados
          (solicitud_pago_id, usuario_id, metodo_pago, banco_id,
@@ -255,8 +259,43 @@ export const pagarSolicitudPago = async (req, res) => {
       ]
     );
 
+    // 5. Registrar archivo en archivos + evento en eventosArchivo
+    if (rutaComprobante) {
+      // 5.1. Insertar en archivos
+      const [resArchivo] = await db.query(
+        `INSERT INTO archivos
+           (registroTipo, registroId, nombreOriginal, extension, rutaS3, subidoPor, creadoEn, actualizadoEn)
+         VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+        [
+          "comprobantesPagos",
+          id,
+          nombreOriginal,
+          extension,
+          rutaComprobante,
+          usuarioFirmaId,
+        ]
+      );
+      const archivoId = resArchivo.insertId;
+
+      // 5.2. Insertar en eventosArchivo
+      await db.query(
+        `INSERT INTO eventosArchivo
+           (archivoId, accion, usuarioId, fechaHora, ip, userAgent, detalles)
+         VALUES (?, ?, ?, NOW(), ?, ?, ?)`,
+        [
+          archivoId,
+          "subida",
+          usuarioFirmaId,
+          req.ip || null,
+          req.get("user-agent") || null,
+          JSON.stringify({ nombreOriginal, extension, ruta: rutaComprobante }),
+        ]
+      );
+    }
+
+    // 6. Respuesta de éxito
     return res.json({
-      message: "Pago registrado y guardado en histórico.",
+      message: "Pago registrado, histórico y archivo guardado correctamente.",
       solicitud_id: id,
     });
   } catch (error) {

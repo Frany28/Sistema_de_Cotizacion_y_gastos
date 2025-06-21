@@ -1,375 +1,393 @@
 import db from "../config/database.js";
-import { generarUrlPrefirmadaLectura } from "../utils/s3.js";
-import { s3 } from "../utils/s3.js";
+import {
+  s3,
+  generarUrlPrefirmadaLectura,
+  moverArchivoAS3AlPapelera,
+} from "../utils/s3.js";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 
-// Controlador para subir archivo
-export const subirArchivo = async (req, res) => {
+// Roles autorizados
+const ROL_ADMIN = 1;
+const ROL_SUPERVISOR = 2;
+
+// Controller: sustituir (reemplazar) un archivo existente
+export const sustituirArchivo = async (req, res) => {
+  const conexion = await db.getConnection();
   const usuarioId = req.user.id;
-  const { carpetaId, registroTipo, registroId } = req.body;
-
-  if (!req.file) {
-    return res.status(400).json({ message: "Archivo no proporcionado." });
-  }
-
-  if (!registroTipo || !registroId) {
-    return res.status(400).json({
-      message: "Faltan parámetros obligatorios (registroTipo o registroId).",
-    });
-  }
+  const rolId = req.user.rol_id;
 
   try {
-    const { originalname, key } = req.file;
+    // 1) Datos del nuevo archivo (Multer)
+    const { key: nuevaKey, originalname, size: tamanoBytes } = req.file;
     const extension = originalname.split(".").pop();
 
-    // Insertar en la tabla archivos
-    const [result] = await db.execute(
-      `INSERT INTO archivos 
-      (carpetaId, registroTipo, registroId, nombreOriginal, extension, subidoPor) 
-      VALUES (?, ?, ?, ?, ?, ?)`,
+    // 2) Leer registro activo y permiso de acceso
+    const [[archivo]] = await conexion.query(
+      `SELECT id, rutaS3 AS keyS3, subidoPor, tamanoBytes
+         FROM archivos
+        WHERE registroTipo = ?
+          AND registroId = ?
+          AND estado = 'activo'`,
+      [req.params.registroTipo, req.params.registroId]
+    );
+    if (!archivo)
+      return res
+        .status(404)
+        .json({ message: "No hay archivo activo para sustituir." });
+    if (
+      ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
+      archivo.subidoPor !== usuarioId
+    ) {
+      return res.status(403).json({
+        message: "Acceso denegado: no puedes sustituir este archivo.",
+      });
+    }
+
+    // 3) Validar cuota de almacenamiento (50 MB)
+    const [[usuario]] = await conexion.query(
+      "SELECT cuotaMb, usoStorageBytes FROM usuarios WHERE id = ?",
+      [usuarioId]
+    );
+    const cuotaBytes = usuario.cuotaMb * 1024 * 1024;
+    const usoActual = usuario.usoStorageBytes;
+    const tamanoAntiguo = archivo.tamanoBytes;
+    const nuevoUso = usoActual - tamanoAntiguo + tamanoBytes;
+    if (nuevoUso > cuotaBytes) {
+      return res
+        .status(400)
+        .json({ message: "Superas la cuota de almacenamiento (50 MB)." });
+    }
+
+    await conexion.beginTransaction();
+
+    // 4) Mover archivo antiguo a carpeta papelera en S3
+    await moverArchivoAS3AlPapelera(
+      archivo.keyS3,
+      req.params.registroTipo,
+      req.params.registroId
+    );
+
+    // 5) Registrar versión anterior en versionesArchivo
+    const [[{ maxVersion }]] = await conexion.query(
+      "SELECT COALESCE(MAX(numeroVersion), 0) AS maxVersion FROM versionesArchivo WHERE archivoId = ?",
+      [archivo.id]
+    );
+    const numeroVersion = maxVersion + 1;
+    await conexion.query(
+      `INSERT INTO versionesArchivo
+         (archivoId, numeroVersion, subidoEn, subidoPorId, comentario, tamanoBytes, s3ObjectKey)
+       VALUES (?, ?, NOW(), ?, ?, ?, ?)`,
       [
-        carpetaId || null,
-        registroTipo,
-        registroId,
-        originalname,
-        extension,
+        archivo.id,
+        numeroVersion,
         usuarioId,
+        "Reemplazo de archivo",
+        archivo.tamanoBytes,
+        archivo.keyS3,
       ]
     );
 
-    const archivoId = result.insertId;
+    // 6) Actualizar registro principal en archivos
+    await conexion.query(
+      "UPDATE archivos SET rutaS3 = ?, nombreOriginal = ?, extension = ?, tamanoBytes = ?, actualizadoEn = NOW() WHERE id = ?",
+      [nuevaKey, originalname, extension, tamanoBytes, archivo.id]
+    );
 
-    // Registrar el evento de subida en eventosArchivo
-    await db.execute(
-      `INSERT INTO eventosArchivo (archivoId, accion, usuarioId, ip, userAgent, detalles)
-       VALUES (?, 'subida', ?, ?, ?, ?)`,
+    // 7) Ajustar usoStorageBytes en usuarios
+    await conexion.query(
+      "UPDATE usuarios SET usoStorageBytes = ? WHERE id = ?",
+      [nuevoUso, usuarioId]
+    );
+
+    // 8) Registrar evento de sustitución
+    await conexion.query(
+      `INSERT INTO eventosArchivo
+         (archivoId, versionId, accion, usuarioId, ip, userAgent, detalles)
+       VALUES (?, ?, 'sustitucion', ?, ?, ?, ?)`,
       [
-        archivoId,
+        archivo.id,
+        numeroVersion,
         usuarioId,
         req.ip,
-        req.headers["user-agent"],
-        JSON.stringify({ s3Key: key }),
+        req.get("User-Agent"),
+        JSON.stringify({ nuevaKey, extension, originalname, numeroVersion }),
       ]
     );
 
-    // Respuesta JSON
-    res.status(201).json({
-      message: "Archivo subido correctamente",
-      archivoId,
-      nombreOriginal: originalname,
-      s3Key: key,
-    });
+    await conexion.commit();
+    return res.json({ message: "Archivo sustituido correctamente." });
   } catch (error) {
-    console.error("Error al subir archivo:", error);
-    res
+    await conexion.rollback();
+    console.error(error);
+    return res
       .status(500)
-      .json({ message: "Error interno del servidor al subir archivo" });
+      .json({ message: "Error interno al sustituir archivo." });
+  } finally {
+    conexion.release();
   }
 };
 
-// Controlador para descargar archivo
+// Controller: descargar archivo activo
 export const descargarArchivo = async (req, res) => {
-  const { id } = req.params;
+  const archivoId = Number(req.params.id);
+  const usuarioId = req.user.id;
+  const rolId = req.user.rol_id;
 
   try {
-    // Consultar la key del archivo desde la BD
     const [[archivo]] = await db.query(
-      "SELECT nombreOriginal, extension, creadoEn, registroTipo, documento FROM archivos WHERE id = ? AND estado = 'activo'",
-      [id]
+      `SELECT id, nombreOriginal, rutaS3 AS keyS3, subidoPor
+         FROM archivos
+        WHERE id = ?
+          AND estado = 'activo'`,
+      [archivoId]
     );
-
-    if (!archivo || !archivo.documento) {
-      return res
-        .status(404)
-        .json({ message: "Archivo no encontrado o no disponible." });
+    if (!archivo)
+      return res.status(404).json({ message: "Archivo no encontrado." });
+    if (
+      ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
+      archivo.subidoPor !== usuarioId
+    ) {
+      return res.status(403).json({
+        message: "Acceso denegado: no puedes descargar este archivo.",
+      });
     }
 
-    // Generar URL prefirmada con validez de 10 minutos (600 segundos)
-    const url = await generarUrlPrefirmadaLectura(archivo.documento, 600);
-
-    // Registrar evento de descarga en auditoría
+    const url = await generarUrlPrefirmadaLectura(archivo.keyS3, 600);
     await db.execute(
       `INSERT INTO eventosArchivo (archivoId, accion, usuarioId, ip, userAgent, detalles)
        VALUES (?, 'descarga', ?, ?, ?, ?)`,
       [
-        id,
-        req.user.id,
+        archivoId,
+        usuarioId,
         req.ip,
-        req.headers["user-agent"],
-        JSON.stringify({ s3Key: archivo.documento }),
+        req.get("User-Agent"),
+        JSON.stringify({ key: archivo.keyS3 }),
       ]
     );
 
-    res.json({
-      nombreOriginal: archivo.nombreOriginal,
-      url,
-    });
+    return res.json({ nombreOriginal: archivo.nombreOriginal, url });
   } catch (error) {
-    console.error("Error al generar URL para descargar archivo:", error);
-    res.status(500).json({ message: "Error interno al descargar archivo." });
+    console.error(error);
+    return res
+      .status(500)
+      .json({ message: "Error interno al descargar archivo." });
   }
 };
 
-// Controlador para listar archivos con paginación y búsqueda
+// Controller: listar archivos con paginación y búsqueda
 export const listarArchivos = async (req, res) => {
-  const page = +req.query.page || 1;
-  const limit = +req.query.limit || 10;
-  const offset = (page - 1) * limit;
-  const q = (req.query.search || "").trim();
-
-  try {
-    // 1) Total de archivos filtrados
-    const [[{ total }]] = await db.query(
-      q
-        ? `SELECT COUNT(*) AS total
-           FROM archivos a
-           LEFT JOIN usuarios u ON u.id = a.subidoPor
-           WHERE a.nombreOriginal LIKE ? OR u.nombre LIKE ?`
-        : `SELECT COUNT(*) AS total FROM archivos`,
-      q ? [`%${q}%`, `%${q}%`] : []
-    );
-
-    // 2) Obtener lista de archivos paginada y filtrada
-    const [archivos] = await db.query(
-      `
-      SELECT a.id,
-             a.nombreOriginal,
-             a.extension,
-             a.estado,
-             a.creadoEn,
-             a.actualizadoEn,
-             u.nombre AS subidoPor,
-             a.registroTipo,
-             a.registroId
-      FROM archivos a
-      LEFT JOIN usuarios u ON u.id = a.subidoPor
-      ${q ? "WHERE a.nombreOriginal LIKE ? OR u.nombre LIKE ?" : ""}
-      ORDER BY a.creadoEn DESC
-      LIMIT ${limit} OFFSET ${offset}
-      `,
-      q ? [`%${q}%`, `%${q}%`] : []
-    );
-
-    res.json({ data: archivos, total, page, limit });
-  } catch (error) {
-    console.error("Error al listar archivos:", error);
-    res.status(500).json({ message: "Error interno al listar archivos" });
-  }
-};
-
-// Controlador para eliminar archivo (soft-delete)
-export const eliminarArchivo = async (req, res) => {
-  const { id } = req.params;
   const usuarioId = req.user.id;
+  const rolId = req.user.rol_id;
+  const page = Number(req.query.page) || 1;
+  const limit = Number(req.query.limit) || 10;
+  const offset = (page - 1) * limit;
+  const search = req.query.search ? `%${req.query.search.trim()}%` : null;
 
   try {
-    // Verificar existencia del archivo
-    const [[archivoExistente]] = await db.query(
-      "SELECT estado FROM archivos WHERE id = ?",
-      [id]
-    );
+    let where = "WHERE a.estado = 'activo'";
+    const params = [];
 
-    if (!archivoExistente) {
-      return res.status(404).json({ message: "Archivo no encontrado." });
+    if (![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId)) {
+      where += " AND a.subidoPor = ?";
+      params.push(usuarioId);
+    }
+    if (search) {
+      where += " AND a.nombreOriginal LIKE ?";
+      params.push(search);
     }
 
-    // Verificar si ya está eliminado
-    if (archivoExistente.estado === "eliminado") {
+    const [[{ total }]] = await db.query(
+      `SELECT COUNT(*) AS total FROM archivos a ${where}`,
+      params
+    );
+
+    const [data] = await db.query(
+      `SELECT a.id,
+              a.nombreOriginal,
+              a.extension,
+              a.tamanoBytes,
+              a.creadoEn,
+              a.actualizadoEn,
+              u.nombre AS subidoPor,
+              a.registroTipo,
+              a.registroId
+         FROM archivos a
+    JOIN usuarios u ON u.id = a.subidoPor
+        ${where}
+     ORDER BY a.creadoEn DESC
+     LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
+    );
+
+    return res.json({ data, total, page, limit });
+  } catch (error) {
+    console.error(error);
+    return res
+      .status(500)
+      .json({ message: "Error interno al listar archivos." });
+  }
+};
+
+// Controller: eliminar archivo (soft-delete)
+export const eliminarArchivo = async (req, res) => {
+  const archivoId = Number(req.params.id);
+  const usuarioId = req.user.id;
+  const rolId = req.user.rol_id;
+
+  try {
+    const [[archivo]] = await db.query(
+      "SELECT estado, subidoPor, tamanoBytes FROM archivos WHERE id = ?",
+      [archivoId]
+    );
+    if (!archivo)
+      return res.status(404).json({ message: "Archivo no encontrado." });
+    if (archivo.estado === "eliminado") {
       return res.status(400).json({ message: "El archivo ya está eliminado." });
     }
+    if (
+      ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
+      archivo.subidoPor !== usuarioId
+    ) {
+      return res
+        .status(403)
+        .json({ message: "Acceso denegado: no puedes eliminar este archivo." });
+    }
 
-    // Soft delete: marcar archivo como eliminado
     await db.execute(
-      `UPDATE archivos 
-       SET estado = 'eliminado', eliminadoEn = NOW(), actualizadoEn = NOW()
-       WHERE id = ?`,
-      [id]
+      "UPDATE archivos SET estado = 'eliminado', eliminadoEn = NOW(), actualizadoEn = NOW() WHERE id = ?",
+      [archivoId]
     );
-
-    // Registrar evento en auditoría
+    // Ajustar uso de almacenamiento
+    await db.execute(
+      "UPDATE usuarios SET usoStorageBytes = usoStorageBytes - ? WHERE id = ?",
+      [archivo.tamanoBytes, archivo.subidoPor]
+    );
     await db.execute(
       `INSERT INTO eventosArchivo (archivoId, accion, usuarioId, ip, userAgent)
        VALUES (?, 'eliminacion', ?, ?, ?)`,
-      [id, usuarioId, req.ip, req.headers["user-agent"]]
+      [archivoId, usuarioId, req.ip, req.get("User-Agent")]
     );
 
-    res.json({ message: "Archivo eliminado correctamente (soft delete)." });
+    return res.json({
+      message: "Archivo eliminado correctamente (soft delete).",
+    });
   } catch (error) {
-    console.error("Error al eliminar archivo:", error);
-    res.status(500).json({ message: "Error interno al eliminar archivo." });
+    console.error(error);
+    return res
+      .status(500)
+      .json({ message: "Error interno al eliminar archivo." });
   }
 };
 
-// Controlador para restaurar archivo desde estado 'eliminado'
+// Controller: restaurar archivo desde papelera
 export const restaurarArchivo = async (req, res) => {
-  const { id } = req.params;
+  const archivoId = Number(req.params.id);
   const usuarioId = req.user.id;
+  const rolId = req.user.rol_id;
 
   try {
-    // Verificar si el archivo existe y está eliminado
-    const [[archivoExistente]] = await db.query(
-      "SELECT estado FROM archivos WHERE id = ?",
-      [id]
+    const [[archivo]] = await db.query(
+      "SELECT estado, subidoPor FROM archivos WHERE id = ?",
+      [archivoId]
     );
-
-    if (!archivoExistente) {
+    if (!archivo)
       return res.status(404).json({ message: "Archivo no encontrado." });
-    }
-
-    if (archivoExistente.estado !== "eliminado") {
+    if (archivo.estado !== "eliminado") {
       return res
         .status(400)
         .json({ message: "El archivo no está en la papelera." });
     }
+    if (
+      ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
+      archivo.subidoPor !== usuarioId
+    ) {
+      return res.status(403).json({
+        message: "Acceso denegado: no puedes restaurar este archivo.",
+      });
+    }
 
-    // Restaurar el archivo
     await db.execute(
-      `UPDATE archivos 
-       SET estado = 'activo', eliminadoEn = NULL, actualizadoEn = NOW()
-       WHERE id = ?`,
-      [id]
+      "UPDATE archivos SET estado = 'activo', eliminadoEn = NULL, actualizadoEn = NOW() WHERE id = ?",
+      [archivoId]
     );
-
-    // Registrar evento en auditoría
     await db.execute(
       `INSERT INTO eventosArchivo (archivoId, accion, usuarioId, ip, userAgent)
        VALUES (?, 'restauracion', ?, ?, ?)`,
-      [id, usuarioId, req.ip, req.headers["user-agent"]]
+      [archivoId, usuarioId, req.ip, req.get("User-Agent")]
     );
 
-    res.json({ message: "Archivo restaurado correctamente." });
+    return res.json({ message: "Archivo restaurado correctamente." });
   } catch (error) {
-    console.error("Error al restaurar archivo:", error);
-    res.status(500).json({ message: "Error interno al restaurar archivo." });
-  }
-};
-
-// Controlador para registrar eventos manuales en la auditoría
-export const registrarEvento = async (req, res) => {
-  const usuarioId = req.user.id;
-  const { archivoId, accion, detalles } = req.body;
-
-  // Validar parámetros necesarios
-  if (!archivoId || !accion) {
+    console.error(error);
     return res
-      .status(400)
-      .json({ message: "Faltan parámetros obligatorios (archivoId, accion)." });
-  }
-
-  const accionesValidas = [
-    "subida",
-    "eliminacion",
-    "restauracion",
-    "descarga",
-    "edicionMetadatos",
-    "borradoDefinitivo",
-  ];
-
-  if (!accionesValidas.includes(accion)) {
-    return res.status(400).json({ message: "Acción no válida." });
-  }
-
-  try {
-    // Verificar que el archivo existe
-    const [[archivo]] = await db.query("SELECT id FROM archivos WHERE id = ?", [
-      archivoId,
-    ]);
-
-    if (!archivo) {
-      return res.status(404).json({ message: "Archivo no encontrado." });
-    }
-
-    // Registrar evento
-    await db.execute(
-      `INSERT INTO eventosArchivo (archivoId, accion, usuarioId, ip, userAgent, detalles)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [
-        archivoId,
-        accion,
-        usuarioId,
-        req.ip,
-        req.headers["user-agent"],
-        detalles ? JSON.stringify(detalles) : null,
-      ]
-    );
-
-    res.json({ message: "Evento registrado correctamente." });
-  } catch (error) {
-    console.error("Error al registrar evento:", error);
-    res.status(500).json({ message: "Error interno al registrar evento." });
-  }
-};
-
-// Controlador para listar historial de versiones de un archivo
-export const listarHistorialVersiones = async (req, res) => {
-  const { archivoId } = req.params;
-
-  try {
-    // Verificar si el archivo existe
-    const [[archivo]] = await db.query(
-      "SELECT id, nombreOriginal FROM archivos WHERE id = ?",
-      [archivoId]
-    );
-
-    if (!archivo) {
-      return res.status(404).json({ message: "Archivo no encontrado." });
-    }
-
-    // Obtener lista de versiones
-    const [versiones] = await db.query(
-      `
-      SELECT v.id,
-             v.numeroVersion,
-             v.fecha,
-             v.usuarioId,
-             u.nombre AS usuario,
-             v.comentario,
-             v.documento AS keyS3
-      FROM versionesArchivo v
-      LEFT JOIN usuarios u ON u.id = v.usuarioId
-      WHERE v.archivoId = ?
-      ORDER BY v.numeroVersion DESC
-      `,
-      [archivoId]
-    );
-
-    res.json({
-      archivo: {
-        id: archivo.id,
-        nombreOriginal: archivo.nombreOriginal,
-      },
-      versiones,
-    });
-  } catch (error) {
-    console.error("Error al listar historial de versiones:", error);
-    res
       .status(500)
-      .json({ message: "Error interno al obtener historial de versiones." });
+      .json({ message: "Error interno al restaurar archivo." });
   }
 };
 
-// Controlador para descargar una versión específica del archivo
-export const descargarVersion = async (req, res) => {
-  const { versionId } = req.params;
+// Controller: listar historial de versiones
+export const listarHistorialVersiones = async (req, res) => {
+  const archivoId = Number(req.params.archivoId);
   const usuarioId = req.user.id;
+  const rolId = req.user.rol_id;
 
   try {
-    // 1. Obtener la versión
+    const [[registro]] = await db.query(
+      "SELECT subidoPor FROM archivos WHERE id = ?",
+      [archivoId]
+    );
+    if (!registro)
+      return res.status(404).json({ message: "Archivo no encontrado." });
+    if (
+      ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
+      registro.subidoPor !== usuarioId
+    ) {
+      return res.status(403).json({ message: "Acceso denegado." });
+    }
+
+    const [versiones] = await db.query(
+      `SELECT v.id, v.numeroVersion, v.subidoEn AS fecha, v.subidoPorId AS usuarioId,
+              u.nombre AS usuario, v.comentario, v.tamanoBytes, v.s3ObjectKey AS keyS3
+         FROM versionesArchivo v
+    JOIN usuarios u ON u.id = v.subidoPorId
+        WHERE v.archivoId = ?
+     ORDER BY v.numeroVersion DESC`,
+      [archivoId]
+    );
+
+    return res.json({ archivoId, versiones });
+  } catch (error) {
+    console.error(error);
+    return res
+      .status(500)
+      .json({ message: "Error interno al listar historial de versiones." });
+  }
+};
+
+// Controller: descargar una versión específica
+export const descargarVersion = async (req, res) => {
+  const versionId = Number(req.params.versionId);
+  const usuarioId = req.user.id;
+  const rolId = req.user.rol_id;
+
+  try {
     const [[version]] = await db.query(
-      `SELECT archivoId, documento AS keyS3 
-       FROM versionesArchivo 
-       WHERE id = ?`,
+      `SELECT v.archivoId, v.s3ObjectKey AS keyS3, a.subidoPor
+         FROM versionesArchivo v
+    JOIN archivos a ON a.id = v.archivoId
+        WHERE v.id = ?`,
       [versionId]
     );
-
-    if (!version) {
+    if (!version)
       return res.status(404).json({ message: "Versión no encontrada." });
+    if (
+      ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
+      version.subidoPor !== usuarioId
+    ) {
+      return res.status(403).json({ message: "Acceso denegado." });
     }
 
-    // 2. Generar URL prefirmada (válida 10 min)
     const url = await generarUrlPrefirmadaLectura(version.keyS3, 600);
-
-    // 3. Registrar evento en auditoría
     await db.execute(
       `INSERT INTO eventosArchivo (archivoId, versionId, accion, usuarioId, ip, userAgent, detalles)
        VALUES (?, ?, 'descarga', ?, ?, ?, ?)`,
@@ -378,52 +396,53 @@ export const descargarVersion = async (req, res) => {
         versionId,
         usuarioId,
         req.ip,
-        req.headers["user-agent"],
-        JSON.stringify({ versionId, s3Key: version.keyS3 }),
+        req.get("User-Agent"),
+        JSON.stringify({ key: version.keyS3 }),
       ]
     );
 
-    res.json({ url });
+    return res.json({ url });
   } catch (error) {
-    console.error("Error al generar URL para versión:", error);
-    res
+    console.error(error);
+    return res
       .status(500)
-      .json({ message: "Error interno al descargar versión del archivo." });
+      .json({ message: "Error interno al descargar versión." });
   }
 };
 
-// Restaurar una versión específica como la versión activa del archivo
+// Controller: restaurar versión específica como activa
 export const restaurarVersion = async (req, res) => {
-  const { versionId } = req.body;
+  const versionId = Number(req.body.versionId);
   const usuarioId = req.user.id;
+  const rolId = req.user.rol_id;
 
   if (!versionId) {
     return res.status(400).json({ message: "versionId es obligatorio." });
   }
 
   try {
-    // Obtener versión
     const [[version]] = await db.query(
-      `SELECT v.*, a.nombreOriginal
-       FROM versionesArchivo v
-       JOIN archivos a ON a.id = v.archivoId
-       WHERE v.id = ?`,
+      `SELECT v.archivoId, v.numeroVersion, v.s3ObjectKey AS keyS3, v.tamanoBytes, a.subidoPor
+         FROM versionesArchivo v
+    JOIN archivos a ON a.id = v.archivoId
+        WHERE v.id = ?`,
       [versionId]
     );
-
-    if (!version) {
+    if (!version)
       return res.status(404).json({ message: "Versión no encontrada." });
+    if (
+      ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
+      version.subidoPor !== usuarioId
+    ) {
+      return res.status(403).json({ message: "Acceso denegado." });
     }
 
-    // Actualizar archivo principal con los datos de esta versión
     await db.execute(
-      `UPDATE archivos 
-       SET documento = ?, actualizadoEn = NOW()
+      `UPDATE archivos
+         SET rutaS3 = ?, tamanoBytes = ?, actualizadoEn = NOW()
        WHERE id = ?`,
-      [version.documento, version.archivoId]
+      [version.keyS3, version.tamanoBytes, version.archivoId]
     );
-
-    // Registrar evento
     await db.execute(
       `INSERT INTO eventosArchivo (archivoId, versionId, accion, usuarioId, ip, userAgent, detalles)
        VALUES (?, ?, 'restauracion', ?, ?, ?, ?)`,
@@ -432,74 +451,77 @@ export const restaurarVersion = async (req, res) => {
         versionId,
         usuarioId,
         req.ip,
-        req.headers["user-agent"],
+        req.get("User-Agent"),
         JSON.stringify({
-          comentario: version.comentario,
           versionRestaurada: version.numeroVersion,
-          keyRestaurada: version.documento,
+          key: version.keyS3,
         }),
       ]
     );
 
-    res.json({
+    return res.json({
       message: `Versión ${version.numeroVersion} restaurada correctamente.`,
     });
   } catch (error) {
-    console.error("Error al restaurar versión:", error);
-    res.status(500).json({ message: "Error interno al restaurar versión." });
+    console.error(error);
+    return res
+      .status(500)
+      .json({ message: "Error interno al restaurar versión." });
   }
 };
 
+// Controller: eliminar archivo definitivamente (solo Admin)
 export const eliminarDefinitivamente = async (req, res) => {
-  const { id } = req.params;
+  const archivoId = Number(req.params.id);
   const usuarioId = req.user.id;
+  const rolId = req.user.rol_id;
+
+  if (rolId !== ROL_ADMIN) {
+    return res
+      .status(403)
+      .json({ message: "Solo Admin puede eliminar definitivamente." });
+  }
 
   try {
-    // 1. Buscar archivo
     const [[archivo]] = await db.query(
-      `SELECT documento, estado FROM archivos WHERE id = ?`,
-      [id]
+      "SELECT rutaS3 AS keyS3 FROM archivos WHERE id = ? AND estado = 'eliminado'",
+      [archivoId]
     );
-
     if (!archivo) {
-      return res.status(404).json({ message: "Archivo no encontrado." });
+      return res
+        .status(404)
+        .json({ message: "Archivo no encontrado o no está en papelera." });
     }
 
-    if (archivo.estado !== "eliminado") {
-      return res.status(400).json({
-        message: "Solo se pueden eliminar archivos que están en papelera.",
-      });
-    }
-
-    // 2. Eliminar archivo en S3
+    // Eliminar de S3
     await s3.send(
       new DeleteObjectCommand({
         Bucket: process.env.S3_BUCKET,
-        Key: archivo.documento,
+        Key: archivo.keyS3,
       })
     );
 
-    // 3. Eliminar de la base de datos
-    await db.execute(`DELETE FROM archivos WHERE id = ?`, [id]);
+    // Eliminar registro de BD
+    await db.execute(`DELETE FROM archivos WHERE id = ?`, [archivoId]);
 
-    // 4. Registrar evento en auditoría
+    // Registrar evento
     await db.execute(
       `INSERT INTO eventosArchivo (archivoId, accion, usuarioId, ip, userAgent, detalles)
        VALUES (?, 'borradoDefinitivo', ?, ?, ?, ?)`,
       [
-        id,
+        archivoId,
         usuarioId,
         req.ip,
-        req.headers["user-agent"],
-        JSON.stringify({ s3Key: archivo.documento }),
+        req.get("User-Agent"),
+        JSON.stringify({ key: archivo.keyS3 }),
       ]
     );
 
-    res.json({
-      message: "Archivo eliminado permanentemente de la plataforma y S3.",
-    });
+    return res.json({ message: "Eliminado permanentemente del sistema y S3." });
   } catch (error) {
-    console.error("Error en eliminación definitiva:", error);
-    res.status(500).json({ message: "Error interno al eliminar el archivo." });
+    console.error(error);
+    return res
+      .status(500)
+      .json({ message: "Error interno al eliminar definitivamente." });
   }
 };
