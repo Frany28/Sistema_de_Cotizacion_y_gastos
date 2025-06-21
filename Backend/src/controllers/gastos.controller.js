@@ -1,6 +1,6 @@
 // controllers/gastos.controller.js
 import db from "../config/database.js";
-import { generarUrlPrefirmadaLectura } from "../utils/s3.js";
+import { generarUrlPrefirmadaLectura, s3 } from "../utils/s3.js";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 
 // controllers/gastos.controller.js
