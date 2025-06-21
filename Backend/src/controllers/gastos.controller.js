@@ -1,6 +1,7 @@
 // controllers/gastos.controller.js
 import db from "../config/database.js";
 import { generarUrlPrefirmadaLectura } from "../utils/s3.js";
+import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 
 // controllers/gastos.controller.js
 export const getGastos = async (req, res) => {
@@ -249,27 +250,69 @@ export const deleteGasto = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Verificar si el gasto está aprobado
+    // 1) Verificar existencia y estado
     const [[gastoExistente]] = await db.query(
-      "SELECT estado FROM gastos WHERE id = ?",
+      "SELECT estado, documento FROM gastos WHERE id = ?",
       [id]
     );
-
     if (!gastoExistente) {
       return res.status(404).json({ message: "Gasto no encontrado" });
     }
-
     if (gastoExistente.estado === "aprobado") {
-      return res.status(403).json({
-        message: "No puedes eliminar un gasto que ya está aprobado.",
-      });
+      return res
+        .status(403)
+        .json({ message: "No puedes eliminar un gasto aprobado." });
     }
 
+    // 2) Si hay documento, eliminar archivo en S3 y limpiar BD de archivos y eventos
+    if (gastoExistente.documento) {
+      // 2.1) Borrar objeto de S3
+      await s3.send(
+        new DeleteObjectCommand({
+          Bucket: process.env.S3_BUCKET,
+          Key: gastoExistente.documento,
+        })
+      );
+
+      // 2.2) Encontrar el registro de archivos
+      const [archivos] = await db.query(
+        `SELECT id 
+           FROM archivos 
+          WHERE registroTipo = ? 
+            AND registroId = ?`,
+        ["facturasGastos", id]
+      );
+
+      if (archivos.length > 0) {
+        const archivoId = archivos[0].id;
+
+        // 2.3) Borrar eventos relacionados
+        await db.query(
+          `DELETE FROM eventosArchivo 
+             WHERE archivoId = ?`,
+          [archivoId]
+        );
+
+        // 2.4) Borrar el registro principal
+        await db.query(
+          `DELETE FROM archivos 
+             WHERE id = ?`,
+          [archivoId]
+        );
+      }
+    }
+
+    // 3) Eliminar el gasto
     await db.query("DELETE FROM gastos WHERE id = ?", [id]);
-    res.json({ message: "Gasto eliminado correctamente" });
+
+    return res.json({
+      message: "Gasto y archivo asociados eliminados correctamente.",
+    });
   } catch (error) {
     console.error("Error al eliminar gasto:", error);
-    res.status(500).json({ message: "Error interno al eliminar gasto" });
+    return res
+      .status(500)
+      .json({ message: "Error interno al eliminar gasto." });
   }
 };
 
