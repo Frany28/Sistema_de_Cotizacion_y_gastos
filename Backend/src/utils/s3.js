@@ -1,7 +1,4 @@
 // utils/s3.js
-// AWS SDK v3 + multer-s3
-// Nueva estructura: nombreCarpeta/año/mes (nombre del mes en palabras)
-
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import multer from "multer";
@@ -27,72 +24,46 @@ export async function generarUrlPrefirmadaLectura(key, expiresInSeconds = 300) {
   return getSignedUrl(s3, command, { expiresIn: expiresInSeconds });
 }
 
-/*────────────────────  Factory de uploaders  ──────────*/
-const meses = [
-  "enero",
-  "febrero",
-  "marzo",
-  "abril",
-  "mayo",
-  "junio",
-  "julio",
-  "agosto",
-  "septiembre",
-  "octubre",
-  "noviembre",
-  "diciembre",
-];
+/*────────────────────  Upload de firmas  ──────────────*/
+export const uploadFirma = multer({
+  storage: multerS3({
+    s3,
+    bucket: process.env.S3_BUCKET,
+    acl: "private",
+    metadata: (req, file, cb) => cb(null, { fieldName: file.fieldname }),
+    key: (req, file, cb) => {
+      // 1) Obtenemos el nombre del usuario que estamos creando
+      const nombreUsuario = req.body.nombre
+        ? req.body.nombre.trim().replace(/\s+/g, "_")
+        : `sin_nombre_${Date.now()}`;
 
-const makeUploader = ({
-  folder,
-  maxSizeMb,
-  allowPdf = false,
-  isFirma = false,
-}) =>
-  multer({
-    storage: multerS3({
-      s3,
-      bucket: process.env.S3_BUCKET,
-      acl: "private",
-      metadata: (req, file, cb) => cb(null, { fieldName: file.fieldname }),
-      key: (req, file, cb) => {
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = meses[now.getMonth()];
-        const safeName = file.originalname.replace(/\s+/g, "_");
-        if (isFirma && req.usuario && req.usuario.nombre) {
-          const userFolder = req.usuario.nombre.replace(/\s+/g, "_");
-          cb(
-            null,
-            `${folder}/${userFolder}/${year}/${month}/${Date.now()}-${safeName}`
-          );
-        } else {
-          cb(null, `${folder}/${year}/${month}/${Date.now()}-${safeName}`);
-        }
-      },
-    }),
-    limits: { fileSize: maxSizeMb * 1024 * 1024 },
-    fileFilter: (req, file, cb) => {
-      const allowedTypes = [
-        "image/jpeg",
-        "image/png",
-        "image/gif",
-        "image/webp",
-      ];
-      if (allowPdf) allowedTypes.push("application/pdf");
-      if (allowedTypes.includes(file.mimetype)) cb(null, true);
-      else cb(new Error("Tipo de archivo no permitido"));
+      // 2) Construimos la key fija "firma.<ext>"
+      const extension = file.originalname.split(".").pop();
+      const fileName = `firma.${extension}`;
+
+      // 3) Generamos ruta: firmas/<nombreUsuarioCreado>/firma.ext
+      const key = `firmas/${nombreUsuario}/${fileName}`;
+
+      cb(null, key);
     },
-    preservePath: true,
-  });
+  }),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB máximo
+  fileFilter: (req, file, cb) => {
+    const tiposPermitidos = [
+      "image/jpeg",
+      "image/png",
+      "image/gif",
+      "image/webp",
+    ];
+    if (tiposPermitidos.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Tipo de archivo no permitido para firma"));
+    }
+  },
+});
 
 /*────────────────────  Uploaders exportados  ──────────*/
-
-export const uploadFirma = makeUploader({
-  folder: "firmas",
-  maxSizeMb: 5,
-  isFirma: true,
-});
 
 export const uploadComprobante = makeUploader({
   folder: "facturas_gastos",
