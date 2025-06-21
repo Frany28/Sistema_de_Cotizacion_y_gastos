@@ -178,6 +178,13 @@ export const uploadComprobantePago = multer({
   fileFilter: (req, file, cb) => cb(null, true),
 });
 
+/*────────────────── Upload genérico para cualquier archivo ───*/
+export const uploadGeneric = makeUploader({
+  folder: "archivos", // prefijo en S3: archivos/<año>/<mes>/...
+  maxSizeMb: 10, // 10 MB máximo (ajusta si quieres otro límite)
+  allowPdf: true,
+});
+
 /*────────────────── Upload de abonos CxC ─────────────*/
 export const uploadComprobanteAbono = multer({
   storage: multerS3({
