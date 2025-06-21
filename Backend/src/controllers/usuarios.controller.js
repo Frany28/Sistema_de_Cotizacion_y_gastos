@@ -2,6 +2,7 @@
 import db from "../config/database.js";
 import { generarUrlPrefirmadaLectura } from "../utils/s3.js";
 import bcrypt from "bcrypt";
+import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 
 // Crear usuario (incluye registro de firma en S3, tabla archivos y eventosArchivo)
 export const crearUsuario = async (req, res) => {
@@ -204,17 +205,61 @@ export const obtenerUsuarioPorId = async (req, res) => {
   }
 };
 
-// Eliminar usuario
+// Eliminar usuario y archivos/eventos asociados
 export const eliminarUsuario = async (req, res) => {
   const { id } = req.params;
+  const conexion = await db.getConnection();
   try {
-    const [result] = await db.query(`DELETE FROM usuarios WHERE id = ?`, [id]);
-    if (result.affectedRows === 0) {
+    await conexion.beginTransaction();
+
+    // 1) Verificar existencia
+    const [[usuario]] = await conexion.query(
+      `SELECT id FROM usuarios WHERE id = ?`,
+      [id]
+    );
+    if (!usuario) {
+      await conexion.rollback();
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
-    res.json({ message: "Usuario eliminado correctamente" });
+
+    // 2) Recuperar archivos de firma asociados
+    const [archivos] = await conexion.query(
+      `SELECT id, rutaS3 
+         FROM archivos 
+        WHERE registroTipo = ? 
+          AND registroId   = ?`,
+      ["firmas", id]
+    );
+
+    // 3) Eliminar cada archivo de S3 y sus registros
+    for (const archivo of archivos) {
+      // 3.1) Borrar de S3
+      await s3.send(
+        new DeleteObjectCommand({
+          Bucket: process.env.S3_BUCKET,
+          Key: archivo.rutaS3,
+        })
+      );
+      // 3.2) Borrar eventos de auditoría
+      await conexion.query(`DELETE FROM eventosArchivo WHERE archivoId = ?`, [
+        archivo.id,
+      ]);
+      // 3.3) Borrar registro en archivos
+      await conexion.query(`DELETE FROM archivos WHERE id = ?`, [archivo.id]);
+    }
+
+    // 4) Borrar usuario
+    await conexion.query(`DELETE FROM usuarios WHERE id = ?`, [id]);
+
+    await conexion.commit();
+    res.json({
+      message: "Usuario y archivos asociados eliminados correctamente",
+    });
   } catch (error) {
+    await conexion.rollback();
     console.error("Error al eliminar usuario:", error);
     res.status(500).json({ message: "Error interno al eliminar usuario" });
+  } finally {
+    conexion.release();
   }
 };
