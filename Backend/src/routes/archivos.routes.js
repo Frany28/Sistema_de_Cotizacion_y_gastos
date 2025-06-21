@@ -12,13 +12,11 @@ import {
   descargarVersion,
   restaurarVersion,
   eliminarDefinitivamente,
-  obtenerTiposArchivosUsuario,
   sustituirArchivo,
 } from "../controllers/archivos.controller.js";
 
 const router = express.Router();
 
-router.get("/mis-tipos", autenticarUsuario, obtenerTiposArchivosUsuario);
 // rutas/archivos.routes.js
 router.put(
   "/sustituir/:registroTipo/:registroId",
