@@ -7,7 +7,6 @@ import {
   listarArchivos,
   eliminarArchivo,
   restaurarArchivo,
-  registrarEvento,
   listarHistorialVersiones,
   descargarVersion,
   restaurarVersion,
@@ -51,13 +50,6 @@ router.post(
   autenticarUsuario,
   verificarPermiso("restaurarArchivos"),
   restaurarArchivo
-);
-
-router.post(
-  "/eventos",
-  autenticarUsuario,
-  verificarPermiso("editarArchivos"),
-  registrarEvento
 );
 
 router.get(
