@@ -1,7 +1,8 @@
+// src/routes/archivos.routes.js
 import express from "express";
 import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
 import { verificarPermiso } from "../Middleware/verificarPermiso.js";
-import { uploadComprobante } from "../utils/s3.js";
+import { uploadGeneric } from "../utils/s3.js";
 import {
   descargarArchivo,
   listarArchivos,
@@ -16,7 +17,7 @@ import {
 
 const router = express.Router();
 
-// rutas/archivos.routes.js
+// Reemplazar (sustituir) un archivo existente
 router.put(
   "/sustituir/:registroTipo/:registroId",
   autenticarUsuario,
@@ -24,6 +25,7 @@ router.put(
   sustituirArchivo
 );
 
+// Descargar archivo activo
 router.get(
   "/descargar/:id",
   autenticarUsuario,
@@ -31,6 +33,7 @@ router.get(
   descargarArchivo
 );
 
+// Listar archivos activos
 router.get(
   "/",
   autenticarUsuario,
@@ -38,6 +41,7 @@ router.get(
   listarArchivos
 );
 
+// Eliminar archivo (soft delete)
 router.delete(
   "/:id",
   autenticarUsuario,
@@ -45,6 +49,7 @@ router.delete(
   eliminarArchivo
 );
 
+// Restaurar archivo desde papelera
 router.post(
   "/:id/restaurar",
   autenticarUsuario,
@@ -52,6 +57,7 @@ router.post(
   restaurarArchivo
 );
 
+// Listar historial de versiones de un archivo
 router.get(
   "/:archivoId/versiones",
   autenticarUsuario,
@@ -59,6 +65,7 @@ router.get(
   listarHistorialVersiones
 );
 
+// Descargar una versión específica
 router.get(
   "/version/:versionId/descargar",
   autenticarUsuario,
@@ -66,6 +73,7 @@ router.get(
   descargarVersion
 );
 
+// Restaurar una versión específica
 router.post(
   "/versiones/restaurar",
   autenticarUsuario,
@@ -73,13 +81,7 @@ router.post(
   restaurarVersion
 );
 
-router.post(
-  "/versiones/restaurar",
-  autenticarUsuario,
-  verificarPermiso("editarArchivos"),
-  restaurarVersion
-);
-
+// Eliminar definitivamente (solo Admin)
 router.delete(
   "/eliminar-definitivo/:id",
   autenticarUsuario,
