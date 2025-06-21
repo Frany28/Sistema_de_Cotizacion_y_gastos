@@ -49,24 +49,22 @@ export const crearUsuario = async (req, res) => {
           nombreOriginal, // nombreOriginal
           extension, // extension
           firmaKey, // rutaS3
-          req.user.id, // subidoPor (admin que sube)
+          req.user.id, // subidoPor (quién sube)
         ]
       );
       const archivoId = aResult.insertId;
 
       // 4.2) Registrar evento de auditoría
+      const detalleEvento = JSON.stringify({
+        ruta: firmaKey,
+        nombre: nombreOriginal,
+        extension,
+      });
       await conexion.query(
         `INSERT INTO eventosArchivo
-           (archivoId, versionId, tipoEvento, usuarioId,
-            fecha, ip, userAgent, metadata)
-         VALUES (?, NULL, 'subida', ?, NOW(), ?, ?, ?)`,
-        [
-          archivoId,
-          req.user.id,
-          req.ip,
-          req.get("User-Agent"),
-          JSON.stringify({ ruta: firmaKey, nombre: nombreOriginal, extension }),
-        ]
+           (archivoId, versionId, accion, usuarioId, ip, userAgent, detalles)
+         VALUES (?, NULL, 'subida', ?, ?, ?, ?)`,
+        [archivoId, req.user.id, req.ip, req.get("User-Agent"), detalleEvento]
       );
     }
 
@@ -81,7 +79,7 @@ export const crearUsuario = async (req, res) => {
   }
 };
 
-// Actualizar usuario (puede cambiar datos básicos y firma)
+// Actualizar usuario (puede cambiar datos básicos y subir nueva firma)
 export const actualizarUsuario = async (req, res) => {
   const conexion = await db.getConnection();
   try {
@@ -96,7 +94,6 @@ export const actualizarUsuario = async (req, res) => {
     // 1) Preparar campos dinámicos
     const campos = [];
     const valores = [];
-
     if (nombre) campos.push("nombre = ?"), valores.push(nombre.trim());
     if (email) campos.push("email = ?"), valores.push(email.trim());
     if (password) {
@@ -109,8 +106,9 @@ export const actualizarUsuario = async (req, res) => {
       campos.push("firma = ?");
       valores.push(firmaKey);
     }
-
     valores.push(id);
+
+    // 2) Ejecutar actualización de usuario
     await conexion.query(
       `UPDATE usuarios
          SET ${campos.join(", ")}
@@ -118,7 +116,7 @@ export const actualizarUsuario = async (req, res) => {
       valores
     );
 
-    // 2) Si sube nueva firma, registrar en archivos y evento
+    // 3) Si sube nueva firma, registrar en archivos y evento
     if (firmaKey) {
       const [aResult] = await conexion.query(
         `INSERT INTO archivos
@@ -130,18 +128,16 @@ export const actualizarUsuario = async (req, res) => {
       );
       const archivoId = aResult.insertId;
 
+      const detalleEvento = JSON.stringify({
+        ruta: firmaKey,
+        nombre: nombreOriginal,
+        extension,
+      });
       await conexion.query(
         `INSERT INTO eventosArchivo
-           (archivoId, versionId, tipoEvento, usuarioId,
-            fecha, ip, userAgent, metadata)
-         VALUES (?, NULL, 'actualización', ?, NOW(), ?, ?, ?)`,
-        [
-          archivoId,
-          req.user.id,
-          req.ip,
-          req.get("User-Agent"),
-          JSON.stringify({ ruta: firmaKey, nombre: nombreOriginal, extension }),
-        ]
+           (archivoId, versionId, accion, usuarioId, ip, userAgent, detalles)
+         VALUES (?, NULL, 'subida', ?, ?, ?, ?)`,
+        [archivoId, req.user.id, req.ip, req.get("User-Agent"), detalleEvento]
       );
     }
 
