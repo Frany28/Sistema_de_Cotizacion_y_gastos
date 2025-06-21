@@ -18,6 +18,13 @@ router.get("/:id", autenticarUsuario, obtenerUsuarioPorId);
 
 router.post("/", uploadFirma.single("firma"), autenticarUsuario, crearUsuario);
 
+router.put(
+  "/:id",
+  autenticarUsuario,
+  uploadFirma.single("firma"),
+  actualizarUsuario
+);
+
 router.delete("/:id", autenticarUsuario, eliminarUsuario);
 
 router.get("/permisos/:clave", autenticarUsuario, async (req, res) => {
