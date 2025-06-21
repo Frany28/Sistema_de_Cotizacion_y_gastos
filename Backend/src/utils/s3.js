@@ -11,6 +11,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import multer from "multer";
 import multerS3 from "multer-s3";
 import dotenv from "dotenv";
+import db from "../config/database.js"; // para obtener el código del gasto
 
 dotenv.config();
 
@@ -129,14 +130,34 @@ export const uploadComprobante = multer({
     acl: "private",
     metadata: (req, file, cb) => cb(null, { fieldName: file.fieldname }),
     key: (req, file, cb) => {
+      const meses = [
+        "enero",
+        "febrero",
+        "marzo",
+        "abril",
+        "mayo",
+        "junio",
+        "julio",
+        "agosto",
+        "septiembre",
+        "octubre",
+        "noviembre",
+        "diciembre",
+      ];
       const ahora = new Date();
       const anio = ahora.getFullYear();
-      const mes = String(ahora.getMonth() + 1).padStart(2, "0");
-      const codigoGasto = req.body.codigo || "sin-codigo";
-      const nombreSeguro = file.originalname.replace(/\s+/g, "_");
-      const timestamp = Date.now();
-      const clave = `facturas_gastos/${anio}/${mes}/${codigoGasto}/${timestamp}-${nombreSeguro}`;
-      cb(null, clave);
+      const mesPalabra = meses[ahora.getMonth()];
+      const idGasto = req.params.id;
+      // Obtener el código único del gasto desde la BD
+      db.query("SELECT codigo FROM gastos WHERE id = ?", [idGasto])
+        .then(([rows]) => {
+          const codigoGasto = rows[0]?.codigo ?? "sin-codigo";
+          const nombreSeguro = file.originalname.replace(/\s+/g, "_");
+          const timestamp = Date.now();
+          const clave = `facturas_gastos/${anio}/${mesPalabra}/${codigoGasto}/${timestamp}-${nombreSeguro}`;
+          cb(null, clave);
+        })
+        .catch((err) => cb(err));
     },
   }),
   limits: { fileSize: 8 * 1024 * 1024 },
