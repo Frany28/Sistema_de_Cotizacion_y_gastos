@@ -18,12 +18,7 @@ router.get("/:id", autenticarUsuario, obtenerUsuarioPorId);
 
 router.post("/", autenticarUsuario, uploadFirma.single("firma"), crearUsuario);
 
-router.put(
-  "/:id",
-  autenticarUsuario,
-  uploadFirma.single("firma"),
-  actualizarUsuario
-);
+router.post("/", uploadFirma.single("firma"), autenticarUsuario, crearUsuario);
 
 router.delete("/:id", autenticarUsuario, eliminarUsuario);
 
