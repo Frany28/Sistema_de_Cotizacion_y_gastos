@@ -1,4 +1,6 @@
 // utils/s3.js
+// Gestión de uploads a S3 con AWS SDK v3 y multer-s3
+
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import multer from "multer";
@@ -6,7 +8,7 @@ import multerS3 from "multer-s3";
 import dotenv from "dotenv";
 dotenv.config();
 
-/*────────────────────  Cliente S3  ────────────────────*/
+/*──────────────────── Cliente S3 ────────────────────*/
 export const s3 = new S3Client({
   region: process.env.AWS_REGION,
   credentials: {
@@ -15,7 +17,7 @@ export const s3 = new S3Client({
   },
 });
 
-/*────────────────────  URL pre-firmada  ───────────────*/
+/*───────────────── URL pre-firmada para GET ─────────*/
 export async function generarUrlPrefirmadaLectura(key, expiresInSeconds = 300) {
   const command = new GetObjectCommand({
     Bucket: process.env.S3_BUCKET,
@@ -24,7 +26,39 @@ export async function generarUrlPrefirmadaLectura(key, expiresInSeconds = 300) {
   return getSignedUrl(s3, command, { expiresIn: expiresInSeconds });
 }
 
-/*────────────────────  Upload de firmas  ──────────────*/
+/*─────────────────── makeUploader genérico ───────────*/
+export function makeUploader({ folder, maxSizeMb = 5, allowPdf = false }) {
+  return multer({
+    storage: multerS3({
+      s3,
+      bucket: process.env.S3_BUCKET,
+      acl: "private",
+      metadata: (req, file, cb) => cb(null, { fieldName: file.fieldname }),
+      key: (req, file, cb) => {
+        const now = new Date();
+        const year = now.getFullYear();
+        const monthName = now
+          .toLocaleString("default", { month: "long" })
+          .toLowerCase();
+        const safeName = file.originalname.replace(/\s+/g, "_");
+        const timestamp = Date.now();
+        const key = `${folder}/${year}/${monthName}/${timestamp}-${safeName}`;
+        cb(null, key);
+      },
+    }),
+    limits: { fileSize: maxSizeMb * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+      if (file.mimetype === "application/pdf") {
+        if (allowPdf) cb(null, true);
+        else cb(new Error("Archivos PDF no permitidos"));
+      } else {
+        cb(null, true);
+      }
+    },
+  });
+}
+
+/*────────────────── Upload específico de firmas ───────*/
 export const uploadFirma = multer({
   storage: multerS3({
     s3,
@@ -32,30 +66,20 @@ export const uploadFirma = multer({
     acl: "private",
     metadata: (req, file, cb) => cb(null, { fieldName: file.fieldname }),
     key: (req, file, cb) => {
-      // 1) Obtenemos el nombre del usuario que estamos creando
+      // Usar el nombre del usuario a crear (req.body.nombre)
       const nombreUsuario = req.body.nombre
         ? req.body.nombre.trim().replace(/\s+/g, "_")
-        : `sin_nombre_${Date.now()}`;
-
-      // 2) Construimos la key fija "firma.<ext>"
+        : `usuario_${Date.now()}`;
       const extension = file.originalname.split(".").pop();
       const fileName = `firma.${extension}`;
-
-      // 3) Generamos ruta: firmas/<nombreUsuarioCreado>/firma.ext
       const key = `firmas/${nombreUsuario}/${fileName}`;
-
       cb(null, key);
     },
   }),
   limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB máximo
   fileFilter: (req, file, cb) => {
-    const tiposPermitidos = [
-      "image/jpeg",
-      "image/png",
-      "image/gif",
-      "image/webp",
-    ];
-    if (tiposPermitidos.includes(file.mimetype)) {
+    const permitidos = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+    if (permitidos.includes(file.mimetype)) {
       cb(null, true);
     } else {
       cb(new Error("Tipo de archivo no permitido para firma"));
@@ -63,8 +87,7 @@ export const uploadFirma = multer({
   },
 });
 
-/*────────────────────  Uploaders exportados  ──────────*/
-
+/*────────────────── Uploaders para otros tipos ───────*/
 export const uploadComprobante = makeUploader({
   folder: "facturas_gastos",
   maxSizeMb: 8,
@@ -78,7 +101,7 @@ export const uploadComprobantePago = makeUploader({
 });
 
 export const uploadComprobanteAbono = makeUploader({
-  folder: "Abonos_cxc",
+  folder: "abonos_cxc",
   maxSizeMb: 8,
   allowPdf: true,
 });
