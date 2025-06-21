@@ -16,7 +16,7 @@ router.get("/", autenticarUsuario, obtenerUsuarios);
 router.get("/permisos/:permiso", autenticarUsuario /* … */);
 router.get("/:id", autenticarUsuario, obtenerUsuarioPorId);
 
-router.post("/", uploadFirma.single("firma"), autenticarUsuario, crearUsuario);
+router.post("/", autenticarUsuario, uploadFirma.single("firma"), crearUsuario);
 
 router.put(
   "/:id",

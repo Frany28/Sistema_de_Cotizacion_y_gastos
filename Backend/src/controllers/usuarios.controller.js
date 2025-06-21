@@ -2,74 +2,32 @@
 import db from "../config/database.js";
 import { generarUrlPrefirmadaLectura } from "../utils/s3.js";
 import bcrypt from "bcrypt";
-import path from "path";
 
+// Crear usuario (ahora con firma y código)
+// controllers/usuarios.controller.js
 export const crearUsuario = async (req, res) => {
   try {
     const { nombre, email, password, rol_id, estado = "activo" } = req.body;
 
-    // Verificamos que el admin esté autenticado
-    if (!req.usuario?.id) {
-      return res.status(401).json({ message: "Usuario autenticado requerido" });
-    }
-
+    // Construimos la ruta pública
     const firma = req.file ? req.file.key : null;
+
     const hashed = await bcrypt.hash(password, 10);
 
-    // 1. Crear usuario
     const [result] = await db.query(
       `INSERT INTO usuarios
-       (nombre, email, password, rol_id, estado, firma, created_at)
+         (nombre, email, password, rol_id, estado, firma, created_at)
        VALUES (?, ?, ?, ?, ?, ?, NOW())`,
       [nombre.trim(), email.trim(), hashed, rol_id, estado, firma]
     );
 
-    const usuarioId = result.insertId;
-
-    // 2. Asignar código
-    const codigo = `USR${String(usuarioId).padStart(4, "0")}`;
+    const codigo = `USR${String(result.insertId).padStart(4, "0")}`;
     await db.query("UPDATE usuarios SET codigo = ? WHERE id = ?", [
       codigo,
-      usuarioId,
+      result.insertId,
     ]);
 
-    // 3. Si se subió firma, registrarla como archivo + evento
-    if (req.file) {
-      const archivoRuta = req.file.key;
-      const nombreOriginal = req.file.originalname;
-      const extension = path.extname(nombreOriginal).substring(1); // sin punto
-      const adminId = req.usuario.id;
-
-      // Insertar archivo
-      const [resArchivo] = await db.query(
-        `INSERT INTO archivos
-         (registroTipo, registroId, nombreOriginal, extension, rutaS3, subidoPor, creadoEn, actualizadoEn)
-         VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-        ["firmas", usuarioId, nombreOriginal, extension, archivoRuta, adminId]
-      );
-
-      const archivoId = resArchivo.insertId;
-
-      // Insertar evento
-      await db.query(
-        `INSERT INTO eventosArchivo
-         (archivoId, accion, usuarioId, fechaHora, ip, userAgent, detalles)
-         VALUES (?, 'subida', ?, NOW(), ?, ?, ?)`,
-        [
-          archivoId,
-          adminId,
-          req.ip || null,
-          req.get("user-agent") || null,
-          JSON.stringify({
-            nombre: nombreOriginal,
-            extension,
-            ruta: archivoRuta,
-          }),
-        ]
-      );
-    }
-
-    res.status(201).json({ id: usuarioId, firma });
+    res.status(201).json({ id: result.insertId, firma });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Error al crear usuario" });
