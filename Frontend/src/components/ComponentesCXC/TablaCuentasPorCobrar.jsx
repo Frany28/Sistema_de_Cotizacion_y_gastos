@@ -22,9 +22,7 @@ const TablaCuentasPorCobrar = ({ clienteId }) => {
 
     try {
       setLoading(true);
-      const response = await api.get(
-        `/cuentas-por-cobrar?cliente_id=${clienteId}`
-      );
+      const response = await api.get(`/cuentas?cliente_id=${clienteId}`);
       setCuentas(response.data.cuentas);
     } catch (error) {
       console.error("Error al obtener cuentas por cobrar:", error);
@@ -114,12 +112,12 @@ const TablaCuentasPorCobrar = ({ clienteId }) => {
       {mostrarModalAbono && cuentaSeleccionada && (
         <ModalRegistrarAbono
           cuentaId={cuentaSeleccionada.id}
-          usuarioId={1} 
+          usuarioId={1}
           onCancel={() => setMostrarModalAbono(false)}
           onSuccess={(msg) => {
             setModalExito(msg);
             setMostrarModalAbono(false);
-            fetchCuentas(); 
+            fetchCuentas();
           }}
           onError={(msg) => setModalError(msg)}
         />

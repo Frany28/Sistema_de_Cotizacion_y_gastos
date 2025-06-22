@@ -8,7 +8,7 @@ const ClienteSelectorCXC = ({ onClienteSeleccionado }) => {
   useEffect(() => {
     const fetchClientes = async () => {
       try {
-        const response = await api.get("/cuentas-por-cobrar/clientes");
+        const response = await api.get("/cuentas/clientes");
         setClientes(response.data);
       } catch (error) {
         console.error("Error al cargar clientes con CXC:", error);

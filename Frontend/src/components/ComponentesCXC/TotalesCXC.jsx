@@ -12,9 +12,7 @@ const TotalesCXC = ({ clienteId }) => {
       }
 
       try {
-        const response = await api.get(
-          `/cuentas-por-cobrar/totales/${clienteId}`
-        );
+        const response = await api.get(`/cuentas/totales/${clienteId}`);
         setTotales(response.data);
       } catch (error) {
         console.error("Error al obtener totales:", error);
