@@ -1,4 +1,3 @@
-// ModalRegistrarAbono.jsx
 import { useState, useEffect } from "react";
 import api from "../../api/index";
 import { motion, AnimatePresence } from "framer-motion";
@@ -9,161 +8,134 @@ import ModalError from "../Modals/ModalError";
 export default function ModalRegistrarAbono({
   cuentaId,
   usuarioId,
-  alCancelar,
-  alRefrescarTotales,
+  onCancel, // cierra este modal
+  onRefreshTotals, // refresca TotalesCXC
 }) {
-  // Estado del formulario con nombres en español y camelCase
-  const [formulario, setFormulario] = useState({
-    montoAbonado: "",
-    monedaPago: "USD",
-    tasaCambio: "",
-    fechaAbono: new Date().toISOString().split("T")[0],
+  const [form, setForm] = useState({
+    monto_abonado: "",
+    moneda_pago: "USD",
+    tasa_cambio: "",
+    fecha_abono: new Date().toISOString().split("T")[0],
     observaciones: "",
   });
   const [archivo, setArchivo] = useState(null);
   const [saldoPendiente, setSaldoPendiente] = useState(null);
-  const [enviando, setEnviando] = useState(false);
-  const [mensajeError, setMensajeError] = useState("");
-  const [montoEnUSD, setMontoEnUSD] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [montoUSD, setMontoUSD] = useState("");
 
-  const [mostrarExito, setMostrarExito] = useState(false);
-  const [mostrarError, setMostrarError] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [showError, setShowError] = useState(false);
 
-  // Obtener saldo pendiente al cargar el modal
+  // Cargar saldo pendiente
   useEffect(() => {
     if (!cuentaId) return;
     api
       .get(`/cuentas/${cuentaId}/saldo`)
       .then((res) => setSaldoPendiente(res.data.saldo))
-      .catch(() => setMensajeError("No se pudo obtener el saldo pendiente."));
+      .catch(() => setError("No se pudo obtener el saldo pendiente."));
   }, [cuentaId]);
 
-  // Obtener tasa de cambio si la moneda es VES
+  // Carga tasa si es VES
   useEffect(() => {
-    if (formulario.monedaPago !== "VES") {
-      setMontoEnUSD("");
-      return;
-    }
+    if (form.moneda_pago !== "VES") return setMontoUSD("");
     api
       .get("https://ve.dolarapi.com/v1/dolares/oficial")
       .then((res) => {
-        const promedio = res.data?.promedio;
-        if (promedio)
-          setFormulario((f) => ({ ...f, tasaCambio: promedio.toFixed(4) }));
+        const t = res.data?.promedio;
+        if (t) setForm((f) => ({ ...f, tasa_cambio: t.toFixed(4) }));
       })
-      .catch(() => setMensajeError("No se pudo obtener la tasa del día."));
-  }, [formulario.monedaPago]);
+      .catch(() => setError("No se pudo obtener la tasa del día."));
+  }, [form.moneda_pago]);
 
-  // Calcular equivalente en USD
+  // Calcula USD
   useEffect(() => {
-    if (
-      formulario.monedaPago === "VES" &&
-      formulario.tasaCambio &&
-      formulario.montoAbonado
-    ) {
-      setMontoEnUSD(
-        (formulario.montoAbonado / formulario.tasaCambio).toFixed(2)
-      );
+    if (form.moneda_pago === "VES" && form.tasa_cambio && form.monto_abonado) {
+      setMontoUSD((form.monto_abonado / form.tasa_cambio).toFixed(2));
     } else {
-      setMontoEnUSD("");
+      setMontoUSD("");
     }
-  }, [formulario.monedaPago, formulario.tasaCambio, formulario.montoAbonado]);
+  }, [form.moneda_pago, form.tasa_cambio, form.monto_abonado]);
 
-  // Manejador de cambios de inputs de texto y select
-  const manejarCambio = (e) => {
-    const { name, value } = e.target;
-    setFormulario({ ...formulario, [name]: value });
-    setMensajeError("");
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+    setError("");
   };
-
-  // Manejador de cambio de archivo
-  const manejarCambioArchivo = (e) => {
+  const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) setArchivo(file);
   };
 
-  // Envío del formulario
-  const manejarEnvio = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setMensajeError("");
+    setError("");
 
-    const monto = parseFloat(formulario.montoAbonado);
-    if (!monto || monto <= 0) {
-      setMensajeError("Debe ingresar un monto válido.");
-      return;
-    }
-    if (saldoPendiente != null && monto > saldoPendiente) {
-      setMensajeError("El monto no puede superar el saldo pendiente.");
-      return;
-    }
-    if (formulario.monedaPago === "VES" && !formulario.tasaCambio) {
-      setMensajeError("No se pudo obtener la tasa del día.");
-      return;
-    }
+    const monto = parseFloat(form.monto_abonado);
+    if (!monto || monto <= 0) return setError("Debe ingresar un monto válido.");
+    if (saldoPendiente != null && monto > saldoPendiente)
+      return setError("El monto no puede superar el saldo pendiente.");
+    if (form.moneda_pago === "VES" && !form.tasa_cambio)
+      return setError("No se pudo obtener la tasa del día.");
 
-    setEnviando(true);
+    setIsSubmitting(true);
     try {
-      const datos = new FormData();
-      datos.append("monto", monto);
-      datos.append("moneda", formulario.monedaPago);
-      datos.append(
+      const data = new FormData();
+      data.append("monto", monto);
+      data.append("moneda", form.moneda_pago);
+      data.append(
         "tasa_cambio",
-        formulario.monedaPago === "VES" ? parseFloat(formulario.tasaCambio) : 1
+        form.moneda_pago === "VES" ? parseFloat(form.tasa_cambio) : 1
       );
-      datos.append("fecha", formulario.fechaAbono);
-      if (formulario.observaciones)
-        datos.append("observaciones", formulario.observaciones);
-      if (archivo) datos.append("comprobante", archivo);
+      data.append("fecha", form.fecha_abono);
+      if (form.observaciones) data.append("observaciones", form.observaciones);
+      if (archivo) data.append("comprobante", archivo);
 
-      const respuesta = await api.post(`/cuentas/${cuentaId}/abonos`, datos, {
+      const res = await api.post(`/cuentas/${cuentaId}/abonos`, data, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
-      if (respuesta.status === 200 || respuesta.status === 201) {
-        setMostrarExito(true);
+      if (res.status === 200 || res.status === 201) {
+        setShowSuccess(true);
+        onRefreshTotals?.();
       } else {
-        setMostrarError(true);
+        setShowError(true);
       }
     } catch {
-      setMostrarError(true);
+      setShowError(true);
     } finally {
-      setEnviando(false);
+      setIsSubmitting(false);
     }
   };
 
-  // Cerrar modales de resultado y refrescar totales si es éxito
-  const manejarCerrarResultado = () => {
-    if (mostrarExito) {
-      alRefrescarTotales?.();
-    }
-    setMostrarExito(false);
-    setMostrarError(false);
-    alCancelar();
+  const handleCloseResult = () => {
+    setShowSuccess(false);
+    setShowError(false);
+    onCancel(); // cierra todo
   };
 
   return (
     <AnimatePresence exitBeforeEnter>
-      {mostrarExito && (
+      {showSuccess && (
         <ModalExito
           key="exito"
           titulo="Abono registrado"
           mensaje="El abono fue procesado correctamente."
           textoBoton="Entendido"
-          onClose={manejarCerrarResultado}
+          onClose={handleCloseResult}
         />
       )}
 
-      {mostrarError && (
+      {showError && (
         <ModalError
           key="error"
           titulo="Error"
           mensaje="No se pudo registrar el abono."
           textoBoton="Cerrar"
-          onClose={manejarCerrarResultado}
+          onClose={handleCloseResult}
         />
       )}
 
-      {!mostrarExito && !mostrarError && (
+      {!showSuccess && !showError && (
         <motion.div
           key="form"
           initial={{ opacity: 0, scale: 0.95 }}
@@ -182,17 +154,15 @@ export default function ModalRegistrarAbono({
                 </div>
                 <button
                   type="button"
-                  onClick={alCancelar}
+                  onClick={onCancel}
                   className="text-gray-400 hover:text-white"
                 >
                   ✕
                 </button>
               </div>
 
-              <form onSubmit={manejarEnvio} className="space-y-4">
-                {mensajeError && (
-                  <p className="text-red-500 text-sm">{mensajeError}</p>
-                )}
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {error && <p className="text-red-500 text-sm">{error}</p>}
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -216,9 +186,9 @@ export default function ModalRegistrarAbono({
                     </label>
                     <input
                       type="number"
-                      name="montoAbonado"
-                      value={formulario.montoAbonado}
-                      onChange={manejarCambio}
+                      name="monto_abonado"
+                      value={form.monto_abonado}
+                      onChange={handleChange}
                       className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600"
                       required
                     />
@@ -226,16 +196,16 @@ export default function ModalRegistrarAbono({
                   <div>
                     <label className="block text-sm text-white">Moneda</label>
                     <select
-                      name="monedaPago"
-                      value={formulario.monedaPago}
-                      onChange={manejarCambio}
+                      name="moneda_pago"
+                      value={form.moneda_pago}
+                      onChange={handleChange}
                       className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600"
                     >
                       <option value="USD">USD</option>
                       <option value="VES">VES</option>
                     </select>
                   </div>
-                  {formulario.monedaPago === "VES" && (
+                  {form.moneda_pago === "VES" && (
                     <>
                       <div>
                         <label className="block text-sm text-white">
@@ -243,7 +213,7 @@ export default function ModalRegistrarAbono({
                         </label>
                         <input
                           type="text"
-                          value={formulario.tasaCambio}
+                          value={form.tasa_cambio}
                           readOnly
                           className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600"
                         />
@@ -254,7 +224,7 @@ export default function ModalRegistrarAbono({
                         </label>
                         <input
                           type="text"
-                          value={montoEnUSD}
+                          value={montoUSD}
                           readOnly
                           className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600"
                         />
@@ -270,9 +240,9 @@ export default function ModalRegistrarAbono({
                     </label>
                     <input
                       type="date"
-                      name="fechaAbono"
-                      value={formulario.fechaAbono}
-                      onChange={manejarCambio}
+                      name="fecha_abono"
+                      value={form.fecha_abono}
+                      onChange={handleChange}
                       className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600"
                     />
                   </div>
@@ -285,8 +255,10 @@ export default function ModalRegistrarAbono({
                         type="file"
                         name="comprobante"
                         accept="application/pdf,image/*"
-                        onChange={manejarCambioArchivo}
-                        className="block w-full text-sm text-gray-200 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-gray-600 file:text-white hover:file:bg-gray-500"
+                        onChange={handleFileChange}
+                        className="block w-full text-sm text-gray-200 file:mr-4 file:py-2 file:px-4
+                                   file:rounded file:border-0 file:text-sm file:font-semibold
+                                   file:bg-gray-600 file:text-white hover:file:bg-gray-500"
                       />
                       <Paperclip className="w-5 h-5 text-gray-400" />
                     </div>
@@ -305,22 +277,22 @@ export default function ModalRegistrarAbono({
                   <textarea
                     name="observaciones"
                     rows={3}
-                    value={formulario.observaciones}
-                    onChange={manejarCambio}
+                    value={form.observaciones}
+                    onChange={handleChange}
                     className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600 resize-none"
                   />
                 </div>
 
                 <button
                   type="submit"
-                  disabled={enviando}
+                  disabled={isSubmitting}
                   className={`w-full p-2 text-white rounded font-medium ${
-                    enviando
+                    isSubmitting
                       ? "bg-gray-500 cursor-not-allowed"
                       : "bg-blue-600 hover:bg-blue-700"
                   }`}
                 >
-                  {enviando ? "Registrando..." : "Registrar Abono"}
+                  {isSubmitting ? "Registrando..." : "Registrar Abono"}
                 </button>
               </form>
             </div>
