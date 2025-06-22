@@ -94,7 +94,7 @@ app.use("/api/cotizaciones", cotizacionesRoutes);
 app.use("/api/gastos", gastosRoutes);
 app.use("/api/registros", registrosRoutes);
 app.use("/api/sucursales", sucursalesRoutes);
-app.use("/api/cuentas-por-cobrar", cxcRoutes);
+app.use("/api/cuentas", cxcRoutes);
 app.use("/api/abonos", abonosRoutes);
 app.use("/api/solicitudes-pago", solicitudesPagoRoutes);
 app.use("/api/bancos", bancosRoutes);

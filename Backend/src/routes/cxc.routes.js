@@ -17,7 +17,7 @@ const router = express.Router();
 
 // Registrar abono con comprobante
 router.post(
-  "/cuentas/:cuenta_id/abonos",
+  "/:cuenta_id/abonos",
   autenticarUsuario,
   verificarPermiso("registrarAbonoCliente"),
   uploadComprobanteAbono.single("comprobante"),
@@ -40,9 +40,9 @@ router.get("/totales/:cliente_id", getTotalesPorCliente);
 
 // **Saldo pendiente de una cuenta: ahora protegida**
 router.get(
-  "/cuentas/:cuenta_id/saldo",
-  autenticarUsuario, // <— agregado
-  verificarPermiso("registrarAbonoCliente"), // <— ya existía
+  "/:cuenta_id/saldo",
+  autenticarUsuario,
+  verificarPermiso("registrarAbonoCliente"),
   getSaldoCuenta
 );
 
