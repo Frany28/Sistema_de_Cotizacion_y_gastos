@@ -208,14 +208,35 @@ export const uploadComprobanteAbono = multer({
     acl: "private",
     metadata: (req, file, cb) => cb(null, { fieldName: file.fieldname }),
     key: (req, file, cb) => {
+      const meses = [
+        "enero",
+        "febrero",
+        "marzo",
+        "abril",
+        "mayo",
+        "junio",
+        "julio",
+        "agosto",
+        "septiembre",
+        "octubre",
+        "noviembre",
+        "diciembre",
+      ];
       const ahora = new Date();
       const anio = ahora.getFullYear();
-      const mes = String(ahora.getMonth() + 1).padStart(2, "0");
-      const codigoAbono = req.body.codigo || "sin-codigo";
-      const nombreSeguro = file.originalname.replace(/\s+/g, "_");
-      const timestamp = Date.now();
-      const clave = `abonos_cxc/${anio}/${mes}/${codigoAbono}/${timestamp}-${nombreSeguro}`;
-      cb(null, clave);
+      const mesPalabra = meses[ahora.getMonth()];
+
+      const cuentaId = req.params.cuenta_id;
+      // Obtener el código de la cuenta por cobrar desde la BD
+      db.query("SELECT codigo FROM cuentas_por_cobrar WHERE id = ?", [cuentaId])
+        .then(([rows]) => {
+          const codigoCXC = rows[0]?.codigo ?? `CXC-${cuentaId}`;
+          const nombreSeguro = file.originalname.replace(/\s+/g, "_");
+          const timestamp = Date.now();
+          const clave = `abonos_cxc/${anio}/${mesPalabra}/${codigoCXC}/${timestamp}-${nombreSeguro}`;
+          cb(null, clave);
+        })
+        .catch((err) => cb(err));
     },
   }),
   limits: { fileSize: 8 * 1024 * 1024 },
