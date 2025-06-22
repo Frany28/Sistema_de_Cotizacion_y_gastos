@@ -4,6 +4,8 @@ import TablaCuentasPorCobrar from "../../components/ComponentesCXC/TablaCuentasP
 import TotalesCXC from "../../components/ComponentesCXC/TotalesCXC.jsx";
 const CXC = () => {
   const [clienteIdSeleccionado, setClienteIdSeleccionado] = useState("");
+  const [refreshKey, setRefreshKey] = useState(0);
+  const handleRefreshTotals = () => setRefreshKey((k) => k + 1);
 
   return (
     <div className="p-6">
@@ -17,7 +19,10 @@ const CXC = () => {
         </div>
 
         <div className="flex-1 p-6 ">
-          <TotalesCXC clienteId={clienteIdSeleccionado} />
+          <TotalesCXC
+            clienteId={clienteIdSeleccionado}
+            refreshKey={refreshKey}
+          />
         </div>
       </div>
 

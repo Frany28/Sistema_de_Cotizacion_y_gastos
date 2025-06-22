@@ -21,7 +21,7 @@ const TotalesCXC = ({ clienteId }) => {
     };
 
     obtenerTotales();
-  }, [clienteId]);
+  }, [clienteId, refreshKey]);
 
   return (
     <div className="mb-6 bg-gray-800 rounded-xl p-4 shadow-md">

@@ -2,13 +2,14 @@ import { useState, useEffect } from "react";
 import api from "../../api/index";
 import { motion, AnimatePresence } from "framer-motion";
 import { DollarSign, Paperclip } from "lucide-react";
+import ModalExito from "../Modals/ModalExito";
+import ModalError from "../Modals/ModalError";
 
 export default function ModalRegistrarAbono({
   cuentaId,
   usuarioId,
-  onCancel,
-  onSuccess,
-  onError,
+  onCancel, // cierra este modal
+  onRefreshTotals, // <— nueva prop para refrescar totales
 }) {
   const [form, setForm] = useState({
     monto_abonado: "",
@@ -24,7 +25,11 @@ export default function ModalRegistrarAbono({
   const [error, setError] = useState("");
   const [montoUSD, setMontoUSD] = useState("");
 
-  // Obtener saldo pendiente
+  // Estados para controlar los modales de resultado
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [showError, setShowError] = useState(false);
+
+  // 1. Carga saldo pendiente
   useEffect(() => {
     if (!cuentaId) return;
     api
@@ -33,7 +38,7 @@ export default function ModalRegistrarAbono({
       .catch(() => setError("No se pudo obtener el saldo pendiente."));
   }, [cuentaId]);
 
-  // Obtener tasa si es VES
+  // 2. Carga tasa si es VES
   useEffect(() => {
     if (form.moneda_pago !== "VES") {
       setForm((f) => ({ ...f, tasa_cambio: "" }));
@@ -51,7 +56,7 @@ export default function ModalRegistrarAbono({
       .finally(() => setCargandoTasa(false));
   }, [form.moneda_pago]);
 
-  // Calcular USD en tiempo real
+  // 3. Calcula USD
   useEffect(() => {
     if (form.moneda_pago === "VES" && form.tasa_cambio && form.monto_abonado) {
       setMontoUSD((form.monto_abonado / form.tasa_cambio).toFixed(2));
@@ -85,8 +90,8 @@ export default function ModalRegistrarAbono({
       return setError("No se pudo obtener la tasa del día.");
     }
 
+    setIsSubmitting(true);
     try {
-      setIsSubmitting(true);
       // FormData para incluir archivo
       const data = new FormData();
       data.append("monto", monto);
@@ -99,190 +104,223 @@ export default function ModalRegistrarAbono({
       if (form.observaciones) data.append("observaciones", form.observaciones);
       if (archivo) data.append("comprobante", archivo);
 
-      // Ruta ajustada: /cuentas/:cuenta_id/abonos
       const res = await api.post(`/cuentas/${cuentaId}/abonos`, data, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
       if (res.status === 201 || res.status === 200) {
-        onSuccess({
-          titulo: "Abono registrado",
-          mensaje: "El abono fue procesado correctamente.",
-          textoBoton: "Entendido",
-        });
-        onCancel();
+        // Muestro modal de éxito
+        setShowSuccess(true);
+        // Refresco totales
+        onRefreshTotals?.();
+      } else {
+        // En cualquier código inesperado trato como error
+        setShowError(true);
       }
     } catch (err) {
       console.error("Error al registrar abono:", err);
-      onError({
-        titulo: "Error",
-        mensaje: "No se pudo registrar el abono.",
-        textoBoton: "Cerrar",
-      });
+      setShowError(true);
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // Cuando cierran el modal de éxito o error, cerramos este modal
+  const handleCloseResult = () => {
+    setShowSuccess(false);
+    setShowError(false);
+    onCancel();
+  };
+
   return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/40"
-      >
-        <div className="relative p-4 w-full max-w-2xl">
-          <div className="bg-gray-800 rounded-lg shadow-md p-6 w-125">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-2">
-                <DollarSign className="w-6 h-6 text-green-400" />
-                <h3 className="text-xl font-semibold text-white">
-                  Registrar Abono
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={onCancel}
-                className="text-gray-400 hover:text-white"
-              >
-                ✕
-              </button>
-            </div>
+    <>
+      {/* Modal de resultado */}
+      {showSuccess && (
+        <ModalExito
+          titulo="Abono registrado"
+          mensaje="El abono fue procesado correctamente."
+          textoBoton="Entendido"
+          onClose={handleCloseResult}
+        />
+      )}
+      {showError && (
+        <ModalError
+          titulo="Error"
+          mensaje="No se pudo registrar el abono."
+          textoBoton="Cerrar"
+          onClose={handleCloseResult}
+        />
+      )}
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {error && <p className="text-red-500 text-sm">{error}</p>}
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm text-white">
-                    Saldo Pendiente (USD)
-                  </label>
-                  <input
-                    type="text"
-                    value={saldoPendiente != null ? `$${saldoPendiente}` : ""}
-                    readOnly
-                    className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600"
-                  />
+      {/* Modal de formulario */}
+      <AnimatePresence>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/40"
+        >
+          <div className="relative p-4 w-full max-w-2xl">
+            <div className="bg-gray-800 rounded-lg shadow-md p-6 w-125">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-2">
+                  <DollarSign className="w-6 h-6 text-green-400" />
+                  <h3 className="text-xl font-semibold text-white">
+                    Registrar Abono
+                  </h3>
                 </div>
-                <div>
-                  <label className="block text-sm text-white">
-                    Monto a abonar
-                  </label>
-                  <input
-                    type="number"
-                    name="monto_abonado"
-                    value={form.monto_abonado}
-                    onChange={handleChange}
-                    className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm text-white">Moneda</label>
-                  <select
-                    name="moneda_pago"
-                    value={form.moneda_pago}
-                    onChange={handleChange}
-                    className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600"
-                  >
-                    <option value="USD">USD</option>
-                    <option value="VES">VES</option>
-                  </select>
-                </div>
-                {form.moneda_pago === "VES" && (
-                  <>
-                    <div>
-                      <label className="block text-sm text-white">
-                        Tasa de cambio
-                      </label>
-                      <input
-                        type="text"
-                        value={form.tasa_cambio}
-                        readOnly
-                        className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm text-white">
-                        Equivalente USD
-                      </label>
-                      <input
-                        type="text"
-                        value={montoUSD}
-                        readOnly
-                        className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600"
-                      />
-                    </div>
-                  </>
-                )}
+                <button
+                  type="button"
+                  onClick={onCancel}
+                  className="text-gray-400 hover:text-white"
+                >
+                  ✕
+                </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm text-white">
-                    Fecha del abono
-                  </label>
-                  <input
-                    type="date"
-                    name="fecha_abono"
-                    value={form.fecha_abono}
-                    onChange={handleChange}
-                    className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm text-white">
-                    Comprobante
-                  </label>
-                  <div className="flex items-center space-x-2 mt-1">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Error de validación */}
+                {error && <p className="text-red-500 text-sm">{error}</p>}
+
+                {/* Campos de monto, moneda, tasa, etc. */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm text-white">
+                      Saldo Pendiente (USD)
+                    </label>
                     <input
-                      type="file"
-                      name="comprobante"
-                      accept="application/pdf,image/*"
-                      onChange={handleFileChange}
-                      className="block w-full text-sm text-gray-200 file:mr-4 file:py-2 file:px-4
-                                 file:rounded file:border-0 file:text-sm file:font-semibold
-                                 file:bg-gray-600 file:text-white hover:file:bg-gray-500"
+                      type="text"
+                      value={
+                        saldoPendiente != null
+                          ? `$${saldoPendiente.toFixed(2)}`
+                          : ""
+                      }
+                      readOnly
+                      className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600"
                     />
-                    <Paperclip className="w-5 h-5 text-gray-400" />
                   </div>
-                  {archivo && (
-                    <p className="mt-1 text-xs text-gray-300 truncate">
-                      {archivo.name}
-                    </p>
+                  <div>
+                    <label className="block text-sm text-white">
+                      Monto a abonar
+                    </label>
+                    <input
+                      type="number"
+                      name="monto_abonado"
+                      value={form.monto_abonado}
+                      onChange={handleChange}
+                      className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-white">Moneda</label>
+                    <select
+                      name="moneda_pago"
+                      value={form.moneda_pago}
+                      onChange={handleChange}
+                      className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600"
+                    >
+                      <option value="USD">USD</option>
+                      <option value="VES">VES</option>
+                    </select>
+                  </div>
+                  {form.moneda_pago === "VES" && (
+                    <>
+                      <div>
+                        <label className="block text-sm text-white">
+                          Tasa de cambio
+                        </label>
+                        <input
+                          type="text"
+                          value={form.tasa_cambio}
+                          readOnly
+                          className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-white">
+                          Equivalente USD
+                        </label>
+                        <input
+                          type="text"
+                          value={montoUSD}
+                          readOnly
+                          className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600"
+                        />
+                      </div>
+                    </>
                   )}
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-sm text-white">
-                  Observaciones
-                </label>
-                <textarea
-                  name="observaciones"
-                  rows={3}
-                  value={form.observaciones}
-                  onChange={handleChange}
-                  className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600 resize-none"
-                />
-              </div>
+                {/* Fecha y comprobante */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm text-white">
+                      Fecha del abono
+                    </label>
+                    <input
+                      type="date"
+                      name="fecha_abono"
+                      value={form.fecha_abono}
+                      onChange={handleChange}
+                      className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-white">
+                      Comprobante
+                    </label>
+                    <div className="flex items-center space-x-2 mt-1">
+                      <input
+                        type="file"
+                        name="comprobante"
+                        accept="application/pdf,image/*"
+                        onChange={handleFileChange}
+                        className="block w-full text-sm text-gray-200 file:mr-4 file:py-2 file:px-4
+                                   file:rounded file:border-0 file:text-sm file:font-semibold
+                                   file:bg-gray-600 file:text-white hover:file:bg-gray-500"
+                      />
+                      <Paperclip className="w-5 h-5 text-gray-400" />
+                    </div>
+                    {archivo && (
+                      <p className="mt-1 text-xs text-gray-300 truncate">
+                        {archivo.name}
+                      </p>
+                    )}
+                  </div>
+                </div>
 
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className={`w-full p-2 text-white rounded font-medium ${
-                  isSubmitting
-                    ? "bg-gray-500 cursor-not-allowed"
-                    : "bg-blue-600 hover:bg-blue-700"
-                }`}
-              >
-                {isSubmitting ? "Registrando..." : "Registrar Abono"}
-              </button>
-            </form>
+                {/* Observaciones */}
+                <div>
+                  <label className="block text-sm text-white">
+                    Observaciones
+                  </label>
+                  <textarea
+                    name="observaciones"
+                    rows={3}
+                    value={form.observaciones}
+                    onChange={handleChange}
+                    className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600 resize-none"
+                  />
+                </div>
+
+                {/* Botón enviar */}
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className={`w-full p-2 text-white rounded font-medium ${
+                    isSubmitting
+                      ? "bg-gray-500 cursor-not-allowed"
+                      : "bg-blue-600 hover:bg-blue-700"
+                  }`}
+                >
+                  {isSubmitting ? "Registrando..." : "Registrar Abono"}
+                </button>
+              </form>
+            </div>
           </div>
-        </div>
-      </motion.div>
-    </AnimatePresence>
+        </motion.div>
+      </AnimatePresence>
+    </>
   );
 }
