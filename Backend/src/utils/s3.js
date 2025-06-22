@@ -6,6 +6,7 @@ import {
   GetObjectCommand,
   CopyObjectCommand,
   DeleteObjectCommand,
+  PutObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import multer from "multer";
@@ -23,6 +24,17 @@ export const s3 = new S3Client({
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   },
 });
+
+export const uploadComprobanteMemoria = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024 }, // 8 MB
+  fileFilter: (req, file, cb) => {
+    const esPdf = file.mimetype === "application/pdf";
+    const esImagen = file.mimetype.startsWith("image/");
+    if (esPdf || esImagen) return cb(null, true);
+    cb(new Error("Tipo de archivo no permitido para comprobante de gasto"));
+  },
+}).single("documento");
 
 /*───────────────── URL pre-firmada para GET ─────────*/
 export async function generarUrlPrefirmadaLectura(key, expiresInSeconds = 300) {

@@ -472,10 +472,10 @@ export const actualizarEstadoGasto = async (req, res) => {
             codigo,
             id,
             gasto.usuario_solicita_id,
-            req.session.usuario.id, // quien aprueba
+            req.session.usuario.id,
             gasto.proveedor_id,
             gasto.monto_total,
-            0, // si usáis pagos parciales
+            0, 
             "por_pagar",
             gasto.moneda,
             gasto.tasa_cambio,

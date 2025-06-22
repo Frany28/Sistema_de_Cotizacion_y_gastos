@@ -9,6 +9,7 @@ import {
 import { validarRegistro } from "../Middleware/validarRegistro.js";
 import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
 import { verificaPermisoDinamico } from "../Middleware/verificarPermisoDinamico.js";
+import { uploadComprobanteMemoria } from "../utils/s3.js";
 
 
 const router = express.Router();
@@ -26,6 +27,7 @@ router.post(
   },
   autenticarUsuario,
   verificaPermisoDinamico,
+  uploadComprobanteMemoria,
   validarRegistro,
   createRegistro
 );
