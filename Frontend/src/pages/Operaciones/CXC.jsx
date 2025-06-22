@@ -26,7 +26,10 @@ const CXC = () => {
         </div>
       </div>
 
-      <TablaCuentasPorCobrar clienteId={clienteIdSeleccionado} />
+      <TablaCuentasPorCobrar
+        clienteId={clienteIdSeleccionado}
+        onRefreshTotals={handleRefreshTotals}
+      />
     </div>
   );
 };
