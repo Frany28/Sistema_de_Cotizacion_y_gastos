@@ -1,4 +1,80 @@
 import db from "../config/database.js";
+import { s3 } from "../utils/s3.js";
+import { DeleteObjectCommand } from "@aws-sdk/client-s3";
+
+export const registrarAbono = async (req, res) => {
+  const { cuenta_id } = req.params;
+  const { monto, moneda, tasa_cambio, observaciones } = req.body;
+  const usuarioId = req.user.id;
+  const rutaComprobante = req.file ? req.file.key : null;
+
+  try {
+    // 1) Insertar el abono
+    const [insertResult] = await db.query(
+      `INSERT INTO abonos_cuentas 
+         (cuenta_id, monto, moneda, monto_usd_calculado, observaciones, ruta_comprobante, usuario_id, fecha)
+       VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [
+        cuenta_id,
+        parseFloat(monto),
+        moneda,
+        parseFloat(monto) * (moneda === "VES" ? parseFloat(tasa_cambio) : 1),
+        observaciones || null,
+        rutaComprobante,
+        usuarioId,
+      ]
+    );
+    const abonoId = insertResult.insertId;
+
+    // 2) Registrar en archivos + eventos si hubo archivo
+    if (rutaComprobante) {
+      // 2.1) metadatos en archivos
+      const [aRes] = await db.query(
+        `INSERT INTO archivos
+           (registroTipo, registroId, nombreOriginal, extension, rutaS3, subidoPor, creadoEn, actualizadoEn)
+         VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+        [
+          "abonosCXC",
+          abonoId,
+          req.file.originalname,
+          req.file.originalname.split(".").pop(),
+          rutaComprobante,
+          usuarioId,
+        ]
+      );
+      const archivoId = aRes.insertId;
+
+      // 2.2) evento de auditoría
+      await db.query(
+        `INSERT INTO eventosArchivo
+           (archivoId, accion, usuarioId, fechaHora, ip, userAgent, detalles)
+         VALUES (?, ?, ?, NOW(), ?, ?, ?)`,
+        [
+          archivoId,
+          "subida",
+          usuarioId,
+          req.ip || null,
+          req.get("user-agent") || null,
+          JSON.stringify({
+            nombre: req.file.originalname,
+            ruta: rutaComprobante,
+          }),
+        ]
+      );
+    }
+
+    return res.status(201).json({
+      message: "Abono registrado correctamente",
+      abono_id: abonoId,
+      rutaComprobante,
+    });
+  } catch (error) {
+    console.error("Error al registrar abono:", error);
+    return res
+      .status(500)
+      .json({ message: "Error interno al registrar abono" });
+  }
+};
 
 // LISTAR CUENTAS POR COBRAR DE UN CLIENTE
 export const listaCuentasPorCobrar = async (req, res) => {
