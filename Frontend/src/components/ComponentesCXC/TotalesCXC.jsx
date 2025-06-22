@@ -1,7 +1,9 @@
+// components/ComponentesCXC/TotalesCXC.jsx
+
 import React, { useEffect, useState } from "react";
 import api from "../../api/index";
 
-const TotalesCXC = ({ clienteId }) => {
+const TotalesCXC = ({ clienteId, refreshKey }) => {
   const [totales, setTotales] = useState({ debe: 0, haber: 0, saldo: 0 });
 
   useEffect(() => {
@@ -10,7 +12,6 @@ const TotalesCXC = ({ clienteId }) => {
         setTotales({ debe: 0, haber: 0, saldo: 0 });
         return;
       }
-
       try {
         const response = await api.get(`/cuentas/totales/${clienteId}`);
         setTotales(response.data);
@@ -21,7 +22,7 @@ const TotalesCXC = ({ clienteId }) => {
     };
 
     obtenerTotales();
-  }, [clienteId, refreshKey]);
+  }, [clienteId, refreshKey]); // <-- ahora refreshKey está definido
 
   return (
     <div className="mb-6 bg-gray-800 rounded-xl p-4 shadow-md">
