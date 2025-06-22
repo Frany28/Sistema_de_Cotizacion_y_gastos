@@ -46,8 +46,7 @@ export const getDatosRegistro = async (req, res) => {
 };
 
 export const createRegistro = async (req, res) => {
-  const tipo = req.combinedData.tipo;
-
+  const { tipo } = req.body;
   if (!tipo) {
     return res
       .status(400)
@@ -55,6 +54,7 @@ export const createRegistro = async (req, res) => {
   }
 
   const datos = { ...req.body };
+  datos.documento = "";
 
   try {
     let resultado;
@@ -110,7 +110,7 @@ export const createRegistro = async (req, res) => {
       ]);
       // Si se creó correctamente y hay archivo, registrar en archivos y eventos
       if (resultado?.registro_id && req.file) {
-        const archivoRuta = req.file.key;
+        const archivoRuta = claveS3;
         const nombreOriginal = req.file.originalname;
         const extension = path.extname(nombreOriginal).substring(1); // sin el punto
 
