@@ -1,3 +1,5 @@
+// src/components/ComponentesCXC/TablaCuentasPorCobrar.jsx
+
 import React, { useEffect, useState } from "react";
 import api from "../../api/index";
 import BotonIcono from "../general/BotonIcono";
@@ -8,8 +10,6 @@ const TablaCuentasPorCobrar = ({ clienteId, onRefreshTotals }) => {
   const [loading, setLoading] = useState(true);
   const [cuentaSeleccionada, setCuentaSeleccionada] = useState(null);
   const [mostrarModalAbono, setMostrarModalAbono] = useState(false);
-  const [modalExito, setModalExito] = useState(null);
-  const [modalError, setModalError] = useState(null);
 
   const fetchCuentas = async () => {
     if (!clienteId) {
@@ -17,7 +17,6 @@ const TablaCuentasPorCobrar = ({ clienteId, onRefreshTotals }) => {
       setLoading(false);
       return;
     }
-
     try {
       setLoading(true);
       const response = await api.get(`/cuentas?cliente_id=${clienteId}`);
@@ -110,26 +109,12 @@ const TablaCuentasPorCobrar = ({ clienteId, onRefreshTotals }) => {
       {mostrarModalAbono && cuentaSeleccionada && (
         <ModalRegistrarAbono
           cuentaId={cuentaSeleccionada.id}
-          usuarioId={1}
+          usuarioId={1} // ajusta según tu contexto
           onCancel={() => setMostrarModalAbono(false)}
           onRefreshTotals={() => {
             fetchCuentas(); // refresca la tabla
-            onRefreshTotals(); // refresca TotalesCXC
-            setMostrarModalAbono(false);
-          }}
-          onError={(msg) => setModalError(msg)}
-        />
-      )}
-
-      {mostrarModalAbono && cuentaSeleccionada && (
-        <ModalRegistrarAbono
-          cuentaId={cuentaSeleccionada.id}
-          usuarioId={1}
-          onCancel={() => setMostrarModalAbono(false)}
-          onRefreshTotals={() => {
-            fetchCuentas();
-            onRefreshTotals();
-            setMostrarModalAbono(false);
+            onRefreshTotals(); // refresca componentes TotalesCXC
+            setMostrarModalAbono(false); // cierra el modal
           }}
         />
       )}
