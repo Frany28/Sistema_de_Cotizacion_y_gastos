@@ -44,76 +44,77 @@ export const getDatosRegistro = async (req, res) => {
 };
 
 export const createRegistro = async (req, res) => {
-  // 'tipo' viene de req.combinedData o directamente de req.body, según tu middleware
-  const { tipo } = req.combinedData || req.body;
+  const tipo = req.combinedData.tipo;
 
   if (!tipo) {
-    return res.status(400).json({
-      message: "Debe indicar el tipo de registro (gasto o cotizacion)",
-    });
+    return res
+      .status(400)
+      .json({ message: "Debe indicar el tipo de registro" });
   }
 
-  // Preparo 'datos' añadiendo el ID de usuario y, si hay archivo, la key de S3
-  const datos = {
-    ...req.body,
-    usuario_id: req.usuario.id,
-    documento: req.file?.key,
-  };
+  const datos = { ...req.body };
 
   try {
     let resultado;
 
-    // ───────────── CASO: GASTO ─────────────
+    // ───────────── CASO GASTO ─────────────
     if (tipo === "gasto") {
-      // El comprobante es obligatorio
       if (!req.file) {
         return res.status(400).json({
           message: "Para crear un gasto, el comprobante es obligatorio",
         });
       }
 
-      // 1) Insertar en 'gastos' y obtener ID + código
+      // Guardamos la key del archivo en el campo documento
+      datos.documento = req.file.key;
+
+      // Creamos el gasto
       resultado = await crearGasto(datos);
-      const { registro_id: gastoId } = resultado;
 
-      // 2) Registrar el archivo en S3 (ya fue subido por Multer-S3) en la tabla 'archivos'
-      const archivoRuta = req.file.key;
-      const nombreOriginal = req.file.originalname;
-      const extension = path.extname(nombreOriginal).slice(1);
+      // Si se creó correctamente y hay archivo, registrar en archivos y eventos
+      if (resultado?.registro_id && req.file) {
+        const archivoRuta = req.file.key;
+        const nombreOriginal = req.file.originalname;
+        const extension = path.extname(nombreOriginal).substring(1); // sin el punto
 
-      const [resArch] = await db.query(
-        `INSERT INTO archivos 
+        // 1. Insertar en tabla archivos
+        const [resArchivo] = await db.query(
+          `INSERT INTO archivos 
            (registroTipo, registroId, nombreOriginal, extension, rutaS3, subidoPor, creadoEn, actualizadoEn)
-         VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-        [
-          "facturasGastos",
-          gastoId,
-          nombreOriginal,
-          extension,
-          archivoRuta,
-          req.usuario.id,
-        ]
-      );
-
-      // 3) Registrar evento de auditoría en 'eventosArchivo'
-      await db.query(
-        `INSERT INTO eventosArchivo
-           (archivoId, accion, usuarioId, fechaHora, ip, userAgent, detalles)
-         VALUES (?, 'subida', ?, NOW(), ?, ?, ?)`,
-        [
-          resArch.insertId,
-          req.usuario.id,
-          req.ip || null,
-          req.get("user-agent") || null,
-          JSON.stringify({
-            nombre: nombreOriginal,
+           VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+          [
+            "facturasGastos",
+            resultado.registro_id,
+            nombreOriginal,
             extension,
-            ruta: archivoRuta,
-          }),
-        ]
-      );
+            archivoRuta,
+            datos.usuario_id,
+          ]
+        );
 
-      // ───────────── CASO: COTIZACIÓN ─────────────
+        const archivoId = resArchivo.insertId;
+
+        // 2. Insertar en eventosArchivo
+        await db.query(
+          `INSERT INTO eventosArchivo 
+           (archivoId, accion, usuarioId, fechaHora, ip, userAgent, detalles)
+           VALUES (?, ?, ?, NOW(), ?, ?, ?)`,
+          [
+            archivoId,
+            "subida",
+            datos.usuario_id,
+            req.ip || null,
+            req.get("user-agent") || null,
+            JSON.stringify({
+              nombre: nombreOriginal,
+              extension,
+              ruta: archivoRuta,
+            }),
+          ]
+        );
+      }
+
+      // ───────────── CASO COTIZACIÓN ─────────────
     } else if (tipo === "cotizacion") {
       resultado = await crearCotizacionDesdeRegistro(datos);
 
@@ -122,11 +123,11 @@ export const createRegistro = async (req, res) => {
       return res.status(400).json({ message: "Tipo de registro no válido" });
     }
 
-    // ───────────── RESPUESTA DE ÉXITO ─────────────
-    return res.status(201).json(resultado);
+    // ───────────── RESPUESTA ÉXITO ─────────────
+    res.status(201).json(resultado);
   } catch (error) {
-    console.error("Error en createRegistro:", error);
-    return res.status(500).json({
+    console.error("Error al crear el registro:", error);
+    res.status(500).json({
       message: `Error al crear el registro de tipo ${tipo}`,
     });
   }

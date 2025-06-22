@@ -9,29 +9,11 @@ import {
 import { validarRegistro } from "../Middleware/validarRegistro.js";
 import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
 import { verificaPermisoDinamico } from "../Middleware/verificarPermisoDinamico.js";
-import { subirComprobanteGasto } from "../controllers/registroArchivo.controller.js";
+
 
 const router = express.Router();
 
 router.get("/", autenticarUsuario, getDatosRegistro);
-
-router.post(
-  "/",
-  autenticarUsuario,
-  verificaPermisoDinamico,
-  uploadComprobante.single("documento"), // ← aquí Multer‐S3
-  validarRegistro,
-  createRegistro
-);
-
-// Ruta para subir el comprobante de un gasto ya creado
-router.post(
-  "/:id/comprobante",
-  autenticarUsuario,
-  verificaPermisoDinamico,
-  uploadComprobante.single("documento"),
-  subirComprobanteGasto
-);
 
 router.post(
   "/",

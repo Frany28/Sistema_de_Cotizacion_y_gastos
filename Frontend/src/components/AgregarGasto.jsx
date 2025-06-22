@@ -48,17 +48,7 @@ export default function AgregarGasto({
   const esRentable = tipoGastoSeleccionado?.rentable === 1;
 
   const handleRegistrar = () => {
-    const formData = new FormData();
-
-    // 1) Añadimos todos los campos del gasto al FormData
-    Object.entries(gasto).forEach(([key, value]) => {
-      if (value !== null && value !== undefined) {
-        formData.append(key, value);
-      }
-    });
-
-    // 2) Llamamos a la función que hace la petición
-    crearGasto(formData);
+    crearGasto(gasto);
   };
 
   return (
