@@ -114,11 +114,10 @@ const TablaCuentasPorCobrar = ({ clienteId }) => {
           cuentaId={cuentaSeleccionada.id}
           usuarioId={1}
           onCancel={() => setMostrarModalAbono(false)}
-          onRefreshTotals={handleRefreshTotals}
-          onSuccess={(msg) => {
-            setModalExito(msg);
+          onRefreshTotals={() => {
+            fetchCuentas(); // refresca la tabla
+            onRefreshTotals(); // refresca TotalesCXC
             setMostrarModalAbono(false);
-            fetchCuentas();
           }}
           onError={(msg) => setModalError(msg)}
         />
