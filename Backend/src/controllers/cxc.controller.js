@@ -9,26 +9,35 @@ export const registrarAbono = async (req, res) => {
   const rutaComprobante = req.file ? req.file.key : null;
 
   try {
-    // 1) Insertar el abono
+    // 1) Insertar el abono con los nombres de columna correctos
     const [insertResult] = await db.query(
-      `INSERT INTO abonos_cuentas 
-         (cuenta_id, monto, moneda, monto_usd_calculado, observaciones, ruta_comprobante, usuario_id, fecha)
-       VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
+      `INSERT INTO abonos_cuentas
+         (cuenta_id,
+          moneda_pago,
+          tasa_cambio,
+          monto_abonado,
+          monto_usd_calculado,
+          ruta_comprobante,
+          observaciones,
+          fecha_abono,
+          empleado_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), ?)`,
       [
-        cuenta_id,
-        parseFloat(monto),
-        moneda,
+        cuenta_id, // cuenta_id
+        moneda, // moneda_pago
+        parseFloat(tasa_cambio) || 1, // tasa_cambio
+        parseFloat(monto), // monto_abonado
         parseFloat(monto) * (moneda === "VES" ? parseFloat(tasa_cambio) : 1),
-        observaciones || null,
-        rutaComprobante,
-        usuarioId,
+        // monto_usd_calculado
+        rutaComprobante, // ruta_comprobante
+        observaciones || null, // observaciones
+        usuarioId, // empleado_id
       ]
     );
     const abonoId = insertResult.insertId;
 
-    // 2) Registrar en archivos + eventos si hubo archivo
+    // 2) Registrar en archivos + evento de auditoría si subió comprobante
     if (rutaComprobante) {
-      // 2.1) metadatos en archivos
       const [aRes] = await db.query(
         `INSERT INTO archivos
            (registroTipo, registroId, nombreOriginal, extension, rutaS3, subidoPor, creadoEn, actualizadoEn)
@@ -44,14 +53,12 @@ export const registrarAbono = async (req, res) => {
       );
       const archivoId = aRes.insertId;
 
-      // 2.2) evento de auditoría
       await db.query(
         `INSERT INTO eventosArchivo
            (archivoId, accion, usuarioId, fechaHora, ip, userAgent, detalles)
-         VALUES (?, ?, ?, NOW(), ?, ?, ?)`,
+         VALUES (?, 'subida', ?, NOW(), ?, ?, ?)`,
         [
           archivoId,
-          "subida",
           usuarioId,
           req.ip || null,
           req.get("user-agent") || null,
@@ -75,7 +82,6 @@ export const registrarAbono = async (req, res) => {
       .json({ message: "Error interno al registrar abono" });
   }
 };
-
 // LISTAR CUENTAS POR COBRAR DE UN CLIENTE
 export const listaCuentasPorCobrar = async (req, res) => {
   const page = Number.isNaN(Number(req.query.page))
