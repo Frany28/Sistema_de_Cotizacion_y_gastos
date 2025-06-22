@@ -2,10 +2,8 @@ import React, { useEffect, useState } from "react";
 import api from "../../api/index";
 import BotonIcono from "../general/BotonIcono";
 import ModalRegistrarAbono from "../Modals/ModalRegistrarAbono";
-import ModalExito from "../../components/Modals/ModalExito";
-import ModalError from "../../components/Modals/ModalError";
 
-const TablaCuentasPorCobrar = ({ clienteId }) => {
+const TablaCuentasPorCobrar = ({ clienteId, onRefreshTotals }) => {
   const [cuentas, setCuentas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [cuentaSeleccionada, setCuentaSeleccionada] = useState(null);
@@ -123,11 +121,17 @@ const TablaCuentasPorCobrar = ({ clienteId }) => {
         />
       )}
 
-      {modalExito && (
-        <ModalExito {...modalExito} onClose={() => setModalExito(null)} />
-      )}
-      {modalError && (
-        <ModalError {...modalError} onClose={() => setModalError(null)} />
+      {mostrarModalAbono && cuentaSeleccionada && (
+        <ModalRegistrarAbono
+          cuentaId={cuentaSeleccionada.id}
+          usuarioId={1}
+          onCancel={() => setMostrarModalAbono(false)}
+          onRefreshTotals={() => {
+            fetchCuentas();
+            onRefreshTotals();
+            setMostrarModalAbono(false);
+          }}
+        />
       )}
     </div>
   );
