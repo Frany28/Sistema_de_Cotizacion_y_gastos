@@ -1,5 +1,4 @@
 import db from "../config/database.js";
-import axios from "axios";
 
 export const registrarAbono = async (req, res) => {
   const { cuenta_id } = req.params;
