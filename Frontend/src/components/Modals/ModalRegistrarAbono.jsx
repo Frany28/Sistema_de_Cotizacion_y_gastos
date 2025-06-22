@@ -9,7 +9,7 @@ export default function ModalRegistrarAbono({
   cuentaId,
   usuarioId,
   onCancel, // cierra este modal
-  onRefreshTotals, // <— nueva prop para refrescar totales
+  onRefreshTotals, // refresca TotalesCXC
 }) {
   const [form, setForm] = useState({
     monto_abonado: "",
@@ -20,16 +20,14 @@ export default function ModalRegistrarAbono({
   });
   const [archivo, setArchivo] = useState(null);
   const [saldoPendiente, setSaldoPendiente] = useState(null);
-  const [cargandoTasa, setCargandoTasa] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [montoUSD, setMontoUSD] = useState("");
 
-  // Estados para controlar los modales de resultado
   const [showSuccess, setShowSuccess] = useState(false);
   const [showError, setShowError] = useState(false);
 
-  // 1. Carga saldo pendiente
+  // Cargar saldo pendiente
   useEffect(() => {
     if (!cuentaId) return;
     api
@@ -38,38 +36,31 @@ export default function ModalRegistrarAbono({
       .catch(() => setError("No se pudo obtener el saldo pendiente."));
   }, [cuentaId]);
 
-  // 2. Carga tasa si es VES
+  // Carga tasa si es VES
   useEffect(() => {
-    if (form.moneda_pago !== "VES") {
-      setForm((f) => ({ ...f, tasa_cambio: "" }));
-      setMontoUSD("");
-      return;
-    }
-    setCargandoTasa(true);
+    if (form.moneda_pago !== "VES") return setMontoUSD("");
     api
       .get("https://ve.dolarapi.com/v1/dolares/oficial")
       .then((res) => {
         const t = res.data?.promedio;
         if (t) setForm((f) => ({ ...f, tasa_cambio: t.toFixed(4) }));
       })
-      .catch(() => setError("No se pudo obtener la tasa del día."))
-      .finally(() => setCargandoTasa(false));
+      .catch(() => setError("No se pudo obtener la tasa del día."));
   }, [form.moneda_pago]);
 
-  // 3. Calcula USD
+  // Calcula USD
   useEffect(() => {
     if (form.moneda_pago === "VES" && form.tasa_cambio && form.monto_abonado) {
       setMontoUSD((form.monto_abonado / form.tasa_cambio).toFixed(2));
     } else {
       setMontoUSD("");
     }
-  }, [form.monto_abonado, form.tasa_cambio, form.moneda_pago]);
+  }, [form.moneda_pago, form.tasa_cambio, form.monto_abonado]);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
     setError("");
   };
-
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) setArchivo(file);
@@ -80,19 +71,14 @@ export default function ModalRegistrarAbono({
     setError("");
 
     const monto = parseFloat(form.monto_abonado);
-    if (!monto || monto <= 0) {
-      return setError("Debe ingresar un monto válido.");
-    }
-    if (saldoPendiente != null && monto > saldoPendiente) {
+    if (!monto || monto <= 0) return setError("Debe ingresar un monto válido.");
+    if (saldoPendiente != null && monto > saldoPendiente)
       return setError("El monto no puede superar el saldo pendiente.");
-    }
-    if (form.moneda_pago === "VES" && !form.tasa_cambio) {
+    if (form.moneda_pago === "VES" && !form.tasa_cambio)
       return setError("No se pudo obtener la tasa del día.");
-    }
 
     setIsSubmitting(true);
     try {
-      // FormData para incluir archivo
       const data = new FormData();
       data.append("monto", monto);
       data.append("moneda", form.moneda_pago);
@@ -108,43 +94,40 @@ export default function ModalRegistrarAbono({
         headers: { "Content-Type": "multipart/form-data" },
       });
 
-      if (res.status === 201 || res.status === 200) {
-        // Muestro modal de éxito
+      if (res.status === 200 || res.status === 201) {
         setShowSuccess(true);
-        // Refresco totales
         onRefreshTotals?.();
       } else {
-        // En cualquier código inesperado trato como error
         setShowError(true);
       }
-    } catch (err) {
-      console.error("Error al registrar abono:", err);
+    } catch {
       setShowError(true);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Cuando cierran el modal de éxito o error, cerramos este modal
   const handleCloseResult = () => {
     setShowSuccess(false);
     setShowError(false);
-    onCancel();
+    onCancel(); // cierra todo
   };
 
   return (
-    <>
-      {/* Modal de resultado */}
+    <AnimatePresence exitBeforeEnter>
       {showSuccess && (
         <ModalExito
+          key="exito"
           titulo="Abono registrado"
           mensaje="El abono fue procesado correctamente."
           textoBoton="Entendido"
           onClose={handleCloseResult}
         />
       )}
+
       {showError && (
         <ModalError
+          key="error"
           titulo="Error"
           mensaje="No se pudo registrar el abono."
           textoBoton="Cerrar"
@@ -152,9 +135,9 @@ export default function ModalRegistrarAbono({
         />
       )}
 
-      {/* Modal de formulario */}
-      <AnimatePresence>
+      {!showSuccess && !showError && (
         <motion.div
+          key="form"
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
@@ -179,10 +162,8 @@ export default function ModalRegistrarAbono({
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
-                {/* Error de validación */}
                 {error && <p className="text-red-500 text-sm">{error}</p>}
 
-                {/* Campos de monto, moneda, tasa, etc. */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm text-white">
@@ -252,7 +233,6 @@ export default function ModalRegistrarAbono({
                   )}
                 </div>
 
-                {/* Fecha y comprobante */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm text-white">
@@ -290,7 +270,6 @@ export default function ModalRegistrarAbono({
                   </div>
                 </div>
 
-                {/* Observaciones */}
                 <div>
                   <label className="block text-sm text-white">
                     Observaciones
@@ -304,7 +283,6 @@ export default function ModalRegistrarAbono({
                   />
                 </div>
 
-                {/* Botón enviar */}
                 <button
                   type="submit"
                   disabled={isSubmitting}
@@ -320,7 +298,7 @@ export default function ModalRegistrarAbono({
             </div>
           </div>
         </motion.div>
-      </AnimatePresence>
-    </>
+      )}
+    </AnimatePresence>
   );
 }
