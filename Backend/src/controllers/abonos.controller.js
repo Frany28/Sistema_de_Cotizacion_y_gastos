@@ -2,79 +2,81 @@ import db from "../config/database.js";
 import axios from "axios";
 
 export const registrarAbono = async (req, res) => {
-  const {
-    cuenta_id,
-    usuario_id,
-    monto_abonado,
-    moneda_pago,
-    fecha_abono,
-    observaciones,
-  } = req.body;
+  const { cuenta_id } = req.params;
+  const { monto, moneda, tasa_cambio, observaciones } = req.body;
+  const usuarioId = req.user.id;
+  const rutaComprobante = req.file ? req.file.key : null;
 
   try {
-    let tasa_cambio = 1;
-    let monto_usd_calculado = parseFloat(monto_abonado);
+    // 1) Insertar el abono con los nombres de columna correctos
+    const [insertResult] = await db.query(
+      `INSERT INTO abonos_cuentas
+         (cuenta_id,
+          moneda_pago,
+          tasa_cambio,
+          monto_abonado,
+          monto_usd_calculado,
+          ruta_comprobante,
+          fecha_abono,
+          observaciones,
+          empleado_id)
+       VALUES (?, ?, ?, ?, ?, ?, NOW(), ?, ?)`,
+      [
+        cuenta_id,
+        moneda, // moneda_pago
+        parseFloat(tasa_cambio) || 1, // tasa_cambio
+        parseFloat(monto), // monto_abonado
+        parseFloat(monto) * (moneda === "VES" ? parseFloat(tasa_cambio) : 1), // monto_usd_calculado
+        rutaComprobante, // ruta_comprobante
+        observaciones || null, // observaciones
+        usuarioId, // empleado_id
+      ]
+    );
+    const abonoId = insertResult.insertId;
 
-    if (moneda_pago === "VES") {
-      const dolarToday = await axios.get(
-        "https://s3.amazonaws.com/dolartoday/data.json"
+    // 2) Si se subió comprobante, registrar en archivos y eventos
+    if (rutaComprobante) {
+      const [aRes] = await db.query(
+        `INSERT INTO archivos
+           (registroTipo, registroId, nombreOriginal, extension, rutaS3, subidoPor, creadoEn, actualizadoEn)
+         VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+        [
+          "abonosCXC",
+          abonoId,
+          req.file.originalname,
+          req.file.originalname.split(".").pop(),
+          rutaComprobante,
+          usuarioId,
+        ]
       );
-      tasa_cambio = parseFloat(dolarToday.data.USD.promedio);
-      monto_usd_calculado = parseFloat(
-        (monto_abonado / tasa_cambio).toFixed(2)
+      const archivoId = aRes.insertId;
+
+      await db.query(
+        `INSERT INTO eventosArchivo
+           (archivoId, accion, usuarioId, fechaHora, ip, userAgent, detalles)
+         VALUES (?, 'subida', ?, NOW(), ?, ?, ?)`,
+        [
+          archivoId,
+          usuarioId,
+          req.ip || null,
+          req.get("user-agent") || null,
+          JSON.stringify({
+            nombre: req.file.originalname,
+            ruta: rutaComprobante,
+          }),
+        ]
       );
     }
 
-    // 1. Insertar abono
-    await db.query(
-      `INSERT INTO abonos_cuentas 
-      (cuenta_id, usuario_id, monto_abonado, moneda_pago, tasa_cambio, monto_usd_calculado, fecha_abono, observaciones)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        cuenta_id,
-        usuario_id,
-        monto_abonado,
-        moneda_pago,
-        tasa_cambio,
-        monto_usd_calculado,
-        fecha_abono,
-        observaciones,
-      ]
-    );
-
-    // 2. Recalcular el saldo
-    const [[cuenta]] = await db.query(
-      `SELECT monto FROM cuentas_por_cobrar WHERE id = ?`,
-      [cuenta_id]
-    );
-
-    const [[sumaAbonos]] = await db.query(
-      `SELECT COALESCE(SUM(monto_usd_calculado), 0) AS total_abonado
-       FROM abonos_cuentas WHERE cuenta_id = ?`,
-      [cuenta_id]
-    );
-
-    const nuevoSaldo = parseFloat(
-      (cuenta.monto - sumaAbonos.total_abonado).toFixed(2)
-    );
-
-    // 3. Actualizar saldo y estado
-    const nuevoEstado = nuevoSaldo <= 0 ? "pagado" : "pendiente";
-
-    await db.query(
-      `UPDATE cuentas_por_cobrar
-       SET saldo_restante = ?, estado = ?
-       WHERE id = ?`,
-      [nuevoSaldo, nuevoEstado, cuenta_id]
-    );
-
-    res.status(200).json({
+    return res.status(201).json({
       message: "Abono registrado correctamente",
-      nuevoSaldo,
-      estado: nuevoEstado,
+      abono_id: abonoId,
+      rutaComprobante,
     });
   } catch (error) {
     console.error("Error al registrar abono:", error);
-    res.status(500).json({ message: "Error al registrar abono" });
+    return res
+      .status(500)
+      .json({ message: "Error interno al registrar abono" });
   }
 };
