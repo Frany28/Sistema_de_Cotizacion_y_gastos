@@ -5,6 +5,11 @@ export const validarRegistro = async (req, res, next) => {
     comprobante: req.file ? req.file.originalname : null,
   };
 
+  console.log(">>> content-type:", req.headers["content-type"]);
+  console.log(">>> req.is multipart?:", req.is("multipart/form-data"));
+  console.log(">>> req.body:", req.body);
+  console.log(">>> req.file:", req.file);
+
   // 2. Extraemos el tipo de los datos combinados
   const { tipo } = datosCombinados;
   if (!tipo || !["cotizacion", "gasto"].includes(tipo)) {
@@ -102,7 +107,6 @@ export const validarRegistro = async (req, res, next) => {
     if (!descripcion || typeof descripcion !== "string") {
       errores.push("Descripción es requerida y debe ser texto");
     }
-    
   }
 
   // 5. Manejo de errores
