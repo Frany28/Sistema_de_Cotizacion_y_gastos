@@ -4,6 +4,8 @@ import { generarHTMLCotizacion } from "../../templates/generarHTMLCotizacion.js"
 import path from "path";
 import { fileURLToPath } from "url";
 import db from "../config/database.js";
+import { s3 } from "../utils/s3.js";
+import { PutObjectCommand } from "@aws-sdk/client-s3";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -44,8 +46,7 @@ export const getDatosRegistro = async (req, res) => {
 };
 
 export const createRegistro = async (req, res) => {
-  const tipo = req.combinedData.tipo;
-
+  const { tipo } = req.body;
   if (!tipo) {
     return res
       .status(400)
@@ -53,6 +54,7 @@ export const createRegistro = async (req, res) => {
   }
 
   const datos = { ...req.body };
+  datos.documento = "";
 
   try {
     let resultado;
@@ -65,15 +67,50 @@ export const createRegistro = async (req, res) => {
         });
       }
 
-      // Guardamos la key del archivo en el campo documento
-      datos.documento = req.file.key;
-
       // Creamos el gasto
       resultado = await crearGasto(datos);
 
+      const meses = [
+        "enero",
+        "febrero",
+        "marzo",
+        "abril",
+        "mayo",
+        "junio",
+        "julio",
+        "agosto",
+        "septiembre",
+        "octubre",
+        "noviembre",
+        "diciembre",
+      ];
+      const ahora = new Date();
+      const anio = ahora.getFullYear();
+      const mesPalabra = meses[ahora.getMonth()];
+      const nombreSeguro = req.file.originalname.replace(/\s+/g, "_");
+      const claveS3 = `facturas_gastos/${anio}/${mesPalabra}/${
+        resultado.codigo
+      }/${Date.now()}-${nombreSeguro}`;
+
+      // 2) Subir buffer a S3
+      await s3.send(
+        new PutObjectCommand({
+          Bucket: process.env.S3_BUCKET,
+          Key: claveS3,
+          Body: req.file.buffer,
+          ContentType: req.file.mimetype,
+          ACL: "private",
+        })
+      );
+
+      // 3) Actualizar documento en gastos
+      await db.query("UPDATE gastos SET documento = ? WHERE id = ?", [
+        claveS3,
+        resultado.registro_id,
+      ]);
       // Si se creó correctamente y hay archivo, registrar en archivos y eventos
       if (resultado?.registro_id && req.file) {
-        const archivoRuta = req.file.key;
+        const archivoRuta = claveS3;
         const nombreOriginal = req.file.originalname;
         const extension = path.extname(nombreOriginal).substring(1); // sin el punto
 

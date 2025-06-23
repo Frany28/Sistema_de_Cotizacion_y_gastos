@@ -9,6 +9,8 @@ import {
 import { validarRegistro } from "../Middleware/validarRegistro.js";
 import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
 import { verificaPermisoDinamico } from "../Middleware/verificarPermisoDinamico.js";
+import { uploadComprobanteMemoria } from "../utils/s3.js";
+
 
 const router = express.Router();
 
@@ -16,15 +18,9 @@ router.get("/", autenticarUsuario, getDatosRegistro);
 
 router.post(
   "/",
-  (req, _res, next) => {
-    req.combinedData = {
-      ...req.body,
-      ...(req.file ? { documento: req.file } : {}),
-    };
-    next();
-  },
   autenticarUsuario,
   verificaPermisoDinamico,
+  uploadComprobanteMemoria,
   validarRegistro,
   createRegistro
 );
