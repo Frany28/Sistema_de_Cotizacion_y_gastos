@@ -2,13 +2,11 @@ export const validarRegistro = async (req, res, next) => {
   // Cambiar 'documento' por 'comprobante' para coincidir con el frontend
   const datosCombinados = {
     ...req.body,
-    comprobante: req.file?.key, // ← Cambiado de 'documento' a 'comprobante'
+    comprobante: req.file ? req.file.originalname : null,
   };
 
   // 2. Extraemos el tipo de los datos combinados
   const { tipo } = datosCombinados;
-
-  // 3. Validación básica del tipo
   if (!tipo || !["cotizacion", "gasto"].includes(tipo)) {
     return res.status(400).json({ message: "Tipo de registro inválido" });
   }
@@ -100,6 +98,11 @@ export const validarRegistro = async (req, res, next) => {
     if (!req.file) {
       errores.push("El comprobante es obligatorio para gastos");
     }
+
+    if (!descripcion || typeof descripcion !== "string") {
+      errores.push("Descripción es requerida y debe ser texto");
+    }
+    
   }
 
   // 5. Manejo de errores
