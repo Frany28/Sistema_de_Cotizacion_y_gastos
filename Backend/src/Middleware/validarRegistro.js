@@ -2,19 +2,15 @@ export const validarRegistro = async (req, res, next) => {
   // Cambiar 'documento' por 'comprobante' para coincidir con el frontend
   const datosCombinados = {
     ...req.body,
-    comprobante: req.file ? req.file.originalname : null,
+    comprobante: req.file?.key, // ← Cambiado de 'documento' a 'comprobante'
   };
 
+  // 2. Extraemos el tipo de los datos combinados
+  const { tipo } = datosCombinados;
+
+  // 3. Validación básica del tipo
   if (!tipo || !["cotizacion", "gasto"].includes(tipo)) {
-    return res.status(400).json({
-      message: "Tipo de registro inválido",
-      debug: {
-        receivedContentType: req.headers["content-type"],
-        receivedIsMultipart: req.is("multipart/form-data"),
-        receivedBody: req.body,
-        filePresent: !!req.file,
-      },
-    });
+    return res.status(400).json({ message: "Tipo de registro inválido" });
   }
 
   const errores = [];
@@ -52,16 +48,6 @@ export const validarRegistro = async (req, res, next) => {
     validarCampoNumericoOpcional(proveedor_id, "proveedor_id");
     validarCampoNumericoOpcional(cotizacion_id, "cotizacion_id");
     validarCampoNumericoOpcional(tasa_cambio, "tasa_cambio");
-
-    if (!req.file) {
-      return res.status(400).json({
-        message: "Falta el comprobante",
-        debug: {
-          receivedBody: req.body,
-          filePresent: !!req.file,
-        },
-      });
-    }
 
     // Validación de campos requeridos
     if (!concepto_pago || typeof concepto_pago !== "string") {
@@ -113,10 +99,6 @@ export const validarRegistro = async (req, res, next) => {
     // Validación de archivo para gastos
     if (!req.file) {
       errores.push("El comprobante es obligatorio para gastos");
-    }
-
-    if (!descripcion || typeof descripcion !== "string") {
-      errores.push("Descripción es requerida y debe ser texto");
     }
   }
 
