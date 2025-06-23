@@ -46,15 +46,16 @@ export const getDatosRegistro = async (req, res) => {
 };
 
 export const createRegistro = async (req, res) => {
-  const { tipo } = req.body;
+  const { tipo } = req.combinedData;
   if (!tipo) {
     return res
       .status(400)
       .json({ message: "Debe indicar el tipo de registro" });
   }
 
-  const datos = { ...req.body };
-  datos.documento = "";
+  // Partimos de los datos validados; dejamos documento nulo hasta subirlo
+  const datos = { ...req.combinedData };
+  datos.documento = null;
 
   try {
     let resultado;
@@ -67,9 +68,11 @@ export const createRegistro = async (req, res) => {
         });
       }
 
-      // Creamos el gasto
+      // 1) Crear gasto sin documento para obtener registro_id y código
       resultado = await crearGasto(datos);
+      const { registro_id, codigo } = resultado;
 
+      // 2) Construir claveS3
       const meses = [
         "enero",
         "febrero",
@@ -88,11 +91,9 @@ export const createRegistro = async (req, res) => {
       const anio = ahora.getFullYear();
       const mesPalabra = meses[ahora.getMonth()];
       const nombreSeguro = req.file.originalname.replace(/\s+/g, "_");
-      const claveS3 = `facturas_gastos/${anio}/${mesPalabra}/${
-        resultado.codigo
-      }/${Date.now()}-${nombreSeguro}`;
+      const claveS3 = `facturas_gastos/${anio}/${mesPalabra}/${codigo}/${Date.now()}-${nombreSeguro}`;
 
-      // 2) Subir buffer a S3
+      // 3) Subir buffer a S3
       await s3.send(
         new PutObjectCommand({
           Bucket: process.env.S3_BUCKET,
@@ -103,53 +104,46 @@ export const createRegistro = async (req, res) => {
         })
       );
 
-      // 3) Actualizar documento en gastos
+      // 4) Actualizar campo documento en gastos
       await db.query("UPDATE gastos SET documento = ? WHERE id = ?", [
         claveS3,
-        resultado.registro_id,
+        registro_id,
       ]);
-      // Si se creó correctamente y hay archivo, registrar en archivos y eventos
-      if (resultado?.registro_id && req.file) {
-        const archivoRuta = claveS3;
-        const nombreOriginal = req.file.originalname;
-        const extension = path.extname(nombreOriginal).substring(1); // sin el punto
 
-        // 1. Insertar en tabla archivos
-        const [resArchivo] = await db.query(
-          `INSERT INTO archivos 
+      // 5) Insertar en tablas archivos y eventosArchivo
+      const extension = path.extname(req.file.originalname).substring(1);
+      const [resArchivo] = await db.query(
+        `INSERT INTO archivos
            (registroTipo, registroId, nombreOriginal, extension, rutaS3, subidoPor, creadoEn, actualizadoEn)
-           VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-          [
-            "facturasGastos",
-            resultado.registro_id,
-            nombreOriginal,
-            extension,
-            archivoRuta,
-            datos.usuario_id,
-          ]
-        );
+         VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+        [
+          "facturasGastos",
+          registro_id,
+          req.file.originalname,
+          extension,
+          claveS3,
+          datos.usuario_id,
+        ]
+      );
+      const archivoId = resArchivo.insertId;
 
-        const archivoId = resArchivo.insertId;
-
-        // 2. Insertar en eventosArchivo
-        await db.query(
-          `INSERT INTO eventosArchivo 
+      await db.query(
+        `INSERT INTO eventosArchivo
            (archivoId, accion, usuarioId, fechaHora, ip, userAgent, detalles)
-           VALUES (?, ?, ?, NOW(), ?, ?, ?)`,
-          [
-            archivoId,
-            "subida",
-            datos.usuario_id,
-            req.ip || null,
-            req.get("user-agent") || null,
-            JSON.stringify({
-              nombre: nombreOriginal,
-              extension,
-              ruta: archivoRuta,
-            }),
-          ]
-        );
-      }
+         VALUES (?, ?, ?, NOW(), ?, ?, ?)`,
+        [
+          archivoId,
+          "subida",
+          datos.usuario_id,
+          req.ip || null,
+          req.get("user-agent") || null,
+          JSON.stringify({
+            nombre: req.file.originalname,
+            extension,
+            ruta: claveS3,
+          }),
+        ]
+      );
 
       // ───────────── CASO COTIZACIÓN ─────────────
     } else if (tipo === "cotizacion") {
@@ -169,7 +163,6 @@ export const createRegistro = async (req, res) => {
     });
   }
 };
-
 // Crear gasto
 const crearGasto = async (datos) => {
   const {

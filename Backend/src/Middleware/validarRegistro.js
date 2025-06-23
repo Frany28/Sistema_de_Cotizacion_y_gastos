@@ -2,7 +2,8 @@ export const validarRegistro = async (req, res, next) => {
   // Cambiar 'documento' por 'comprobante' para coincidir con el frontend
   const datosCombinados = {
     ...req.body,
-    comprobante: req.file?.key, // ← Cambiado de 'documento' a 'comprobante'
+    documento: req.file ? req.file.originalname : null,
+    // o bien deja documento en blanco y que el controlador lo reemplace
   };
 
   // 2. Extraemos el tipo de los datos combinados
