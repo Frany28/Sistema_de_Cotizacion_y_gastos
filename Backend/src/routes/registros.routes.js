@@ -18,8 +18,8 @@ router.get("/", autenticarUsuario, getDatosRegistro);
 router.post(
   "/",
   autenticarUsuario,
-  verificaPermisoDinamico,
   uploadComprobanteMemoria,
+  verificaPermisoDinamico,
   validarRegistro,
   createRegistro
 );
