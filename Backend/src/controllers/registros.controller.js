@@ -45,130 +45,186 @@ export const getDatosRegistro = async (req, res) => {
   }
 };
 
+// Array global de nombres de meses en español
+const meses = [
+  "enero",
+  "febrero",
+  "marzo",
+  "abril",
+  "mayo",
+  "junio",
+  "julio",
+  "agosto",
+  "septiembre",
+  "octubre",
+  "noviembre",
+  "diciembre",
+];
+
+// POST /registros  (crear gasto + subir comprobante)
 export const createRegistro = async (req, res) => {
   const { tipo } = req.body;
-  if (!tipo) {
-    return res
-      .status(400)
-      .json({ message: "Debe indicar el tipo de registro" });
+  if (tipo !== "gasto") {
+    return res.status(400).json({ message: "Tipo de registro no válido" });
+  }
+  if (!req.file) {
+    return res.status(400).json({ message: "El comprobante es obligatorio" });
   }
 
-  const datos = { ...req.body };
-  datos.documento = "";
-
+  // 1) Insertar gasto y generar código
+  let registroId, codigoGasto;
   try {
-    let resultado;
-
-    // ───────────── CASO GASTO ─────────────
-    if (tipo === "gasto") {
-      if (!req.file) {
-        return res.status(400).json({
-          message: "Para crear un gasto, el comprobante es obligatorio",
-        });
-      }
-
-      // Creamos el gasto
-      resultado = await crearGasto(datos);
-
-      const meses = [
-        "enero",
-        "febrero",
-        "marzo",
-        "abril",
-        "mayo",
-        "junio",
-        "julio",
-        "agosto",
-        "septiembre",
-        "octubre",
-        "noviembre",
-        "diciembre",
-      ];
-      const ahora = new Date();
-      const anio = ahora.getFullYear();
-      const mesPalabra = meses[ahora.getMonth()];
-      const nombreSeguro = req.file.originalname.replace(/\s+/g, "_");
-      const claveS3 = `facturas_gastos/${anio}/${mesPalabra}/${
-        resultado.codigo
-      }/${Date.now()}-${nombreSeguro}`;
-
-      // 2) Subir buffer a S3
-      await s3.send(
-        new PutObjectCommand({
-          Bucket: process.env.S3_BUCKET,
-          Key: claveS3,
-          Body: req.file.buffer,
-          ContentType: req.file.mimetype,
-          ACL: "private",
-        })
-      );
-
-      // 3) Actualizar documento en gastos
-      await db.query("UPDATE gastos SET documento = ? WHERE id = ?", [
-        claveS3,
-        resultado.registro_id,
-      ]);
-      // Si se creó correctamente y hay archivo, registrar en archivos y eventos
-      if (resultado?.registro_id && req.file) {
-        const archivoRuta = claveS3;
-        const nombreOriginal = req.file.originalname;
-        const extension = path.extname(nombreOriginal).substring(1); // sin el punto
-
-        // 1. Insertar en tabla archivos
-        const [resArchivo] = await db.query(
-          `INSERT INTO archivos 
-           (registroTipo, registroId, nombreOriginal, extension, rutaS3, subidoPor, creadoEn, actualizadoEn)
-           VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-          [
-            "facturasGastos",
-            resultado.registro_id,
-            nombreOriginal,
-            extension,
-            archivoRuta,
-            datos.usuario_id,
-          ]
-        );
-
-        const archivoId = resArchivo.insertId;
-
-        // 2. Insertar en eventosArchivo
-        await db.query(
-          `INSERT INTO eventosArchivo 
-           (archivoId, accion, usuarioId, fechaHora, ip, userAgent, detalles)
-           VALUES (?, ?, ?, NOW(), ?, ?, ?)`,
-          [
-            archivoId,
-            "subida",
-            datos.usuario_id,
-            req.ip || null,
-            req.get("user-agent") || null,
-            JSON.stringify({
-              nombre: nombreOriginal,
-              extension,
-              ruta: archivoRuta,
-            }),
-          ]
-        );
-      }
-
-      // ───────────── CASO COTIZACIÓN ─────────────
-    } else if (tipo === "cotizacion") {
-      resultado = await crearCotizacionDesdeRegistro(datos);
-
-      // ───────────── TIPO NO VÁLIDO ─────────────
-    } else {
-      return res.status(400).json({ message: "Tipo de registro no válido" });
-    }
-
-    // ───────────── RESPUESTA ÉXITO ─────────────
-    res.status(201).json(resultado);
-  } catch (error) {
-    console.error("Error al crear el registro:", error);
-    res.status(500).json({
-      message: `Error al crear el registro de tipo ${tipo}`,
-    });
+    ({ registroId, codigoGasto } = await insertarYGenerarCodigoGasto(req.body));
+  } catch (err) {
+    console.error("Error al insertar gasto:", err);
+    return res.status(500).json({ message: "No se pudo crear el gasto" });
   }
+
+  // 2) Construir clave S3 usando año, mes y código
+  const ahora = new Date();
+  const año = ahora.getFullYear();
+  const mesPalabra = meses[ahora.getMonth()];
+  const nombreSeguro = req.file.originalname.replace(/\s+/g, "_");
+  const claveS3 = `facturas_gastos/${año}/${mesPalabra}/${codigoGasto}/${Date.now()}-${nombreSeguro}`;
+
+  // 3) Subir a S3
+  try {
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: process.env.S3_BUCKET,
+        Key: claveS3,
+        Body: req.file.buffer,
+        ContentType: req.file.mimetype,
+        ACL: "private",
+      })
+    );
+  } catch (err) {
+    console.error("Error al subir a S3:", err);
+    return res.status(500).json({ message: "No se pudo subir el comprobante" });
+  }
+
+  // 4) Actualizar campo documento en gastos
+  try {
+    await db.query("UPDATE gastos SET documento = ? WHERE id = ?", [
+      claveS3,
+      registroId,
+    ]);
+  } catch (err) {
+    console.error("Error al actualizar documento:", err);
+    return res
+      .status(500)
+      .json({ message: "No se pudo guardar la ruta del comprobante" });
+  }
+
+  // 5) Registrar en auditoría (tablas archivos + eventosArchivo)
+  try {
+    const extension = path.extname(req.file.originalname).substring(1);
+    const [resArchivo] = await db.query(
+      `INSERT INTO archivos 
+         (registroTipo, registroId, nombreOriginal, extension, rutaS3, subidoPor, creadoEn, actualizadoEn)
+       VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+      [
+        "facturasGastos",
+        registroId,
+        req.file.originalname,
+        extension,
+        claveS3,
+        req.body.usuario_id,
+      ]
+    );
+    const archivoId = resArchivo.insertId;
+
+    await db.query(
+      `INSERT INTO eventosArchivo 
+         (archivoId, accion, usuarioId, fechaHora, ip, userAgent, detalles)
+       VALUES (?, 'subida', ?, NOW(), ?, ?, ?)`,
+      [
+        archivoId,
+        req.body.usuario_id,
+        req.ip || null,
+        req.get("user-agent") || null,
+        JSON.stringify({
+          nombre: req.file.originalname,
+          extension,
+          ruta: claveS3,
+        }),
+      ]
+    );
+  } catch (err) {
+    console.error("Error al guardar auditoría:", err);
+    // Aquí podemos ignorar el fallo de auditoría o avisar al cliente
+  }
+
+  // 6) Responder éxito
+  res.status(201).json({
+    message: "Gasto creado y comprobante subido con éxito",
+    registroId,
+    codigoGasto,
+    rutaDocumento: claveS3,
+  });
 };
+
+// Función que inserta el gasto y genera su código
+async function insertarYGenerarCodigoGasto(datos) {
+  const {
+    proveedor_id,
+    concepto_pago,
+    tipo_gasto_id,
+    descripcion,
+    subtotal,
+    porcentaje_iva = 0,
+    fecha,
+    sucursal_id,
+    cotizacion_id = null,
+    moneda = "USD",
+    estado = "pendiente",
+    usuario_id,
+    tasa_cambio = null,
+  } = datos;
+
+  // Calcular impuesto y total
+  const impuesto = subtotal * (porcentaje_iva / 100);
+  const total = subtotal + impuesto;
+
+  // Insertar sin documento
+  const [result] = await db.query(
+    `INSERT INTO gastos
+       (proveedor_id, concepto_pago, tipo_gasto_id, descripcion,
+        subtotal, porcentaje_iva, impuesto, total,
+        fecha, sucursal_id, cotizacion_id,
+        moneda, tasa_cambio, documento,
+        estado, usuario_id, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?, ?, NOW(), NOW())`,
+    [
+      proveedor_id,
+      concepto_pago,
+      tipo_gasto_id,
+      descripcion || "N/A",
+      subtotal,
+      porcentaje_iva,
+      impuesto,
+      total,
+      fecha,
+      sucursal_id,
+      cotizacion_id,
+      moneda,
+      tasa_cambio,
+      estado,
+      usuario_id,
+    ]
+  );
+
+  const registroId = result.insertId;
+  const codigoGasto = `G-${String(registroId).padStart(6, "0")}`;
+
+  // Guardar código en la BD
+  await db.query("UPDATE gastos SET codigo = ? WHERE id = ?", [
+    codigoGasto,
+    registroId,
+  ]);
+
+  return { registroId, codigoGasto };
+}
 
 // Crear gasto
 const crearGasto = async (datos) => {
