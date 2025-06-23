@@ -1,27 +1,22 @@
-import express from "express";
-import multer from "multer";
-import {
-  getDatosRegistro,
-  createRegistro,
-  generarVistaPreviaCotizacion,
-  getTiposGasto,
-} from "../controllers/registros.controller.js";
-import { validarRegistro } from "../Middleware/validarRegistro.js";
-import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
 import { verificaPermisoDinamico } from "../Middleware/verificarPermisoDinamico.js";
+import { uploadComprobante } from "../utils/s3.js";
 
-// 1) Multer con memoryStorage
-const almacenamientoMemoria = multer.memoryStorage();
-const uploadMemoria = multer({ storage: almacenamientoMemoria });
 const router = express.Router();
 
 router.get("/", autenticarUsuario, getDatosRegistro);
 
 router.post(
   "/",
+  uploadComprobante.single("documento"),
+  (req, _res, next) => {
+    req.combinedData = {
+      ...req.body,
+      ...(req.file ? { documento: req.file } : {}),
+    };
+    next();
+  },
   autenticarUsuario,
   verificaPermisoDinamico,
-  uploadMemoria.single("documento"),
   validarRegistro,
   createRegistro
 );
