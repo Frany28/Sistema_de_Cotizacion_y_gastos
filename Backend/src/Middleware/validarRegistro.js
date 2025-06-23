@@ -114,6 +114,8 @@ export const validarRegistro = async (req, res, next) => {
     });
   }
 
+  console.log("▶️ validarRegistro → datosCombinados:", datosCombinados);
+  console.log("▶️ createRegistro → req.combinedData:", req.combinedData);
   // 6. Adjuntamos los datos combinados al request para el siguiente middleware
   req.combinedData = datosCombinados;
   next();

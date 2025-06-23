@@ -57,7 +57,7 @@ export const createRegistro = async (req, res) => {
 
   // Partimos de los datos validados; dejamos documento nulo hasta subirlo
   const datos = { ...req.combinedData };
-  datos.documento = null;
+  datos.documento = null; 
 
   try {
     let resultado;
