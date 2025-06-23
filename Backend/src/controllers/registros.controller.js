@@ -46,6 +46,11 @@ export const getDatosRegistro = async (req, res) => {
 };
 
 export const createRegistro = async (req, res) => {
+  console.log("=== createRegistro ===");
+  console.log("Headers:", req.headers);
+  console.log("Body:", req.body);
+  console.log("combinedData:", req.combinedData);
+  console.log("File recibido (req.file):", req.file);
   const { tipo } = req.combinedData;
   if (!tipo) {
     return res

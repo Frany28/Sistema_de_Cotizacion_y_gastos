@@ -371,6 +371,8 @@ const CrearRegistro = () => {
         console.log(key, value);
       }
 
+      console.log("FormData completa:", formData);
+
       const response = await api.post("/registros", formData, {
         withCredentials: true,
       });
