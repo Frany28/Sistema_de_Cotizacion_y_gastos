@@ -5,15 +5,16 @@ export const validarRegistro = async (req, res, next) => {
     comprobante: req.file ? req.file.originalname : null,
   };
 
-  console.log(">>> content-type:", req.headers["content-type"]);
-  console.log(">>> req.is multipart?:", req.is("multipart/form-data"));
-  console.log(">>> req.body:", req.body);
-  console.log(">>> req.file:", req.file);
-
-  // 2. Extraemos el tipo de los datos combinados
-  const { tipo } = datosCombinados;
   if (!tipo || !["cotizacion", "gasto"].includes(tipo)) {
-    return res.status(400).json({ message: "Tipo de registro inválido" });
+    return res.status(400).json({
+      message: "Tipo de registro inválido",
+      debug: {
+        receivedContentType: req.headers["content-type"],
+        receivedIsMultipart: req.is("multipart/form-data"),
+        receivedBody: req.body,
+        filePresent: !!req.file,
+      },
+    });
   }
 
   const errores = [];
@@ -51,6 +52,16 @@ export const validarRegistro = async (req, res, next) => {
     validarCampoNumericoOpcional(proveedor_id, "proveedor_id");
     validarCampoNumericoOpcional(cotizacion_id, "cotizacion_id");
     validarCampoNumericoOpcional(tasa_cambio, "tasa_cambio");
+
+    if (!req.file) {
+      return res.status(400).json({
+        message: "Falta el comprobante",
+        debug: {
+          receivedBody: req.body,
+          filePresent: !!req.file,
+        },
+      });
+    }
 
     // Validación de campos requeridos
     if (!concepto_pago || typeof concepto_pago !== "string") {
