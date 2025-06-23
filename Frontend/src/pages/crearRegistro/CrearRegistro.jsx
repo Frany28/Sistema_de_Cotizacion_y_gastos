@@ -376,10 +376,6 @@ const CrearRegistro = () => {
 
       const response = await api.post("/registros", formData, {
         withCredentials: true,
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-        transformRequest: [(data) => data],
       });
 
       setMensajeExito("¡Gasto registrado correctamente!");

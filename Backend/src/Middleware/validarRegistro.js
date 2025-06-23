@@ -9,6 +9,8 @@ export const validarRegistro = async (req, res, next) => {
   // 2. Extraemos el tipo de los datos combinados
   const { tipo } = datosCombinados;
 
+  console.log("validarRegistro → datosCombinados:", datosCombinados);
+
   // 3. Validación básica del tipo
   if (!tipo || !["cotizacion", "gasto"].includes(tipo)) {
     return res.status(400).json({ message: "Tipo de registro inválido" });

@@ -47,10 +47,7 @@ export const getDatosRegistro = async (req, res) => {
 
 export const createRegistro = async (req, res) => {
   console.log("=== createRegistro ===");
-  console.log("Headers:", req.headers);
-  console.log("Body:", req.body);
-  console.log("combinedData:", req.combinedData);
-  console.log("File recibido (req.file):", req.file);
+  console.log("createRegistro → tipoRecibido:", req.combinedData.tipo);
   const { tipo } = req.combinedData;
   if (!tipo) {
     return res
@@ -64,6 +61,8 @@ export const createRegistro = async (req, res) => {
 
   try {
     let resultado;
+
+    const tipoRecibido = (req.combinedData.tipo || "").trim().toLowerCase();
 
     // ───────────── CASO GASTO ─────────────
     if (tipo === "gasto") {
