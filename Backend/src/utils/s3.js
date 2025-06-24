@@ -25,6 +25,14 @@ export const s3 = new S3Client({
   },
 });
 
+const slugify = (str) =>
+  str
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+
 export const uploadComprobanteMemoria = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 8 * 1024 * 1024 }, // 8 MB
@@ -116,8 +124,30 @@ export const uploadFirma = multer({
         ? req.body.nombre.trim().replace(/\s+/g, "_")
         : `usuario_${Date.now()}`;
       const extension = file.originalname.split(".").pop();
-      const nombre = `firma.${extension}`;
-      const clave = `firmas/${usuario}/${nombre}`;
+
+      /* 1) Intentamos tomar el nombre del body (crearUsuario) */
+      if (req.body.nombre) {
+        const slug = slugify(req.body.nombre);
+        const clave = `firmas/${slug}_${Date.now()}/firma.${extension}`;
+        return cb(null, clave);
+      }
+
+      /* 2) Si venimos de actualizarUsuario, usamos el id para buscar el nombre */
+      if (req.params.id) {
+        db.query("SELECT nombre FROM usuarios WHERE id = ?", [req.params.id])
+          .then(([rows]) => {
+            const base = rows[0]?.nombre
+              ? slugify(rows[0].nombre)
+              : `usuario-${req.params.id}`;
+            const clave = `firmas/${base}_${Date.now()}/firma.${extension}`;
+            cb(null, clave);
+          })
+          .catch((err) => cb(err));
+        return; // salimos: el callback se hará en la promesa
+      }
+
+      /* 3) Fallback: timestamp anónimo (no debería ocurrir) */
+      const clave = `firmas/usuario_${Date.now()}/firma.${extension}`;
       cb(null, clave);
     },
   }),
