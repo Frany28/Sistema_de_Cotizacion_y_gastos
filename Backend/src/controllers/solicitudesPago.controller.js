@@ -210,6 +210,7 @@ export const pagarSolicitudPago = async (req, res) => {
       ? comprobanteFile.originalname
       : null;
     const extension = nombreOriginal ? nombreOriginal.split(".").pop() : null;
+    const tamanioBytes = comprobanteFile ? comprobanteFile.size : null;
     const fechaPagoFinal = fecha_pago ? new Date(fecha_pago) : new Date();
 
     // 3. Actualizar solicitud de pago
@@ -264,7 +265,7 @@ export const pagarSolicitudPago = async (req, res) => {
       // 5.1. Insertar en archivos
       const [resArchivo] = await db.query(
         `INSERT INTO archivos
-           (registroTipo, registroId, nombreOriginal, extension, rutaS3, subidoPor, creadoEn, actualizadoEn)
+           (registroTipo, registroId, nombreOriginal, extension, rutaS3, subidoPor, creadoEn, actualizadoEn,  tamanioBytes)
          VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
         [
           "comprobantesPagos",
@@ -272,6 +273,7 @@ export const pagarSolicitudPago = async (req, res) => {
           nombreOriginal,
           extension,
           rutaComprobante,
+          tamanioBytes,
           usuarioFirmaId,
         ]
       );

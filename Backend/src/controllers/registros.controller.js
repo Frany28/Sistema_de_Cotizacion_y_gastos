@@ -126,18 +126,21 @@ export const createRegistro = async (req, res) => {
 
       // 2.5  Registrar en "archivos" y "eventosArchivo"
       const extension = path.extname(req.file.originalname).substring(1);
+      const tamanioBytes = req.file.size;
 
       const [resArchivo] = await db.query(
         `INSERT INTO archivos
            (registroTipo, registroId, nombreOriginal, extension, rutaS3,
-            subidoPor, creadoEn, actualizadoEn)
-         VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+           tamanioBytes, subidoPor, creadoEn, actualizadoEn)
+         VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW()) `,
+
         [
           "facturasGastos",
           registroId,
           req.file.originalname,
           extension,
           claveS3,
+          tamanioBytes,
           datos.usuario_id,
         ]
       );

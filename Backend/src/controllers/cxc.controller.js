@@ -7,6 +7,7 @@ export const registrarAbono = async (req, res) => {
   const { monto, moneda, tasa_cambio, observaciones } = req.body;
   const usuarioId = req.user.id;
   const rutaComprobante = req.file ? req.file.key : null;
+  const tamanioBytes = req.file ? req.file.size : null;
 
   try {
     // 1) Insertar el abono con los nombres de columna correctos
@@ -20,18 +21,19 @@ export const registrarAbono = async (req, res) => {
           ruta_comprobante,
           observaciones,
           fecha_abono,
+          tamanioBytes,
           empleado_id)
        VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), ?)`,
       [
-        cuenta_id, // cuenta_id
-        moneda, // moneda_pago
-        parseFloat(tasa_cambio) || 1, // tasa_cambio
-        parseFloat(monto), // monto_abonado
+        cuenta_id,
+        moneda,
+        parseFloat(tasa_cambio) || 1,
+        parseFloat(monto),
         parseFloat(monto) * (moneda === "VES" ? parseFloat(tasa_cambio) : 1),
-        // monto_usd_calculado
-        rutaComprobante, // ruta_comprobante
-        observaciones || null, // observaciones
-        usuarioId, // empleado_id
+        rutaComprobante,
+        observaciones || null,
+        tamanioBytes,
+        usuarioId,
       ]
     );
     const abonoId = insertResult.insertId;
