@@ -128,7 +128,7 @@ export const uploadFirma = multer({
       /* 1) Intentamos tomar el nombre del body (crearUsuario) */
       if (req.body.nombre) {
         const slug = slugify(req.body.nombre);
-        const clave = `firmas/${slug}_${Date.now()}/firma.${extension}`;
+        const clave = `firmas/${slug}/firma.${extension}`;
         return cb(null, clave);
       }
 
@@ -139,7 +139,7 @@ export const uploadFirma = multer({
             const base = rows[0]?.nombre
               ? slugify(rows[0].nombre)
               : `usuario-${req.params.id}`;
-            const clave = `firmas/${base}_${Date.now()}/firma.${extension}`;
+            const clave = `firmas/${base}/firma.${extension}`;
             cb(null, clave);
           })
           .catch((err) => cb(err));
@@ -147,7 +147,7 @@ export const uploadFirma = multer({
       }
 
       /* 3) Fallback: timestamp anónimo (no debería ocurrir) */
-      const clave = `firmas/usuario_${Date.now()}/firma.${extension}`;
+      const clave = `firmas/usuario-desconocido/firma.${extension}`;
       cb(null, clave);
     },
   }),
