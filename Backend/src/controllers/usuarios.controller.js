@@ -42,14 +42,15 @@ export const crearUsuario = async (req, res) => {
         `INSERT INTO archivos
            (registroTipo, registroId,
             nombreOriginal, extension, rutaS3,
-            estado, subidoPor, creadoEn, actualizadoEn)
-         VALUES (?, ?, ?, ?, ?, 'activo', ?, NOW(), NOW())`,
+            estado, tamanioBytes, subidoPor, creadoEn, actualizadoEn)
+         VALUES (?, ?, ?, ?, ?, ?, 'activo', ?, NOW(), NOW())`,
         [
           "firmas", // registroTipo
           usuarioId, // registroId
           nombreOriginal, // nombreOriginal
           extension, // extension
           firmaKey, // rutaS3
+          tamanioBytes,
           req.user.id, // subidoPor (quién sube)
         ]
       );
