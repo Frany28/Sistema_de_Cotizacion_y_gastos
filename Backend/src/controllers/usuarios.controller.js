@@ -18,6 +18,7 @@ export const crearUsuario = async (req, res) => {
     const extension = nombreOriginal?.split(".").pop() ?? null;
     const hashed = await bcrypt.hash(password, 10);
     const tamanioBytes = req.file?.size ?? null;
+    const rutaS3 = firmaKey;
 
     // 2) Insertar en usuarios
     const [uResult] = await conexion.query(
@@ -50,8 +51,8 @@ export const crearUsuario = async (req, res) => {
           usuarioId,
           nombreOriginal,
           extension,
-          rutaS3,
           tamanioBytes,
+          rutaS3,
           req.user.id,
         ]
       );
@@ -126,7 +127,15 @@ export const actualizarUsuario = async (req, res) => {
         (registroTipo, registroId, nombreOriginal, extension, tamanioBytes,
         rutaS3, estado, subidoPor, creadoEn, actualizadoEn)
         VALUES (?, ?, ?, ?, ?, ?, 'activo', ?, NOW(), NOW())`,
-        ["firmas", id, nombreOriginal, extension, rutaS3, req.user.id]
+        [
+          "firmas",
+          id,
+          nombreOriginal,
+          extension,
+          tamanioBytes,
+          rutaS3,
+          req.user.id,
+        ]
       );
       const archivoId = aResult.insertId;
 
