@@ -16,6 +16,7 @@ export const crearUsuario = async (req, res) => {
     const nombreOriginal = req.file?.originalname ?? null;
     const extension = nombreOriginal?.split(".").pop() ?? null;
     const hashed = await bcrypt.hash(password, 10);
+    const tamanioBytes = req.file?.size;
 
     // 2) Insertar en usuarios
     const [uResult] = await conexion.query(
