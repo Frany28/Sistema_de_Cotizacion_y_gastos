@@ -3,6 +3,7 @@ import db from "../config/database.js";
 import { generarUrlPrefirmadaLectura } from "../utils/s3.js";
 import bcrypt from "bcrypt";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { s3 } from "../config/s3.js";
 
 // Crear usuario (incluye registro de firma en S3, tabla archivos y eventosArchivo)
 export const crearUsuario = async (req, res) => {
