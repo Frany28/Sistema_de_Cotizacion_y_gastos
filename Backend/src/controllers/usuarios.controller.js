@@ -94,6 +94,8 @@ export const actualizarUsuario = async (req, res) => {
     const firmaKey = req.file?.key ?? null;
     const nombreOriginal = req.file?.originalname ?? null;
     const extension = nombreOriginal?.split(".").pop() ?? null;
+    const tamanioBytes = req.file?.size ?? null;
+    const rutaS3 = firmaKey;
 
     // 1) Preparar campos dinámicos
     const campos = [];
