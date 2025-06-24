@@ -132,7 +132,7 @@ export const createRegistro = async (req, res) => {
         `INSERT INTO archivos
            (registroTipo, registroId, nombreOriginal, extension, rutaS3,
            tamanioBytes, subidoPor, creadoEn, actualizadoEn)
-         VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW()) `,
+         VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
 
         [
           "facturasGastos",

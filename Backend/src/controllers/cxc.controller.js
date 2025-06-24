@@ -42,14 +42,15 @@ export const registrarAbono = async (req, res) => {
     if (rutaComprobante) {
       const [aRes] = await db.query(
         `INSERT INTO archivos
-           (registroTipo, registroId, nombreOriginal, extension, rutaS3, subidoPor, creadoEn, actualizadoEn)
-         VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+           (registroTipo, registroId, nombreOriginal, extension, rutaS3, tamanioBytes, subidoPor, creadoEn, actualizadoEn)
+            VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
         [
           "abonosCXC",
           abonoId,
           req.file.originalname,
           req.file.originalname.split(".").pop(),
           rutaComprobante,
+          tamanioBytes,
           usuarioId,
         ]
       );

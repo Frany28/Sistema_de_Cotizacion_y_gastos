@@ -265,8 +265,8 @@ export const pagarSolicitudPago = async (req, res) => {
       // 5.1. Insertar en archivos
       const [resArchivo] = await db.query(
         `INSERT INTO archivos
-           (registroTipo, registroId, nombreOriginal, extension, rutaS3, subidoPor, creadoEn, actualizadoEn,  tamanioBytes)
-         VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+           (registroTipo, registroId, nombreOriginal, extension, rutaS3, tamanioBytes, subidoPor, creadoEn, actualizadoEn)
+        VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
         [
           "comprobantesPagos",
           id,
