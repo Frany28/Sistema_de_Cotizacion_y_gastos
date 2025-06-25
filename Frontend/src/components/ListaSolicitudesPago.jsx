@@ -31,7 +31,7 @@ function ListaSolicitudesPago() {
 
   const [verSolicitudData, setVerSolicitudData] = useState({
     visible: false,
-    solicitudId: null,
+    solicitud: null,
   });
 
   // Estados para modales de feedback
@@ -135,7 +135,7 @@ function ListaSolicitudesPago() {
   const handleVerSolicitud = (solicitud) => {
     setVerSolicitudData({
       visible: true,
-      solicitudId: solicitud.id,
+      solicitud: solicitud,
     });
   };
 
@@ -165,7 +165,7 @@ function ListaSolicitudesPago() {
               id="cantidad"
               value={limit}
               onChange={(e) => cambiarLimite(Number(e.target.value))}
-              className="cursor-pointer text-sm rounded-md  border-gray-600 bg-gray-700 text-white"
+              className="text-sm rounded-md  border-gray-600 bg-gray-700 text-white"
             >
               <option value="5">5</option>
               <option value="10">10</option>
@@ -214,7 +214,7 @@ function ListaSolicitudesPago() {
                 setEstadoFiltro(estado.id);
                 setPage(1);
               }}
-              className={`px-4 py-1 rounded-full text-sm border cursor-pointer ${
+              className={`px-4 py-1 rounded-full text-sm border ${
                 estadoFiltro === estado.id
                   ? "bg-gray-600 text-white"
                   : "bg-gray-800 text-white hover:bg-gray-500"
@@ -342,10 +342,10 @@ function ListaSolicitudesPago() {
 
       <ModalVerSolicitudDePago
         visible={verSolicitudData.visible}
-        solicitudId={verSolicitudData.solicitudId}
         onClose={() =>
-          setVerSolicitudData((prev) => ({ ...prev, visible: false }))
+          setVerSolicitudData({ ...verSolicitudData, visible: false })
         }
+        solicitud={verSolicitudData.solicitud}
       />
 
       <ModalExito
