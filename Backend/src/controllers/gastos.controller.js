@@ -406,84 +406,88 @@ export const getProveedores = async (req, res) => {
   }
 };
 
+
+
 export const actualizarEstadoGasto = async (req, res) => {
-  const { id } = req.params;
+  const { id } = req.params; // gasto_id
   const { estado, motivo_rechazo } = req.body;
 
-  // … (validaciones previas, como ya tenéis) …
+  // …aquí van las validaciones que ya tienes…
 
   try {
-    // 1) Cambio de estado en la tabla gastos
+    /* 1️⃣  Actualizar el estado del gasto */
     await db.query(
-      `UPDATE gastos 
-         SET estado = ?, motivo_rechazo = ?, updated_at = NOW() 
+      `UPDATE gastos
+         SET estado = ?,
+             motivo_rechazo = ?,
+             updated_at = NOW()
        WHERE id = ?`,
       [estado, motivo_rechazo || null, id]
     );
 
-    // 2) Si el nuevo estado es 'aprobado', genero la solicitud de pago
+    /* 2️⃣  Si pasa a ‘aprobado’, genera la solicitud de pago */
     if (estado === "aprobado") {
-      // 2.1) Verificar que aún no exista
-      const [existe] = await db.query(
-        `SELECT id 
-           FROM solicitudes_pago 
-          WHERE gasto_id = ?`,
+      /* 2.1) Evitar duplicados */
+      const [yaExiste] = await db.query(
+        "SELECT id FROM solicitudes_pago WHERE gasto_id = ?",
         [id]
       );
-      if (existe.length === 0) {
-        // 2.2) Obtener datos del gasto para la solicitud
+      if (yaExiste.length === 0) {
+        /* 2.2) Datos del gasto necesarios para la solicitud */
         const [[gasto]] = await db.query(
-          `SELECT usuario_id AS usuario_solicita_id,
-                  proveedor_id,
-                  concepto_pago,
-                  total       AS monto_total,
-                  total       AS monto_pagado,   -- arranca en 0 si queréis abonos
-                  moneda,
-                  tasa_cambio
-             FROM gastos
-            WHERE id = ?`,
+          `SELECT
+              usuario_id      AS usuario_solicita_id,
+              proveedor_id,
+              concepto_pago,
+              total           AS monto_total,
+              moneda,
+              tasa_cambio
+           FROM gastos
+           WHERE id = ?`,
           [id]
         );
 
-        // 2.3) Generar un código único SP-00001, SP-00002…
+        /* 2.3) Código consecutivo tipo SP-00001 */
         const [[{ maxId }]] = await db.query(
-          `SELECT MAX(id) AS maxId FROM solicitudes_pago`
+          "SELECT MAX(id) AS maxId FROM solicitudes_pago"
         );
         const nextId = (maxId || 0) + 1;
         const codigo = `SP-${String(nextId).padStart(5, "0")}`;
 
-        // 2.4) Insertar en solicitudes_pago con estado 'por_pagar'
-        await db.query(
-          `INSERT INTO solicitudes_pago (
-              codigo,
-              gasto_id,
-              usuario_solicita_id,
-              usuario_aprueba_id,
-              proveedor_id,
-              concepto_pago, 
-              monto_total,
-              monto_pagado,
-              estado,
-              fecha_solicitud,
-              created_at,
-              updated_at,
-              moneda,
-              tasa_cambio
-            ) VALUES (?,?,?,?,?,?,?,?,NOW(),NOW(),NOW(),?,?)`,
-          [
+        /* 2.4) Insertar la nueva solicitud de pago */
+        const insertarSolicitudSql = `
+          INSERT INTO solicitudes_pago (
             codigo,
-            id,
-            gasto.usuario_solicita_id,
-            req.session.usuario.id,
-            gasto.proveedor_id,
-            gasto.concepto_pago,
-            gasto.monto_total,
-            0,
-            "por_pagar",
-            gasto.moneda,
-            gasto.tasa_cambio,
-          ]
-        );
+            gasto_id,
+            usuario_solicita_id,
+            usuario_aprueba_id,
+            proveedor_id,
+            concepto_pago,
+            monto_total,
+            monto_pagado,
+            estado,
+            fecha_solicitud,
+            created_at,
+            updated_at,
+            moneda,
+            tasa_cambio
+          )
+          VALUES (?,?,?,?,?,?,?,?,?,NOW(),NOW(),NOW(),?,?)
+        `;
+
+        await db.query(insertarSolicitudSql, [
+          codigo, // 1
+          id, // 2  gasto_id
+          gasto.usuario_solicita_id, // 3
+          req.session.usuario.id, // 4  aprobador
+          gasto.proveedor_id, // 5  puede ser NULL
+          gasto.concepto_pago, // 6
+          gasto.monto_total, // 7
+          0, // 8  monto_pagado (comienza en 0)
+          "por_pagar", // 9  estado inicial
+          gasto.moneda, // 10
+          gasto.tasa_cambio, // 11
+        ]);
       }
     }
 
