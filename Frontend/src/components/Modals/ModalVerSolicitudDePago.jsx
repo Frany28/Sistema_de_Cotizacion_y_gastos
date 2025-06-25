@@ -30,8 +30,12 @@ export default function ModalVerSolicitudDePago({
     const fetchDetalle = async () => {
       try {
         setLoading(true);
+        const controller = new AbortController();
+        cancel = () => controller.abort();
+
         const { data } = await api.get(`/solicitudes-pago/${solicitudId}`, {
-          cancelToken: new api.CancelToken((c) => (cancel = c)),
+          withCredentials: true,
+          signal: controller.signal,
         });
         setSolicitud(data);
         setError("");
@@ -169,7 +173,6 @@ export default function ModalVerSolicitudDePago({
           >
             <X className="w-5 h-5" />
           </button>
-
         </motion.div>
       </motion.div>
     </AnimatePresence>

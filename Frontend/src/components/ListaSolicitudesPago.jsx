@@ -31,7 +31,7 @@ function ListaSolicitudesPago() {
 
   const [verSolicitudData, setVerSolicitudData] = useState({
     visible: false,
-    solicitud: null,
+    solicitudId: null,
   });
 
   // Estados para modales de feedback
@@ -135,7 +135,7 @@ function ListaSolicitudesPago() {
   const handleVerSolicitud = (solicitud) => {
     setVerSolicitudData({
       visible: true,
-      solicitud: solicitud,
+      solicitudId: solicitud.id,
     });
   };
 
@@ -345,7 +345,7 @@ function ListaSolicitudesPago() {
         onClose={() =>
           setVerSolicitudData({ ...verSolicitudData, visible: false })
         }
-        solicitud={verSolicitudData.solicitud}
+        solicitudId={verSolicitudData.solicitudId}
       />
 
       <ModalExito
