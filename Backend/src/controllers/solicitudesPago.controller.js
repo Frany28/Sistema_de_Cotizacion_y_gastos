@@ -27,6 +27,7 @@ export const obtenerSolicitudesPago = async (req, res) => {
         sp.id,
         sp.codigo,
         sp.gasto_id,
+        sp.concepto_pago AS conceptoPago,
         sp.usuario_solicita_id,
         sp.usuario_aprueba_id,
         p.nombre AS proveedor_nombre,

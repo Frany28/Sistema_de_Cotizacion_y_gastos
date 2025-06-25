@@ -435,6 +435,7 @@ export const actualizarEstadoGasto = async (req, res) => {
         const [[gasto]] = await db.query(
           `SELECT usuario_id AS usuario_solicita_id,
                   proveedor_id,
+                  concepto_pago,
                   total       AS monto_total,
                   total       AS monto_pagado,   -- arranca en 0 si queréis abonos
                   moneda,
@@ -459,6 +460,7 @@ export const actualizarEstadoGasto = async (req, res) => {
               usuario_solicita_id,
               usuario_aprueba_id,
               proveedor_id,
+              concepto_pago, 
               monto_total,
               monto_pagado,
               estado,
@@ -474,8 +476,9 @@ export const actualizarEstadoGasto = async (req, res) => {
             gasto.usuario_solicita_id,
             req.session.usuario.id,
             gasto.proveedor_id,
+            gasto.concepto_pago,
             gasto.monto_total,
-            0, 
+            0,
             "por_pagar",
             gasto.moneda,
             gasto.tasa_cambio,
