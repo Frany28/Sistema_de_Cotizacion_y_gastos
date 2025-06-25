@@ -1,5 +1,4 @@
 // utils/s3.js
-// Gestión de uploads a S3 con AWS SDK v3 y multer-s3
 
 import {
   S3Client,

@@ -511,6 +511,8 @@ export const deleteCotizacion = async (req, res) => {
   }
 };
 
+
+
 // Generar PDF de cotización
 
 export const generarPDFCotizacion = async (req, res) => {

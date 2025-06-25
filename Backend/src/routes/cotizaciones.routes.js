@@ -41,10 +41,10 @@ router.delete(
   verificarPermiso("eliminarCotizacion"),
   deleteCotizacion
 );
-router.put(
+router.patch(
   "/:id/estado",
-  verificarPermiso("aprobarCotizacion"),
   autenticarUsuario,
+  verificarPermiso("aprobarCotizacion"),
   actualizarEstadoCotizacion
 );
 router.get("/api/cotizaciones/buscar", buscarCotizaciones);
