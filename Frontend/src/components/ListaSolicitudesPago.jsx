@@ -342,10 +342,10 @@ function ListaSolicitudesPago() {
 
       <ModalVerSolicitudDePago
         visible={verSolicitudData.visible}
-        onClose={() =>
-          setVerSolicitudData({ ...verSolicitudData, visible: false })
-        }
         solicitudId={verSolicitudData.solicitudId}
+        onClose={() =>
+          setVerSolicitudData((prev) => ({ ...prev, visible: false }))
+        }
       />
 
       <ModalExito
