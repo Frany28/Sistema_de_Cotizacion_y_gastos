@@ -34,6 +34,13 @@ function ListaSolicitudesPago() {
     solicitud: null,
   });
 
+  const fetchSolicitudDetallada = async (id) => {
+    const { data } = await api.get(`/solicitudes-pago/${id}`, {
+      withCredentials: true,
+    });
+    return data; // ← contiene monto_total, tasa_cambio, banco_nombre...
+  };
+
   // Estados para modales de feedback
   const [modalExitoData, setModalExitoData] = useState({
     visible: false,
@@ -132,11 +139,21 @@ function ListaSolicitudesPago() {
     setPagarData({ visible: true, solicitudId: solicitud.id });
   };
 
-  const handleVerSolicitud = (solicitud) => {
-    setVerSolicitudData({
-      visible: true,
-      solicitud: solicitud,
-    });
+  const handleVerSolicitud = async (solicitudFila) => {
+    try {
+      const solicitudCompleta = await fetchSolicitudDetallada(solicitudFila.id);
+      setVerSolicitudData({
+        visible: true,
+        solicitud: solicitudCompleta,
+      });
+    } catch (err) {
+      console.error(err);
+      mostrarError({
+        titulo: "Error al obtener la solicitud",
+        mensaje:
+          "No se pudo cargar la información completa. Intenta nuevamente.",
+      });
+    }
   };
 
   // Renderizado condicional
