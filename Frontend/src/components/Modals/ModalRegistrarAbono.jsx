@@ -23,7 +23,6 @@ export default function ModalRegistrarAbono({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [montoUSD, setMontoUSD] = useState("");
-
   const [showSuccess, setShowSuccess] = useState(false);
   const [showError, setShowError] = useState(false);
 
@@ -87,12 +86,11 @@ export default function ModalRegistrarAbono({
         form.moneda_pago === "VES" ? parseFloat(form.tasa_cambio) : 1
       );
       data.append("fecha", form.fecha_abono);
+      data.append("usuario_id", usuarioId);
       if (form.observaciones) data.append("observaciones", form.observaciones);
       if (archivo) data.append("comprobante", archivo);
 
-      const res = await api.post(`/cuentas/${cuentaId}/abonos`, data, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      const res = await api.post(`/cuentas/${cuentaId}/abonos`, data);
 
       if (res.status === 200 || res.status === 201) {
         setShowSuccess(true);
@@ -117,6 +115,7 @@ export default function ModalRegistrarAbono({
     <AnimatePresence exitBeforeEnter>
       {showSuccess && (
         <ModalExito
+          visible={true}
           key="exito"
           titulo="Abono registrado"
           mensaje="El abono fue procesado correctamente."
@@ -127,6 +126,7 @@ export default function ModalRegistrarAbono({
 
       {showError && (
         <ModalError
+          visible={true}
           key="error"
           titulo="Error"
           mensaje="No se pudo registrar el abono."
