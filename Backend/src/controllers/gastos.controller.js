@@ -478,12 +478,12 @@ export const actualizarEstadoGasto = async (req, res) => {
         await db.query(insertarSolicitudSql, [
           codigo, // 1
           id, // 2  gasto_id
-          gasto.usuario_solicita_id, // 3
-          req.session.usuario.id, // 4  aprobador
-          gasto.proveedor_id, // 5  puede ser NULL
-          gasto.concepto_pago, // 6
-          gasto.monto_total, // 7
-          0, // 8  monto_pagado (comienza en 0)
+          gasto.usuario_solicita_id, 
+          req.session.usuario.id, 
+          gasto.proveedor_id, 
+          gasto.concepto_pago, 
+          gasto.monto_total,
+          0, 
           "por_pagar", // 9  estado inicial
           gasto.moneda, // 10
           gasto.tasa_cambio, // 11
