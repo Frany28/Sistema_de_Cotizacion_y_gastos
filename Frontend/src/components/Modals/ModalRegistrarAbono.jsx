@@ -1,9 +1,13 @@
 import { useState, useEffect } from "react";
 import api from "../../api/index";
+import axios from "axios"; // cliente limpio para llamadas externas
 import { motion, AnimatePresence } from "framer-motion";
 import { DollarSign, Paperclip } from "lucide-react";
 import ModalExito from "../Modals/ModalExito";
 import ModalError from "../Modals/ModalError";
+
+// Cliente Axios sin credenciales ni interceptores para DolarAPI
+const dolarApi = axios.create();
 
 export default function ModalRegistrarAbono({
   cuentaId,
@@ -26,7 +30,9 @@ export default function ModalRegistrarAbono({
   const [showSuccess, setShowSuccess] = useState(false);
   const [showError, setShowError] = useState(false);
 
-  // Cargar saldo pendiente
+  /* --------------------------------------------------
+   * 1. Cargar saldo pendiente de la cuenta
+   * -------------------------------------------------- */
   useEffect(() => {
     if (!cuentaId) return;
     api
@@ -35,10 +41,18 @@ export default function ModalRegistrarAbono({
       .catch(() => setError("No se pudo obtener el saldo pendiente."));
   }, [cuentaId]);
 
-  // Carga tasa si es VES
+  /* --------------------------------------------------
+   * 2. Obtener tasa oficial cuando la moneda es VES
+   *    y limpiar la tasa si vuelve a USD
+   * -------------------------------------------------- */
   useEffect(() => {
-    if (form.moneda_pago !== "VES") return setMontoUSD("");
-    api
+    if (form.moneda_pago !== "VES") {
+      setForm((f) => ({ ...f, tasa_cambio: "" }));
+      setMontoUSD("");
+      return;
+    }
+
+    dolarApi
       .get("https://ve.dolarapi.com/v1/dolares/oficial")
       .then((res) => {
         const t = res.data?.promedio;
@@ -47,7 +61,9 @@ export default function ModalRegistrarAbono({
       .catch(() => setError("No se pudo obtener la tasa del día."));
   }, [form.moneda_pago]);
 
-  // Calcula USD
+  /* --------------------------------------------------
+   * 3. Calcular equivalente en USD cuando sea necesario
+   * -------------------------------------------------- */
   useEffect(() => {
     if (form.moneda_pago === "VES" && form.tasa_cambio && form.monto_abonado) {
       setMontoUSD((form.monto_abonado / form.tasa_cambio).toFixed(2));
@@ -56,10 +72,14 @@ export default function ModalRegistrarAbono({
     }
   }, [form.moneda_pago, form.tasa_cambio, form.monto_abonado]);
 
+  /* --------------------------------------------------
+   * 4. Handlers
+   * -------------------------------------------------- */
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
     setError("");
   };
+
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) setArchivo(file);
@@ -79,14 +99,13 @@ export default function ModalRegistrarAbono({
     setIsSubmitting(true);
     try {
       const data = new FormData();
-      data.append("monto", monto);
-      data.append("moneda", form.moneda_pago);
+      data.append("montoAbonado", monto);
+      data.append("monedaPago", form.moneda_pago);
       data.append(
-        "tasa_cambio",
+        "tasaCambio",
         form.moneda_pago === "VES" ? parseFloat(form.tasa_cambio) : 1
       );
-      data.append("fecha", form.fecha_abono);
-      data.append("usuario_id", usuarioId);
+      data.append("empleadoId", usuarioId);
       if (form.observaciones) data.append("observaciones", form.observaciones);
       if (archivo) data.append("comprobante", archivo);
 
@@ -108,11 +127,14 @@ export default function ModalRegistrarAbono({
   const handleCloseResult = () => {
     setShowSuccess(false);
     setShowError(false);
-    onCancel(); // cierra todo
+    onCancel();
   };
 
+  /* --------------------------------------------------
+   * 5. UI
+   * -------------------------------------------------- */
   return (
-    <AnimatePresence exitBeforeEnter>
+    <AnimatePresence mode="wait">
       {showSuccess && (
         <ModalExito
           visible={true}
@@ -242,7 +264,7 @@ export default function ModalRegistrarAbono({
                       type="date"
                       name="fecha_abono"
                       value={form.fecha_abono}
-                      onChange={handleChange}
+                      readOnly // manejada por el backend
                       className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600"
                     />
                   </div>
@@ -256,9 +278,7 @@ export default function ModalRegistrarAbono({
                         name="comprobante"
                         accept="application/pdf,image/*"
                         onChange={handleFileChange}
-                        className="block w-full text-sm text-gray-200 file:mr-4 file:py-2 file:px-4
-                                   file:rounded file:border-0 file:text-sm file:font-semibold
-                                   file:bg-gray-600 file:text-white hover:file:bg-gray-500"
+                        className="block w-full text-sm text-gray-200 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-gray-600 file:text-white hover:file:bg-gray-500"
                       />
                       <Paperclip className="w-5 h-5 text-gray-400" />
                     </div>

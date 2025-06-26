@@ -2,92 +2,104 @@ import db from "../config/database.js";
 import { s3 } from "../utils/s3.js";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 
-export const registrarAbono = async (req, res, next) => {
-  const connection = await db.getConnection(); // ← abre una transacción
+export const registrarAbono = async (req, res) => {
+  const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
 
-    /* ---------- 1. Datos del request ---------- */
+    const cuentaId = req.params.cuenta_id;
     const {
-      cuentaId,
-      monedaPago,
-      tasaCambio,
-      montoAbonado,
+      moneda: monedaPago,
+      tasa_cambio: tasaCambio,
+      monto: montoAbonado,
+      usuario_id: empleadoId,
       observaciones = null,
-      empleadoId, // ← viene del front
     } = req.body;
 
-    // Metadatos del archivo (si existe)
-    const file = req.file; // ← multer-s3
-    const rutaComprobante = file?.key ?? null;
+    if (!cuentaId || !montoAbonado) {
+      return res
+        .status(400)
+        .json({ message: "cuenta_id y monto son requeridos" });
+    }
+
+    /* 2. Archivo comprobante (multer-S3) ------------------------------- */
+    const file = req.file; // puede ser undefined
+    const rutaS3 = file?.key ?? null;
     const nombreOriginal = file?.originalname ?? null;
     const extension = nombreOriginal?.split(".").pop() ?? null;
     const tamanioBytes = file?.size ?? null;
 
-    /* ---------- 2. Insertar abono ---------- */
+    /* 3. Insertar abono ----------------------------------------------- */
+    const montoUSD =
+      monedaPago === "VES"
+        ? Number((montoAbonado / tasaCambio).toFixed(2))
+        : Number(montoAbonado);
+
     const [resAbono] = await connection.execute(
       `INSERT INTO abonos_cuentas
-         (cuenta_id, moneda_pago, tasa_cambio, monto_abonado,
-          monto_usd_calculado, ruta_comprobante, observaciones,
-          fecha_abono, empleado_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), ?)`,
+         (cuenta_id, banco_id, empleado_id,
+          moneda_pago, tasa_cambio,
+          monto_abonado, monto_usd_calculado,
+          rutaComprobante, ruta_comprobante,
+          fecha_abono, observaciones)
+       VALUES (?,?,?,?,?,?,?,?,CURDATE(),?)`,
       [
         cuentaId,
+        bancoId,
+        empleadoId,
         monedaPago,
         tasaCambio,
         montoAbonado,
-        monedaPago === "VES"
-          ? (montoAbonado / tasaCambio).toFixed(2)
-          : montoAbonado,
-        rutaComprobante,
+        montoUSD,
+        rutaS3,
+        rutaS3,
         observaciones,
-        empleadoId,
       ]
     );
     const abonoId = resAbono.insertId;
 
-    /* ---------- 3. Si hay archivo, registrarlo en archivos ---------- */
-    if (rutaComprobante) {
-      // 3.a. Tabla archivos
+    /* 4. Actualizar saldo restante de la cuenta ------------------------ */
+    await connection.execute(
+      `UPDATE cuentas_por_cobrar
+         SET saldo_restante = IFNULL(saldo_restante, monto) - ?
+       WHERE id = ?`,
+      [montoUSD, cuentaId]
+    );
+
+    /* 5. Registrar archivo y evento en las tablas de auditoría --------- */
+    if (rutaS3) {
+      // Tabla archivos (registroTipo='abonosCXC')
       const [resArchivo] = await connection.execute(
         `INSERT INTO archivos
            (registroTipo, registroId, nombreOriginal, extension,
-            rutaS3, tamanioBytes, subidoPor, creadoEn, actualizadoEn)
-         VALUES ('abonosCXC', ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-        [
-          abonoId,
-          nombreOriginal,
-          extension,
-          rutaComprobante,
-          tamanioBytes,
-          empleadoId,
-        ]
+            tamanioBytes, rutaS3, estado, esPublico,
+            subidoPor, creadoEn, actualizadoEn)
+         VALUES ('abonosCXC', ?, ?, ?, ?, ?, 'activo', 0, ?, NOW(), NOW())`,
+        [abonoId, nombreOriginal, extension, tamanioBytes, rutaS3, empleadoId]
       );
       const archivoId = resArchivo.insertId;
 
-      // 3.b. Tabla eventosArchivo
+      // Tabla eventosArchivo
       await connection.execute(
         `INSERT INTO eventosArchivo
-           (archivoId, accion, usuarioId, fechaHora, ip, userAgent, detalles)
-         VALUES (?, 'subida', ?, NOW(), ?, ?, ?)`,
+           (archivoId, accion, usuarioId, ip, userAgent, detalles)
+         VALUES (?, 'subida', ?, ?, ?, ?)`,
         [
           archivoId,
           empleadoId,
           req.ip || null,
           req.get("user-agent") || null,
-          JSON.stringify({ nombreOriginal, extension, rutaComprobante }),
+          JSON.stringify({ ruta: rutaS3, nombreOriginal, extension }),
         ]
       );
     }
 
-    await connection.commit(); // ✔️ todo ok
+    await connection.commit();
     return res.status(201).json({ abonoId });
   } catch (error) {
-    await connection.rollback(); // ⛑️ deshace si algo falla
+    await connection.rollback();
     console.error("Error al registrar abono:", error);
-    return res
-      .status(500)
-      .json({ message: "Error interno al registrar abono" });
+    return res.status(500).json({ message: "Error interno" });
   } finally {
     connection.release();
   }

@@ -15,7 +15,6 @@ import { verificarPermiso } from "../Middleware/verificarPermiso.js";
 
 const router = express.Router();
 
-// Registrar abono con comprobante
 router.post(
   "/:cuenta_id/abonos",
   autenticarUsuario,
@@ -24,7 +23,6 @@ router.post(
   registrarAbono
 );
 
-// Listar cuentas por cobrar
 router.get(
   "/",
   autenticarUsuario,
@@ -32,13 +30,10 @@ router.get(
   listaCuentasPorCobrar
 );
 
-// Obtener clientes con CxC
 router.get("/clientes", clientesConCXC);
 
-// Totales por cliente
 router.get("/totales/:cliente_id", getTotalesPorCliente);
 
-// **Saldo pendiente de una cuenta: ahora protegida**
 router.get(
   "/:cuenta_id/saldo",
   autenticarUsuario,
