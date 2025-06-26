@@ -2,87 +2,94 @@ import db from "../config/database.js";
 import { s3 } from "../utils/s3.js";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 
-export const registrarAbono = async (req, res) => {
-  const { cuenta_id } = req.params;
-  const { monto, moneda, tasa_cambio, observaciones } = req.body;
-  const usuarioId = req.user.id;
-  const rutaComprobante = req.file ? req.file.key : null;
-  const tamanioBytes = req.file ? req.file.size : null;
-
+export const registrarAbono = async (req, res, next) => {
+  const connection = await db.getConnection(); // ← abre una transacción
   try {
-    // 1) Insertar el abono con los nombres de columna correctos
-    const [insertResult] = await db.query(
+    await connection.beginTransaction();
+
+    /* ---------- 1. Datos del request ---------- */
+    const {
+      cuentaId,
+      monedaPago,
+      tasaCambio,
+      montoAbonado,
+      observaciones = null,
+      empleadoId, // ← viene del front
+    } = req.body;
+
+    // Metadatos del archivo (si existe)
+    const file = req.file; // ← multer-s3
+    const rutaComprobante = file?.key ?? null;
+    const nombreOriginal = file?.originalname ?? null;
+    const extension = nombreOriginal?.split(".").pop() ?? null;
+    const tamanioBytes = file?.size ?? null;
+
+    /* ---------- 2. Insertar abono ---------- */
+    const [resAbono] = await connection.execute(
       `INSERT INTO abonos_cuentas
-         (cuenta_id,
-          moneda_pago,
-          tasa_cambio,
-          monto_abonado,
-          monto_usd_calculado,
-          ruta_comprobante,
-          observaciones,
-          fecha_abono,
-          tamanioBytes,
-          empleado_id)
+         (cuenta_id, moneda_pago, tasa_cambio, monto_abonado,
+          monto_usd_calculado, ruta_comprobante, observaciones,
+          fecha_abono, empleado_id)
        VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), ?)`,
       [
-        cuenta_id,
-        moneda,
-        parseFloat(tasa_cambio) || 1,
-        parseFloat(monto),
-        parseFloat(monto) * (moneda === "VES" ? parseFloat(tasa_cambio) : 1),
+        cuentaId,
+        monedaPago,
+        tasaCambio,
+        montoAbonado,
+        monedaPago === "VES"
+          ? (montoAbonado / tasaCambio).toFixed(2)
+          : montoAbonado,
         rutaComprobante,
-        observaciones || null,
-        tamanioBytes,
-        usuarioId,
+        observaciones,
+        empleadoId,
       ]
     );
-    const abonoId = insertResult.insertId;
+    const abonoId = resAbono.insertId;
 
-    // 2) Registrar en archivos + evento de auditoría si subió comprobante
+    /* ---------- 3. Si hay archivo, registrarlo en archivos ---------- */
     if (rutaComprobante) {
-      const [aRes] = await db.query(
+      // 3.a. Tabla archivos
+      const [resArchivo] = await connection.execute(
         `INSERT INTO archivos
-           (registroTipo, registroId, nombreOriginal, extension, rutaS3, tamanioBytes, subidoPor, creadoEn, actualizadoEn)
-            VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+           (registroTipo, registroId, nombreOriginal, extension,
+            rutaS3, tamanioBytes, subidoPor, creadoEn, actualizadoEn)
+         VALUES ('abonosCXC', ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
         [
-          "abonosCXC",
           abonoId,
-          req.file.originalname,
-          req.file.originalname.split(".").pop(),
+          nombreOriginal,
+          extension,
           rutaComprobante,
           tamanioBytes,
-          usuarioId,
+          empleadoId,
         ]
       );
-      const archivoId = aRes.insertId;
+      const archivoId = resArchivo.insertId;
 
-      await db.query(
+      // 3.b. Tabla eventosArchivo
+      await connection.execute(
         `INSERT INTO eventosArchivo
            (archivoId, accion, usuarioId, fechaHora, ip, userAgent, detalles)
          VALUES (?, 'subida', ?, NOW(), ?, ?, ?)`,
         [
           archivoId,
-          usuarioId,
+          empleadoId,
           req.ip || null,
           req.get("user-agent") || null,
-          JSON.stringify({
-            nombre: req.file.originalname,
-            ruta: rutaComprobante,
-          }),
+          JSON.stringify({ nombreOriginal, extension, rutaComprobante }),
         ]
       );
     }
 
-    return res.status(201).json({
-      message: "Abono registrado correctamente",
-      abono_id: abonoId,
-      rutaComprobante,
-    });
+    await connection.commit(); // ✔️ todo ok
+    return res.status(201).json({ abonoId });
   } catch (error) {
+    await connection.rollback(); // ⛑️ deshace si algo falla
     console.error("Error al registrar abono:", error);
     return res
       .status(500)
       .json({ message: "Error interno al registrar abono" });
+  } finally {
+    connection.release();
   }
 };
 // LISTAR CUENTAS POR COBRAR DE UN CLIENTE
