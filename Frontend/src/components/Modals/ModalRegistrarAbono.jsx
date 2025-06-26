@@ -45,6 +45,12 @@ export default function ModalRegistrarAbono({
       .catch(() => setError("No se pudo obtener el saldo pendiente."));
   }, [cuentaId]);
 
+  useEffect(() => {
+    if (form.metodo_pago !== "TRANSFERENCIA") return;
+    const candidatos = bancosDisponibles[form.moneda_pago] || [];
+    setForm((f) => ({ ...f, banco_id: candidatos[0]?.id || "" }));
+  }, [form.moneda_pago, bancosDisponibles, form.metodo_pago]);
+
   /* --------------------------------------------------
    * 2. Cargar bancos disponibles cuando el método es TRANSFERENCIA
    * -------------------------------------------------- */
@@ -60,12 +66,13 @@ export default function ModalRegistrarAbono({
         params: { moneda: form.moneda_pago, estado: "activo" },
       })
       .then((res) => {
-        setBancosDisponibles(res.data.bancos);
-        if (res.data.length > 0) {
-          setForm((f) => ({ ...f, banco_id: res.data.bancos[0].id }));
-        } else {
-          setForm((f) => ({ ...f, banco_id: "" }));
-        }
+        const grouped = res.data.bancos.reduce((acc, b) => {
+          (acc[b.moneda] ||= []).push(b);
+          return acc;
+        }, {});
+        setBancosDisponibles(grouped);
+        const first = grouped[form.moneda_pago]?.[0];
+        setForm((f) => ({ ...f, banco_id: first?.id || "" }));
       })
       .catch(() => setError("No se pudo cargar la lista de bancos."))
       .finally(() => setCargandoBancos(false));
@@ -265,11 +272,19 @@ export default function ModalRegistrarAbono({
                           className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600"
                           required
                         >
-                          {bancosDisponibles.map((banco) => (
-                            <option key={banco.id} value={banco.id}>
-                              {banco.nombre} ({banco.identificador})
-                            </option>
-                          ))}
+                          <option value="">Seleccionar banco…</option>
+
+                          {Object.entries(bancosDisponibles).map(
+                            ([divisa, lista]) => (
+                              <optgroup key={divisa} label={divisa}>
+                                {lista.map((banco) => (
+                                  <option key={banco.id} value={banco.id}>
+                                    {banco.nombre} ({banco.identificador})
+                                  </option>
+                                ))}
+                              </optgroup>
+                            )
+                          )}
                         </select>
                       ) : (
                         <p className="text-sm text-red-500 mt-1">

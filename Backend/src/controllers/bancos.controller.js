@@ -57,8 +57,9 @@ export const crearBanco = async (req, res) => {
 /**
  * Obtener todos los bancos (opcionalmente filtrados por tipo o estado)
  */
+// controllers/bancos.controller.js
 export const obtenerBancos = async (req, res) => {
-  const { tipo_identificador, estado } = req.query;
+  const { tipo_identificador, estado, moneda } = req.query; // ← nuevo
   const condiciones = [];
   const params = [];
 
@@ -70,18 +71,18 @@ export const obtenerBancos = async (req, res) => {
     condiciones.push("estado = ?");
     params.push(estado);
   }
-  const where = condiciones.length ? "WHERE " + condiciones.join(" AND ") : "";
-
-  try {
-    const [bancos] = await db.execute(
-      `SELECT * FROM bancos ${where} ORDER BY id DESC`,
-      params
-    );
-    res.json({ bancos });
-  } catch (error) {
-    console.error("Error obtenerBancos:", error);
-    res.status(500).json({ message: "Error al obtener los bancos" });
+  if (moneda) {
+    // ← nuevo
+    condiciones.push("moneda = ?");
+    params.push(moneda);
   }
+
+  const where = condiciones.length ? "WHERE " + condiciones.join(" AND ") : "";
+  const [bancos] = await db.execute(
+    `SELECT * FROM bancos ${where} ORDER BY nombre ASC`, // orden alfabético
+    params
+  );
+  res.json({ bancos });
 };
 
 /**
@@ -151,11 +152,9 @@ export const eliminarBanco = async (req, res) => {
 
     // 2) Validar que no esté activo
     if (filas[0].estado === "activo") {
-      return res
-        .status(400)
-        .json({
-          message: "No se puede eliminar un banco activo. Primero inactívelo.",
-        });
+      return res.status(400).json({
+        message: "No se puede eliminar un banco activo. Primero inactívelo.",
+      });
     }
 
     // 3) Si pasó la validación, procedemos a borrar

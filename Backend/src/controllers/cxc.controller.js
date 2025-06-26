@@ -157,6 +157,8 @@ export const registrarAbono = async (req, res) => {
     connection.release();
   }
 };
+
+
 // LISTAR CUENTAS POR COBRAR DE UN CLIENTE
 export const listaCuentasPorCobrar = async (req, res) => {
   const page = Number.isNaN(Number(req.query.page))
