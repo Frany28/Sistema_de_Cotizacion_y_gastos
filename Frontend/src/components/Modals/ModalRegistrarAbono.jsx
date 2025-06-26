@@ -312,7 +312,7 @@ export default function ModalRegistrarAbono({
                       : "bg-blue-600 hover:bg-blue-700"
                   }`}
                 >
-                  {isSubmitting ? "Registrando..." : "Registrar Abono"}
+                  {isSubmitting ? "Registrando" : "Registrar Abono"}
                 </button>
               </form>
             </div>
