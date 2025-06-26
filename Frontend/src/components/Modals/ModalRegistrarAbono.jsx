@@ -276,7 +276,7 @@ export default function ModalRegistrarAbono({
 
                           {Object.entries(bancosDisponibles).map(
                             ([divisa, lista]) => (
-                              <optgroup key={divisa} label={divisa}>
+                              <optgroup key={divisa}>
                                 {lista.map((banco) => (
                                   <option key={banco.id} value={banco.id}>
                                     {banco.nombre} ({banco.identificador})
