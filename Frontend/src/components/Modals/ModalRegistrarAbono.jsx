@@ -1,19 +1,18 @@
 import { useState, useEffect } from "react";
 import api from "../../api/index";
-import axios from "axios"; // cliente limpio para llamadas externas
+import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 import { DollarSign, Paperclip } from "lucide-react";
 import ModalExito from "../Modals/ModalExito";
 import ModalError from "../Modals/ModalError";
 
-// Cliente Axios sin credenciales ni interceptores para DolarAPI
 const dolarApi = axios.create();
 
 export default function ModalRegistrarAbono({
   cuentaId,
   usuarioId,
-  onCancel, // cierra este modal
-  onRefreshTotals, // refresca TotalesCXC
+  onCancel,
+  onRefreshTotals,
 }) {
   const [form, setForm] = useState({
     metodo_pago: "EFECTIVO",
@@ -31,35 +30,51 @@ export default function ModalRegistrarAbono({
   const [montoUSD, setMontoUSD] = useState("");
   const [showSuccess, setShowSuccess] = useState(false);
   const [showError, setShowError] = useState(false);
-  const [bancos, setBancos] = useState([]);
+  const [bancosDisponibles, setBancosDisponibles] = useState([]);
+  const [cargandoBancos, setCargandoBancos] = useState(false);
 
   /* --------------------------------------------------
-   * 1. Cargar saldo pendiente de la cuenta y bancos disponibles
+   * 1. Cargar saldo pendiente de la cuenta
    * -------------------------------------------------- */
   useEffect(() => {
     if (!cuentaId) return;
 
-    // Cargar saldo pendiente
     api
       .get(`/cuentas/${cuentaId}/saldo`)
       .then((res) => setSaldoPendiente(res.data.saldo))
       .catch(() => setError("No se pudo obtener el saldo pendiente."));
-
-    // Cargar bancos disponibles
-    api
-      .get("/bancos-disponibles") // Ajusta esta ruta según tu API
-      .then((res) => {
-        setBancos(res.data);
-        if (res.data.length > 0) {
-          setForm((f) => ({ ...f, banco_id: res.data[0].id }));
-        }
-      })
-      .catch(() => setError("No se pudo cargar la lista de bancos."));
   }, [cuentaId]);
 
   /* --------------------------------------------------
-   * 2. Obtener tasa oficial cuando la moneda es VES
-   *    y limpiar la tasa si vuelve a USD
+   * 2. Cargar bancos disponibles cuando el método es TRANSFERENCIA
+   * -------------------------------------------------- */
+  useEffect(() => {
+    if (form.metodo_pago !== "TRANSFERENCIA") {
+      setBancosDisponibles([]);
+      return;
+    }
+
+    setCargandoBancos(true);
+    api
+      .get("/bancos-disponibles", {
+        params: {
+          moneda: form.moneda_pago, // Filtrar bancos por moneda (USD/VES)
+        },
+      })
+      .then((res) => {
+        setBancosDisponibles(res.data);
+        if (res.data.length > 0) {
+          setForm((f) => ({ ...f, banco_id: res.data[0].id }));
+        } else {
+          setForm((f) => ({ ...f, banco_id: "" }));
+        }
+      })
+      .catch(() => setError("No se pudo cargar la lista de bancos."))
+      .finally(() => setCargandoBancos(false));
+  }, [form.metodo_pago, form.moneda_pago]);
+
+  /* --------------------------------------------------
+   * 3. Obtener tasa oficial cuando la moneda es VES
    * -------------------------------------------------- */
   useEffect(() => {
     if (form.moneda_pago !== "VES") {
@@ -78,7 +93,7 @@ export default function ModalRegistrarAbono({
   }, [form.moneda_pago]);
 
   /* --------------------------------------------------
-   * 3. Calcular equivalente en USD cuando sea necesario
+   * 4. Calcular equivalente en USD cuando sea necesario
    * -------------------------------------------------- */
   useEffect(() => {
     if (form.moneda_pago === "VES" && form.tasa_cambio && form.monto_abonado) {
@@ -89,14 +104,13 @@ export default function ModalRegistrarAbono({
   }, [form.moneda_pago, form.tasa_cambio, form.monto_abonado]);
 
   /* --------------------------------------------------
-   * 4. Handlers
+   * 5. Handlers
    * -------------------------------------------------- */
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm({ ...form, [name]: value });
     setError("");
 
-    // Reset banco_id si cambia el método de pago a EFECTIVO
     if (name === "metodo_pago" && value === "EFECTIVO") {
       setForm((f) => ({ ...f, banco_id: "" }));
     }
@@ -119,6 +133,8 @@ export default function ModalRegistrarAbono({
       return setError("No se pudo obtener la tasa del día.");
     if (form.metodo_pago === "TRANSFERENCIA" && !form.banco_id)
       return setError("Debe seleccionar un banco para transferencia.");
+    if (form.metodo_pago === "TRANSFERENCIA" && !archivo)
+      return setError("Debe adjuntar un comprobante para transferencias.");
 
     setIsSubmitting(true);
     try {
@@ -161,7 +177,7 @@ export default function ModalRegistrarAbono({
   };
 
   /* --------------------------------------------------
-   * 5. UI
+   * 6. UI
    * -------------------------------------------------- */
   return (
     <AnimatePresence mode="wait">
@@ -236,24 +252,36 @@ export default function ModalRegistrarAbono({
                   {/* Banco (solo para transferencia) */}
                   {form.metodo_pago === "TRANSFERENCIA" && (
                     <div>
-                      <label className="block text-sm text-white">Banco</label>
-                      <select
-                        name="banco_id"
-                        value={form.banco_id}
-                        onChange={handleChange}
-                        className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600"
-                        required={form.metodo_pago === "TRANSFERENCIA"}
-                      >
-                        <option value="">Seleccionar banco...</option>
-                        {bancos.map((banco) => (
-                          <option key={banco.id} value={banco.id}>
-                            {banco.nombre}
-                          </option>
-                        ))}
-                      </select>
+                      <label className="block text-sm text-white">
+                        Banco ({form.moneda_pago})
+                      </label>
+                      {cargandoBancos ? (
+                        <p className="text-sm text-gray-500 mt-1">
+                          Cargando bancos...
+                        </p>
+                      ) : bancosDisponibles.length > 0 ? (
+                        <select
+                          name="banco_id"
+                          value={form.banco_id}
+                          onChange={handleChange}
+                          className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600"
+                          required
+                        >
+                          {bancosDisponibles.map((banco) => (
+                            <option key={banco.id} value={banco.id}>
+                              {banco.nombre} ({banco.identificador})
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <p className="text-sm text-red-500 mt-1">
+                          No hay bancos disponibles para {form.moneda_pago}
+                        </p>
+                      )}
                     </div>
                   )}
 
+                  {/* Resto de los campos... */}
                   <div>
                     <label className="block text-sm text-white">
                       Saldo Pendiente (USD)
@@ -331,13 +359,14 @@ export default function ModalRegistrarAbono({
                       type="date"
                       name="fecha_abono"
                       value={form.fecha_abono}
-                      readOnly // manejada por el backend
+                      readOnly
                       className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600"
                     />
                   </div>
                   <div>
                     <label className="block text-sm text-white">
-                      Comprobante
+                      Comprobante{" "}
+                      {form.metodo_pago === "TRANSFERENCIA" && "(Obligatorio)"}
                     </label>
                     <div className="flex items-center space-x-2 mt-1">
                       <input
