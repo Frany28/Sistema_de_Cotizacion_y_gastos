@@ -56,15 +56,13 @@ export default function ModalRegistrarAbono({
 
     setCargandoBancos(true);
     api
-      .get("/bancos-disponibles", {
-        params: {
-          moneda: form.moneda_pago, // Filtrar bancos por moneda (USD/VES)
-        },
+      .get("/bancos", {
+        params: { moneda: form.moneda_pago, estado: "activo" },
       })
       .then((res) => {
-        setBancosDisponibles(res.data);
+        setBancosDisponibles(res.data.bancos);
         if (res.data.length > 0) {
-          setForm((f) => ({ ...f, banco_id: res.data[0].id }));
+          setForm((f) => ({ ...f, banco_id: res.data.bancos[0].id }));
         } else {
           setForm((f) => ({ ...f, banco_id: "" }));
         }
