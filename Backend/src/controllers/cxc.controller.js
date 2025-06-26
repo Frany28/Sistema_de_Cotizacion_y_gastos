@@ -69,7 +69,7 @@ export const registrarAbono = async (req, res) => {
           monto_abonado, monto_usd_calculado,
           ruta_comprobante, observaciones,
           fecha_abono, empleado_id)
-       VALUES (?,?,?,?,?,?,?,?,NOW(),?)`,
+      VALUES (?,?,?,?,?,?,?,?,?,NOW(),?)`,
       [
         cuentaId,
         metodoPago === "TRANSFERENCIA" ? bancoId : null,
@@ -157,7 +157,6 @@ export const registrarAbono = async (req, res) => {
     connection.release();
   }
 };
-
 
 // LISTAR CUENTAS POR COBRAR DE UN CLIENTE
 export const listaCuentasPorCobrar = async (req, res) => {
