@@ -16,6 +16,8 @@ export default function ModalRegistrarAbono({
   onRefreshTotals, // refresca TotalesCXC
 }) {
   const [form, setForm] = useState({
+    metodo_pago: "EFECTIVO",
+    banco_id: "",
     monto_abonado: "",
     moneda_pago: "USD",
     tasa_cambio: "",
@@ -29,16 +31,30 @@ export default function ModalRegistrarAbono({
   const [montoUSD, setMontoUSD] = useState("");
   const [showSuccess, setShowSuccess] = useState(false);
   const [showError, setShowError] = useState(false);
+  const [bancos, setBancos] = useState([]);
 
   /* --------------------------------------------------
-   * 1. Cargar saldo pendiente de la cuenta
+   * 1. Cargar saldo pendiente de la cuenta y bancos disponibles
    * -------------------------------------------------- */
   useEffect(() => {
     if (!cuentaId) return;
+
+    // Cargar saldo pendiente
     api
       .get(`/cuentas/${cuentaId}/saldo`)
       .then((res) => setSaldoPendiente(res.data.saldo))
       .catch(() => setError("No se pudo obtener el saldo pendiente."));
+
+    // Cargar bancos disponibles
+    api
+      .get("/bancos-disponibles") // Ajusta esta ruta según tu API
+      .then((res) => {
+        setBancos(res.data);
+        if (res.data.length > 0) {
+          setForm((f) => ({ ...f, banco_id: res.data[0].id }));
+        }
+      })
+      .catch(() => setError("No se pudo cargar la lista de bancos."));
   }, [cuentaId]);
 
   /* --------------------------------------------------
@@ -76,8 +92,14 @@ export default function ModalRegistrarAbono({
    * 4. Handlers
    * -------------------------------------------------- */
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setForm({ ...form, [name]: value });
     setError("");
+
+    // Reset banco_id si cambia el método de pago a EFECTIVO
+    if (name === "metodo_pago" && value === "EFECTIVO") {
+      setForm((f) => ({ ...f, banco_id: "" }));
+    }
   };
 
   const handleFileChange = (e) => {
@@ -95,12 +117,20 @@ export default function ModalRegistrarAbono({
       return setError("El monto no puede superar el saldo pendiente.");
     if (form.moneda_pago === "VES" && !form.tasa_cambio)
       return setError("No se pudo obtener la tasa del día.");
+    if (form.metodo_pago === "TRANSFERENCIA" && !form.banco_id)
+      return setError("Debe seleccionar un banco para transferencia.");
 
     setIsSubmitting(true);
     try {
       const data = new FormData();
-      data.append("montoAbonado", monto);
+      data.append("cuentaId", cuentaId);
+      data.append("metodoPago", form.metodo_pago);
+      data.append(
+        "bancoId",
+        form.metodo_pago === "TRANSFERENCIA" ? form.banco_id : null
+      );
       data.append("monedaPago", form.moneda_pago);
+      data.append("montoAbonado", monto);
       data.append(
         "tasaCambio",
         form.moneda_pago === "VES" ? parseFloat(form.tasa_cambio) : 1
@@ -187,6 +217,43 @@ export default function ModalRegistrarAbono({
                 {error && <p className="text-red-500 text-sm">{error}</p>}
 
                 <div className="grid grid-cols-2 gap-4">
+                  {/* Método de pago */}
+                  <div>
+                    <label className="block text-sm text-white">
+                      Método de Pago
+                    </label>
+                    <select
+                      name="metodo_pago"
+                      value={form.metodo_pago}
+                      onChange={handleChange}
+                      className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600"
+                    >
+                      <option value="EFECTIVO">Efectivo</option>
+                      <option value="TRANSFERENCIA">Transferencia</option>
+                    </select>
+                  </div>
+
+                  {/* Banco (solo para transferencia) */}
+                  {form.metodo_pago === "TRANSFERENCIA" && (
+                    <div>
+                      <label className="block text-sm text-white">Banco</label>
+                      <select
+                        name="banco_id"
+                        value={form.banco_id}
+                        onChange={handleChange}
+                        className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600"
+                        required={form.metodo_pago === "TRANSFERENCIA"}
+                      >
+                        <option value="">Seleccionar banco...</option>
+                        {bancos.map((banco) => (
+                          <option key={banco.id} value={banco.id}>
+                            {banco.nombre}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
                   <div>
                     <label className="block text-sm text-white">
                       Saldo Pendiente (USD)
