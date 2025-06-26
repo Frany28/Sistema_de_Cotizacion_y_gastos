@@ -156,7 +156,7 @@ export default function ModalRegistrarAbono({
         "tasaCambio",
         form.moneda_pago === "VES" ? parseFloat(form.tasa_cambio) : 1
       );
-      data.append("empleadoId", usuarioId);
+      data.append("usuarioId", usuarioId);
       if (form.observaciones) data.append("observaciones", form.observaciones);
       if (archivo) data.append("comprobante", archivo);
 
@@ -276,7 +276,7 @@ export default function ModalRegistrarAbono({
 
                           {Object.entries(bancosDisponibles).map(
                             ([divisa, lista]) => (
-                              <optgroup>
+                              <optgroup key={divisa} label={divisa}>
                                 {lista.map((banco) => (
                                   <option key={banco.id} value={banco.id}>
                                     {banco.nombre} ({banco.identificador})

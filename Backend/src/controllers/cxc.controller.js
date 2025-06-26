@@ -16,7 +16,7 @@ export const registrarAbono = async (req, res) => {
       tasaCambio = 1,
       montoAbonado, // obligatorio
       observaciones = null,
-      empleadoId, // id del usuario log-in
+      usuarioId, // id del usuario log-in
     } = req.body;
 
     /* ---------- 2. Validaciones de negocio ---------- */
@@ -68,7 +68,7 @@ export const registrarAbono = async (req, res) => {
           moneda_pago, tasa_cambio,
           monto_abonado, monto_usd_calculado,
           ruta_comprobante, observaciones,
-          fecha_abono, empleado_id)
+          fecha_abono, usuario_id)
       VALUES (?,?,?,?,?,?,?,?,?,NOW(),?)`,
       [
         cuentaId,
@@ -80,7 +80,7 @@ export const registrarAbono = async (req, res) => {
         montoUSD,
         rutaComprobante,
         observaciones,
-        empleadoId,
+        usuarioId,
       ]
     );
     const abonoId = abonoRes.insertId;
@@ -100,7 +100,7 @@ export const registrarAbono = async (req, res) => {
           extension,
           rutaComprobante,
           tamanioBytes,
-          empleadoId,
+          usuarioId,
         ]
       );
       const archivoId = archivoRes.insertId;
@@ -114,7 +114,7 @@ export const registrarAbono = async (req, res) => {
         [
           archivoId,
           "subida",
-          empleadoId,
+          usuarioId,
           req.ip || null,
           req.get("user-agent") || null,
           JSON.stringify({ nombreOriginal, extension, rutaComprobante }),
