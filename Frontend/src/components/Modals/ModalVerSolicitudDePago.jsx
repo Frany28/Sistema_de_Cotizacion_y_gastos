@@ -22,11 +22,11 @@ export default function ModalVerSolicitudDePago({
   const isPorPagar = solicitud.estado === "por_pagar";
   const [descargando, setDescargando] = useState(false);
 
-  const mostrarMonto = (valor) => {
-    if (valor === undefined || valor === null) return "0.00";
-    const num = parseFloat(valor);
-    return isNaN(num) ? "0.00" : num.toFixed(2);
-  };
+  const mostrarMonto = (valor) =>
+    new Intl.NumberFormat("es-VE", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(Number(valor) || 0);
 
   const handleDescargarComprobante = async () => {
     try {
