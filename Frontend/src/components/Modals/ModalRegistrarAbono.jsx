@@ -30,7 +30,7 @@ export default function ModalRegistrarAbono({
   const [montoUSD, setMontoUSD] = useState("");
   const [showSuccess, setShowSuccess] = useState(false);
   const [showError, setShowError] = useState(false);
-  const [bancosDisponibles, setBancosDisponibles] = useState([]);
+  const [bancosDisponibles, setBancosDisponibles] = useState({});
   const [cargandoBancos, setCargandoBancos] = useState(false);
 
   /* --------------------------------------------------
@@ -56,7 +56,7 @@ export default function ModalRegistrarAbono({
    * -------------------------------------------------- */
   useEffect(() => {
     if (form.metodo_pago !== "TRANSFERENCIA") {
-      setBancosDisponibles([]);
+      setBancosDisponibles({});
       return;
     }
 
@@ -264,7 +264,7 @@ export default function ModalRegistrarAbono({
                         <p className="text-sm text-gray-500 mt-1">
                           Cargando bancos...
                         </p>
-                      ) : bancosDisponibles.length > 0 ? (
+                      ) : Object.values(bancosDisponibles).flat().length > 0 ? (
                         <select
                           name="banco_id"
                           value={form.banco_id}
