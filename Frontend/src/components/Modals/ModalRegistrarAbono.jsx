@@ -137,7 +137,13 @@ export default function ModalRegistrarAbono({
 
     const monto = parseFloat(form.monto_abonado);
     if (!monto || monto <= 0) return setError("Debe ingresar un monto válido.");
-    if (saldoPendiente != null && monto > saldoPendiente)
+
+    const montoEnUsd =
+      form.moneda_pago === "USD"
+        ? monto
+        : monto / parseFloat(form.tasa_cambio || 1);
+
+    if (saldoPendiente != null && montoEnUsd > saldoPendiente)
       return setError("El monto no puede superar el saldo pendiente.");
     if (form.moneda_pago === "VES" && !form.tasa_cambio)
       return setError("No se pudo obtener la tasa del día.");
