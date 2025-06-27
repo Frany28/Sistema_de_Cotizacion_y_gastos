@@ -245,8 +245,7 @@ export default function ModalVerSolicitudDePago({
                   <tbody>
                     <tr className="border-b border-gray-600 last:border-0">
                       <div>
-                        <p className="text-gray-400">Concepto de pago:</p>
-                        <p className="font-medium">
+                        <p className="p-3 text-right font-medium">
                           {solicitud.concepto_pago || solicitud.concepto || "-"}
                         </p>
                       </div>
