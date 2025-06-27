@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import api from "../../api/index";
 import BotonIcono from "../general/BotonIcono";
 import ModalRegistrarAbono from "../Modals/ModalRegistrarAbono";
+import ModalError from "../Modals/ModalError";
 
 const TablaCuentasPorCobrar = ({ clienteId, onRefreshTotals }) => {
   const [cuentas, setCuentas] = useState([]);
@@ -34,7 +35,7 @@ const TablaCuentasPorCobrar = ({ clienteId, onRefreshTotals }) => {
   }, [clienteId]);
 
   return (
-    <div className="overflow-x-auto mt-6 ">
+    <div className="overflow-x-auto mt-6 rounded-xl p-4 shadow-md ">
       <table className="w-full text-sm text-left text-gray-400 bg-gray-800 rounded-xl p-4 shadow-md ">
         <thead className="text-xs bg-gray-700 text-gray-400">
           <tr>
@@ -95,8 +96,15 @@ const TablaCuentasPorCobrar = ({ clienteId, onRefreshTotals }) => {
                     tipo="abonar"
                     titulo="Registrar Abono"
                     onClick={() => {
-                      setCuentaSeleccionada(cuenta);
-                      setMostrarModalAbono(true);
+                      if (cuenta.estado?.toLowerCase() === "pagado") {
+                        setMensajeError(
+                          "Esta cuenta por cobrar ya está pagada."
+                        );
+                        setMostrarModalError(true);
+                      } else {
+                        setCuentaSeleccionada(cuenta);
+                        setMostrarModalAbono(true);
+                      }
                     }}
                   />
                 </td>
@@ -116,6 +124,14 @@ const TablaCuentasPorCobrar = ({ clienteId, onRefreshTotals }) => {
             onRefreshTotals(); // refresca componentes TotalesCXC
             setMostrarModalAbono(false); // cierra el modal
           }}
+        />
+      )}
+
+      {mostrarModalError && (
+        <ModalError
+          titulo="Operación no permitida"
+          mensaje={mensajeError}
+          onCancel={() => setMostrarModalError(false)}
         />
       )}
     </div>
