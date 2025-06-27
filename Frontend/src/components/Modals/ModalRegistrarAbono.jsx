@@ -45,9 +45,8 @@ export default function ModalRegistrarAbono({
     if (!cuentaId) return;
 
     api
-      .get(`/cuentas/${cuentaId}/saldo`)
-      .then((res) => setSaldoPendiente(res.data.saldo))
-      .catch(() => setError("No se pudo obtener el saldo pendiente."));
+      .get(`/cxc/${cuentaId}/saldo`)
+      .then((res) => setSaldoPendiente(parseFloat(res.data.saldo)));
   }, [cuentaId]);
 
   /* Ajustar banco al cambiar de moneda */
@@ -150,24 +149,24 @@ export default function ModalRegistrarAbono({
     setIsSubmitting(true);
     try {
       const data = new FormData();
-      data.append("cuentaId", cuentaId);
-      data.append("metodoPago", form.metodo_pago);
+      data.append("metodo_pago", form.metodo_pago);
 
       if (form.metodo_pago === "TRANSFERENCIA") {
-        data.append("bancoId", form.banco_id);
+        data.append("banco_id", form.banco_id);
       }
 
-      data.append("monedaPago", form.moneda_pago);
-      data.append("montoAbonado", monto);
+      data.append("moneda_pago", form.moneda_pago);
+      data.append("monto_abonado", monto);
       data.append(
-        "tasaCambio",
+        "tasa_cambio",
         form.moneda_pago === "VES" ? parseFloat(form.tasa_cambio) : 1
       );
       if (form.observaciones) data.append("observaciones", form.observaciones);
       if (archivo) data.append("comprobante", archivo);
 
-      const res = await api.post(`/cuentas/${cuentaId}/abonos`, data);
-
+      const res = await api.post(`/cxc/${cuentaId}/abonos`, data, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
       if (res.status === 200 || res.status === 201) {
         setShowSuccess(true);
         onRefreshTotals?.();

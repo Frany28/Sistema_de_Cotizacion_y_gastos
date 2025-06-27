@@ -3,17 +3,18 @@ import { s3 } from "../utils/s3.js";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 
 export const registrarAbono = async (req, res) => {
-  const connection = await db.getConnection();
+  /* ───────── 1. Conexión y transacción ───────── */
+  const conn = await db.getConnection();
   try {
-    await connection.beginTransaction();
+    await conn.beginTransaction();
 
-    /* ───────── 1. Parametría básica ───────── */
-    const cuentaId = Number(req.params.cuenta_id); // ← de la ruta
+    /* ───────── 2. Parámetros de entrada ───────── */
+    const cuentaId = Number(req.params.cuenta_id); // URL
     const metodoPago = (
       req.body.metodo_pago ||
       req.body.metodoPago ||
       ""
-    ).toUpperCase();
+    ).toUpperCase(); // body
     const bancoId = req.body.banco_id ?? req.body.bancoId ?? null;
     const monedaPago = (
       req.body.moneda ||
@@ -25,19 +26,23 @@ export const registrarAbono = async (req, res) => {
       req.body.monto ?? req.body.monto_abonado ?? req.body.montoAbonado
     );
     const observaciones = req.body.observaciones ?? null;
-    const usuarioId = req.user?.id;
 
-    /* ───────── 2. Validaciones ───────── */
+    /*  👉 Capturamos al usuario SÍ o SÍ  */
+    const usuarioId = req.user?.id || req.session?.usuario?.id || null;
+
+    /* ───────── 3. Validaciones previas ───────── */
     if (!usuarioId) {
-      return res.status(401).json({ message: "Sesión expirada" });
+      return res
+        .status(401)
+        .json({ message: "Sesión expirada: reingresa al sistema" });
     }
-    if (!cuentaId || isNaN(cuentaId)) {
+    if (!cuentaId || Number.isNaN(cuentaId)) {
       return res.status(400).json({ message: "cuenta_id requerido en la URL" });
     }
-    if (!montoAbonado || isNaN(montoAbonado)) {
+    if (!montoAbonado || Number.isNaN(montoAbonado)) {
       return res
         .status(400)
-        .json({ message: "monto es requerido y debe ser numérico" });
+        .json({ message: "monto_abonado es obligatorio y numérico" });
     }
     if (!["EFECTIVO", "TRANSFERENCIA"].includes(metodoPago)) {
       return res.status(400).json({ message: "método_pago inválido" });
@@ -46,59 +51,59 @@ export const registrarAbono = async (req, res) => {
       if (!bancoId) {
         return res
           .status(400)
-          .json({ message: "banco_id es obligatorio en transferencia" });
+          .json({ message: "banco_id es obligatorio en TRANSFERENCIA" });
       }
       if (!req.file) {
         return res
           .status(400)
-          .json({ message: "Adjunte el comprobante de transferencia" });
+          .json({ message: "Adjunta el comprobante de transferencia" });
       }
     } else if (bancoId) {
-      return res
-        .status(400)
-        .json({ message: "banco_id debe ser null cuando es EFECTIVO" });
+      return res.status(400).json({
+        message: "banco_id debe ser null cuando el método es EFECTIVO",
+      });
     }
 
-    /* ───────── 3. Datos del archivo (si existe) ───────── */
+    /* ───────── 4. Información del archivo (si existe) ───────── */
     const file = req.file;
     const rutaComprobante = file?.key ?? file?.location ?? file?.path ?? null;
     const nombreOriginal = file?.originalname ?? null;
     const extension = nombreOriginal?.split(".").pop()?.toLowerCase() ?? null;
     const tamanioBytes = file?.size ?? null;
 
-    /* ───────── 4. Conversión a USD ───────── */
-    const montoUSD =
+    /* ───────── 5. Conversión monto → USD ───────── */
+    const montoUsd =
       monedaPago === "USD"
         ? parseFloat(montoAbonado.toFixed(2))
         : parseFloat((montoAbonado / tasaCambio).toFixed(2));
 
-    /* ───────── 5. Insertar abono ───────── */
-    const [abonoRes] = await connection.execute(
+    /* ───────── 6. Insertar abono_cuentas ───────── */
+    const [abonoRes] = await conn.execute(
       `INSERT INTO abonos_cuentas
-         (cuenta_id, banco_id, metodo_pago,
+         (cuenta_id, banco_id, metodo_pago, usuario_id,
           moneda_pago, tasa_cambio,
           monto_abonado, monto_usd_calculado,
           ruta_comprobante, observaciones,
-          fecha_abono, usuario_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)`,
+          fecha_abono)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
       [
         cuentaId,
         metodoPago === "TRANSFERENCIA" ? bancoId : null,
         metodoPago,
+        usuarioId, // ⭐ usuario que registra
         monedaPago,
         tasaCambio,
         montoAbonado,
-        montoUSD,
+        montoUsd,
         rutaComprobante,
         observaciones,
-        usuarioId,
       ]
     );
     const abonoId = abonoRes.insertId;
 
-    /* ───────── 6. Registrar archivo y evento (si hubo comprobante) ───────── */
+    /* ───────── 7. Registrar archivo en “archivos” + evento ───────── */
     if (rutaComprobante) {
-      const [archivoRes] = await connection.execute(
+      const [archivoRes] = await conn.execute(
         `INSERT INTO archivos
            (registroTipo, registroId,
             nombreOriginal, extension, rutaS3, tamanioBytes,
@@ -110,19 +115,19 @@ export const registrarAbono = async (req, res) => {
           extension,
           rutaComprobante,
           tamanioBytes,
-          usuarioId,
+          usuarioId, // ⭐ nuevamente el usuario
         ]
       );
       const archivoId = archivoRes.insertId;
 
-      await connection.execute(
+      await conn.execute(
         `INSERT INTO eventosArchivo
            (archivoId, accion, usuarioId,
             fechaHora, ip, userAgent, detalles)
          VALUES (?, 'subida', ?, NOW(), ?, ?, ?)`,
         [
           archivoId,
-          usuarioId,
+          usuarioId, // ⭐
           req.ip || null,
           req.get("user-agent") || null,
           JSON.stringify({ nombreOriginal, extension, rutaComprobante }),
@@ -130,21 +135,34 @@ export const registrarAbono = async (req, res) => {
       );
     }
 
-    /* ───────── 7. Actualizar saldo de la cuenta ───────── */
-    await connection.execute(
-      `UPDATE cuentas_por_cobrar
-         SET saldo_restante = COALESCE(saldo_restante, monto) - ?
-       WHERE id = ?`,
-      [montoUSD, cuentaId]
+    /* ───────── 8. Actualizar saldo de la CxC ───────── */
+    const [[{ saldo_restante: saldoActual }]] = await conn.query(
+      "SELECT COALESCE(saldo_restante, monto) AS saldo_restante FROM cuentas_por_cobrar WHERE id = ? FOR UPDATE",
+      [cuentaId]
     );
-    // (Opcional) marcar como pagado si saldo_restante <= 0
 
-    await connection.commit();
-    return res.status(201).json({ abonoId });
+    const nuevoSaldo = parseFloat((saldoActual - montoUsd).toFixed(2));
+
+    await conn.execute(
+      `UPDATE cuentas_por_cobrar
+         SET saldo_restante = ?,
+             estado         = IF(? <= 0, 'pagado', estado),
+             fecha_pago     = IF(? <= 0 AND fecha_pago IS NULL, NOW(), fecha_pago)
+       WHERE id = ?`,
+      [nuevoSaldo, nuevoSaldo, nuevoSaldo, cuentaId]
+    );
+
+    /* ───────── 9. Commit & respuesta ───────── */
+    await conn.commit();
+    return res.status(201).json({
+      message: "Abono registrado correctamente",
+      abonoId,
+      nuevoSaldo,
+    });
   } catch (err) {
-    await connection.rollback();
+    await conn.rollback();
 
-    /* Si la transacción falla y subimos un archivo, intentamos borrarlo */
+    /* Limpieza S3 si se subió archivo y falló la transacción */
     if (req.file?.key) {
       try {
         await s3.send(
@@ -154,7 +172,7 @@ export const registrarAbono = async (req, res) => {
           })
         );
       } catch {
-        console.error("⚠️  No se pudo eliminar el archivo S3 tras rollback");
+        console.error("No se pudo eliminar el archivo S3 tras rollback");
       }
     }
 
@@ -163,7 +181,7 @@ export const registrarAbono = async (req, res) => {
       .status(500)
       .json({ message: "Error interno al registrar abono" });
   } finally {
-    connection.release();
+    conn.release();
   }
 };
 
