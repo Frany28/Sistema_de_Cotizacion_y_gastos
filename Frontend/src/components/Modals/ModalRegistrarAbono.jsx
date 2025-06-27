@@ -164,9 +164,7 @@ export default function ModalRegistrarAbono({
       if (form.observaciones) data.append("observaciones", form.observaciones);
       if (archivo) data.append("comprobante", archivo);
 
-      const res = await api.post(`/cuentas/${cuentaId}/abonos`, data, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      const res = await api.post(`/cuentas/${cuentaId}/abonos`, data);
       if (res.status === 200 || res.status === 201) {
         setShowSuccess(true);
         onRefreshTotals?.();
