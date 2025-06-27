@@ -6,6 +6,7 @@ import {
   actualizarSolicitudPago,
   cancelarSolicitudPago,
   pagarSolicitudPago,
+  generarPDFSolicitudPago,
 } from "../controllers/solicitudesPago.controller.js";
 import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
 import { verificarPermiso } from "../Middleware/verificarPermiso.js";
@@ -52,6 +53,13 @@ router.patch(
   verificarPermiso("pagar_solicitud_pago"),
   uploadComprobantePago.single("comprobante"),
   pagarSolicitudPago
+);
+
+router.get(
+  "/:id/pdf",
+  autenticarUsuario,
+  verificarPermiso("ver_solicitudes_pago"),
+  generarPDFSolicitudPago
 );
 
 export default router;

@@ -1,6 +1,128 @@
 // controllers/solicitudesPago.controller.js
 import db from "../config/database.js";
 import { generarUrlPrefirmadaLectura } from "../utils/s3.js";
+import { s3 } from "../utils/s3.js";
+import { GetObjectCommand } from "@aws-sdk/client-s3";
+import puppeteer from "puppeteer-core";
+import chromium from "@sparticuz/chromium";
+import { generarHTMLOrdenPago } from "../templates/generarHTMLOrdenPago.js";
+
+async function firmaToDataUrl(key) {
+  if (!key) return null; // sin firma
+  const Bucket = process.env.S3_BUCKET;
+  const { Body } = await s3.send(new GetObjectCommand({ Bucket, Key: key }));
+  const chunks = [];
+  for await (const chunk of Body) chunks.push(chunk);
+  const buffer = Buffer.concat(chunks);
+  const ext = key.split(".").pop().toLowerCase();
+  const mime = ext === "jpg" || ext === "jpeg" ? "jpeg" : ext; // png, gif…
+  return `data:image/${mime};base64,${buffer.toString("base64")}`;
+}
+
+export const generarPDFSolicitudPago = async (req, res) => {
+  const { id } = req.params;
+
+  /* ---------- 1. Consulta completa ---------- */
+  const [[row]] = await db.execute(
+    `
+    SELECT  sp.*,
+            g.codigo                         AS gasto_codigo,
+            p.nombre                         AS proveedor_nombre,
+            b.nombre                         AS banco_nombre,
+
+            us.nombre                        AS solicita_nombre,
+            us.firma                         AS solicita_firma,
+
+            ur.nombre                        AS revisa_nombre,
+            ur.firma                         AS revisa_firma,
+
+            up.nombre                        AS aprueba_nombre,
+            up.firma                         AS aprueba_firma
+    FROM    solicitudes_pago sp
+    LEFT JOIN gastos      g  ON g.id  = sp.gasto_id
+    LEFT JOIN proveedores p  ON p.id  = sp.proveedor_id
+    LEFT JOIN bancos      b  ON b.id  = sp.banco_id
+    LEFT JOIN usuarios    us ON us.id = sp.usuario_solicita_id
+    LEFT JOIN usuarios    ur ON ur.id = sp.usuario_revisa_id
+    LEFT JOIN usuarios    up ON up.id = sp.usuario_aprueba_id
+    WHERE   sp.id = ?`,
+    [id]
+  );
+
+  if (!row)
+    return res.status(404).json({ message: "Solicitud de pago no encontrada" });
+
+  /* ---------- 2. Firmas → Base64 ---------- */
+  const [firmaSolicita, firmaRevisa, firmaAprueba] = await Promise.all([
+    firmaToDataUrl(row.solicita_firma),
+    firmaToDataUrl(row.revisa_firma),
+    firmaToDataUrl(row.aprueba_firma),
+  ]);
+
+  /* ---------- 3. Armar objeto para el template ---------- */
+  const datos = {
+    /* cabecera */
+    codigo: row.codigo,
+    fecha_solicitud: row.fecha_solicitud,
+    estado: row.estado,
+    solicitado_por: row.solicita_nombre,
+    autorizado_por: row.revisa_nombre,
+    aprobado_por: row.aprueba_nombre,
+
+    /* firmas */
+    firmaSolicita,
+    firmaAutoriza: firmaRevisa,
+    firmaAprueba,
+
+    /* método / banco / ref */
+    metodo_pago: row.metodo_pago,
+    banco: row.banco_nombre || "—",
+    referencia: row.referencia_pago || "—",
+
+    /* montos */
+    subtotal: row.monto_total - (row.impuesto ?? 0),
+    porcentaje_iva: row.porcentaje_iva ?? 0,
+    impuesto: row.impuesto ?? 0,
+    total: row.monto_total,
+
+    /* otros */
+    gasto_codigo: row.gasto_codigo || "—",
+    proveedor: row.proveedor_nombre || "—",
+    observaciones: row.observaciones,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+
+  const html = generarHTMLOrdenPago(datos, "final");
+
+  /* ---------- 4. Puppeteer → PDF ---------- */
+  const browser = await puppeteer.launch({
+    args: chromium.args,
+    defaultViewport: chromium.defaultViewport,
+    executablePath: await chromium.executablePath(),
+    headless: chromium.headless,
+    ignoreHTTPSErrors: true,
+  });
+
+  const page = await browser.newPage();
+  await page.setContent(html, { waitUntil: "networkidle0" });
+
+  const pdfBuffer = await page.pdf({
+    format: "A4",
+    printBackground: true,
+    margin: { top: "20px", bottom: "20px", left: "20px", right: "20px" },
+  });
+
+  await browser.close();
+
+  /* ---------- 5. Enviar ---------- */
+  res
+    .set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `inline; filename=orden_pago_${row.codigo}.pdf`,
+    })
+    .send(pdfBuffer);
+};
 
 /* ============================================================
  * 1. LISTAR SOLICITUDES DE PAGO

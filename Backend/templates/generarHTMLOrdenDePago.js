@@ -117,17 +117,46 @@ export function generarHTMLOrdenPago(datos = {}, modo = "preview") {
       </div>
 
       <!-- AUDITORÍA -->
-      <div class="mt-6 text-[10px] text-gray-600">
-        <p>Creado: ${
-          created_at
-            ? new Date(created_at).toLocaleString("es-VE")
-            : "Desconocido"
-        }</p>
-        <p>Última actualización: ${
-          updated_at ? new Date(updated_at).toLocaleString("es-VE") : "—"
-        }</p>
-      </div>
-
+        <div class="mt-6 text-[10px] text-gray-600">
+          <table class="w-full text-xs border">
+    <thead class="bg-gray-200">
+      <tr>
+        <th class="border">Solicitado por:</th>
+        <th class="border">Autorizado por:</th>
+        <th class="border">Aprobado por:</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="h-24 align-top"> <!-- espacio para la gráfica -->
+        <td class="border">
+          ${
+            firmaSolicita
+              ? `<img src="${firmaSolicita}" class="h-20 mx-auto" />`
+              : ""
+          }
+        </td>
+        <td class="border">
+          ${
+            firmaAutoriza
+              ? `<img src="${firmaAutoriza}" class="h-20 mx-auto" />`
+              : ""
+          }
+        </td>
+        <td class="border">
+          ${
+            firmaAprueba
+              ? `<img src="${firmaAprueba}" class="h-20 mx-auto" />`
+              : ""
+          }
+        </td>
+      </tr>
+      <tr>
+        <td class="border text-center font-semibold">${solicitado_por}</td>
+        <td class="border text-center font-semibold">${autorizado_por}</td>
+        <td class="border text-center font-semibold">${aprobado_por}</td>
+      </tr>
+    </tbody>
+  </table>
     </body>
     </html>
   `;

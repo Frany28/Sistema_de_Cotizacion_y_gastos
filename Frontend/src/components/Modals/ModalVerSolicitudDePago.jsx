@@ -1,13 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import React, { useState } from "react";
-import {
-  X,
-  FileText,
-  AlertCircle,
-  CheckCircle2,
-  Clock,
-  Download,
-} from "lucide-react";
+import { X, FileText, AlertCircle, CheckCircle2, Clock } from "lucide-react";
 
 export default function ModalVerSolicitudDePago({
   visible,
@@ -20,27 +13,13 @@ export default function ModalVerSolicitudDePago({
   const isPagada = solicitud.estado === "pagada";
   const isCancelada = solicitud.estado === "cancelada";
   const isPorPagar = solicitud.estado === "por_pagar";
-  const [descargando, setDescargando] = useState(false);
+  const API = import.meta.env.VITE_API_URL;
 
   const mostrarMonto = (valor) =>
     new Intl.NumberFormat("es-VE", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(Number(valor) || 0);
-
-  const handleDescargarComprobante = async () => {
-    try {
-      setDescargando(true);
-      if (solicitud.comprobante_url) {
-        window.open(solicitud.comprobante_url, "_blank");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("No se pudo descargar el comprobante");
-    } finally {
-      setDescargando(false);
-    }
-  };
 
   const EstadoIcon = () => {
     if (isPagada) return <CheckCircle2 className="w-4 h-4 mr-1" />;
@@ -55,6 +34,11 @@ export default function ModalVerSolicitudDePago({
       month: "long",
       year: "numeric",
     });
+  };
+
+  const handleVerOrdenPagoPDF = () => {
+    if (!isPagada) return; // seguridad extra
+    window.open(`${API}/solicitudes-pago/${solicitud.id}/pdf`, "_blank");
   };
 
   return (
@@ -131,7 +115,7 @@ export default function ModalVerSolicitudDePago({
                   <p>
                     <span className="text-gray-400">Gasto asociado:</span>{" "}
                     <span className="font-medium">
-                      {solicitud.gasto_id ? `#${solicitud.gasto_id}` : "N/A "}
+                      {solicitud.gasto_codigo || "N/A"}{" "}
                     </span>
                   </p>
                   <p>
@@ -338,15 +322,14 @@ export default function ModalVerSolicitudDePago({
             >
               Cerrar
             </button>
-            {/* Botón de descarga si existe comprobante */}
-            {solicitud.comprobante_url && (
+            {/* Botón de orden de pago */}
+            {isPagada && (
               <button
-                onClick={handleDescargarComprobante}
-                disabled={descargando}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium flex items-center"
+                onClick={handleVerOrdenPagoPDF}
+                className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-medium flex items-center mr-2"
               >
-                <Download className="w-4 h-4 mr-2" />
-                {descargando ? "Descargando…" : "Descargar comprobante"}
+                <FileText className="w-4 h-4 mr-2" />
+                Ver Orden de Pago
               </button>
             )}
           </div>
