@@ -161,9 +161,7 @@ export default function ModalRegistrarAbono({
         form.moneda_pago === "VES" ? parseFloat(form.tasa_cambio) : 1
       );
       if (form.observaciones) data.append("observaciones", form.observaciones);
-      if (form.metodo_pago === "TRANSFERENCIA" && archivo) {
-        data.append("comprobante", archivo);
-      }
+      if (archivo) data.append("comprobante", archivo);
 
       const res = await api.post(`/cuentas/${cuentaId}/abonos`, data);
       if (res.status === 200 || res.status === 201) {
@@ -249,20 +247,12 @@ export default function ModalRegistrarAbono({
                   <div>
                     <label className="block text-sm text-white">
                       Método de Pago
-                    </label>{" "}
+                    </label>
                     <select
                       name="metodo_pago"
                       value={form.metodo_pago}
-                      onChange={(e) => {
-                        // limpiar archivo si pasa a EFECTIVO
-                        const metodo = e.target.value;
-                        setForm((prev) => ({
-                          ...prev,
-                          metodo_pago: metodo,
-                          comprobante:
-                            metodo === "EFECTIVO" ? null : prev.comprobante,
-                        }));
-                      }}
+                      onChange={handleChange}
+                      className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600"
                     >
                       <option value="EFECTIVO">Efectivo</option>
                       <option value="TRANSFERENCIA">Transferencia</option>
@@ -391,27 +381,35 @@ export default function ModalRegistrarAbono({
                       className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm text-white">
-                      Comprobante{" "}
-                      {form.metodo_pago === "TRANSFERENCIA" && "(Obligatorio)"}
-                    </label>
-                    <div className="flex items-center space-x-2 mt-1">
-                      <input
-                        type="file"
-                        name="comprobante"
-                        accept="application/pdf,image/*"
-                        onChange={handleFileChange}
-                        className="block w-full text-sm text-gray-200 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-gray-600 file:text-white hover:file:bg-gray-500"
-                      />
-                      <Paperclip className="w-5 h-5 text-gray-400" />
+                  {form.metodo_pago === "TRANSFERENCIA" && (
+                    <div>
+                      <label className="block text-sm text-white">
+                        Comprobante{" "}
+                        <span className="text-red-400">(Obligatorio)</span>
+                      </label>
+
+                      <div className="flex items-center space-x-2 mt-1">
+                        <input
+                          type="file"
+                          name="comprobante"
+                          accept="application/pdf,image/*"
+                          onChange={handleFileChange}
+                          required // ← obligatorio solo aquí
+                          className="block w-full text-sm text-gray-200
+                   file:mr-4 file:py-2 file:px-4 file:rounded
+                   file:border-0 file:text-sm file:font-semibold
+                   file:bg-gray-600 file:text-white hover:file:bg-gray-500"
+                        />
+                        <Paperclip className="w-5 h-5 text-gray-400" />
+                      </div>
+
+                      {archivo && (
+                        <p className="mt-1 text-xs text-gray-300 truncate">
+                          {archivo.name}
+                        </p>
+                      )}
                     </div>
-                    {archivo && (
-                      <p className="mt-1 text-xs text-gray-300 truncate">
-                        {archivo.name}
-                      </p>
-                    )}
-                  </div>
+                  )}
                 </div>
 
                 <div>
