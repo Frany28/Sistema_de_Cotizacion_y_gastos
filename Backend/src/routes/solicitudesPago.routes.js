@@ -22,6 +22,13 @@ router.get(
   obtenerSolicitudesPago
 );
 
+router.get(
+  "/:id/pdf",
+  autenticarUsuario,
+  verificarPermiso("ver_solicitudes_pago"),
+  generarPDFSolicitudPago
+);
+
 // GET   /api/solicitudes-pago/:id
 router.get(
   "/:id",
@@ -53,13 +60,6 @@ router.patch(
   verificarPermiso("pagar_solicitud_pago"),
   uploadComprobantePago.single("comprobante"),
   pagarSolicitudPago
-);
-
-router.get(
-  "/:id/pdf",
-  autenticarUsuario,
-  verificarPermiso("ver_solicitudes_pago"),
-  generarPDFSolicitudPago
 );
 
 export default router;
