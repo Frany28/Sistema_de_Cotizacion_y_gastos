@@ -277,7 +277,7 @@ export const pagarSolicitudPago = async (req, res) => {
           extension,
           rutaComprobante,
           tamanioBytes,
-          usuarioFirmaId,
+          usuarioApruebaId,
         ]
       );
       const archivoId = resArchivo.insertId;
@@ -290,7 +290,7 @@ export const pagarSolicitudPago = async (req, res) => {
         [
           archivoId,
           "subida",
-          usuarioFirmaId,
+          usuarioApruebaId,
           req.ip || null,
           req.get("user-agent") || null,
           JSON.stringify({ nombreOriginal, extension, ruta: rutaComprobante }),
