@@ -25,7 +25,8 @@ export default function ModalRegistrarAbono({
     moneda_pago: "USD",
     tasa_cambio: 0,
     observaciones: "",
-    comprobante: null, // ← para limpiar al cambiar de método
+    comprobante: null,
+    fecha_abono: new Date().toISOString().split("T")[0],
   });
   const [archivo, setArchivo] = useState(null);
   const [saldoPendiente, setSaldoPendiente] = useState(null);
@@ -161,6 +162,7 @@ export default function ModalRegistrarAbono({
         form.moneda_pago === "VES" ? parseFloat(form.tasa_cambio) : 1
       );
       if (form.observaciones) data.append("observaciones", form.observaciones);
+      data.append("fecha_abono", form.fecha_abono);
       if (archivo) data.append("comprobante", archivo);
 
       const res = await api.post(`/cuentas/${cuentaId}/abonos`, data);
@@ -377,7 +379,7 @@ export default function ModalRegistrarAbono({
                       type="date"
                       name="fecha_abono"
                       value={form.fecha_abono}
-                      readOnly
+                      onChange={handleChange}
                       className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600"
                     />
                   </div>
