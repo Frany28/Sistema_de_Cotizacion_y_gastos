@@ -391,35 +391,27 @@ export default function ModalRegistrarAbono({
                       className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600"
                     />
                   </div>
-                  {form.metodo_pago === "TRANSFERENCIA" && (
-                    <div>
-                      <label className="block text-sm text-white">
-                        Comprobante{" "}
-                        <span className="text-red-400">(Obligatorio)</span>
-                      </label>
-
-                      <div className="flex items-center space-x-2 mt-1">
-                        <input
-                          type="file"
-                          name="comprobante"
-                          accept="application/pdf,image/*"
-                          onChange={handleFileChange}
-                          required // ← obligatorio solo aquí
-                          className="block w-full text-sm text-gray-200
-                      file:mr-4 file:py-2 file:px-4 file:rounded
-                      file:border-0 file:text-sm file:font-semibold
-                      file:bg-gray-600 file:text-white hover:file:bg-gray-500"
-                        />
-                        <Paperclip className="w-5 h-5 text-gray-400" />
-                      </div>
-
-                      {archivo && (
-                        <p className="mt-1 text-xs text-gray-300 truncate">
-                          {archivo.name}
-                        </p>
-                      )}
+                  <div>
+                    <label className="block text-sm text-white">
+                      Comprobante{" "}
+                      {form.metodo_pago === "TRANSFERENCIA" && "(Obligatorio)"}
+                    </label>
+                    <div className="flex items-center space-x-2 mt-1">
+                      <input
+                        type="file"
+                        name="comprobante"
+                        accept="application/pdf,image/*"
+                        onChange={handleFileChange}
+                        className="block w-full text-sm text-gray-200 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-gray-600 file:text-white hover:file:bg-gray-500"
+                      />
+                      <Paperclip className="w-5 h-5 text-gray-400" />
                     </div>
-                  )}
+                    {archivo && (
+                      <p className="mt-1 text-xs text-gray-300 truncate">
+                        {archivo.name}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 <div>
