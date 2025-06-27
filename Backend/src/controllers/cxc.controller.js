@@ -92,7 +92,7 @@ export const registrarAbono = async (req, res) => {
         cuentaId,
         metodoPago === "TRANSFERENCIA" ? bancoId : null,
         metodoPago,
-        usuarioId, // ⭐ usuario que registra
+        usuarioId, 
         monedaPago,
         tasaCambio,
         montoAbonado,
