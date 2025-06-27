@@ -7,10 +7,6 @@ import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 // y que `multer` (o multer‑S3) expone el archivo en `req.file`.
 // Esta versión elimina por completo la necesidad de que el cliente
 // envíe un id de usuario y garantiza que sólo exista **una** función
-// registrarAbono en todo el proyecto.
-
-import { db } from "../config/database.js";
-import { s3, DeleteObjectCommand } from "../config/aws.js";
 
 export const registrarAbono = async (req, res) => {
   const connection = await db.getConnection();
