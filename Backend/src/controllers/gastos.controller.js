@@ -406,8 +406,6 @@ export const getProveedores = async (req, res) => {
   }
 };
 
-
-
 export const actualizarEstadoGasto = async (req, res) => {
   const { id } = req.params; // gasto_id
   const { estado, motivo_rechazo } = req.body;
@@ -460,7 +458,7 @@ export const actualizarEstadoGasto = async (req, res) => {
             codigo,
             gasto_id,
             usuario_solicita_id,
-            usuario_aprueba_id,
+            usuario_revisa_id
             proveedor_id,
             concepto_pago,
             monto_total,
@@ -478,12 +476,12 @@ export const actualizarEstadoGasto = async (req, res) => {
         await db.query(insertarSolicitudSql, [
           codigo, // 1
           id, // 2  gasto_id
-          gasto.usuario_solicita_id, 
-          req.session.usuario.id, 
-          gasto.proveedor_id, 
-          gasto.concepto_pago, 
+          gasto.usuario_solicita_id,
+          req.session.usuario.id,
+          gasto.proveedor_id,
+          gasto.concepto_pago,
           gasto.monto_total,
-          0, 
+          0,
           "por_pagar", // 9  estado inicial
           gasto.moneda, // 10
           gasto.tasa_cambio, // 11
