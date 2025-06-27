@@ -45,7 +45,7 @@ export default function ModalRegistrarAbono({
     if (!cuentaId) return;
 
     api
-      .get(`/cxc/${cuentaId}/saldo`)
+      .get(`/cuentas/${cuentaId}/saldo`)
       .then((res) => setSaldoPendiente(parseFloat(res.data.saldo)));
   }, [cuentaId]);
 
@@ -164,7 +164,7 @@ export default function ModalRegistrarAbono({
       if (form.observaciones) data.append("observaciones", form.observaciones);
       if (archivo) data.append("comprobante", archivo);
 
-      const res = await api.post(`/cxc/${cuentaId}/abonos`, data, {
+      const res = await api.post(`/cuentas/${cuentaId}/abonos`, data, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       if (res.status === 200 || res.status === 201) {
