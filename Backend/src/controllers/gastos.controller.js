@@ -458,7 +458,7 @@ export const actualizarEstadoGasto = async (req, res) => {
             codigo,
             gasto_id,
             usuario_solicita_id,
-            usuario_revisa_id
+            usuario_revisa_id,
             proveedor_id,
             concepto_pago,
             monto_total,
