@@ -28,6 +28,7 @@ export const obtenerSolicitudesPago = async (req, res) => {
         sp.codigo,
         sp.gasto_id,
         sp.usuario_solicita_id,
+        sp.usuario_revisa_id,
         sp.usuario_aprueba_id,
         p.nombre AS proveedor_nombre,
         sp.monto_total    AS monto,
@@ -69,13 +70,15 @@ export const obtenerSolicitudPagoPorId = async (req, res) => {
               g.codigo  AS gasto_codigo,      -- trae el código del gasto
               p.nombre  AS proveedor_nombre,
               us.nombre AS usuario_solicita_nombre,
-              ua.nombre AS usuario_aprueba_nombre,
+              ur.nombre AS usuario_revisa_nombre,
+              up.nombre AS usuario_aprueba_nombre,
               b.nombre  AS banco_nombre
          FROM solicitudes_pago sp
-         LEFT JOIN gastos      g  ON g.id  = sp.gasto_id   -- ← JOIN añadido
+         LEFT JOIN gastos      g  ON g.id  = sp.gasto_id 
          LEFT JOIN proveedores p  ON p.id  = sp.proveedor_id
          LEFT JOIN usuarios    us ON us.id = sp.usuario_solicita_id
-         LEFT JOIN usuarios    ua ON ua.id = sp.usuario_aprueba_id
+         LEFT JOIN usuarios    ur ON ur.id = sp.usuario_revisa_id  
+         LEFT JOIN usuarios    up ON up.id = sp.usuario_aprueba_id 
          LEFT JOIN bancos      b  ON b.id  = sp.banco_id
         WHERE sp.id = ?`,
       [id]
@@ -185,7 +188,7 @@ export const pagarSolicitudPago = async (req, res) => {
 
   // Banco nulo si es efectivo
   const bancoId = metodo_pago === "Efectivo" ? null : rawBancoId || null;
-  const usuarioFirmaId = req.user?.id;
+  const usuarioApruebaId = req.user?.id;
 
   try {
     // 1. Validar existencia y estado
@@ -222,7 +225,7 @@ export const pagarSolicitudPago = async (req, res) => {
               ruta_comprobante = ?,
               observaciones    = ?,
               fecha_pago       = ?,
-              usuario_firma_id = ?,
+              usuario_aprueba_id = ?,
               estado           = 'pagada',
               monto_pagado     = monto_total
         WHERE id = ?`,
@@ -233,7 +236,7 @@ export const pagarSolicitudPago = async (req, res) => {
         rutaComprobante,
         observaciones || null,
         fechaPagoFinal,
-        usuarioFirmaId,
+        usuarioApruebaId,
         id,
       ]
     );
@@ -247,7 +250,7 @@ export const pagarSolicitudPago = async (req, res) => {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
-        usuarioFirmaId,
+        usuarioApruebaId,
         metodo_pago,
         bancoId,
         referencia_pago,
