@@ -9,25 +9,27 @@ export const registrarAbono = async (req, res) => {
     await conn.beginTransaction();
 
     /* ───────── 2. Parámetros de entrada ───────── */
-    const cuentaId = Number(req.params.cuenta_id); // URL
+    const cuentaId = Number(req.params.cuenta_id);
     const metodoPago = (
-      req.body.metodo_pago ||
-      req.body.metodoPago ||
+      req.body.metodo_pago ??
+      req.body.metodoPago ??
       ""
-    ).toUpperCase(); // body
+    ).toUpperCase();
     const bancoId = req.body.banco_id ?? req.body.bancoId ?? null;
     const monedaPago = (
-      req.body.moneda ||
-      req.body.monedaPago ||
+      req.body.moneda_pago ??
+      req.body.moneda ??
+      req.body.monedaPago ??
       "USD"
     ).toUpperCase();
+
     const tasaCambio = Number(req.body.tasa_cambio ?? req.body.tasaCambio ?? 1);
+
     const montoAbonado = Number(
-      req.body.monto ?? req.body.monto_abonado ?? req.body.montoAbonado
+      req.body.monto_abonado ?? req.body.monto ?? req.body.montoAbonado ?? 0
     );
     const observaciones = req.body.observaciones ?? null;
 
-    /*  👉 Capturamos al usuario SÍ o SÍ  */
     const usuarioId = req.user?.id || req.session?.usuario?.id || null;
 
     /* ───────── 3. Validaciones previas ───────── */
