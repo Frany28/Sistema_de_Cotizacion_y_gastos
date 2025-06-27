@@ -177,46 +177,58 @@ export const cancelarSolicitudPago = async (req, res) => {
  * ========================================================== */
 export const pagarSolicitudPago = async (req, res) => {
   const { id } = req.params;
-  const {
+  let {
     metodo_pago,
     banco_id: rawBancoId,
     referencia_pago,
     observaciones,
     fecha_pago,
   } = req.body;
-  const comprobanteFile = req.file;
 
-  // Banco nulo si es efectivo
-  const bancoId = metodo_pago === "Efectivo" ? null : rawBancoId || null;
+  /* ---------- 1. VALIDACIONES POR TIPO DE PAGO ---------- */
+  if (!metodo_pago)
+    return res.status(400).json({ message: "Método de pago requerido" });
+
+  const metodo = metodo_pago.trim().toLowerCase();
+
+  if (metodo === "efectivo") {
+    rawBancoId = null;
+    referencia_pago = null;
+  } else {
+    if (!rawBancoId)
+      return res.status(400).json({ message: "Banco requerido" });
+    if (!referencia_pago)
+      return res.status(400).json({ message: "Referencia de pago requerida" });
+    if (!req.file)
+      return res
+        .status(400)
+        .json({ message: "Comprobante (PDF o imagen) requerido" });
+  }
+
+  /* ---------- 2. VARIABLES DERIVADAS ---------- */
+  const bancoId = metodo === "efectivo" ? null : rawBancoId;
+  const comprobanteFile = req.file || null;
+  const rutaComprobante = comprobanteFile ? comprobanteFile.key : null;
+  const nombreOriginal = comprobanteFile ? comprobanteFile.originalname : null;
+  const extension = nombreOriginal ? nombreOriginal.split(".").pop() : null;
+  const tamanioBytes = comprobanteFile ? comprobanteFile.size : null;
+  const fechaPagoFinal = fecha_pago ? new Date(fecha_pago) : new Date();
   const usuarioApruebaId = req.user?.id;
 
   try {
-    // 1. Validar existencia y estado
+    /* ---------- 3. COMPROBAR ESTADO ---------- */
     const [[sol]] = await db.execute(
-      `SELECT estado, monto_total, moneda, tasa_cambio
-         FROM solicitudes_pago
-        WHERE id = ?`,
+      "SELECT estado, monto_total, moneda, tasa_cambio FROM solicitudes_pago WHERE id = ?",
       [id]
     );
-    if (!sol) {
+    if (!sol)
       return res.status(404).json({ message: "Solicitud no encontrada." });
-    }
-    if (sol.estado !== "por_pagar") {
+    if (sol.estado !== "por_pagar")
       return res
         .status(400)
         .json({ message: `Estado inválido: ${sol.estado}` });
-    }
 
-    // 2. Preparar datos del comprobante
-    const rutaComprobante = comprobanteFile ? comprobanteFile.key : null;
-    const nombreOriginal = comprobanteFile
-      ? comprobanteFile.originalname
-      : null;
-    const extension = nombreOriginal ? nombreOriginal.split(".").pop() : null;
-    const tamanioBytes = comprobanteFile ? comprobanteFile.size : null;
-    const fechaPagoFinal = fecha_pago ? new Date(fecha_pago) : new Date();
-
-    // 3. Actualizar solicitud de pago
+    /* ---------- 4. ACTUALIZAR SOLICITUD ---------- */
     await db.execute(
       `UPDATE solicitudes_pago
           SET banco_id         = ?,
@@ -241,7 +253,7 @@ export const pagarSolicitudPago = async (req, res) => {
       ]
     );
 
-    // 4. Insertar en histórico de pagos
+    /* ---------- 5. HISTÓRICO ---------- */
     await db.execute(
       `INSERT INTO pagos_realizados
          (solicitud_pago_id, usuario_id, metodo_pago, banco_id,
@@ -263,13 +275,12 @@ export const pagarSolicitudPago = async (req, res) => {
       ]
     );
 
-    // 5. Registrar archivo en archivos + evento en eventosArchivo
+    /* ---------- 6. ARCHIVO (solo si hay) ---------- */
     if (rutaComprobante) {
-      // 5.1. Insertar en archivos
       const [resArchivo] = await db.query(
         `INSERT INTO archivos
            (registroTipo, registroId, nombreOriginal, extension, rutaS3, tamanioBytes, subidoPor, creadoEn, actualizadoEn)
-        VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
         [
           "comprobantesPagos",
           id,
@@ -280,16 +291,13 @@ export const pagarSolicitudPago = async (req, res) => {
           usuarioApruebaId,
         ]
       );
-      const archivoId = resArchivo.insertId;
 
-      // 5.2. Insertar en eventosArchivo
       await db.query(
         `INSERT INTO eventosArchivo
            (archivoId, accion, usuarioId, fechaHora, ip, userAgent, detalles)
-         VALUES (?, ?, ?, NOW(), ?, ?, ?)`,
+         VALUES (?, 'subida', ?, NOW(), ?, ?, ?)`,
         [
-          archivoId,
-          "subida",
+          resArchivo.insertId,
           usuarioApruebaId,
           req.ip || null,
           req.get("user-agent") || null,
@@ -298,9 +306,8 @@ export const pagarSolicitudPago = async (req, res) => {
       );
     }
 
-    // 6. Respuesta de éxito
     return res.json({
-      message: "Pago registrado, histórico y archivo guardado correctamente.",
+      message: "Pago registrado correctamente.",
       solicitud_id: id,
     });
   } catch (error) {

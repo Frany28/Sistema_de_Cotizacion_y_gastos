@@ -1,5 +1,5 @@
 // src/components/Modals/ModalRegistrarPago.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, CreditCard } from "lucide-react";
 import api from "../../api/index";
@@ -37,6 +37,11 @@ export default function ModalRegistrarPago({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [modalExito, setModalExito] = useState({ visible: false, mensaje: "" });
   const [modalError, setModalError] = useState({ visible: false, mensaje: "" });
+
+  /**
+   * Referencia para poder resetear el input file cuando el usuario cambie a "Efectivo".
+   */
+  const fileInputRef = useRef(null);
 
   /**
    * Pre‑carga la fecha actual cada vez que el modal se abre.
@@ -91,9 +96,19 @@ export default function ModalRegistrarPago({
   const handleChange = (e) => {
     const { name, value, files } = e.target;
     const newForm = { ...form, [name]: files ? files[0] : value };
-    if (name === "metodo_pago" && value === "Efectivo") {
-      newForm.banco_id = "";
+
+    // Al cambiar el método de pago, ocultamos/limpiamos campos que no aplican.
+    if (name === "metodo_pago") {
+      if (value === "Efectivo") {
+        newForm.banco_id = "";
+        newForm.comprobante = null;
+        // Resetear el input file visualmente si existía un archivo seleccionado
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+      }
     }
+
     setForm(newForm);
   };
 
@@ -107,14 +122,21 @@ export default function ModalRegistrarPago({
 
       const formData = new FormData();
       formData.append("metodo_pago", form.metodo_pago);
+
       if (form.metodo_pago !== "Efectivo") {
         formData.append("banco_id", form.banco_id);
-      }
-      formData.append("referencia_pago", form.referencia_pago);
-      formData.append("fecha_pago", fechaPago);
-      if (form.comprobante) {
+        formData.append("referencia_pago", form.referencia_pago);
+
+        if (!form.comprobante) {
+          throw new Error("Debe adjuntar el comprobante de pago.");
+        }
         formData.append("comprobante", form.comprobante, form.comprobante.name);
+      } else {
+        // Para efectivo el backend permite referencia vacía, pero enviamos la que el usuario coloque.
+        formData.append("referencia_pago", form.referencia_pago);
       }
+
+      formData.append("fecha_pago", fechaPago);
       formData.append("observaciones", form.observaciones);
 
       const url = `/solicitudes-pago/${solicitudId}/pagar`;
@@ -129,6 +151,7 @@ export default function ModalRegistrarPago({
         visible: true,
         mensaje:
           err.response?.data?.message ||
+          err.message ||
           "No se pudo registrar el pago. Intente nuevamente.",
       });
     } finally {
@@ -219,7 +242,7 @@ export default function ModalRegistrarPago({
                         onChange={handleChange}
                         disabled={isSubmitting}
                         className="cursor-pointer w-full px-3 py-2 border  border-gray-600 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-gray-700 text-white"
-                        required
+                        required={form.metodo_pago !== "Efectivo"}
                       >
                         <option value="">Seleccionar banco...</option>
                         {banks.length > 0 ? (
@@ -255,7 +278,7 @@ export default function ModalRegistrarPago({
                         : "Número de transferencia, cheque, etc."
                     }
                     className="w-full px-3 py-2 border  border-gray-600 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-gray-700 text-white"
-                    required
+                    required={form.metodo_pago !== "Efectivo"}
                   />
                 </div>
 
@@ -276,19 +299,23 @@ export default function ModalRegistrarPago({
                 </div>
 
                 {/* Comprobante */}
-                <div className="col-span-2 sm:col-span-1">
-                  <label className="block text-sm font-medium  text-gray-300 mb-1">
-                    Comprobante (PDF/Imagen)
-                  </label>
-                  <input
-                    type="file"
-                    name="comprobante"
-                    accept="application/pdf,image/*"
-                    onChange={handleChange}
-                    disabled={isSubmitting}
-                    className="w-full text-sm  text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-gray-700 file:text-gray-300 hover:file:bg-gray-600 focus:outline-none"
-                  />
-                </div>
+                {form.metodo_pago !== "Efectivo" && (
+                  <div className="col-span-2 sm:col-span-1">
+                    <label className="block text-sm font-medium  text-gray-300 mb-1">
+                      Comprobante (PDF/Imagen)
+                    </label>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      name="comprobante"
+                      accept="application/pdf,image/*"
+                      onChange={handleChange}
+                      disabled={isSubmitting}
+                      className="w-full text-sm  text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-gray-700 file:text-gray-300 hover:file:bg-gray-600 focus:outline-none"
+                      required={form.metodo_pago !== "Efectivo"}
+                    />
+                  </div>
+                )}
 
                 {/* Observaciones */}
                 <div className="col-span-2 sm:col-span-1">
