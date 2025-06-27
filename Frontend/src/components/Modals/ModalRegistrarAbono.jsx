@@ -6,14 +6,19 @@ import { DollarSign, Paperclip } from "lucide-react";
 import ModalExito from "../Modals/ModalExito";
 import ModalError from "../Modals/ModalError";
 
+// ➜ El backend toma el id del usuario desde la sesión;
+// esta vista ya no necesita recibir ni enviar usuarioId.
+
 const dolarApi = axios.create();
 
 export default function ModalRegistrarAbono({
   cuentaId,
-  usuarioId,
   onCancel,
   onRefreshTotals,
 }) {
+  /* --------------------------------------------------
+   *  Estado
+   * -------------------------------------------------- */
   const [form, setForm] = useState({
     metodo_pago: "EFECTIVO",
     banco_id: "",
@@ -32,7 +37,6 @@ export default function ModalRegistrarAbono({
   const [showError, setShowError] = useState(false);
   const [bancosDisponibles, setBancosDisponibles] = useState({});
   const [cargandoBancos, setCargandoBancos] = useState(false);
-  const usuarioId = req.session.usuario.id;
 
   /* --------------------------------------------------
    * 1. Cargar saldo pendiente de la cuenta
@@ -46,6 +50,7 @@ export default function ModalRegistrarAbono({
       .catch(() => setError("No se pudo obtener el saldo pendiente."));
   }, [cuentaId]);
 
+  /* Ajustar banco al cambiar de moneda */
   useEffect(() => {
     if (form.metodo_pago !== "TRANSFERENCIA") return;
     const candidatos = bancosDisponibles[form.moneda_pago] || [];
@@ -157,7 +162,6 @@ export default function ModalRegistrarAbono({
         "tasaCambio",
         form.moneda_pago === "VES" ? parseFloat(form.tasa_cambio) : 1
       );
-      data.append("usuarioId", usuarioId);
       if (form.observaciones) data.append("observaciones", form.observaciones);
       if (archivo) data.append("comprobante", archivo);
 
@@ -187,6 +191,7 @@ export default function ModalRegistrarAbono({
    * -------------------------------------------------- */
   return (
     <AnimatePresence mode="wait">
+      {/* Success modal */}
       {showSuccess && (
         <ModalExito
           visible={true}
@@ -198,6 +203,7 @@ export default function ModalRegistrarAbono({
         />
       )}
 
+      {/* Error modal */}
       {showError && (
         <ModalError
           visible={true}
@@ -209,6 +215,7 @@ export default function ModalRegistrarAbono({
         />
       )}
 
+      {/* Formulario principal */}
       {!showSuccess && !showError && (
         <motion.div
           key="form"
