@@ -11,6 +11,8 @@ const TablaCuentasPorCobrar = ({ clienteId, onRefreshTotals }) => {
   const [loading, setLoading] = useState(true);
   const [cuentaSeleccionada, setCuentaSeleccionada] = useState(null);
   const [mostrarModalAbono, setMostrarModalAbono] = useState(false);
+  const [mostrarModalError, setMostrarModalError] = useState(false);
+  const [mensajeError, setMensajeError] = useState("");
 
   const fetchCuentas = async () => {
     if (!clienteId) {
