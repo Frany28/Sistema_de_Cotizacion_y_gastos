@@ -98,7 +98,12 @@ const TablaCuentasPorCobrar = ({ clienteId, onRefreshTotals }) => {
                     tipo="abonar"
                     titulo="Registrar Abono"
                     onClick={() => {
-                      if (cuenta.estado?.toLowerCase() === "pagado") {
+                      const estado = (cuenta.estado || "").toLowerCase();
+                      const pagada =
+                        ["pagado", "pagada"].includes(estado) ||
+                        Number(cuenta.saldo_restante) === 0;
+
+                      if (pagada) {
                         setMensajeError(
                           "Esta cuenta por cobrar ya está pagada."
                         );
@@ -131,9 +136,10 @@ const TablaCuentasPorCobrar = ({ clienteId, onRefreshTotals }) => {
 
       {mostrarModalError && (
         <ModalError
+          visible={mostrarModalError}
           titulo="Operación no permitida"
           mensaje={mensajeError}
-          onCancel={() => setMostrarModalError(false)}
+          onClose={() => setMostrarModalError(false)}
         />
       )}
     </div>
