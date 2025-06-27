@@ -329,7 +329,7 @@ export default function ModalVerSolicitudDePago({
                 className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-medium flex items-center mr-2"
               >
                 <FileText className="w-4 h-4 mr-2" />
-                Ver Orden de Pago
+                Ver Orden de Pago.
               </button>
             )}
           </div>
