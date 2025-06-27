@@ -244,7 +244,12 @@ export default function ModalVerSolicitudDePago({
                   </thead>
                   <tbody>
                     <tr className="border-b border-gray-600 last:border-0">
-                      <td className="p-3 font-medium">Pago a proveedor</td>
+                      <div>
+                        <p className="text-gray-400">Concepto de pago:</p>
+                        <p className="font-medium">
+                          {solicitud.concepto_pago || solicitud.concepto || "-"}
+                        </p>
+                      </div>
                       {isBolivares && (
                         <td className="p-3">
                           {solicitud.tasa_cambio || "N/A"} BS
