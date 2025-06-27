@@ -5,7 +5,7 @@ import { s3 } from "../utils/s3.js";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import puppeteer from "puppeteer-core";
 import chromium from "@sparticuz/chromium";
-import { generarHTMLOrdenPago } from "../templates/generarHTMLOrdenPago.js";
+import { generarHTMLOrdenPago } from "../../templates/generarHTMLOrdenDePago.js";
 
 async function firmaToDataUrl(key) {
   if (!key) return null; // sin firma
