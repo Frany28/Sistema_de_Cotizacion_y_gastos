@@ -6,14 +6,11 @@ import { DollarSign, Paperclip } from "lucide-react";
 import ModalExito from "../Modals/ModalExito";
 import ModalError from "../Modals/ModalError";
 
-// Modal para registrar abonos CxC
-// El id del usuario autenticado lo toma el backend desde req.user.
-// No se envía explícitamente desde el cliente.
-
 const dolarApi = axios.create();
 
 export default function ModalRegistrarAbono({
   cuentaId,
+  usuarioId,
   onCancel,
   onRefreshTotals,
 }) {
@@ -35,8 +32,11 @@ export default function ModalRegistrarAbono({
   const [showError, setShowError] = useState(false);
   const [bancosDisponibles, setBancosDisponibles] = useState({});
   const [cargandoBancos, setCargandoBancos] = useState(false);
+  const usuarioId = req.session.usuario.id;
 
-  /* ----------------- 1. Saldo pendiente ----------------- */
+  /* --------------------------------------------------
+   * 1. Cargar saldo pendiente de la cuenta
+   * -------------------------------------------------- */
   useEffect(() => {
     if (!cuentaId) return;
 
@@ -46,14 +46,15 @@ export default function ModalRegistrarAbono({
       .catch(() => setError("No se pudo obtener el saldo pendiente."));
   }, [cuentaId]);
 
-  /* -------------- 2. Sincronizar banco default ------------- */
   useEffect(() => {
     if (form.metodo_pago !== "TRANSFERENCIA") return;
     const candidatos = bancosDisponibles[form.moneda_pago] || [];
     setForm((f) => ({ ...f, banco_id: candidatos[0]?.id || "" }));
   }, [form.moneda_pago, bancosDisponibles, form.metodo_pago]);
 
-  /* ------------- 3. Cargar bancos disponibles ------------- */
+  /* --------------------------------------------------
+   * 2. Cargar bancos disponibles cuando el método es TRANSFERENCIA
+   * -------------------------------------------------- */
   useEffect(() => {
     if (form.metodo_pago !== "TRANSFERENCIA") {
       setBancosDisponibles({});
@@ -78,7 +79,9 @@ export default function ModalRegistrarAbono({
       .finally(() => setCargandoBancos(false));
   }, [form.metodo_pago, form.moneda_pago]);
 
-  /* ------------ 4. Obtener tasa oficial (VES) ------------- */
+  /* --------------------------------------------------
+   * 3. Obtener tasa oficial cuando la moneda es VES
+   * -------------------------------------------------- */
   useEffect(() => {
     if (form.moneda_pago !== "VES") {
       setForm((f) => ({ ...f, tasa_cambio: "" }));
@@ -95,7 +98,9 @@ export default function ModalRegistrarAbono({
       .catch(() => setError("No se pudo obtener la tasa del día."));
   }, [form.moneda_pago]);
 
-  /* ------- 5. Calcular equivalente USD en tiempo real ------ */
+  /* --------------------------------------------------
+   * 4. Calcular equivalente en USD cuando sea necesario
+   * -------------------------------------------------- */
   useEffect(() => {
     if (form.moneda_pago === "VES" && form.tasa_cambio && form.monto_abonado) {
       setMontoUSD((form.monto_abonado / form.tasa_cambio).toFixed(2));
@@ -104,13 +109,14 @@ export default function ModalRegistrarAbono({
     }
   }, [form.moneda_pago, form.tasa_cambio, form.monto_abonado]);
 
-  /* ---------------------- Handlers ------------------------ */
+  /* --------------------------------------------------
+   * 5. Handlers
+   * -------------------------------------------------- */
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm({ ...form, [name]: value });
     setError("");
 
-    // limpiar banco si el usuario cambia a EFECTIVO
     if (name === "metodo_pago" && value === "EFECTIVO") {
       setForm((f) => ({ ...f, banco_id: "" }));
     }
@@ -125,7 +131,6 @@ export default function ModalRegistrarAbono({
     e.preventDefault();
     setError("");
 
-    /* -------- Validaciones rápidas en cliente -------- */
     const monto = parseFloat(form.monto_abonado);
     if (!monto || monto <= 0) return setError("Debe ingresar un monto válido.");
     if (saldoPendiente != null && monto > saldoPendiente)
@@ -152,6 +157,7 @@ export default function ModalRegistrarAbono({
         "tasaCambio",
         form.moneda_pago === "VES" ? parseFloat(form.tasa_cambio) : 1
       );
+      data.append("usuarioId", usuarioId);
       if (form.observaciones) data.append("observaciones", form.observaciones);
       if (archivo) data.append("comprobante", archivo);
 
@@ -176,10 +182,11 @@ export default function ModalRegistrarAbono({
     onCancel();
   };
 
-  /* ------------------------- UI -------------------------- */
+  /* --------------------------------------------------
+   * 6. UI
+   * -------------------------------------------------- */
   return (
     <AnimatePresence mode="wait">
-      {/* Modales de éxito / error */}
       {showSuccess && (
         <ModalExito
           visible={true}
@@ -202,7 +209,6 @@ export default function ModalRegistrarAbono({
         />
       )}
 
-      {/* Formulario principal */}
       {!showSuccess && !showError && (
         <motion.div
           key="form"
@@ -213,7 +219,6 @@ export default function ModalRegistrarAbono({
         >
           <div className="relative p-4 w-full max-w-2xl">
             <div className="bg-gray-800 rounded-lg shadow-md p-6 w-125">
-              {/* header */}
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-2">
                   <DollarSign className="w-6 h-6 text-green-400" />
@@ -230,11 +235,9 @@ export default function ModalRegistrarAbono({
                 </button>
               </div>
 
-              {/* form */}
               <form onSubmit={handleSubmit} className="space-y-4">
                 {error && <p className="text-red-500 text-sm">{error}</p>}
 
-                {/* ---- primera fila ---- */}
                 <div className="grid grid-cols-2 gap-4">
                   {/* Método de pago */}
                   <div>
@@ -252,7 +255,7 @@ export default function ModalRegistrarAbono({
                     </select>
                   </div>
 
-                  {/* Banco (solo transferencia) */}
+                  {/* Banco (solo para transferencia) */}
                   {form.metodo_pago === "TRANSFERENCIA" && (
                     <div>
                       <label className="block text-sm text-white">
@@ -292,7 +295,7 @@ export default function ModalRegistrarAbono({
                     </div>
                   )}
 
-                  {/* Saldo pendiente */}
+                  {/* Resto de los campos... */}
                   <div>
                     <label className="block text-sm text-white">
                       Saldo Pendiente (USD)
@@ -308,8 +311,6 @@ export default function ModalRegistrarAbono({
                       className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600"
                     />
                   </div>
-
-                  {/* Monto a abonar */}
                   <div>
                     <label className="block text-sm text-white">
                       Monto a abonar
@@ -323,8 +324,6 @@ export default function ModalRegistrarAbono({
                       required
                     />
                   </div>
-
-                  {/* Moneda */}
                   <div>
                     <label className="block text-sm text-white">Moneda</label>
                     <select
@@ -337,8 +336,6 @@ export default function ModalRegistrarAbono({
                       <option value="VES">VES</option>
                     </select>
                   </div>
-
-                  {/* Tasa y equivalente (solo VES) */}
                   {form.moneda_pago === "VES" && (
                     <>
                       <div>
@@ -367,7 +364,6 @@ export default function ModalRegistrarAbono({
                   )}
                 </div>
 
-                {/* ---- segunda fila ---- */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm text-white">
