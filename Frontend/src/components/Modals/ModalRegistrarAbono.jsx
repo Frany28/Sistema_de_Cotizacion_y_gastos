@@ -152,10 +152,11 @@ export default function ModalRegistrarAbono({
       const data = new FormData();
       data.append("cuentaId", cuentaId);
       data.append("metodoPago", form.metodo_pago);
-      data.append(
-        "bancoId",
-        form.metodo_pago === "TRANSFERENCIA" ? form.banco_id : null
-      );
+
+      if (form.metodo_pago === "TRANSFERENCIA") {
+        data.append("bancoId", form.banco_id);
+      }
+
       data.append("monedaPago", form.moneda_pago);
       data.append("montoAbonado", monto);
       data.append(
