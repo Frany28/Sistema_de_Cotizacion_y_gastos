@@ -37,8 +37,8 @@ const TablaCuentasPorCobrar = ({ clienteId, onRefreshTotals }) => {
   }, [clienteId]);
 
   return (
-    <div className="mb-6 bg-gray-800 rounded-xl p-4 shadow-md ">
-      <table className="w-full text-sm text-left text-gray-400 rounded-xl p-4 shadow-md ">
+    <div className="mb-6 bg-gray-800 rounded-xl shadow-md">
+      <table className="w-full text-sm text-left text-gray-400  ">
         <thead className="text-xs bg-gray-700 text-gray-400">
           <tr>
             <th className="px-4 py-3">Código</th>
