@@ -134,7 +134,7 @@ export default function ModalEditarSucursal({
         withCredentials: true,
       });
 
-      setShowExito(true); 
+      setShowExito(true);
     } catch (error) {
       console.error("Error al actualizar sucursal:", error);
       setErrorMsg(
@@ -185,7 +185,7 @@ export default function ModalEditarSucursal({
             onClick={() => !isSubmitting && onClose()}
           >
             <motion.div
-              className="relative w-full max-w-lg p-6  bg-gray-800 rounded-lg shadow"
+              className="relative w-full max-w-2xl p-6 bg-gray-800 rounded-lg shadow"
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}

@@ -95,10 +95,10 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
             onClick={() => !isSubmitting && onCancel()}
           >
             <motion.div
-              className=" bg-gray-800 rounded-lg shadow-lg w-full max-w-md p-6 relative"
-              initial={{ scale: 0.95 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.95 }}
+              className="relative w-full max-w-2xl p-6 bg-gray-800 rounded-lg shadow"
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
             >
               <button
@@ -130,6 +130,7 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
                       name="codigo"
                       value={form.codigo}
                       onChange={handleChange}
+                      placeholder="Ej: Sucursal-001"
                       required
                       className=" border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                     />
@@ -147,6 +148,7 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
                       name="nombre"
                       value={form.nombre}
                       onChange={handleChange}
+                      placeholder="Ej: Sucursal Central"
                       required
                       className="border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                     />
@@ -164,6 +166,7 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
                       name="direccion"
                       value={form.direccion}
                       onChange={handleChange}
+                      placeholder="Ej: Av. Principal, Edificio XYZ"
                       required
                       className="border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                     />
@@ -181,6 +184,7 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
                       name="ciudad"
                       value={form.ciudad}
                       onChange={handleChange}
+                      placeholder="Ej: Caracas"
                       className="border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                     />
                   </div>
@@ -191,6 +195,7 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
                     <input
                       name="estado_provincia"
                       value={form.estado_provincia}
+                      placeholder="Ej: Miranda"
                       onChange={handleChange}
                       className="border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                     />
@@ -203,6 +208,7 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
                       name="pais"
                       value={form.pais}
                       onChange={handleChange}
+                      placeholder="Ej: Venezuela"
                       className="border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                     />
                   </div>
@@ -214,6 +220,7 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
                       name="telefono"
                       value={form.telefono}
                       onChange={handleChange}
+                      placeholder="Ej: +58 123 4567890"
                       className="border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                     />
                   </div>
@@ -224,6 +231,7 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
                     <input
                       type="email"
                       name="email"
+                      placeholder="Ej: abg@email.com"
                       value={form.email}
                       onChange={handleChange}
                       className="border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
@@ -235,6 +243,7 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
                     </label>
                     <input
                       name="responsable"
+                      placeholder="Ej: Juan Pérez"
                       value={form.responsable}
                       onChange={handleChange}
                       className="border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-500 text-white"

@@ -93,7 +93,7 @@ export default function ModalAñadirBanco({ onCancel, onSubmit }) {
               <button
                 type="button"
                 onClick={onCancel}
-                className="cursor-pointer absolute right-4 top-4 text-gray-400 bg-transparent rounded-lg text-sm w-8 h-8 flex justify-center items-center hover:bg-gray-600 hover:text-white"
+                className="cursor-pointer absolute right-4 top-4 text-gray-400 bg-transparent rounded-lg text-sm w-8 h-8 flex justify-center items-center hover:bg-gray-700 hover:text-white"
               >
                 <svg
                   className="w-3 h-3"
@@ -131,7 +131,7 @@ export default function ModalAñadirBanco({ onCancel, onSubmit }) {
                     name="nombre"
                     value={form.nombre}
                     onChange={handleChange}
-                    className="border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
+                    className="border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                     placeholder="Nombre del banco"
                     required
                   />
@@ -149,7 +149,7 @@ export default function ModalAñadirBanco({ onCancel, onSubmit }) {
                     name="moneda"
                     value={form.moneda}
                     onChange={handleChange}
-                    className="cursor-pointer border text-sm rounded-lg block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
+                    className="cursor-pointer border text-sm rounded-lg block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                   >
                     <option value="VES">VES</option>
                     <option value="USD">USD</option>
@@ -165,7 +165,7 @@ export default function ModalAñadirBanco({ onCancel, onSubmit }) {
                     name="tipo_identificador"
                     value={form.tipo_identificador}
                     onChange={handleChange}
-                    className="cursor-pointer border text-sm rounded-lg block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
+                    className="cursor-pointer border text-sm rounded-lg block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                   >
                     <option value="nro_cuenta">Número de cuenta</option>
                     <option value="email">Email</option>
@@ -182,7 +182,7 @@ export default function ModalAñadirBanco({ onCancel, onSubmit }) {
                     name="identificador"
                     value={form.identificador}
                     onChange={handleChange}
-                    className="border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
+                    className="border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                     placeholder={
                       form.tipo_identificador === "email"
                         ? "correo@dominio.com"
