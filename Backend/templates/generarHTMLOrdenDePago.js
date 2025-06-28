@@ -5,6 +5,7 @@ export function generarHTMLOrdenPago(datos = {}, modo = "preview") {
     fecha_solicitud = null,
     estado = "pendiente",
     solicitado_por = "N/A",
+    autorizado_por = "N/A",
     aprobado_por = "N/A",
     metodo_pago = "N/A",
     banco = "—",
