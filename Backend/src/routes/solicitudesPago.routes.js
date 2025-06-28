@@ -22,12 +22,7 @@ router.get(
   obtenerSolicitudesPago
 );
 
-router.get(
-  "/:id/pdf",
-  autenticarUsuario,
-  verificarPermiso("ver_solicitudes_pago"),
-  generarPDFSolicitudPago
-);
+router.get("/:id/pdf", generarPDFSolicitudPago);
 
 // GET   /api/solicitudes-pago/:id
 router.get(
