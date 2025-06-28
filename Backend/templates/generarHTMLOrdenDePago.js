@@ -16,6 +16,9 @@ export function generarHTMLOrdenPago(datos = {}, modo = "preview") {
     observaciones = "",
     created_at = null,
     updated_at = null,
+    firmaSolicita = null,
+    firmaAutoriza = null,
+    firmaAprueba = null,
   } = datos;
 
   // --- fecha legible
