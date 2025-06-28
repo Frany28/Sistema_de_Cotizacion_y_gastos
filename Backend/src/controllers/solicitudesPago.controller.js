@@ -25,32 +25,43 @@ export const generarPDFSolicitudPago = async (req, res) => {
   /* ---------- 1. Consulta completa ---------- */
   const [[row]] = await db.execute(
     `
-    SELECT  sp.*,
-            g.codigo                         AS gasto_codigo,
-            p.nombre                         AS proveedor_nombre,
-            b.nombre                         AS banco_nombre,
+    SELECT  
+            sp.*,
+            g.codigo              AS gasto_codigo,
+            g.total               AS gasto_total,
+            g.moneda              AS gasto_moneda,
+            g.tasa_cambio         AS gasto_tasa_cambio,
+            g.documento           AS gasto_documento,
+            tg.nombre             AS tipo_gasto_nombre,
+            p.nombre              AS proveedor_nombre,
+            p.rif                 AS proveedor_rif,
+            p.telefono            AS proveedor_telefono,
+            p.email               AS proveedor_email,
+            b.nombre              AS banco_nombre,
 
-            us.nombre                        AS solicita_nombre,
-            us.firma                         AS solicita_firma,
+            us.nombre             AS solicita_nombre,
+            us.firma              AS solicita_firma,
 
-            ur.nombre                        AS revisa_nombre,
-            ur.firma                         AS revisa_firma,
+            ur.nombre             AS revisa_nombre,
+            ur.firma              AS revisa_firma,
 
-            up.nombre                        AS aprueba_nombre,
-            up.firma                         AS aprueba_firma
+            up.nombre             AS aprueba_nombre,
+            up.firma              AS aprueba_firma
     FROM    solicitudes_pago sp
-    LEFT JOIN gastos      g  ON g.id  = sp.gasto_id
-    LEFT JOIN proveedores p  ON p.id  = sp.proveedor_id
-    LEFT JOIN bancos      b  ON b.id  = sp.banco_id
-    LEFT JOIN usuarios    us ON us.id = sp.usuario_solicita_id
-    LEFT JOIN usuarios    ur ON ur.id = sp.usuario_revisa_id
-    LEFT JOIN usuarios    up ON up.id = sp.usuario_aprueba_id
-    WHERE   sp.id = ?`,
+    LEFT JOIN gastos g         ON g.id = sp.gasto_id
+    LEFT JOIN tipos_gasto tg   ON tg.id = g.tipo_gasto_id
+    LEFT JOIN proveedores p    ON p.id = sp.proveedor_id
+    LEFT JOIN bancos b         ON b.id = sp.banco_id
+    LEFT JOIN usuarios us      ON us.id = sp.usuario_solicita_id
+    LEFT JOIN usuarios ur      ON ur.id = sp.usuario_revisa_id
+    LEFT JOIN usuarios up      ON up.id = sp.usuario_aprueba_id
+    WHERE sp.id = ?`,
     [id]
   );
 
-  if (!row)
+  if (!row) {
     return res.status(404).json({ message: "Solicitud de pago no encontrada" });
+  }
 
   /* ---------- 2. Firmas → Base64 ---------- */
   const [firmaSolicita, firmaRevisa, firmaAprueba] = await Promise.all([
@@ -59,43 +70,83 @@ export const generarPDFSolicitudPago = async (req, res) => {
     firmaToDataUrl(row.aprueba_firma),
   ]);
 
-  /* ---------- 3. Armar objeto para el template ---------- */
+  /* ---------- 3. Firmar URLs de comprobante y documento gasto ---------- */
+  let comprobanteUrl = null;
+  if (row.ruta_comprobante) {
+    comprobanteUrl = await generarUrlPrefirmadaLectura(
+      row.ruta_comprobante,
+      600
+    );
+  }
+
+  let gastoDocumentoUrl = null;
+  if (row.gasto_documento) {
+    gastoDocumentoUrl = await generarUrlPrefirmadaLectura(
+      row.gasto_documento,
+      600
+    );
+  }
+
+  /* ---------- 4. Calcular diferencia ---------- */
+  const diferencia = (row.monto_total || 0) - (row.monto_pagado || 0);
+
+  /* ---------- 5. Armar objeto para el template ---------- */
   const datos = {
     /* cabecera */
     codigo: row.codigo,
-    fecha_solicitud: row.fecha_solicitud,
+    fechaSolicitud: row.fecha_solicitud,
+    fechaPago: row.fecha_pago,
     estado: row.estado,
-    solicitado_por: row.solicita_nombre,
-    autorizado_por: row.revisa_nombre,
-    aprobado_por: row.aprueba_nombre,
 
-    /* firmas */
+    solicitadoPor: row.solicita_nombre,
+    autorizadoPor: row.revisa_nombre,
+    aprobadoPor: row.aprueba_nombre,
+
     firmaSolicita,
     firmaAutoriza: firmaRevisa,
     firmaAprueba,
 
-    /* método / banco / ref */
-    metodo_pago: row.metodo_pago,
+    metodoPago: row.metodo_pago,
     banco: row.banco_nombre || "—",
     referencia: row.referencia_pago || "—",
 
-    /* montos */
-    subtotal: row.monto_total - (row.impuesto ?? 0),
-    porcentaje_iva: row.porcentaje_iva ?? 0,
-    impuesto: row.impuesto ?? 0,
-    total: row.monto_total,
+    montoSolicitado: row.monto_total,
+    montoPagado: row.monto_pagado,
+    diferencia,
+    moneda: row.moneda,
+    tasaCambio: row.tasa_cambio,
 
-    /* otros */
-    gasto_codigo: row.gasto_codigo || "—",
-    proveedor: row.proveedor_nombre || "—",
     observaciones: row.observaciones,
-    created_at: row.created_at,
-    updated_at: row.updated_at,
+
+    /* gasto asociado */
+    gasto: {
+      codigo: row.gasto_codigo || "—",
+      tipoGasto: row.tipo_gasto_nombre || "—",
+      total: row.gasto_total || 0,
+      moneda: row.gasto_moneda || "—",
+      tasaCambio: row.gasto_tasa_cambio || null,
+      documentoUrl: gastoDocumentoUrl || null,
+    },
+
+    /* proveedor (si existe) */
+    proveedor: row.proveedor_nombre
+      ? {
+          nombre: row.proveedor_nombre,
+          rif: row.proveedor_rif,
+          telefono: row.proveedor_telefono,
+          email: row.proveedor_email,
+        }
+      : null,
+
+    /* archivo comprobante pago */
+    comprobanteUrl,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 
   const html = generarHTMLOrdenPago(datos, "final");
 
-  /* ---------- 4. Puppeteer → PDF ---------- */
+  /* ---------- 6. Puppeteer → PDF ---------- */
   const browser = await puppeteer.launch({
     args: chromium.args,
     defaultViewport: chromium.defaultViewport,
@@ -115,7 +166,7 @@ export const generarPDFSolicitudPago = async (req, res) => {
 
   await browser.close();
 
-  /* ---------- 5. Enviar ---------- */
+  /* ---------- 7. Enviar ---------- */
   res
     .set({
       "Content-Type": "application/pdf",

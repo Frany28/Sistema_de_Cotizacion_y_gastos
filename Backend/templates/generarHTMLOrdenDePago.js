@@ -1,41 +1,111 @@
-// templates/generarHTMLOrdenPago.js
 export function generarHTMLOrdenPago(datos = {}, modo = "preview") {
   const {
     codigo = "N/A",
-    fecha_solicitud = null,
+    fechaSolicitud = null,
+    fechaPago = null,
     estado = "pendiente",
-    solicitado_por = "N/A",
-    autorizado_por = "N/A",
-    aprobado_por = "N/A",
-    metodo_pago = "N/A",
+    solicitadoPor = "N/A",
+    autorizadoPor = "N/A",
+    aprobadoPor = "N/A",
+    metodoPago = "N/A",
     banco = "—",
     referencia = "—",
-    subtotal = 0,
-    porcentaje_iva = 0,
-    impuesto = 0,
-    total = 0,
+    montoSolicitado = 0,
+    montoPagado = 0,
+    diferencia = 0,
+    moneda = "USD",
+    tasaCambio = null,
     observaciones = "",
-    created_at = null,
-    updated_at = null,
+    gasto = {},
+    proveedor = null,
+    comprobanteUrl = null,
     firmaSolicita = null,
     firmaAutoriza = null,
     firmaAprueba = null,
+    createdAt = null,
+    updatedAt = null,
   } = datos;
 
-  // --- fecha legible
-  const fechaMostrar = fecha_solicitud
-    ? new Date(fecha_solicitud).toLocaleDateString("es-VE")
+  // Formateo de fechas
+  const fechaMostrar = fechaSolicitud
+    ? new Date(fechaSolicitud).toLocaleDateString("es-VE")
     : "Sin especificar";
 
-  // --- Cuerpo principal (no hay lista de ítems; es un único registro)
-  const detallePago = `
-    <tr class="border-t">
-      <td class="py-2 px-2">${metodo_pago}</td>
-      <td>${banco}</td>
-      <td>${referencia}</td>
-      <td>$${parseFloat(total).toFixed(2)}</td>
-    </tr>
-  `;
+  const fechaPagoMostrar = fechaPago
+    ? new Date(fechaPago).toLocaleDateString("es-VE")
+    : "—";
+
+  const fechaGeneracion = new Date(createdAt || Date.now()).toLocaleDateString(
+    "es-VE",
+    {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    }
+  );
+
+  // Info del gasto
+  const gastoInfo =
+    gasto && Object.keys(gasto).length > 0
+      ? `
+      <div class="bg-gray-50 p-3 rounded border mb-4">
+        <h3 class="font-bold text-sm mb-2 text-blue-800">GASTO ASOCIADO</h3>
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <p><span class="font-semibold">Código:</span> ${
+            gasto.codigo || "—"
+          }</p>
+          <p><span class="font-semibold">Tipo:</span> ${
+            gasto.tipoGasto || "—"
+          }</p>
+          <p><span class="font-semibold">Total:</span> $${parseFloat(
+            gasto.total || 0
+          ).toFixed(2)} ${gasto.moneda || ""}</p>
+          <p><span class="font-semibold">Tasa Cambio:</span> ${
+            gasto.tasaCambio || "N/A"
+          }</p>
+          ${
+            gasto.documentoUrl
+              ? `<p class="col-span-2"><a href="${gasto.documentoUrl}" target="_blank" class="text-blue-600 underline">Ver documento del gasto</a></p>`
+              : ""
+          }
+        </div>
+      </div>
+    `
+      : "";
+
+  // Info del proveedor
+  const proveedorInfo = proveedor
+    ? `
+      <div class="bg-gray-50 p-3 rounded border mb-4">
+        <h3 class="font-bold text-sm mb-2 text-blue-800">PROVEEDOR</h3>
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <p><span class="font-semibold">Nombre:</span> ${proveedor.nombre}</p>
+          <p><span class="font-semibold">RIF:</span> ${proveedor.rif}</p>
+          <p><span class="font-semibold">Teléfono:</span> ${
+            proveedor.telefono || "—"
+          }</p>
+          <p><span class="font-semibold">Email:</span> ${
+            proveedor.email || "—"
+          }</p>
+        </div>
+      </div>
+    `
+    : "";
+
+  // Observaciones
+  const observacionesHtml = observaciones
+    ? `
+      <div class="mb-4 p-3 bg-gray-50 rounded border">
+        <h3 class="font-bold text-sm mb-1 text-blue-800">OBSERVACIONES</h3>
+        <p class="text-xs">${observaciones}</p>
+      </div>
+    `
+    : "";
+
+  // Comprobante
+  const comprobanteLink = comprobanteUrl
+    ? `<a href="${comprobanteUrl}" target="_blank" class="text-blue-600 underline">Ver comprobante</a>`
+    : "—";
 
   return `
     <html lang="es">
@@ -43,124 +113,167 @@ export function generarHTMLOrdenPago(datos = {}, modo = "preview") {
       <meta charset="UTF-8" />
       <script src="https://cdn.tailwindcss.com"></script>
       <title>Orden de Pago</title>
+      <style>
+        @page {
+          size: A4;
+          margin: 1cm;
+        }
+        body {
+          font-family: 'Helvetica', Arial, sans-serif;
+        }
+        .header-accent {
+          border-left: 4px solid #1e40af;
+        }
+        .amount-cell {
+          text-align: right;
+          padding-right: 1rem;
+        }
+        .firma-placeholder {
+          height: 60px;
+          border-bottom: 1px dashed #ccc;
+          margin-top: 10px;
+        }
+      </style>
     </head>
-    <body class="bg-white p-8 text-gray-900 border-2">
+    <body class="bg-white p-6 text-gray-800 text-xs">
+      <div class="max-w-4xl mx-auto border rounded-lg overflow-hidden">
 
-      <!-- ENCABEZADO -->
-      <div class="flex justify-between mb-6">
-        <div>
-          ${
-            modo === "final"
-              ? `<h2 class="text-xl font-bold mb-2">ORDEN DE PAGO: ${codigo}</h2>`
-              : `<h2 class="text-xl font-bold mb-2">ORDEN DE PAGO (Preview)</h2>`
-          }
-          <p class="text-xs font-semibold bg-yellow-300 inline-block px-2 mb-1">
-            FECHA DE SOLICITUD: ${fechaMostrar}
-          </p>
-          <h2 class="font-bold text-sm">ESTADO: ${estado}</h2>
-          <h2 class="font-bold text-sm">SOLICITADO POR: ${solicitado_por}</h2>
-          <h2 class="font-bold text-sm">APROBADO POR: ${aprobado_por}</h2>
+        <!-- Encabezado -->
+        <div class="bg-blue-800 text-white p-4">
+          <div class="flex justify-between items-start">
+            <div class="header-accent pl-3">
+              ${
+                modo === "final"
+                  ? `<h1 class="text-xl font-bold">ORDEN DE PAGO #${codigo}</h1>`
+                  : `<h1 class="text-xl font-bold">BORRADOR DE ORDEN DE PAGO</h1>`
+              }
+              <p class="text-xs opacity-90">Generado el ${fechaGeneracion}</p>
+            </div>
+            <div class="bg-white text-blue-800 px-3 py-1 rounded text-xs font-bold">
+              ${estado.toUpperCase()}
+            </div>
+          </div>
         </div>
-        <div class="text-right text-sm">
-          <p>MÉTODO DE PAGO: ${metodo_pago}</p>
-          ${
-            metodo_pago.toUpperCase() === "TRANSFERENCIA"
-              ? `<p>BANCO: ${banco}</p><p>REFERENCIA: ${referencia}</p>`
-              : ""
-          }
+
+        <!-- Datos principales -->
+        <div class="grid grid-cols-2 gap-4 p-4 border-b">
+          <div>
+            <h2 class="font-bold text-sm mb-2 text-blue-800">INFORMACIÓN BÁSICA</h2>
+            <div class="space-y-1 text-xs">
+              <p><span class="font-semibold">Fecha Solicitud:</span> ${fechaMostrar}</p>
+              <p><span class="font-semibold">Fecha Pago:</span> ${fechaPagoMostrar}</p>
+              <p><span class="font-semibold">Solicitado por:</span> ${solicitadoPor}</p>
+              <p><span class="font-semibold">Autorizado por:</span> ${autorizadoPor}</p>
+              <p><span class="font-semibold">Aprobado por:</span> ${aprobadoPor}</p>
+            </div>
+          </div>
+          
+          <div>
+            <h2 class="font-bold text-sm mb-2 text-blue-800">DATOS DE PAGO</h2>
+            <div class="space-y-1 text-xs">
+              <p><span class="font-semibold">Método:</span> ${metodoPago}</p>
+              ${
+                metodoPago?.toUpperCase() === "TRANSFERENCIA"
+                  ? `<p><span class="font-semibold">Banco:</span> ${banco}</p>
+                   <p><span class="font-semibold">Referencia:</span> ${referencia}</p>`
+                  : ""
+              }
+              <p><span class="font-semibold">Comprobante:</span> ${comprobanteLink}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Información adicional -->
+        <div class="p-4 border-b">
+          ${gastoInfo || ""}
+          ${proveedorInfo || ""}
+          ${observacionesHtml || ""}
+        </div>
+
+        <!-- Tabla de montos -->
+        <div class="p-4 border-b">
+          <h2 class="font-bold text-sm mb-2 text-blue-800">DETALLE DE MONTOS</h2>
+          <table class="w-full border-collapse text-xs">
+            <thead>
+              <tr class="bg-gray-100">
+                <th class="text-left py-2 px-3 border">Concepto</th>
+                <th class="text-right py-2 px-3 border">Valor</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="py-1 px-3 border">Moneda</td>
+                <td class="py-1 px-3 border amount-cell">${moneda}</td>
+              </tr>
+              <tr>
+                <td class="py-1 px-3 border">Tasa de Cambio</td>
+                <td class="py-1 px-3 border amount-cell">${
+                  tasaCambio !== null ? tasaCambio : "N/A"
+                }</td>
+              </tr>
+              <tr>
+                <td class="py-1 px-3 border">Monto Solicitado</td>
+                <td class="py-1 px-3 border amount-cell font-semibold">$${parseFloat(
+                  montoSolicitado
+                ).toFixed(2)}</td>
+              </tr>
+              <tr>
+                <td class="py-1 px-3 border">Monto Pagado</td>
+                <td class="py-1 px-3 border amount-cell">$${parseFloat(
+                  montoPagado
+                ).toFixed(2)}</td>
+              </tr>
+              <tr>
+                <td class="py-1 px-3 border font-semibold">Diferencia</td>
+                <td class="py-1 px-3 border amount-cell font-semibold ${
+                  diferencia === 0 ? "text-green-600" : "text-red-600"
+                }">
+                  $${parseFloat(diferencia).toFixed(2)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Firmas -->
+        <div class="p-4">
+          <h3 class="font-bold text-sm mb-3 text-center text-blue-800">FIRMAS AUTORIZADAS</h3>
+          <div class="grid grid-cols-3 gap-4 text-center text-xs">
+            <div>
+              ${
+                firmaSolicita
+                  ? `<img src="${firmaSolicita}" class="h-12 mx-auto mb-1" />`
+                  : '<div class="firma-placeholder"></div>'
+              }
+              <p class="font-semibold">${solicitadoPor}</p>
+              <p class="text-gray-500">Solicitado por</p>
+            </div>
+            <div>
+              ${
+                firmaAutoriza
+                  ? `<img src="${firmaAutoriza}" class="h-12 mx-auto mb-1" />`
+                  : '<div class="firma-placeholder"></div>'
+              }
+              <p class="font-semibold">${autorizadoPor}</p>
+              <p class="text-gray-500">Autorizado por</p>
+            </div>
+            <div>
+              ${
+                firmaAprueba
+                  ? `<img src="${firmaAprueba}" class="h-12 mx-auto mb-1" />`
+                  : '<div class="firma-placeholder"></div>'
+              }
+              <p class="font-semibold">${aprobadoPor}</p>
+              <p class="text-gray-500">Aprobado por</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pie de página -->
+        <div class="bg-gray-100 p-2 text-center text-xs text-gray-500">
+          Documento generado el ${fechaGeneracion}
         </div>
       </div>
-
-      <!-- OBSERVACIONES -->
-      ${
-        observaciones
-          ? `
-        <div class="mb-6 p-4 bg-gray-100 rounded border">
-          <h3 class="text-sm font-bold mb-2">Observaciones:</h3>
-          <p class="text-xs">${observaciones}</p>
-        </div>
-        `
-          : ""
-      }
-
-      <!-- TABLA PRINCIPAL -->
-      <div class="border-black border-2">
-        <table class="w-full text-xs text-center border-collapse">
-          <thead class="bg-blue-800 text-white">
-            <tr>
-              <th class="py-2 px-2">MÉTODO</th>
-              <th class="py-2 px-2">BANCO</th>
-              <th class="py-2 px-2">REFERENCIA</th>
-              <th class="py-2 px-2">MONTO</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${detallePago}
-          </tbody>
-        </table>
-      </div>
-
-      <!-- TOTALES -->
-      <div class="flex justify-end">
-        <table class="text-xs text-right w-72">
-          <tbody class="bg-blue-800 text-white border-2">
-            <tr>
-              <td class="font-bold p-2 border-2">BASE IMPONIBLE USD:</td>
-              <td class="p-2 border-2">$${parseFloat(subtotal).toFixed(2)}</td>
-            </tr>
-            <tr>
-              <td class="font-bold p-2 border-2">IVA (${porcentaje_iva}%):</td>
-              <td class="p-2 border-2">$${parseFloat(impuesto).toFixed(2)}</td>
-            </tr>
-            <tr>
-              <td class="font-bold p-2 border-2">TOTAL A PAGAR USD:</td>
-              <td class="p-2 border-2">$${parseFloat(total).toFixed(2)}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- AUDITORÍA -->
-        <div class="mt-6 text-[10px] text-gray-600">
-          <table class="w-full text-xs border">
-    <thead class="bg-gray-200">
-      <tr>
-        <th class="border">Solicitado por:</th>
-        <th class="border">Autorizado por:</th>
-        <th class="border">Aprobado por:</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr class="h-24 align-top"> <!-- espacio para la gráfica -->
-        <td class="border">
-          ${
-            firmaSolicita
-              ? `<img src="${firmaSolicita}" class="h-20 mx-auto" />`
-              : ""
-          }
-        </td>
-        <td class="border">
-          ${
-            firmaAutoriza
-              ? `<img src="${firmaAutoriza}" class="h-20 mx-auto" />`
-              : ""
-          }
-        </td>
-        <td class="border">
-          ${
-            firmaAprueba
-              ? `<img src="${firmaAprueba}" class="h-20 mx-auto" />`
-              : ""
-          }
-        </td>
-      </tr>
-      <tr>
-        <td class="border text-center font-semibold">${solicitado_por}</td>
-        <td class="border text-center font-semibold">${autorizado_por}</td>
-        <td class="border text-center font-semibold">${aprobado_por}</td>
-      </tr>
-    </tbody>
-  </table>
     </body>
     </html>
   `;
