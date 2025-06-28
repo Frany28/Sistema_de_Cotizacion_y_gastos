@@ -166,7 +166,7 @@ export default function ModalAñadirServicioProducto({
               <button
                 type="button"
                 onClick={onCancel}
-                className="cursor-pointer absolute right-4 top-4 text-gray-400 bg-transparent  rounded-lg text-sm w-8 h-8 inline-flex justify-center items-center hover:bg-gray-600 hover:text-white"
+                className="cursor-pointer absolute right-4 top-4 text-gray-400 bg-transparent  rounded-lg text-sm w-8 h-8 inline-flex justify-center items-center hover:bg-gray-700 hover:text-white"
               >
                 <svg
                   className="w-3 h-3"
@@ -202,7 +202,7 @@ export default function ModalAñadirServicioProducto({
                     value={form.nombre}
                     onChange={handleChange}
                     placeholder="Nombre del servicio o producto"
-                    className="  text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
+                    className="  text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                     required
                   />
                   {errors.nombre && (
@@ -220,7 +220,7 @@ export default function ModalAñadirServicioProducto({
                     onChange={handleChange}
                     placeholder="Descripción del servicio o producto"
                     rows="3"
-                    className=" text-sm rounded-lg block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
+                    className=" text-sm rounded-lg block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                     required
                   />
                   {errors.descripcion && (
@@ -240,7 +240,7 @@ export default function ModalAñadirServicioProducto({
                     pattern="^\d+(\.\d{1,2})?$"
                     step="0.01"
                     min="0"
-                    className="text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
+                    className="text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                     required
                   />
                   {errors.precio && (
@@ -255,7 +255,7 @@ export default function ModalAñadirServicioProducto({
                     name="porcentaje_iva"
                     value={form.porcentaje_iva}
                     onChange={handleChange}
-                    className="cursor-pointer text-sm rounded-lg block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
+                    className="cursor-pointer text-sm rounded-lg block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                     required
                   >
                     <option value="">Seleccione un tipo de impuesto</option>
@@ -278,7 +278,7 @@ export default function ModalAñadirServicioProducto({
                     name="tipo"
                     value={form.tipo}
                     onChange={handleChange}
-                    className="cursor-pointer text-sm rounded-lg block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
+                    className="cursor-pointer text-sm rounded-lg block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                     required
                   >
                     <option value="servicio">Servicio</option>
@@ -296,7 +296,7 @@ export default function ModalAñadirServicioProducto({
                       name="cantidad_actual"
                       value={form.cantidad_actual}
                       onChange={handleChange}
-                      className="text-sm rounded-lg block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
+                      className="text-sm rounded-lg block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                     />
                     {errors.cantidad_actual && (
                       <p className="text-red-500 text-sm">

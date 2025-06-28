@@ -196,7 +196,7 @@ export default function ModalAñadirCliente({ onCancel, onSubmit, onSuccess }) {
               <button
                 type="button"
                 onClick={onCancel}
-                className="cursor-pointer absolute right-4 top-4 text-gray-400 bg-transparent rounded-lg text-sm w-8 h-8 inline-flex justify-center items-center hover:bg-gray-600 hover:text-white"
+                className="cursor-pointer absolute right-4 top-4 text-gray-400 bg-transparent rounded-lg text-sm w-8 h-8 inline-flex justify-center items-center hover:bg-gray-700 hover:text-white"
               >
                 <svg
                   className="w-3 h-3"
@@ -231,7 +231,7 @@ export default function ModalAñadirCliente({ onCancel, onSubmit, onSuccess }) {
                     name="nombre"
                     value={form.nombre}
                     onChange={handleChange}
-                    className="border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
+                    className="border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                     placeholder="Juan Pérez"
                     required
                   />
@@ -248,7 +248,7 @@ export default function ModalAñadirCliente({ onCancel, onSubmit, onSuccess }) {
                     name="email"
                     value={form.email}
                     onChange={handleChange}
-                    className=" text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
+                    className=" text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                     placeholder="correo@dominio.com"
                     required
                   />
@@ -265,7 +265,7 @@ export default function ModalAñadirCliente({ onCancel, onSubmit, onSuccess }) {
                     name="telefono"
                     value={form.telefono}
                     onChange={handleChange}
-                    className="text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
+                    className="text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                     placeholder="0412123456"
                     required
                   />
@@ -282,7 +282,7 @@ export default function ModalAñadirCliente({ onCancel, onSubmit, onSuccess }) {
                     name="direccion"
                     value={form.direccion}
                     onChange={handleChange}
-                    className=" border  text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
+                    className=" border  text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                     placeholder="Av. Siempre Viva 742"
                     required
                   />
@@ -299,7 +299,7 @@ export default function ModalAñadirCliente({ onCancel, onSubmit, onSuccess }) {
                       name="tipo_ci"
                       value={form.tipo_ci}
                       onChange={handleChange}
-                      className="cursor-pointer border text-sm rounded-lg block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
+                      className="cursor-pointer border text-sm rounded-lg block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                     >
                       <option value="V">V</option>
                       <option value="E">E</option>
@@ -315,7 +315,7 @@ export default function ModalAñadirCliente({ onCancel, onSubmit, onSuccess }) {
                       value={form.numero_ci}
                       onChange={handleChange}
                       placeholder="Ej: 12345678"
-                      className=" border text-sm rounded-lg block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
+                      className=" border text-sm rounded-lg block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                       required
                     />
                     {errors.numero_ci && (
@@ -332,7 +332,7 @@ export default function ModalAñadirCliente({ onCancel, onSubmit, onSuccess }) {
                     name="sucursal_id"
                     value={form.sucursal_id}
                     onChange={handleChange}
-                    className="cursor-pointer text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
+                    className="cursor-pointer text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                     required
                   >
                     <option value="">Seleccione una sucursal</option>

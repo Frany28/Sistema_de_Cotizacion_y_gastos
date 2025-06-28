@@ -151,7 +151,7 @@ export default function ModalAñadirProveedor({
               <button
                 type="button"
                 onClick={onCancel}
-                className="cursor-pointer absolute right-4 top-4 text-gray-400 bg-transparent  hover:text-gray-900 rounded-lg text-sm w-8 h-8 inline-flex justify-center items-center hover:bg-gray-600 "
+                className="cursor-pointer absolute right-4 top-4 text-gray-400 bg-transparent  hover:text-gray-900 rounded-lg text-sm w-8 h-8 inline-flex justify-center items-center hover:bg-gray-700 "
               >
                 <svg
                   className="w-3 h-3"
@@ -187,7 +187,7 @@ export default function ModalAñadirProveedor({
                     name="nombre"
                     value={form.nombre}
                     onChange={handleChange}
-                    className=" text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
+                    className=" text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                     placeholder="Proveedor S.A."
                     required
                   />
@@ -205,7 +205,7 @@ export default function ModalAñadirProveedor({
                     name="email"
                     value={form.email}
                     onChange={handleChange}
-                    className=" text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
+                    className=" text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                     placeholder="proveedor@dominio.com"
                     required
                   />
@@ -223,7 +223,7 @@ export default function ModalAñadirProveedor({
                     name="telefono"
                     value={form.telefono}
                     onChange={handleChange}
-                    className="  text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
+                    className="  text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                     placeholder="0412123456"
                     required
                   />
@@ -241,7 +241,7 @@ export default function ModalAñadirProveedor({
                     name="direccion"
                     value={form.direccion}
                     onChange={handleChange}
-                    className=" text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
+                    className=" text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                     placeholder="Av. Siempre Viva 742"
                     required
                   />
@@ -259,7 +259,7 @@ export default function ModalAñadirProveedor({
                     name="rif"
                     value={form.rif}
                     onChange={handleChange}
-                    className=" text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
+                    className=" text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                     placeholder="J-123456789"
                     required
                   />
@@ -276,7 +276,7 @@ export default function ModalAñadirProveedor({
                     name="estado"
                     value={form.estado}
                     onChange={handleChange}
-                    className="cursor-pointer text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
+                    className="cursor-pointer text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                     required
                   >
                     <option value="activo">Activo</option>

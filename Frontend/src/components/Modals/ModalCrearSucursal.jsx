@@ -131,7 +131,7 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
                       value={form.codigo}
                       onChange={handleChange}
                       required
-                      className=" border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
+                      className=" border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                     />
                     {errors.codigo && (
                       <p className="mt-1 text-sm text-red-600">
@@ -148,7 +148,7 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
                       value={form.nombre}
                       onChange={handleChange}
                       required
-                      className="border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
+                      className="border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                     />
                     {errors.nombre && (
                       <p className="mt-1 text-sm text-red-600">
@@ -165,7 +165,7 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
                       value={form.direccion}
                       onChange={handleChange}
                       required
-                      className="border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
+                      className="border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                     />
                     {errors.direccion && (
                       <p className="mt-1 text-sm text-red-600">
@@ -181,7 +181,7 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
                       name="ciudad"
                       value={form.ciudad}
                       onChange={handleChange}
-                      className="border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
+                      className="border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                     />
                   </div>
                   <div>
@@ -192,7 +192,7 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
                       name="estado_provincia"
                       value={form.estado_provincia}
                       onChange={handleChange}
-                      className="border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
+                      className="border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                     />
                   </div>
                   <div className="col-span-2">
@@ -203,7 +203,7 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
                       name="pais"
                       value={form.pais}
                       onChange={handleChange}
-                      className="border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
+                      className="border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                     />
                   </div>
                   <div>
@@ -214,7 +214,7 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
                       name="telefono"
                       value={form.telefono}
                       onChange={handleChange}
-                      className="border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
+                      className="border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                     />
                   </div>
                   <div>
@@ -226,7 +226,7 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
                       name="email"
                       value={form.email}
                       onChange={handleChange}
-                      className="border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
+                      className="border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                     />
                   </div>
                   <div className="col-span-2">
@@ -237,7 +237,7 @@ export default function ModalCrearSucursal({ visible, onCancel, onSuccess }) {
                       name="responsable"
                       value={form.responsable}
                       onChange={handleChange}
-                      className="border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-600 border-gray-500 text-white"
+                      className="border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                     />
                   </div>
                 </div>

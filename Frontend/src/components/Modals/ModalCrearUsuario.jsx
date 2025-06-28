@@ -151,7 +151,7 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                   <button
                     type="button"
                     onClick={onCancel}
-                    className="cursor-pointer absolute right-4 top-4 text-gray-400  rounded-lg w-8 h-8 flex justify-center items-center hover:bg-gray-600"
+                    className="cursor-pointer absolute right-4 top-4 text-gray-400  rounded-lg w-8 h-8 flex justify-center items-center hover:bg-gray-700"
                   >
                     <svg
                       className="w-3 h-3"
@@ -181,7 +181,7 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                       placeholder="Nombre del usuario"
                       value={form.nombre}
                       onChange={handleChange}
-                      className="block w-full p-2.5  border rounded-lg bg-gray-600 border-gray-500 text-white"
+                      className="block w-full p-2.5  border rounded-lg bg-gray-700 border-gray-500 text-white"
                     />
                     {errors.nombre && (
                       <p className="text-red-500 text-sm">{errors.nombre}</p>
@@ -199,7 +199,7 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                       placeholder="correo@email.com"
                       value={form.email}
                       onChange={handleChange}
-                      className="block w-full p-2.5  border rounded-lg bg-gray-600 border-gray-500 text-white"
+                      className="block w-full p-2.5  border rounded-lg bg-gray-700 border-gray-500 text-white"
                     />
                     {errors.email && (
                       <p className="text-red-500 text-sm">{errors.email}</p>
@@ -217,7 +217,7 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                       value={form.password}
                       onChange={handleChange}
                       placeholder="Mínimo 6 caracteres"
-                      className="block w-full p-2.5  border rounded-lg bg-gray-600 border-gray-500 text-white"
+                      className="block w-full p-2.5  border rounded-lg bg-gray-700 border-gray-500 text-white"
                     />
                     {errors.password && (
                       <p className="text-red-500 text-sm">{errors.password}</p>
@@ -233,7 +233,7 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                       name="rol_id"
                       value={form.rol_id}
                       onChange={handleChange}
-                      className="cursor-pointer block w-full p-2.5  border rounded-lg bg-gray-600 border-gray-500 text-white"
+                      className="cursor-pointer block w-full p-2.5  border rounded-lg bg-gray-700 border-gray-500 text-white"
                     >
                       <option value="">Seleccione un rol</option>
                       {roles.map((r) => (
@@ -260,7 +260,7 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                       className="
                       block w-full p-2.5  text-gray-200 rounded
                       file:px-4 file:py-2
-                      file:bg-gray-600
+                      file:bg-gray-700
                        file:text-gray-200
                       file:border  file:border-gray-500
                       file:rounded file:cursor-pointer
