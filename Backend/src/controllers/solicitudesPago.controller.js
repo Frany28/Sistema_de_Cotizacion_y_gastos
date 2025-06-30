@@ -186,7 +186,6 @@ export const obtenerSolicitudesPago = async (req, res) => {
   const search = (req.query.search || "").trim();
 
   try {
-    // total
     let whereSQL = "";
     const whereParams = [];
 
@@ -199,11 +198,11 @@ export const obtenerSolicitudesPago = async (req, res) => {
       whereSQL +=
         (whereSQL ? " AND " : " WHERE ") +
         `(
-        sp.codigo LIKE ? OR
-        p.nombre LIKE ? OR
-        sp.moneda LIKE ? OR
-        sp.estado LIKE ?
-      )`;
+          sp.codigo LIKE ? OR
+          p.nombre LIKE ? OR
+          sp.moneda LIKE ? OR
+          sp.estado LIKE ?
+        )`;
       whereParams.push(
         `%${search}%`,
         `%${search}%`,
@@ -212,15 +211,18 @@ export const obtenerSolicitudesPago = async (req, res) => {
       );
     }
 
+    // Total
     const [[{ total }]] = await db.query(
-      `SELECT COUNT(*) AS total FROM solicitudes_pago sp
-       LEFT JOIN proveedores p ON p.id = sp.proveedor_id
-       ${whereSQL}`,
+      `SELECT COUNT(*) AS total
+         FROM solicitudes_pago sp
+         LEFT JOIN proveedores p ON p.id = sp.proveedor_id
+         ${whereSQL}`,
       whereParams
     );
 
-    // data
-    let dataSQL = `
+    // Data
+    const [solicitudes] = await db.query(
+      `
       SELECT 
         sp.id,
         sp.codigo,
@@ -239,8 +241,9 @@ export const obtenerSolicitudesPago = async (req, res) => {
       ${whereSQL}
       ORDER BY sp.fecha_solicitud DESC
       LIMIT ${limit} OFFSET ${offset}
-    `;
-    const [solicitudes] = await db.query(dataSQL, whereParams);
+      `,
+      whereParams
+    );
 
     return res.json({ solicitudes, total, page, limit });
   } catch (error) {
