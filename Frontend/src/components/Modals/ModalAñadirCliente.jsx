@@ -224,7 +224,7 @@ export default function ModalAñadirCliente({ onCancel, onSubmit, onSuccess }) {
                 )}
                 <div className="col-span-2">
                   <label className="block mb-2 text-sm font-medium text-white">
-                    Nombre
+                    Nombre y Apellido
                   </label>
                   <input
                     type="text"
