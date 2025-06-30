@@ -40,7 +40,7 @@ export default function ServProCotizacion({
   };
 
   return (
-    <div className="bg-gray-800 rounded-xl p-6 shadow-md">
+    <div className="overflow-y-auto max-h-[400px]">
       <ModalError
         visible={modalError.visible}
         mensaje={modalError.mensaje}
