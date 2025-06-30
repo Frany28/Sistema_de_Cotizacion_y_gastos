@@ -36,16 +36,22 @@ export default function ServProCotizacion({
       if (onAgregar) onAgregar(nuevo);
     } catch (error) {
       console.error("Error al agregar servicio:", error);
+      setModalError({
+        visible: true,
+        mensaje: "Error al obtener información del servicio.",
+      });
     }
   };
 
   return (
-    <div className="overflow-y-auto max-h-[400px]">
+    <div className="bg-gray-800 rounded-xl p-6 shadow-md">
       <ModalError
         visible={modalError.visible}
         mensaje={modalError.mensaje}
         onClose={() => setModalError({ visible: false, mensaje: "" })}
       />
+
+      {/* INPUT - siempre visible arriba */}
       <div className="mb-4">
         <input
           type="text"
@@ -55,7 +61,9 @@ export default function ServProCotizacion({
           className="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white"
         />
       </div>
-      <div className="overflow-x-auto">
+
+      {/* CONTENEDOR SCROLLABLE */}
+      <div className="overflow-x-auto overflow-y-auto max-h-[400px]">
         <table className="w-full text-sm text-left text-gray-400">
           <thead className="text-xs uppercase bg-gray-700">
             <tr>
