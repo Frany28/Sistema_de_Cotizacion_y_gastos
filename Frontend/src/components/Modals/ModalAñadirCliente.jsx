@@ -107,17 +107,8 @@ export default function ModalAñadirCliente({ onCancel, onSubmit, onSuccess }) {
     setIsSubmitting(true);
 
     try {
-      const { exists } = await checkExistingClient();
-      if (exists) {
-        setServerError("El cliente ya está registrado");
-        setIsSubmitting(false);
-        return;
-      }
-
-      // 2. Enviar datos al backend
       const response = await api.post("/clientes", clienteData);
 
-      // 3. Si es exitoso
       if (response.status === 201) {
         onSubmit(response.data);
         onSuccess({
@@ -126,7 +117,6 @@ export default function ModalAñadirCliente({ onCancel, onSubmit, onSuccess }) {
           textoBoton: "Entendido",
         });
 
-        // Resetear formulario
         setForm({
           nombre: "",
           email: "",
@@ -160,6 +150,8 @@ export default function ModalAñadirCliente({ onCancel, onSubmit, onSuccess }) {
       }
 
       setServerError(mensaje);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
