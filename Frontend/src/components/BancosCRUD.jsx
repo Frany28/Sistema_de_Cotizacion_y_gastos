@@ -6,7 +6,7 @@ import { verificarPermisoFront } from "../../utils/verificarPermisoFront.js";
 import ModalAñadirBanco from "../components/Modals/ModalAñadirBanco";
 import BotonIcono from "./general/BotonIcono";
 import BotonAgregar from "../components/general/BotonAgregar";
-import ModalConfirmacion from "../components/Modals/ModalConfirmacion";
+import ModalConfirmacion from "../components/Modals/ModalConfirmacion.jsx";
 import ModalExito from "../components/Modals/ModalExito";
 import ModalEditar from "../components/Modals/ModalEditar";
 import ModalError from "../components/Modals/ModalError";
@@ -289,8 +289,16 @@ function BancosCRUD() {
                     <BotonIcono
                       tipo="eliminar"
                       onClick={() => {
-                        if (banco.estado !== "activo")
-                          confirmarEliminacion(banco);
+                        if (banco.estado === "activo") {
+                          mostrarMensajeError({
+                            titulo: "No permitido",
+                            mensaje:
+                              "No se puede eliminar un banco activo. Cámbialo a inactivo primero.",
+                            textoBoton: "Cerrar",
+                          });
+                          return;
+                        }
+                        confirmarEliminacion(banco);
                       }}
                       disabled={banco.estado === "activo"}
                       titulo={
