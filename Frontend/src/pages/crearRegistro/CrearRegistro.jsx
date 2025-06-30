@@ -120,6 +120,10 @@ const CrearRegistro = () => {
     try {
       setLoading(true);
 
+      const hayProducto = itemsAgregados.some(
+        (item) => item.tipo === "producto"
+      );
+
       if (!clienteSeleccionado) {
         setModalError({
           visible: true,
@@ -185,10 +189,6 @@ const CrearRegistro = () => {
         return sum + (subtotalItem * porcentaje) / 100;
       }, 0);
       const totalCotizacion = subtotalSinIva + totalImpuestos;
-
-      const hayProducto = itemsAgregados.some(
-        (item) => item.tipo === "producto"
-      );
 
       const datosCotizacion = {
         tipo: "cotizacion",
