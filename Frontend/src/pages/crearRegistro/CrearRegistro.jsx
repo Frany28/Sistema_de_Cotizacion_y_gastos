@@ -147,6 +147,34 @@ const CrearRegistro = () => {
         return;
       }
 
+      if (hayProducto) {
+        const camposObligatorios = [
+          { campo: "operacion", nombre: "Operación" },
+          { campo: "mercancia", nombre: "Mercancía" },
+          { campo: "puerto", nombre: "Puerto" },
+          { campo: "bl", nombre: "BL" },
+          { campo: "contenedor", nombre: "Contenedor" },
+        ];
+
+        const camposFaltantes = camposObligatorios
+          .filter(
+            ({ campo }) =>
+              !datosGenerales[campo] || datosGenerales[campo] === "N/A"
+          )
+          .map(({ nombre }) => nombre);
+
+        if (camposFaltantes.length > 0) {
+          setModalError({
+            visible: true,
+            mensaje:
+              `Faltan completar campos obligatorios para productos:\n\n` +
+              camposFaltantes.map((c) => `- ${c}`).join("\n"),
+          });
+          setLoading(false);
+          return;
+        }
+      }
+
       const subtotalSinIva = itemsAgregados.reduce(
         (sum, item) => sum + (item.precio || 0) * (item.cantidad || 0),
         0
@@ -205,9 +233,7 @@ const CrearRegistro = () => {
     } catch (error) {
       console.error("Error al crear cotización", error);
 
-      const mensajeBase =
-        error.response?.data?.message ||
-        "No se pudo crear la cotización. Intenta nuevamente.";
+      const mensajeBase = error.response?.data?.message;
 
       const erroresDetalles = error.response?.data?.errores;
 
@@ -318,7 +344,6 @@ const CrearRegistro = () => {
     );
   }
   const crearGasto = async (datosGasto) => {
-
     try {
       setLoading(true);
 
@@ -385,8 +410,7 @@ const CrearRegistro = () => {
     } catch (error) {
       console.error("Error:", error.response?.data || error);
 
-      const mensajeBase =
-        error.response?.data?.message || "Error al registrar el gasto.";
+      const mensajeBase = error.response?.data?.message;
 
       const erroresDetalles = error.response?.data?.errores;
 
@@ -420,7 +444,7 @@ const CrearRegistro = () => {
 
       <div className="mb-6">
         <label className="block text-sm font-medium text-white mb-2">
-          Tipo de registro *
+          Tipo de registro
         </label>
         <select
           value={tipoRegistro}
