@@ -71,7 +71,12 @@ function ListaSolicitudesPago() {
       };
 
       const response = await api.get("/solicitudes-pago", {
-        params,
+        params: {
+          page,
+          limit,
+          estado: estadoFiltro !== "todos" ? estadoFiltro : undefined,
+          search: busqueda.trim() !== "" ? busqueda.trim() : undefined,
+        },
         withCredentials: true,
       });
 
@@ -110,17 +115,7 @@ function ListaSolicitudesPago() {
   };
 
   // Filtrado y paginación
-  const solicitudesFiltradas = solicitudes.filter((s) =>
-    [s.codigo, s.proveedor_nombre, s.estado, s.moneda].some((campo) =>
-      campo?.toString().toLowerCase().includes(busqueda.toLowerCase())
-    )
-  );
-
   const totalPaginas = Math.ceil(totalSolicitudes / limit);
-  const solicitudesPaginadas = solicitudesFiltradas.slice(
-    (page - 1) * limit,
-    page * limit
-  );
 
   const onPagoExitoso = () => {
     setPagarData({ visible: false, solicitudId: null });
@@ -242,8 +237,7 @@ function ListaSolicitudesPago() {
           ))}
         </div>
         <div className="text-sm text-gray-400">
-          Mostrando {solicitudesPaginadas.length} de{" "}
-          {solicitudesFiltradas.length} resultados
+          Mostrando {solicitudes.length} de {totalSolicitudes} resultados
         </div>
       </div>
 
@@ -266,7 +260,7 @@ function ListaSolicitudesPago() {
 
         {/* Cuerpo de tabla */}
         <tbody>
-          {solicitudesPaginadas.map((solicitud) => {
+          {solicitudes.map((solicitud) => {
             const saldoPendiente = solicitud.monto - solicitud.pagado;
             const isBolivares = solicitud.moneda === "VES";
 

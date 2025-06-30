@@ -183,16 +183,41 @@ export const obtenerSolicitudesPago = async (req, res) => {
   const limit = parseInt(req.query.limit, 10) || 10;
   const offset = (page - 1) * limit;
   const { estado } = req.query;
+  const search = (req.query.search || "").trim();
 
   try {
     // total
-    let countSQL = "SELECT COUNT(*) AS total FROM solicitudes_pago";
-    const countParams = [];
-    if (estado) {
-      countSQL += " WHERE estado = ?";
-      countParams.push(estado);
+    let whereSQL = "";
+    const whereParams = [];
+
+    if (estado && estado !== "todos") {
+      whereSQL += (whereSQL ? " AND " : " WHERE ") + "sp.estado = ?";
+      whereParams.push(estado);
     }
-    const [[{ total }]] = await db.query(countSQL, countParams);
+
+    if (search) {
+      whereSQL +=
+        (whereSQL ? " AND " : " WHERE ") +
+        `(
+        sp.codigo LIKE ? OR
+        p.nombre LIKE ? OR
+        sp.moneda LIKE ? OR
+        sp.estado LIKE ?
+      )`;
+      whereParams.push(
+        `%${search}%`,
+        `%${search}%`,
+        `%${search}%`,
+        `%${search}%`
+      );
+    }
+
+    const [[{ total }]] = await db.query(
+      `SELECT COUNT(*) AS total FROM solicitudes_pago sp
+       LEFT JOIN proveedores p ON p.id = sp.proveedor_id
+       ${whereSQL}`,
+      whereParams
+    );
 
     // data
     let dataSQL = `
@@ -211,17 +236,11 @@ export const obtenerSolicitudesPago = async (req, res) => {
         sp.estado
       FROM solicitudes_pago sp
       LEFT JOIN proveedores p ON p.id = sp.proveedor_id
-    `;
-    const dataParams = [];
-    if (estado) {
-      dataSQL += " WHERE sp.estado = ?";
-      dataParams.push(estado);
-    }
-    dataSQL += `
+      ${whereSQL}
       ORDER BY sp.fecha_solicitud DESC
       LIMIT ${limit} OFFSET ${offset}
     `;
-    const [solicitudes] = await db.query(dataSQL, dataParams);
+    const [solicitudes] = await db.query(dataSQL, whereParams);
 
     return res.json({ solicitudes, total, page, limit });
   } catch (error) {

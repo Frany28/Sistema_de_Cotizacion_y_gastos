@@ -41,10 +41,15 @@ export default function ModalAñadirServicioProducto({
       newErrors.nombre = "El nombre es requerido";
     } else if (!regexNombre.test(form.nombre)) {
       newErrors.nombre = "El nombre contiene caracteres no válidos";
+    } else if (form.nombre.length < 3 || form.nombre.length > 100) {
+      newErrors.nombre = "El nombre debe tener entre 3 y 100 caracteres.";
     }
 
     if (!form.descripcion.trim()) {
       newErrors.descripcion = "La descripción es requerida";
+    } else if (form.descripcion.length < 5 || form.descripcion.length > 255) {
+      newErrors.descripcion =
+        "La descripción debe tener entre 5 y 255 caracteres.";
     }
 
     if (!form.precio) {
@@ -53,6 +58,13 @@ export default function ModalAñadirServicioProducto({
       newErrors.precio = "El precio debe ser un número válido (ej. 10.99)";
     } else if (parseFloat(form.precio) <= 0) {
       newErrors.precio = "El precio debe ser mayor a cero";
+    } else if (parseFloat(form.precio) > 999999.99) {
+      newErrors.precio = "El precio no puede exceder 999.999,99.";
+    }
+
+    if (!["0", "8", "16"].includes(form.porcentaje_iva)) {
+      newErrors.porcentaje_iva =
+        "Seleccione un tipo de impuesto válido (0, 8 o 16%).";
     }
 
     if (form.tipo === "producto") {
@@ -71,13 +83,10 @@ export default function ModalAñadirServicioProducto({
 
   const checkExisting = async () => {
     try {
-      const response = await api.get(
-        "/servicios-productos/check",
-        {
-          params: { nombre: form.nombre.trim() },
-          validateStatus: (status) => status < 500,
-        }
-      );
+      const response = await api.get("/servicios-productos/check", {
+        params: { nombre: form.nombre.trim() },
+        validateStatus: (status) => status < 500,
+      });
       return response.data?.exists || false;
     } catch (error) {
       console.error("Error en verificación:", error);
@@ -115,10 +124,7 @@ export default function ModalAñadirServicioProducto({
         delete datosEnviar.cantidad_anterior;
       }
 
-      const response = await api.post(
-        "/servicios-productos",
-        datosEnviar
-      );
+      const response = await api.post("/servicios-productos", datosEnviar);
 
       if (response.status === 201) {
         onSubmit(response.data);
