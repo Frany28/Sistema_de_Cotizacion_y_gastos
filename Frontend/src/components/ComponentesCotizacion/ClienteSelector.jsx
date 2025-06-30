@@ -71,7 +71,7 @@ const ClienteSelector = ({
       />
 
       {mostrarOpciones && filtrarClientes().length > 0 && (
-        <ul className="absolute z-10 min-w-full bg-gray-700 border border-gray-600 mt-1 rounded max-h-48 overflow-y-auto">
+        <ul className="absolute z-10 min-w-full max-w-[400px] bg-gray-700 border border-gray-600 mt-1 rounded max-h-48 overflow-y-auto">
           {filtrarClientes().map((c) => (
             <li
               key={c.id}
