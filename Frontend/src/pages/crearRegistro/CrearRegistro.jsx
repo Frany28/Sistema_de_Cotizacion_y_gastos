@@ -202,22 +202,25 @@ const CrearRegistro = () => {
         mercancia: "",
         contenedor: "",
       });
-    } catch (err) {
-      console.error("Error al crear cotización:", err);
+    } catch (error) {
+      console.error("Error al crear cotización", error);
 
-      if (err.response?.status === 403) {
-        setModalError({
-          visible: true,
-          mensaje:
-            err.response?.data?.message ||
-            "No tienes permiso para realizar esta acción.",
-        });
-      } else {
-        setModalError({
-          visible: true,
-          mensaje: "No se pudo crear la cotización. Intenta nuevamente.",
-        });
-      }
+      const mensajeBase =
+        error.response?.data?.message ||
+        "No se pudo crear la cotización. Intenta nuevamente.";
+
+      const erroresDetalles = error.response?.data?.errores;
+
+      const mensajeFinal = erroresDetalles
+        ? `<p>${mensajeBase}</p><ul>${erroresDetalles
+            .map((e) => `<li>• ${e}</li>`)
+            .join("")}</ul>`
+        : mensajeBase;
+
+      setModalError({
+        visible: true,
+        mensaje: mensajeFinal,
+      });
     } finally {
       setLoading(false);
     }
@@ -383,9 +386,21 @@ const CrearRegistro = () => {
       setTipoRegistro("");
     } catch (error) {
       console.error("Error:", error.response?.data || error);
+
+      const mensajeBase =
+        error.response?.data?.message || "Error al registrar el gasto.";
+
+      const erroresDetalles = error.response?.data?.errores;
+
+      const mensajeFinal = erroresDetalles
+        ? `<p>${mensajeBase}</p><ul>${erroresDetalles
+            .map((e) => `<li>• ${e}</li>`)
+            .join("")}</ul>`
+        : mensajeBase;
+
       setModalError({
         visible: true,
-        mensaje: error.response?.data?.message || "Error al registrar el gasto",
+        mensaje: mensajeFinal,
       });
     } finally {
       setLoading(false);
