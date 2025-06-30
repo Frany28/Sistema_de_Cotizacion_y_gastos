@@ -18,7 +18,7 @@ const router = express.Router();
 router.get(
   "/",
   autenticarUsuario,
-  verificarPermiso("ver_solicitudes_pago"),
+  verificarPermiso("verSolicitudesPago"),
   obtenerSolicitudesPago
 );
 
@@ -28,7 +28,7 @@ router.get("/:id/pdf", generarPDFSolicitudPago);
 router.get(
   "/:id",
   autenticarUsuario,
-  verificarPermiso("ver_solicitudes_pago"),
+  verificarPermiso("verSolicitudesPago"),
   obtenerSolicitudPagoPorId
 );
 
@@ -36,7 +36,7 @@ router.get(
 router.patch(
   "/:id",
   autenticarUsuario,
-  verificarPermiso("editar_solicitud_pago"),
+  verificarPermiso("editarSolicitudPago"),
   actualizarSolicitudPago
 );
 
@@ -44,7 +44,7 @@ router.patch(
 router.patch(
   "/:id/cancelar",
   autenticarUsuario,
-  verificarPermiso("editar_solicitud_pago"),
+  verificarPermiso("editarSolicitudPago"),
   cancelarSolicitudPago
 );
 
@@ -52,7 +52,7 @@ router.patch(
 router.patch(
   "/:id/pagar",
   autenticarUsuario,
-  verificarPermiso("pagar_solicitud_pago"),
+  verificarPermiso("pagarSolicitudPago"),
   uploadComprobantePago.single("comprobante"),
   pagarSolicitudPago
 );
