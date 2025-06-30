@@ -163,7 +163,7 @@ export default function ModalAñadirCliente({ onCancel, onSubmit, onSuccess }) {
         exit={{ opacity: 0, scale: 0.95 }}
         className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/40"
       >
-        <div className="relative p-4 w-full max-w-md max-h-full">
+        <div className="relative p-4 w-full max-w-2xl max-h-full">
           <div className="relative  rounded-lg shadow-sm bg-gray-800">
             <div className="flex flex-col items-center justify-center pt-6">
               <UserPlus className="w-8 h-8 text-blue-500 mb-1" />
@@ -193,7 +193,7 @@ export default function ModalAñadirCliente({ onCancel, onSubmit, onSuccess }) {
               </button>
             </div>
             <form onSubmit={handleSubmit} className="p-4 md:p-5">
-              <div className="grid gap-4 mb-4 grid-cols-2">
+              <div className="grid gap-4 mb-4 grid-cols-2 md:grid-cols-3">
                 {serverError && (
                   <div className="col-span-2 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
                     {serverError}
