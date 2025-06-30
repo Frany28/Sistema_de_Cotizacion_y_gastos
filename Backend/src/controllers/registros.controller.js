@@ -48,45 +48,23 @@ export const getDatosRegistro = async (req, res) => {
 export const createRegistro = async (req, res) => {
   console.log("=== createRegistro ===");
 
-  /*────────────────────────────
-   * 1) Validar y preparar datos
-   *───────────────────────────*/
   if (!req.combinedData) {
     return res.status(400).json({
-      message: "No se recibieron los datos del registro",
+      message: "No se recibieron los datos del registro.",
     });
   }
 
-  // Hacemos una copia para no mutar el original
-  const datos = { ...req.combinedData, documento: null };
+  const datos = { ...req.combinedData };
   const tipoNormalizado = (datos.tipo || "").trim().toLowerCase();
-  console.log("createRegistro → tipoNormalizado:", tipoNormalizado);
-
-  if (!tipoNormalizado) {
-    return res.status(400).json({
-      message: "Debe indicar el tipo de registro",
-    });
-  }
 
   try {
     let resultado;
 
-    /*────────────────────────────
-     * 2) Flujo para GASTO
-     *───────────────────────────*/
     if (tipoNormalizado === "gasto") {
-      // Exigimos comprobante (archivo) para gastos
-      if (!req.file) {
-        return res.status(400).json({
-          message: "Para crear un gasto, el comprobante es obligatorio",
-        });
-      }
-
-      // 2.1  Crear gasto (sin documento todavía)
       resultado = await crearGasto(datos);
+
       const { registro_id: registroId, codigo } = resultado;
 
-      // 2.2  Construir clave S3
       const meses = [
         "enero",
         "febrero",
@@ -107,7 +85,6 @@ export const createRegistro = async (req, res) => {
       const nombreSeguro = req.file.originalname.replace(/\s+/g, "_");
       const claveS3 = `facturas_gastos/${anio}/${mesPalabra}/${codigo}/${Date.now()}-${nombreSeguro}`;
 
-      // 2.3  Subir a S3
       await s3.send(
         new PutObjectCommand({
           Bucket: process.env.S3_BUCKET,
@@ -118,22 +95,19 @@ export const createRegistro = async (req, res) => {
         })
       );
 
-      // 2.4  Guardar ruta del documento en la tabla "gastos"
-      await db.query("UPDATE gastos SET documento = ? WHERE id = ?", [
+      await db.query(`UPDATE gastos SET documento = ? WHERE id = ?`, [
         claveS3,
         registroId,
       ]);
 
-      // 2.5  Registrar en "archivos" y "eventosArchivo"
       const extension = path.extname(req.file.originalname).substring(1);
       const tamanioBytes = req.file.size;
 
       const [resArchivo] = await db.query(
         `INSERT INTO archivos
-           (registroTipo, registroId, nombreOriginal, extension, rutaS3,
-           tamanioBytes, subidoPor, creadoEn, actualizadoEn)
+          (registroTipo, registroId, nombreOriginal, extension, rutaS3,
+          tamanioBytes, subidoPor, creadoEn, actualizadoEn)
          VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-
         [
           "facturasGastos",
           registroId,
@@ -164,25 +138,14 @@ export const createRegistro = async (req, res) => {
           }),
         ]
       );
-
-      /*────────────────────────────
-       * 3) Flujo para COTIZACIÓN
-       *───────────────────────────*/
     } else if (tipoNormalizado === "cotizacion") {
       resultado = await crearCotizacionDesdeRegistro(datos);
-
-      /*────────────────────────────
-       * 4) Tipo no válido
-       *───────────────────────────*/
     } else {
       return res.status(400).json({
-        message: "Tipo de registro no válido",
+        message: "Tipo de registro no válido.",
       });
     }
 
-    /*────────────────────────────
-     * 5) Respuesta de éxito
-     *───────────────────────────*/
     return res.status(201).json(resultado);
   } catch (error) {
     console.error("Error al crear el registro:", error);
@@ -191,6 +154,7 @@ export const createRegistro = async (req, res) => {
     });
   }
 };
+
 // Crear gasto
 const crearGasto = async (datos) => {
   const {
