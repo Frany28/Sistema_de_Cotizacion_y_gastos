@@ -45,7 +45,7 @@ const ClienteSelector = ({
   };
 
   return (
-    <div className="mb-6 bg-gray-800 rounded-xl shadow-md">
+    <div className="mb-6 bg-gray-800 rounded-xl shadow-md ">
       <div className="flex justify-between items-center mb-2">
         <label className="block text-sm font-medium text-white">
           Cliente *
@@ -71,7 +71,7 @@ const ClienteSelector = ({
       />
 
       {mostrarOpciones && filtrarClientes().length > 0 && (
-        <ul className="absolute z-10 w-full bg-gray-700 border border-gray-600 mt-1 rounded max-h-48 overflow-y-auto">
+        <ul className="absolute z-10 min-w-full bg-gray-700 border border-gray-600 mt-1 rounded max-h-48 overflow-y-auto">
           {filtrarClientes().map((c) => (
             <li
               key={c.id}
