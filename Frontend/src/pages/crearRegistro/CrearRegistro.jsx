@@ -212,9 +212,7 @@ const CrearRegistro = () => {
       const erroresDetalles = error.response?.data?.errores;
 
       const mensajeFinal = erroresDetalles
-        ? `<p>${mensajeBase}</p><ul>${erroresDetalles
-            .map((e) => `<li>• ${e}</li>`)
-            .join("")}</ul>`
+        ? `${mensajeBase}\n\n${erroresDetalles.map((e) => `• ${e}`).join("\n")}`
         : mensajeBase;
 
       setModalError({
@@ -393,9 +391,7 @@ const CrearRegistro = () => {
       const erroresDetalles = error.response?.data?.errores;
 
       const mensajeFinal = erroresDetalles
-        ? `<p>${mensajeBase}</p><ul>${erroresDetalles
-            .map((e) => `<li>• ${e}</li>`)
-            .join("")}</ul>`
+        ? `${mensajeBase}\n\n${erroresDetalles.map((e) => `• ${e}`).join("\n")}`
         : mensajeBase;
 
       setModalError({
