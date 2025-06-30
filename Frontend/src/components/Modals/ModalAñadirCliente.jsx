@@ -141,14 +141,14 @@ export default function ModalAñadirCliente({ onCancel, onSubmit, onSuccess }) {
       }
     } catch (error) {
       console.error("Error al crear cliente:", error);
-    
+
       let mensaje = "Error en el servidor";
-    
+
       if (error.response) {
         if (error.response.data?.errores?.length > 0) {
           mensaje = [
             error.response.data.message || "Error de validación.",
-            ...error.response.data.errores.map((e) => `- ${e}`)
+            ...error.response.data.errores.map((e) => `- ${e}`),
           ].join("\n");
         } else if (error.response.data?.message) {
           mensaje = error.response.data.message;
@@ -158,7 +158,7 @@ export default function ModalAñadirCliente({ onCancel, onSubmit, onSuccess }) {
       } else {
         mensaje = "Error de conexión con el servidor.";
       }
-    
+
       setServerError(mensaje);
     }
   };
