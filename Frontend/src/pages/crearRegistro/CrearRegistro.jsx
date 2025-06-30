@@ -212,7 +212,7 @@ const CrearRegistro = () => {
       const erroresDetalles = error.response?.data?.errores;
 
       const mensajeFinal = erroresDetalles
-        ? `${mensajeBase}\n\n${erroresDetalles.map((e) => `• ${e}`).join("\n")}`
+        ? `${mensajeBase}\n\n${erroresDetalles.map((e) => `- ${e}`).join("\n")}`
         : mensajeBase;
 
       setModalError({
@@ -318,7 +318,7 @@ const CrearRegistro = () => {
     );
   }
   const crearGasto = async (datosGasto) => {
-    console.log("👉 crearGasto invocado con:", datosGasto);
+
     try {
       setLoading(true);
 
