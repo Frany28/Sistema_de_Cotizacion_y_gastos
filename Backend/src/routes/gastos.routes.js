@@ -28,7 +28,7 @@ router.get("/proveedores", getProveedores);
 router.get("/tipos", getTiposGasto);
 
 // Rutas Protegidas
-router.get("/", autenticarUsuario, verificarPermiso("ver_gastos"), getGastos);
+router.get("/", autenticarUsuario, verificarPermiso("verGastos"), getGastos);
 
 router.get(
   "/:id",
@@ -40,7 +40,7 @@ router.get(
 router.post(
   "/:id/comprobante",
   autenticarUsuario,
-  verificarPermiso("editar_gasto"),
+  verificarPermiso("editarGasto"),
   uploadComprobante.single("comprobante"),
   async (req, res) => {
     try {
