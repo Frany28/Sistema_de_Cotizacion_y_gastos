@@ -57,33 +57,34 @@ const ClienteSelector = ({
           + Añadir Cliente
         </button>
       </div>
+      <div className="relative w-full">
+        <input
+          type="text"
+          placeholder="Buscar por código o nombre..."
+          className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600"
+          value={busqueda}
+          onChange={(e) => {
+            setBusqueda(e.target.value);
+            setMostrarOpciones(true);
+          }}
+          onFocus={() => setMostrarOpciones(true)}
+        />
 
-      <input
-        type="text"
-        placeholder="Buscar por código o nombre..."
-        className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600"
-        value={busqueda}
-        onChange={(e) => {
-          setBusqueda(e.target.value);
-          setMostrarOpciones(true);
-        }}
-        onFocus={() => setMostrarOpciones(true)}
-      />
-
-      {mostrarOpciones && filtrarClientes().length > 0 && (
-        <ul className="absolute z-10 min-w-full max-w-[400px] bg-gray-700 border border-gray-600 mt-1 rounded max-h-48 overflow-y-auto">
-          {filtrarClientes().map((c) => (
-            <li
-              key={c.id}
-              className="px-4 py-2 hover:bg-gray-600 cursor-pointer text-white"
-              onClick={() => manejarSeleccionCliente(c)}
-            >
-              {(c.codigo_referencia ? c.codigo_referencia + " - " : "") +
-                c.nombre}
-            </li>
-          ))}
-        </ul>
-      )}
+        {mostrarOpciones && filtrarClientes().length > 0 && (
+          <ul className="absolute z-10 w-full max-w-[400px] bg-gray-700 border border-gray-600 mt-1 rounded shadow-lg max-h-48 overflow-y-auto">
+            {filtrarClientes().map((c) => (
+              <li
+                key={c.id}
+                className="px-4 py-2 hover:bg-gray-600 cursor-pointer text-white"
+                onClick={() => manejarSeleccionCliente(c)}
+              >
+                {(c.codigo_referencia ? c.codigo_referencia + " - " : "") +
+                  c.nombre}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       {mostrarError && !clienteId && (
         <div className="mt-2 p-2 bg-red-200 text-red-800 rounded">
