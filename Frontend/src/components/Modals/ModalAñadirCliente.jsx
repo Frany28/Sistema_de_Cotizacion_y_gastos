@@ -39,7 +39,7 @@ export default function ModalAñadirCliente({ onCancel, onSubmit, onSuccess }) {
           `${import.meta.env.VITE_API_URL}/sucursales/dropdown/list`,
           { credentials: "include" }
         );
-        if (!res.ok) throw new Error(`Status ${res.status}`); 
+        if (!res.ok) throw new Error(`Status ${res.status}`);
         const lista = await res.json();
         setSucursales(lista);
       } catch (error) {
@@ -89,31 +89,11 @@ export default function ModalAñadirCliente({ onCancel, onSubmit, onSuccess }) {
     return Object.keys(newErrors).length === 0;
   };
 
-  const checkExistingClient = async () => {
-    try {
-      if (!form.nombre.trim() && !form.email.trim()) return { exists: false };
-      const response = await api.get("/clientes/check", {
-        params: {
-          nombre: form.nombre.trim(),
-          email: form.email.trim(),
-        },
-        validateStatus: (status) => status < 500,
-      });
-      if (!response.data || typeof response.data.exists === "undefined")
-        return { exists: false };
-      return response.data;
-    } catch (error) {
-      console.error("Error en checkExistingClient:", error);
-      return { exists: false };
-    }
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setServerError("");
 
     if (!validateForm()) return;
-
 
     const clienteData = {
       nombre: form.nombre.trim(),
@@ -121,7 +101,7 @@ export default function ModalAñadirCliente({ onCancel, onSubmit, onSuccess }) {
       telefono: form.telefono.trim(),
       direccion: form.direccion.trim(),
       sucursal_id: form.sucursal_id,
-      identificacion: `${form.tipo_ci}${form.numero_ci}`, 
+      identificacion: `${form.tipo_ci}${form.numero_ci}`,
     };
 
     setIsSubmitting(true);
@@ -161,20 +141,25 @@ export default function ModalAñadirCliente({ onCancel, onSubmit, onSuccess }) {
       }
     } catch (error) {
       console.error("Error al crear cliente:", error);
-
+    
+      let mensaje = "Error en el servidor";
+    
       if (error.response) {
-        if (error.response.status === 400) {
-          setServerError(error.response.data.message || "Datos inválidos");
-        } else if (error.response.status === 409) {
-          setServerError("Cliente ya existe");
+        if (error.response.data?.errores?.length > 0) {
+          mensaje = [
+            error.response.data.message || "Error de validación.",
+            ...error.response.data.errores.map((e) => `- ${e}`)
+          ].join("\n");
+        } else if (error.response.data?.message) {
+          mensaje = error.response.data.message;
         } else {
-          setServerError("Error en el servidor");
+          mensaje = "Ocurrió un error desconocido.";
         }
       } else {
-        setServerError("Error de conexión");
+        mensaje = "Error de conexión con el servidor.";
       }
-    } finally {
-      setIsSubmitting(false);
+    
+      setServerError(mensaje);
     }
   };
 
