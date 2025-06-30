@@ -95,8 +95,7 @@ function ListaSolicitudesPago() {
     } finally {
       setLoading(false);
     }
-  }, [page, limit, estadoFiltro]);
-
+  }, [page, limit, estadoFiltro, busqueda]);
   // Carga inicial de datos
   useEffect(() => {
     fetchSolicitudes();
