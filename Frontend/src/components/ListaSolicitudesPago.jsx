@@ -258,7 +258,7 @@ function ListaSolicitudesPago() {
           <tr>
             <th className="px-4 py-3">Código</th>
             <th className="px-4 py-3">Fecha</th>
-            <th className="px-4 py-3">Proveedor</th>
+
             <th className="px-4 py-3">Moneda</th>
             <th className="px-4 py-3">Monto Total</th>
             <th className="px-4 py-3">Monto Pagado</th>
@@ -285,9 +285,6 @@ function ListaSolicitudesPago() {
                     month: "2-digit",
                     year: "numeric",
                   })}
-                </td>
-                <td className="px-5 py-3">
-                  {solicitud.proveedor_nombre || "Operativo"}
                 </td>
                 <td className="px-5 py-3">{solicitud.moneda}</td>
                 <td className="px-5 py-3">

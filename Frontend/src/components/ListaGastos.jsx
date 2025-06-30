@@ -442,7 +442,7 @@ function ListaGastos() {
                 <td className="px-5 py-3">
                   {gasto.proveedor && gasto.proveedor.trim() !== ""
                     ? gasto.proveedor
-                    : "—"}
+                    : "N/A"}
                 </td>
                 <td>{gasto.concepto_pago || "—"}</td>
                 <td>
