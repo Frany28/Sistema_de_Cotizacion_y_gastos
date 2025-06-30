@@ -127,7 +127,7 @@ function ListaProveedores() {
 
   const eliminarProveedor = async (id) => {
     try {
-      await api.delete(`api/proveedores/${id}`);
+      await api.delete(`/proveedores/${id}`);
       setProveedores(proveedores.filter((p) => p.id !== id));
     } catch (error) {
       console.error("Error al eliminar proveedor:", error);
@@ -278,7 +278,6 @@ function ListaProveedores() {
                   tipo="eliminar"
                   onClick={() => {
                     setProveedorAEliminar(p);
-                    setMostrarConfirmacion(true);
                   }}
                   titulo="Eliminar proveedor"
                 />
