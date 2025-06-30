@@ -16,12 +16,53 @@ function ListaSolicitudesPago() {
   const [busqueda, setBusqueda] = useState("");
   const [page, setPage] = useState(1);
   const [totalSolicitudes, setTotalSolicitudes] = useState(0);
+  const [todasSolicitudes, setTodasSolicitudes] = useState([]);
+
   const [limit, setLimit] = useState(() => {
     const stored = localStorage.getItem("solicitudesLimit");
     return stored ? parseInt(stored, 10) : 5;
   });
   const [loading, setLoading] = useState(true);
   const [estadoFiltro, setEstadoFiltro] = useState("todos");
+
+  const fetchSolicitudes = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await api.get("/solicitudes-pago", {
+        params: {
+          page: 1,
+          limit: 9999, // trae todas
+          estado: estadoFiltro !== "todos" ? estadoFiltro : undefined,
+        },
+        withCredentials: true,
+      });
+
+      const todas = Array.isArray(response.data?.solicitudes)
+        ? response.data.solicitudes
+        : [];
+
+      setTodasSolicitudes(todas);
+      setTotalSolicitudes(todas.length);
+    } catch (error) {
+      console.error("Error al obtener solicitudes:", error);
+      mostrarError({
+        titulo: "Error al obtener las solicitudes",
+        mensaje: "No se pudieron cargar los datos desde la base de datos.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [estadoFiltro]);
+
+  useEffect(() => {
+    fetchSolicitudes();
+  }, [fetchSolicitudes]);
+
+  const solicitudesFiltradas = todasSolicitudes.filter((s) =>
+    [s.codigo, s.proveedor_nombre, s.estado, s.moneda].some((campo) =>
+      campo?.toString().toLowerCase().includes(busqueda.toLowerCase())
+    )
+  );
 
   // Estados para modales
   const [pagarData, setPagarData] = useState({
@@ -60,42 +101,6 @@ function ListaSolicitudesPago() {
     setModalErrorData({ visible: true, titulo, mensaje, textoBoton });
   };
 
-  // Fetch de solicitudes
-  const fetchSolicitudes = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = {
-        page,
-        limit,
-        estado: estadoFiltro !== "todos" ? estadoFiltro : undefined,
-      };
-
-      const response = await api.get("/solicitudes-pago", {
-        params: {
-          page,
-          limit,
-          estado: estadoFiltro !== "todos" ? estadoFiltro : undefined,
-          search: busqueda.trim() !== "" ? busqueda.trim() : undefined,
-        },
-        withCredentials: true,
-      });
-
-      setSolicitudes(
-        Array.isArray(response.data?.solicitudes)
-          ? response.data.solicitudes
-          : []
-      );
-      setTotalSolicitudes(response.data?.total || 0);
-    } catch (error) {
-      console.error("Error al obtener solicitudes:", error);
-      mostrarError({
-        titulo: "Error al obtener las solicitudes",
-        mensaje: "No se pudieron cargar los datos desde la base de datos.",
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [page, limit, estadoFiltro, busqueda]);
   // Carga inicial de datos
   useEffect(() => {
     fetchSolicitudes();
@@ -114,7 +119,12 @@ function ListaSolicitudesPago() {
   };
 
   // Filtrado y paginación
-  const totalPaginas = Math.ceil(totalSolicitudes / limit);
+  const totalPaginas = Math.ceil(solicitudesFiltradas.length / limit);
+
+  const solicitudesPaginadas = solicitudesFiltradas.slice(
+    (page - 1) * limit,
+    page * limit
+  );
 
   const onPagoExitoso = () => {
     setPagarData({ visible: false, solicitudId: null });
@@ -236,7 +246,8 @@ function ListaSolicitudesPago() {
           ))}
         </div>
         <div className="text-sm text-gray-400">
-          Mostrando {solicitudes.length} de {totalSolicitudes} resultados
+          Mostrando {solicitudesPaginadas.length} de{" "}
+          {solicitudesFiltradas.length} resultados
         </div>
       </div>
 
@@ -259,7 +270,7 @@ function ListaSolicitudesPago() {
 
         {/* Cuerpo de tabla */}
         <tbody>
-          {solicitudes.map((solicitud) => {
+          {solicitudesPaginadas.map((solicitud) => {
             const saldoPendiente = solicitud.monto - solicitud.pagado;
             const isBolivares = solicitud.moneda === "VES";
 
