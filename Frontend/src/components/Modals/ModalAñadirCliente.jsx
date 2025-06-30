@@ -89,71 +89,71 @@ export default function ModalAñadirCliente({ onCancel, onSubmit, onSuccess }) {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setServerError("");
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setServerError("");
 
-    if (!validateForm()) return;
+  if (!validateForm()) return;
 
-    const clienteData = {
-      nombre: form.nombre.trim(),
-      email: form.email.trim(),
-      telefono: form.telefono.trim(),
-      direccion: form.direccion.trim(),
-      sucursal_id: form.sucursal_id,
-      identificacion: `${form.tipo_ci}${form.numero_ci}`,
-    };
-
-    setIsSubmitting(true);
-
-    try {
-      const response = await api.post("/clientes", clienteData);
-
-      if (response.status === 201) {
-        onSubmit(response.data);
-        onSuccess({
-          titulo: "Cliente añadido",
-          mensaje: "Cliente registrado exitosamente",
-          textoBoton: "Entendido",
-        });
-
-        setForm({
-          nombre: "",
-          email: "",
-          telefono: "",
-          direccion: "",
-          sucursal_id: "",
-          tipo_ci: "V",
-          numero_ci: "",
-        });
-
-        onCancel();
-      }
-    } catch (error) {
-      console.error("Error al crear cliente:", error);
-
-      let mensaje = "Error en el servidor";
-
-      if (error.response) {
-        if (error.response.data?.errores?.length > 0) {
-          mensaje = [
-            error.response.data.message || "Error de validación.",
-            ...error.response.data.errores.map((e) => `- ${e}`),
-          ].join("\n");
-        } else if (error.response.data?.message) {
-          mensaje = error.response.data.message;
-        } else {
-          mensaje = "Ocurrió un error desconocido.";
-        }
-      } else {
-        mensaje = "Error de conexión con el servidor.";
-      }
-
-      setServerError(mensaje);
-    } finally {
-      setIsSubmitting(false);
-    }
+  const clienteData = {
+    nombre: form.nombre.trim(),
+    email: form.email.trim(),
+    telefono: form.telefono.trim(),
+    direccion: form.direccion.trim(),
+    sucursal_id: form.sucursal_id,
+    identificacion: `${form.tipo_ci}${form.numero_ci}`,
   };
+
+  setIsSubmitting(true);
+
+  try {
+    const response = await api.post("/clientes", clienteData);
+
+    if (response.status === 201) {
+      onSubmit(response.data);
+      onSuccess({
+        titulo: "Cliente añadido",
+        mensaje: "Cliente registrado exitosamente",
+        textoBoton: "Entendido",
+      });
+
+      setForm({
+        nombre: "",
+        email: "",
+        telefono: "",
+        direccion: "",
+        sucursal_id: "",
+        tipo_ci: "V",
+        numero_ci: "",
+      });
+
+      onCancel();
+    }
+  } catch (error) {
+    console.error("Error al crear cliente:", error);
+
+    let mensaje = "Error en el servidor";
+
+    if (error.response) {
+      if (error.response.data?.errores?.length > 0) {
+        mensaje = [
+          error.response.data.message || "Error de validación.",
+          ...error.response.data.errores.map((e) => `- ${e}`),
+        ].join("\n");
+      } else if (error.response.data?.message) {
+        mensaje = error.response.data.message;
+      } else {
+        mensaje = "Ocurrió un error desconocido.";
+      }
+    } else {
+      mensaje = "Error de conexión con el servidor.";
+    }
+
+    setServerError(mensaje);
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   return (
     <AnimatePresence>
@@ -163,7 +163,7 @@ export default function ModalAñadirCliente({ onCancel, onSubmit, onSuccess }) {
         exit={{ opacity: 0, scale: 0.95 }}
         className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/40"
       >
-        <div className="relative p-4 w-full max-w-2xl max-h-full">
+        <div className="relative p-4 w-full max-w-md max-h-full">
           <div className="relative  rounded-lg shadow-sm bg-gray-800">
             <div className="flex flex-col items-center justify-center pt-6">
               <UserPlus className="w-8 h-8 text-blue-500 mb-1" />
@@ -193,7 +193,7 @@ export default function ModalAñadirCliente({ onCancel, onSubmit, onSuccess }) {
               </button>
             </div>
             <form onSubmit={handleSubmit} className="p-4 md:p-5">
-              <div className="grid gap-4 mb-4 grid-cols-2 md:grid-cols-3">
+              <div className="grid gap-4 mb-4 grid-cols-2">
                 {serverError && (
                   <div className="col-span-2 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
                     {serverError}
