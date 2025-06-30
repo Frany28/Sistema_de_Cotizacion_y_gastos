@@ -233,7 +233,9 @@ const CrearRegistro = () => {
     } catch (error) {
       console.error("Error al crear cotización", error);
 
-      const mensajeBase = error.response?.data?.message;
+      const mensajeBase =
+        error.response?.data?.message ||
+        "No se pudo crear la cotización. Intenta nuevamente.";
 
       const erroresDetalles = error.response?.data?.errores;
 
@@ -410,7 +412,8 @@ const CrearRegistro = () => {
     } catch (error) {
       console.error("Error:", error.response?.data || error);
 
-      const mensajeBase = error.response?.data?.message;
+      const mensajeBase =
+        error.response?.data?.message || "Error al registrar el gasto.";
 
       const erroresDetalles = error.response?.data?.errores;
 
@@ -444,7 +447,7 @@ const CrearRegistro = () => {
 
       <div className="mb-6">
         <label className="block text-sm font-medium text-white mb-2">
-          Tipo de registro
+          Tipo de registro *
         </label>
         <select
           value={tipoRegistro}
