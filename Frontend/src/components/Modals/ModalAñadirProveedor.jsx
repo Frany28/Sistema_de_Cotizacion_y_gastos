@@ -2,6 +2,7 @@ import { useState } from "react";
 import api from "../../api/index";
 import { Building2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useQueryClient } from "@tanstack/react-query";
 
 const regexNombre = /^[a-zA-ZÁÉÍÓÚÜÑáéíóúüñ\s]+$/;
 const regexEmail = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -21,7 +22,7 @@ export default function ModalAñadirProveedor({
     rif: "",
     estado: "activo",
   });
-
+  const queryClient = useQueryClient();
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [serverError, setServerError] = useState("");
@@ -105,6 +106,7 @@ export default function ModalAñadirProveedor({
       const response = await api.post("/proveedores", proveedorData);
 
       if (response.status === 201) {
+        queryClient.invalidateQueries(["proveedores"]);
         onSubmit(response.data);
         onSuccess({
           titulo: "Proveedor añadido",
