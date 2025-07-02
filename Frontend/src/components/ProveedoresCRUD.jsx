@@ -147,7 +147,7 @@ function ListaProveedores() {
   const guardarProveedorEditado = async (datos) => {
     try {
       const response = await api.put(
-        `/api/proveedores/${editandoProveedor.id}`,
+        `/proveedores/${editandoProveedor.id}`,
         datos
       );
       const actualizado = response.data;
