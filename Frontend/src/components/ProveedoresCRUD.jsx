@@ -20,6 +20,7 @@ function ListaProveedores() {
     const stored = localStorage.getItem("proveedoresLimit");
     return stored ? parseInt(stored, 10) : 25;
   });
+
   const [loading, setLoading] = useState(true);
   const [puedeCrear, setPuedeCrear] = useState(false);
   const [puedeEditar, setPuedeEditar] = useState(false);
@@ -65,15 +66,11 @@ function ListaProveedores() {
   const fetchProveedores = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await api.get("/proveedores", {
-        params: {
-          page,
-          limit,
-          buscar: busqueda.trim(),
-        },
+      const { data } = await api.get("/proveedores", {
+        params: { page, limit, buscar: busqueda.trim() },
       });
-      setProveedores(response.data.proveedores);
-      setTotal(response.data.total); // <- NUEVO (ver b)
+      setProveedores(data.proveedores);
+      setTotal(data.total);
     } catch (error) {
       console.error("Error al obtener proveedores:", error);
       mostrarError({
@@ -85,10 +82,7 @@ function ListaProveedores() {
     }
   }, [page, limit, busqueda]);
 
-  useEffect(() => {
-    fetchProveedores();
-  }, [fetchProveedores]);
-
+  /* ---------- 1. Cargar permisos UNA vez ---------- */
   useEffect(() => {
     const cargarPermisos = async () => {
       try {
@@ -104,7 +98,11 @@ function ListaProveedores() {
         console.error("Error obteniendo permisos:", e);
       }
     };
+
     cargarPermisos();
+  }, []);
+
+  useEffect(() => {
     fetchProveedores();
   }, [fetchProveedores]);
 
@@ -149,7 +147,7 @@ function ListaProveedores() {
   const guardarProveedorEditado = async (datos) => {
     try {
       const response = await api.put(
-        `api/proveedores/${editandoProveedor.id}`,
+        `/api/proveedores/${editandoProveedor.id}`,
         datos
       );
       const actualizado = response.data;

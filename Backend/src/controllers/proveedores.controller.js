@@ -95,42 +95,46 @@ export const crearProveedor = async (req, res) => {
 };
 
 export const obtenerProveedores = async (req, res) => {
-  // 1) Parseo seguro de page y limit
+  /* ----------- parámetros seguros ----------- */
   const page = Math.max(1, Number(req.query.page) || 1);
-  const limit = Math.min(Number(req.query.limit) || 25, 100); // tope = 100
-  const termino = (req.query.buscar || "").trim(); // <- NUEVO
+  const limit = Math.min(Number(req.query.limit) || 25, 100);
+  const terminoRaw = (req.query.buscar || "").trim();
+  const termino = `%${terminoRaw}%`; // comodín ambos lados
   const offset = (page - 1) * limit;
 
-  console.log("Valores de paginación (proveedores):", { limit, offset });
-
   try {
-    // 2) Total de registros sin paginar
+    /* ----------- total con posible filtro ----------- */
     const [[{ total }]] = await db.query(
       `SELECT COUNT(*) AS total
-              FROM proveedores
-             WHERE nombre LIKE ?`,
-      [`%${termino}%`]
+         FROM proveedores
+        WHERE nombre LIKE ?`,
+      [termino]
     );
 
+    /* ----------- listado paginado ----------- */
     const [proveedores] = await db.query(
-            `SELECT id, nombre, email, telefono, direccion, rif, estado
-               FROM proveedores
-              WHERE nombre LIKE ?
-              ORDER BY nombre ASC
-             LIMIT ? OFFSET ?`,
-            [`%${termino}%`, limit, offset]
-          );
+      `SELECT id,
+              nombre,
+              email,
+              telefono,
+              direccion,
+              rif,
+              estado
+         FROM proveedores
+        WHERE nombre LIKE ?
+        ORDER BY nombre ASC
+        LIMIT ? OFFSET ?`,
+      [termino, limit, offset]
+    );
 
-    // 4) Respuesta en el mismo formato que clientes
     return res.json({ proveedores, total });
   } catch (error) {
     console.error("Error al obtener proveedores:", error);
     return res
       .status(500)
-      .json({ message: "Error al obtener los proveedores" });
+      .json({ message: "Error interno al obtener los proveedores" });
   }
 };
-
 // Actualizar proveedor
 export const actualizarProveedor = async (req, res) => {
   const { nombre, email, telefono, direccion, rif, estado } = req.body;
