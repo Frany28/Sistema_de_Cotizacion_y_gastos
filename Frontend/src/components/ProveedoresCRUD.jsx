@@ -18,7 +18,7 @@ function ListaProveedores() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(() => {
     const stored = localStorage.getItem("proveedoresLimit");
-    return stored ? parseInt(stored, 10) : 5;
+    return stored ? parseInt(stored, 10) : 25;
   });
   const [loading, setLoading] = useState(true);
   const [puedeCrear, setPuedeCrear] = useState(false);
@@ -64,8 +64,15 @@ function ListaProveedores() {
   const fetchProveedores = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await api.get("/proveedores");
+      const response = await api.get("/proveedores", {
+        params: {
+          page,
+          limit,
+          buscar: busqueda.trim(),
+        },
+      });
       setProveedores(response.data.proveedores);
+      setTotal(response.data.total); // <- NUEVO (ver b)
     } catch (error) {
       console.error("Error al obtener proveedores:", error);
       mostrarError({
@@ -164,17 +171,8 @@ function ListaProveedores() {
     }
   };
 
-  const proveedoresFiltrados = proveedores.filter((p) =>
-    ["nombre", "email", "telefono", "direccion", "rif"].some((campo) =>
-      p[campo]?.toLowerCase().includes(busqueda.toLowerCase())
-    )
-  );
-
-  const totalPaginas = Math.ceil(proveedoresFiltrados.length / limit);
-  const proveedoresPaginados = proveedoresFiltrados.slice(
-    (page - 1) * limit,
-    page * limit
-  );
+  const totalPaginas = Math.ceil(total / limit);
+  const proveedoresPaginados = proveedores; // ya viene paginado
 
   const cambiarLimite = (nuevoLimite) => {
     setLimit(nuevoLimite);
@@ -238,8 +236,7 @@ function ListaProveedores() {
       </div>
 
       <div className="px-4 pb-2 text-sm  text-gray-400">
-        Mostrando {proveedoresPaginados.length} de {proveedoresFiltrados.length}{" "}
-        resultados
+        Mostrando {proveedores.length} de {total} resultados
       </div>
 
       <table className="w-full text-sm text-left  text-gray-400">

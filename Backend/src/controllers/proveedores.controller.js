@@ -96,12 +96,9 @@ export const crearProveedor = async (req, res) => {
 
 export const obtenerProveedores = async (req, res) => {
   // 1) Parseo seguro de page y limit
-  const page = Number.isNaN(Number(req.query.page))
-    ? 1
-    : Number(req.query.page);
-  const limit = Number.isNaN(Number(req.query.limit))
-    ? 10
-    : Number(req.query.limit);
+  const page = Math.max(1, Number(req.query.page) || 1);
+  const limit = Math.min(Number(req.query.limit) || 25, 100); // tope = 100
+  const termino = (req.query.buscar || "").trim(); // <- NUEVO
   const offset = (page - 1) * limit;
 
   console.log("Valores de paginación (proveedores):", { limit, offset });
@@ -109,16 +106,20 @@ export const obtenerProveedores = async (req, res) => {
   try {
     // 2) Total de registros sin paginar
     const [[{ total }]] = await db.query(
-      "SELECT COUNT(*) AS total FROM proveedores"
+      `SELECT COUNT(*) AS total
+              FROM proveedores
+             WHERE nombre LIKE ?`,
+      [`%${termino}%`]
     );
 
-    // 3) Registros paginados, inyectando limit y offset directamente
     const [proveedores] = await db.query(
-      `SELECT *
-         FROM proveedores
-         ORDER BY id DESC
-         LIMIT ${limit} OFFSET ${offset}`
-    );
+            `SELECT id, nombre, email, telefono, direccion, rif, estado
+               FROM proveedores
+              WHERE nombre LIKE ?
+              ORDER BY nombre ASC
+             LIMIT ? OFFSET ?`,
+            [`%${termino}%`, limit, offset]
+          );
 
     // 4) Respuesta en el mismo formato que clientes
     return res.json({ proveedores, total });
