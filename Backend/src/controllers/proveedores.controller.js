@@ -99,17 +99,23 @@ export const obtenerProveedores = async (req, res) => {
   const page = Math.max(1, Number(req.query.page) || 1);
   const limit = Math.min(Number(req.query.limit) || 25, 100);
   const terminoRaw = (req.query.buscar || "").trim();
-  const termino = `%${terminoRaw}%`; // comodín ambos lados
+  const usaFiltro = terminoRaw.length > 0;
+  const termino = `${terminoRaw}%`; // comodín ambos lados
   const offset = (page - 1) * limit;
 
   try {
     /* ----------- total con posible filtro ----------- */
-    const [[{ total }]] = await db.query(
-      `SELECT COUNT(*) AS total
-         FROM proveedores
-        WHERE nombre LIKE ?`,
-      [termino]
-    );
+    let total;
+    if (usaFiltro) {
+      [[{ total }]] = await db.query(
+        "SELECT COUNT(*) AS total FROM proveedores WHERE nombre LIKE ?",
+        [termino]
+      );
+    } else {
+      [[{ total }]] = await db.query(
+        "SELECT COUNT(*) AS total FROM proveedores"
+      );
+    }
 
     /* ----------- listado paginado ----------- */
     const [proveedores] = await db.query(
