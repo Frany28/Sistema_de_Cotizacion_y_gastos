@@ -28,6 +28,7 @@ function ListaProveedores() {
   const [proveedorAEliminar, setProveedorAEliminar] = useState(null);
   const [mostrarModalEditar, setMostrarModalEditar] = useState(false);
   const [mostrarModal, setMostrarModal] = useState(false);
+  const [total, setTotal] = useState(0);
   const [modalExitoData, setModalExitoData] = useState({
     visible: false,
     titulo: "",
@@ -82,7 +83,7 @@ function ListaProveedores() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, limit, busqueda]);
 
   useEffect(() => {
     fetchProveedores();
