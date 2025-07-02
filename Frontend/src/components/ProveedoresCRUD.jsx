@@ -11,24 +11,16 @@ import Loader from "./general/Loader";
 import ModalAñadirProveedor from "../components/Modals/ModalAñadirProveedor";
 import ModalEditar from "../components/Modals/ModalEditar";
 import { verificarPermisoFront } from "../../utils/verificarPermisoFront";
-import { useProveedores } from "../hooks/useProveedores";
-import { useQueryClient } from "@tanstack/react-query";
 
 function ListaProveedores() {
-  const queryClient = useQueryClient();
-  const {
-    data: proveedores = [],
-    isLoading,
-    error,
-    refetch,
-  } = useProveedores();
+  const [proveedores, setProveedores] = useState([]);
   const [busqueda, setBusqueda] = useState("");
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(() => {
     const stored = localStorage.getItem("proveedoresLimit");
     return stored ? parseInt(stored, 10) : 5;
   });
-
+  const [loading, setLoading] = useState(true);
   const [puedeCrear, setPuedeCrear] = useState(false);
   const [puedeEditar, setPuedeEditar] = useState(false);
   const [puedeEliminar, setPuedeEliminar] = useState(false);
@@ -69,6 +61,26 @@ function ListaProveedores() {
     setModalErrorData({ visible: true, titulo, mensaje, textoBoton });
   };
 
+  const fetchProveedores = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await api.get("/proveedores");
+      setProveedores(response.data.proveedores);
+    } catch (error) {
+      console.error("Error al obtener proveedores:", error);
+      mostrarError({
+        titulo: "Error al obtener los proveedores",
+        mensaje: "No se pudieron cargar los datos desde la base de datos.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchProveedores();
+  }, [fetchProveedores]);
+
   useEffect(() => {
     const cargarPermisos = async () => {
       try {
@@ -85,7 +97,8 @@ function ListaProveedores() {
       }
     };
     cargarPermisos();
-  }, []);
+    fetchProveedores();
+  }, [fetchProveedores]);
 
   const manejarBusqueda = (e) => {
     const termino = e.target.value;
@@ -115,7 +128,7 @@ function ListaProveedores() {
   const eliminarProveedor = async (id) => {
     try {
       await api.delete(`/proveedores/${id}`);
-      queryClient.invalidateQueries(["proveedores"]);
+      setProveedores(proveedores.filter((p) => p.id !== id));
     } catch (error) {
       console.error("Error al eliminar proveedor:", error);
       mostrarError({
@@ -127,8 +140,15 @@ function ListaProveedores() {
 
   const guardarProveedorEditado = async (datos) => {
     try {
-      await api.put(`/proveedores/${editandoProveedor.id}`, datos);
-      queryClient.invalidateQueries(["proveedores"]);
+      const response = await api.put(
+        `api/proveedores/${editandoProveedor.id}`,
+        datos
+      );
+      const actualizado = response.data;
+      const nuevosProveedores = proveedores.map((p) =>
+        p.id === editandoProveedor.id ? { ...p, ...datos } : p
+      );
+      setProveedores(nuevosProveedores);
       setEditandoProveedor(null);
       setMostrarModalEditar(false);
       mostrarMensajeExito({
@@ -162,26 +182,12 @@ function ListaProveedores() {
     setPage(1);
   };
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[200px]">
         <Loader />
       </div>
     );
-  }
-
-  useEffect(() => {
-    if (error) {
-      mostrarError({
-        titulo: "Error al cargar proveedores",
-        mensaje:
-          "No se pudo obtener la lista de proveedores desde el servidor.",
-      });
-    }
-  }, [error]);
-
-  if (error) {
-    return null;
   }
 
   return (
@@ -222,6 +228,10 @@ function ListaProveedores() {
         {mostrarModal && puedeCrear && (
           <ModalAñadirProveedor
             onCancel={cerrarModal}
+            onSubmit={() => {
+              fetchProveedores();
+              cerrarModal();
+            }}
             onSuccess={mostrarMensajeExito}
           />
         )}
