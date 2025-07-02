@@ -118,20 +118,25 @@ export const obtenerProveedores = async (req, res) => {
     }
 
     /* ----------- listado paginado ----------- */
-    const [proveedores] = await db.query(
-      `SELECT id,
-              nombre,
-              email,
-              telefono,
-              direccion,
-              rif,
-              estado
-         FROM proveedores
-        WHERE nombre LIKE ?
-        ORDER BY nombre ASC
-        LIMIT ? OFFSET ?`,
-      [termino, limit, offset]
-    );
+    let proveedores;
+    if (usaFiltro) {
+      [proveedores] = await db.query(
+        `SELECT id, nombre, email, telefono, direccion, rif, estado
+       FROM proveedores
+      WHERE nombre LIKE ?
+      ORDER BY nombre ASC
+      LIMIT ? OFFSET ?`,
+        [`${terminoRaw}%`, limit, offset]
+      );
+    } else {
+      [proveedores] = await db.query(
+        `SELECT id, nombre, email, telefono, direccion, rif, estado
+       FROM proveedores
+      ORDER BY nombre ASC
+      LIMIT ? OFFSET ?`,
+        [limit, offset]
+      );
+    }
 
     return res.json({ proveedores, total });
   } catch (error) {
