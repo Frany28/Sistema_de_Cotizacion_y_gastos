@@ -2,6 +2,7 @@
 import db from "../config/database.js";
 import { generarUrlPrefirmadaLectura, s3 } from "../utils/s3.js";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
+import cacheMemoria from "../utils/cacheMemoria.js"; // <= NUEVO
 
 // controllers/gastos.controller.js
 export const getGastos = async (req, res) => {
@@ -9,6 +10,10 @@ export const getGastos = async (req, res) => {
   const limit = +req.query.limit || 5;
   const offset = (page - 1) * limit;
   const q = (req.query.search || "").trim();
+
+  const claveCache = `gastos_${page}_${limit}_${q}`;
+  const respuestaEnCache = cacheMemoria.get(claveCache);
+  if (respuestaEnCache) return res.json(respuestaEnCache);
 
   try {
     // 1) TOTAL filtrado
@@ -62,7 +67,7 @@ export const getGastos = async (req, res) => {
       `,
       q ? [`%${q}%`, `%${q}%`, `%${q}%`] : []
     );
-
+    cacheMemoria.set(claveCache, { data: gastos, total, page, limit });
     res.json({ data: gastos, total, page, limit });
   } catch (err) {
     console.error(err);
@@ -72,6 +77,10 @@ export const getGastos = async (req, res) => {
 
 export const obtenerUrlComprobante = async (req, res) => {
   const { id } = req.params;
+  const claveCache = `gasto_${id}`;
+  const enCache = cacheMemoria.get(claveCache);
+
+  if (enCache) return res.json(enCache);
 
   // 1) Buscar la key que guardaste en la BD
   const [[fila]] = await db.query(
@@ -84,7 +93,7 @@ export const obtenerUrlComprobante = async (req, res) => {
       .status(404)
       .json({ message: "Este gasto no tiene un comprobante adjunto" });
   }
-
+  cacheMemoria.set(claveCache, { data: gastos, total, page, limit });
   // 2) Generar URL pre-firmada (5 min)
   const url = await generarUrlPrefirmadaLectura(fila.keyS3, 300);
 
@@ -95,26 +104,23 @@ export const updateGasto = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Verificar si el gasto existe
+    // 1. Verificar si existe el gasto
     const [[gastoExistente]] = await db.query(
-      `SELECT * FROM gastos WHERE id = ?`,
+      "SELECT * FROM gastos WHERE id = ?",
       [id]
     );
-
     if (!gastoExistente) {
       return res.status(404).json({ message: "Gasto no encontrado" });
     }
 
-    // Verificar si el gasto está aprobado (no se puede editar)
+    // 2. Si está aprobado, no se puede editar
     if (gastoExistente.estado === "aprobado") {
       return res
         .status(403)
         .json({ message: "No puedes editar un gasto aprobado." });
     }
 
-    let estadoEdit = gastoExistente.estado === "rechazado" ? "pendiente" : null;
-
-    // Obtener datos del body o del FormData
+    // 3. Preparar nuevos valores y validar inputs
     const {
       proveedor_id,
       concepto_pago,
@@ -131,10 +137,8 @@ export const updateGasto = async (req, res) => {
       motivo_rechazo,
     } = req.body;
 
-    // Manejar el documento si se subió uno nuevo
     const documento = req.file ? req.file.key : undefined;
 
-    // Validar y calcular valores
     const subtotalNum = parseFloat(subtotal);
     if (isNaN(subtotalNum)) {
       return res.status(400).json({ message: "Subtotal inválido." });
@@ -148,13 +152,14 @@ export const updateGasto = async (req, res) => {
     const impuesto = parseFloat(((subtotalNum * ivaNum) / 100).toFixed(2));
     const total = parseFloat((subtotalNum + impuesto).toFixed(2));
 
-    // Validar estado
+    /* ---- manejo de estado y rechazos ---- */
     const estadosPermitidos = ["pendiente", "rechazado"];
-    let nuevoEstado = estadoEdit || gastoExistente.estado;
-    if (estado && estadosPermitidos.includes(estado)) {
-      nuevoEstado = estado;
-    }
-    // Verificar si el estado es rechazado y se requiere motivo
+    let nuevoEstado =
+      gastoExistente.estado === "rechazado"
+        ? "pendiente"
+        : gastoExistente.estado;
+    if (estado && estadosPermitidos.includes(estado)) nuevoEstado = estado;
+
     let motivoRechazoFinal = motivo_rechazo;
     if (
       nuevoEstado === "rechazado" &&
@@ -164,10 +169,10 @@ export const updateGasto = async (req, res) => {
         .status(400)
         .json({ message: "Debes indicar el motivo del rechazo." });
     } else if (nuevoEstado !== "rechazado") {
-      motivoRechazoFinal = null; // Limpiar motivo de rechazo si el estado no es rechazado
+      motivoRechazoFinal = null;
     }
 
-    // Validar tasa de cambio solo si es VES
+    /* ---- manejo de tasa de cambio ---- */
     let tasaCambioFinal = tasa_cambio;
     if (moneda === "VES" && (!tasa_cambio || isNaN(parseFloat(tasa_cambio)))) {
       return res
@@ -177,26 +182,27 @@ export const updateGasto = async (req, res) => {
       tasaCambioFinal = null;
     }
 
-    // Actualizar el gasto
+    // 4. Ejecutar UPDATE
     await db.query(
-      `UPDATE gastos SET 
-        proveedor_id = ?, 
-        concepto_pago = ?, 
-        tipo_gasto_id = ?, 
-        descripcion = ?, 
-        subtotal = ?, 
-        porcentaje_iva = ?, 
-        impuesto = ?, 
-        total = ?, 
-        fecha = ?, 
-        sucursal_id = ?, 
-        cotizacion_id = ?, 
-        moneda = ?, 
-        tasa_cambio = ?, 
-        estado = ?, 
-        motivo_rechazo = ?, 
+      `
+      UPDATE gastos SET 
+        proveedor_id     = ?, 
+        concepto_pago    = ?, 
+        tipo_gasto_id    = ?, 
+        descripcion      = ?, 
+        subtotal         = ?, 
+        porcentaje_iva   = ?, 
+        impuesto         = ?, 
+        total            = ?, 
+        fecha            = ?, 
+        sucursal_id      = ?, 
+        cotizacion_id    = ?, 
+        moneda           = ?, 
+        tasa_cambio      = ?, 
+        estado           = ?, 
+        motivo_rechazo   = ?, 
         ${documento ? "documento = ?," : ""}
-        updated_at = NOW()
+        updated_at       = NOW()
       WHERE id = ?`,
       [
         proveedor_id,
@@ -219,20 +225,23 @@ export const updateGasto = async (req, res) => {
       ]
     );
 
-    // Obtener el gasto actualizado
+    /* ---- 5. Invalidar caché ---- */
+    cacheMemoria.del(`gasto_${id}`); // detalle individual
+    for (const k of cacheMemoria.keys()) {
+      if (k.startsWith("gastos_")) cacheMemoria.del(k); // listados
+    }
+
+    /* ---- 6. Traer gasto actualizado + URL firmada ---- */
     const [[gastoActualizado]] = await db.query(
       "SELECT * FROM gastos WHERE id = ?",
       [id]
     );
 
-    // Generar URL prefirmada si hay documento
-    let urlFacturaFirmada = null;
-    if (gastoActualizado.documento) {
-      urlFacturaFirmada = generarUrlPrefirmadaLectura(
-        gastoActualizado.documento
-      );
-    }
+    const urlFacturaFirmada = gastoActualizado.documento
+      ? generarUrlPrefirmadaLectura(gastoActualizado.documento)
+      : null;
 
+    // 7. Responder
     res.json({
       message: "Gasto actualizado",
       data: {
@@ -304,6 +313,10 @@ export const deleteGasto = async (req, res) => {
 
     // 3) Eliminar el gasto
     await db.query("DELETE FROM gastos WHERE id = ?", [id]);
+    cacheMemoria.del(`gasto_${id}`);
+    cacheMemoria
+      .keys()
+      .forEach((k) => k.startsWith("gastos_") && cacheMemoria.del(k));
 
     return res.json({
       message: "Gasto y archivo asociados eliminados correctamente.",
@@ -320,25 +333,32 @@ export const getGastoById = async (req, res) => {
   try {
     const { id } = req.params;
 
+    /* -------- 1. HIT de caché -------- */
+    const claveCache = `gasto_${id}`;
+    const enCache = cacheMemoria.get(claveCache);
+    if (enCache) return res.json(enCache);
+    /* --------------------------------- */
+
+    /* -------- 2. Consulta a la BD -------- */
     const [[gasto]] = await db.query(
       `
       SELECT 
         g.*,
-        g.documento,                 -- incluimos la columna que guarda la "key" en S3
-        p.nombre AS proveedor_nombre, 
-        p.id AS proveedor_id,
-        s.nombre AS sucursal_nombre, 
-        s.id AS sucursal_id,
-        c.codigo_referencia AS cotizacion_codigo, 
+        g.documento,
+        p.nombre  AS proveedor_nombre,
+        p.id      AS proveedor_id,
+        s.nombre  AS sucursal_nombre,
+        s.id      AS sucursal_id,
+        c.codigo_referencia AS cotizacion_codigo,
         c.codigo_referencia AS codigo,
-        c.id AS cotizacion_id,
+        c.id      AS cotizacion_id,
         tg.nombre AS tipo_gasto_nombre,
-        tg.id AS tipo_gasto_id
+        tg.id     AS tipo_gasto_id
       FROM gastos g
-      LEFT JOIN proveedores p ON p.id = g.proveedor_id
-      LEFT JOIN sucursales s ON s.id = g.sucursal_id
-      LEFT JOIN cotizaciones c ON c.id = g.cotizacion_id
-      LEFT JOIN tipos_gasto tg ON tg.id = g.tipo_gasto_id
+      LEFT JOIN proveedores  p  ON p.id  = g.proveedor_id
+      LEFT JOIN sucursales   s  ON s.id  = g.sucursal_id
+      LEFT JOIN cotizaciones c  ON c.id  = g.cotizacion_id
+      LEFT JOIN tipos_gasto  tg ON tg.id = g.tipo_gasto_id
       WHERE g.id = ?;
       `,
       [id]
@@ -347,15 +367,13 @@ export const getGastoById = async (req, res) => {
     if (!gasto) {
       return res.status(404).json({ message: "Gasto no encontrado" });
     }
+    /* ------------------------------------- */
 
-    // 1) Generar la URL pre-firmada para el documento, si existe
-    let urlFacturaFirmada = null;
-    if (gasto.documento) {
-      // Por defecto, la URL expira en 300 segundos (5 minutos). Puedes ajustar el segundo parámetro si necesitas más o menos tiempo.
-      urlFacturaFirmada = generarUrlPrefirmadaLectura(gasto.documento);
-    }
+    /* -------- 3. Preparar datos extra -------- */
+    const urlFacturaFirmada = gasto.documento
+      ? generarUrlPrefirmadaLectura(gasto.documento) // TTL 5 min por defecto
+      : null;
 
-    // 2) Obtener listas para poblar los dropdowns en el frontend
     const [tiposGasto] = await db.query("SELECT id, nombre FROM tipos_gasto");
     const [proveedores] = await db.query(
       "SELECT id, nombre FROM proveedores WHERE estado = 'activo'"
@@ -364,12 +382,13 @@ export const getGastoById = async (req, res) => {
     const [cotizaciones] = await db.query(
       "SELECT id, codigo_referencia AS codigo FROM cotizaciones"
     );
+    /* ----------------------------------------- */
 
-    // 3) Enviar la respuesta JSON, añadiendo urlFacturaFirmada dentro del objeto "gasto"
-    res.json({
+    /* -------- 4. Construir y cachear respuesta -------- */
+    const respuesta = {
       gasto: {
         ...gasto,
-        urlFacturaFirmada, // Será null si no había factura, o la URL firmada si sí existe
+        urlFacturaFirmada,
       },
       opciones: {
         tiposGasto,
@@ -377,7 +396,13 @@ export const getGastoById = async (req, res) => {
         sucursales,
         cotizaciones,
       },
-    });
+    };
+
+    cacheMemoria.set(claveCache, respuesta); // TTL std: 300 s
+    /* ----------------------------------------------- */
+
+    /* -------- 5. Enviar al cliente -------- */
+    res.json(respuesta);
   } catch (error) {
     console.error("Error al obtener gasto por ID:", error);
     res.status(500).json({ message: "Error al obtener gasto" });
@@ -407,53 +432,62 @@ export const getProveedores = async (req, res) => {
 };
 
 export const actualizarEstadoGasto = async (req, res) => {
-  const { id } = req.params; // gasto_id
-  const { estado, motivo_rechazo } = req.body;
-
-  // …aquí van las validaciones que ya tienes…
-
   try {
-    /* 1️⃣  Actualizar el estado del gasto */
+    const { id } = req.params; // gasto_id
+    const { estado, motivo_rechazo } = req.body;
+
+    /* 1️⃣  Actualizar estado y motivo (si aplica) */
     await db.query(
-      `UPDATE gastos
-         SET estado = ?,
+      `
+      UPDATE gastos
+         SET estado        = ?,
              motivo_rechazo = ?,
-             updated_at = NOW()
-       WHERE id = ?`,
+             updated_at     = NOW()
+       WHERE id = ?
+      `,
       [estado, motivo_rechazo || null, id]
     );
 
-    /* 2️⃣  Si pasa a ‘aprobado’, genera la solicitud de pago */
+    /* 1.1 Invalidar caché (detalle + listados) */
+    cacheMemoria.del(`gasto_${id}`);
+    for (const k of cacheMemoria.keys()) {
+      if (k.startsWith("gastos_")) cacheMemoria.del(k);
+    }
+
+    /* 2️⃣  Si el nuevo estado es 'aprobado', crear solicitud de pago */
     if (estado === "aprobado") {
-      /* 2.1) Evitar duplicados */
+      /* 2.1  Evitar duplicados */
       const [yaExiste] = await db.query(
         "SELECT id FROM solicitudes_pago WHERE gasto_id = ?",
         [id]
       );
       if (yaExiste.length === 0) {
-        /* 2.2) Datos del gasto necesarios para la solicitud */
+        /* 2.2  Datos necesarios del gasto */
         const [[gasto]] = await db.query(
-          `SELECT
-              usuario_id      AS usuario_solicita_id,
-              proveedor_id,
-              concepto_pago,
-              total           AS monto_total,
-              moneda,
-              tasa_cambio
-           FROM gastos
-           WHERE id = ?`,
+          `
+          SELECT
+            usuario_id      AS usuario_solicita_id,
+            proveedor_id,
+            concepto_pago,
+            total           AS monto_total,
+            moneda,
+            tasa_cambio
+          FROM gastos
+          WHERE id = ?
+          `,
           [id]
         );
 
-        /* 2.3) Código consecutivo tipo SP-00001 */
+        /* 2.3  Generar código consecutivo SP-00001 */
         const [[{ maxId }]] = await db.query(
           "SELECT MAX(id) AS maxId FROM solicitudes_pago"
         );
         const nextId = (maxId || 0) + 1;
         const codigo = `SP-${String(nextId).padStart(5, "0")}`;
 
-        /* 2.4) Insertar la nueva solicitud de pago */
-        const insertarSolicitudSql = `
+        /* 2.4  Insertar la nueva solicitud de pago */
+        await db.query(
+          `
           INSERT INTO solicitudes_pago (
             codigo,
             gasto_id,
@@ -471,27 +505,30 @@ export const actualizarEstadoGasto = async (req, res) => {
             tasa_cambio
           )
           VALUES (?,?,?,?,?,?,?,?,?,NOW(),NOW(),NOW(),?,?)
-        `;
-
-        await db.query(insertarSolicitudSql, [
-          codigo, // 1
-          id, // 2  gasto_id
-          gasto.usuario_solicita_id,
-          req.session.usuario.id,
-          gasto.proveedor_id,
-          gasto.concepto_pago,
-          gasto.monto_total,
-          0,
-          "por_pagar", // 9  estado inicial
-          gasto.moneda, // 10
-          gasto.tasa_cambio, // 11
-        ]);
+          `,
+          [
+            codigo,
+            id,
+            gasto.usuario_solicita_id,
+            req.session.usuario.id, // usuario que aprueba
+            gasto.proveedor_id,
+            gasto.concepto_pago,
+            gasto.monto_total,
+            0, // monto_pagado
+            "por_pagar",
+            gasto.moneda,
+            gasto.tasa_cambio,
+          ]
+        );
       }
     }
 
+    /* 3️⃣  Respuesta */
     res.json({ message: "Estado de gasto actualizado correctamente" });
   } catch (error) {
     console.error("Error al actualizar estado del gasto:", error);
-    res.status(500).json({ message: "Error interno al actualizar estado" });
+    res
+      .status(500)
+      .json({ message: "Error interno al actualizar estado del gasto" });
   }
 };

@@ -3,7 +3,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Layout from "./components/layout.jsx";
-import RutaPrivada from "./components/RutaPrivada.jsx"; // Asegúrate que esté aquí
+import RutaPrivada from "./components/RutaPrivada.jsx"; 
 import "./Styles/styles.css";
 import {
   Dashboard,
