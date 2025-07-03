@@ -2,7 +2,7 @@
 import db from "../config/database.js";
 import { generarUrlPrefirmadaLectura, s3 } from "../utils/s3.js";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
-import cacheMemoria from "../utils/cacheMemoria.js"; // <= NUEVO
+import cacheMemoria from "../utils/cacheMemoria.js";
 
 // controllers/gastos.controller.js
 export const getGastos = async (req, res) => {
