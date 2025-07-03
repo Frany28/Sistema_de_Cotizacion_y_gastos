@@ -9,7 +9,7 @@ import path from "path";
 import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 
-/* ── Pool global ─────────────────────────────────────────── */
+/* ── Pool global ───────────────────────────────────────────- */
 import db from "./config/database.js";
 
 /* ── Middlewares propios ────────────────────────────────── */
