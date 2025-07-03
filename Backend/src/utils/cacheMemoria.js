@@ -4,3 +4,5 @@ const NodeCache = require("node-cache");
 const cacheMemoria = new NodeCache({ stdTTL: 300, checkperiod: 120 });
 
 module.exports = cacheMemoria;
+
+export default cacheMemoria; 
