@@ -2,7 +2,7 @@
 import express from "express";
 import cors from "cors";
 import session from "express-session";
-import RedisStore from "connect-redis";
+import { RedisStore } from "connect-redis";
 import redisClient from "./config/redisClient.js";
 import path from "path";
 import dotenv from "dotenv";
