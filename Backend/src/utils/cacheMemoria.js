@@ -1,8 +1,9 @@
-const NodeCache = require("node-cache");
+// Backend/src/utils/cacheMemoria.js  (versión ES Modules)
+import NodeCache from "node-cache";
 
-// stdTTL = 300 s  ⇒ los datos “viven” 5 min y luego se revalidan solos
-const cacheMemoria = new NodeCache({ stdTTL: 300, checkperiod: 120 });
+const cacheMemoria = new NodeCache({
+  stdTTL: 300, // 5 min
+  checkperiod: 120, // purga cada 2 min
+});
 
-module.exports = cacheMemoria;
-
-export default cacheMemoria; 
+export default cacheMemoria;
