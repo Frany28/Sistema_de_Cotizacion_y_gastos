@@ -29,7 +29,7 @@ import bancosRoutes from "./routes/bancos.routes.js";
 import archivosRoutes from "./routes/archivos.routes.js";
 import "./jobs/purgarPapeleras.js";
 
-/* ── Seguridad ───────────────────────────────────────────── */
+
 import authRoutes from "./routes/auth.routes.js";
 import usuariosRoutes from "./routes/usuarios.routes.js";
 import rolesRoutes from "./routes/roles.routes.js";
