@@ -2,7 +2,7 @@
 import express from "express";
 import cors from "cors";
 import session from "express-session";
-import connectRedis from "connect-redis";
+import RedisStore from "connect-redis";
 import redisClient from "./config/redisClient.js";
 import path from "path";
 import dotenv from "dotenv";
@@ -42,20 +42,21 @@ dotenv.config();
 const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+await redisReady;
+const isProd = process.env.NODE_ENV === "production";
+const redisStore = new RedisStore({ client: redisClient });
 
 app.set("trust proxy", 1);
 app.use(
   session({
-    store: new (connectRedis(session))({ client: redisClient }),
+    store: redisStore,
     secret: process.env.SESSION_SECRET,
     resave: false, // ← evita UPDATE innecesario
     saveUninitialized: false, // ← no crea sesiones vacías
-    proxy: true,
     cookie: {
       secure: isProd,
       sameSite: isProd ? "none" : "lax",
       httpOnly: true,
-      sameSite: "none",
       maxAge: 1000 * 60 * 60 * 8, // 8 h
     },
   })
