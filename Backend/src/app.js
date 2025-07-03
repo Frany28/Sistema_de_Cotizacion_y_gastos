@@ -2,8 +2,9 @@
 import express from "express";
 import cors from "cors";
 import session from "express-session";
-import { RedisStore } from "connect-redis";
+import { RedisStore } from "connect-redis"; // ← import nombrado correcto
 import redisClient from "./config/redisClient.js";
+
 import path from "path";
 import dotenv from "dotenv";
 import { fileURLToPath } from "url";
@@ -11,7 +12,7 @@ import { fileURLToPath } from "url";
 /* ── Pool global ─────────────────────────────────────────── */
 import db from "./config/database.js";
 
-/* ── Middlewares propios ─────────────────────────────────― */
+/* ── Middlewares propios ────────────────────────────────── */
 import { errorHandler } from "./Middleware/errorHandler.js";
 import { logger } from "./Middleware/logger.js";
 
@@ -29,7 +30,6 @@ import bancosRoutes from "./routes/bancos.routes.js";
 import archivosRoutes from "./routes/archivos.routes.js";
 import "./jobs/purgarPapeleras.js";
 
-
 import authRoutes from "./routes/auth.routes.js";
 import usuariosRoutes from "./routes/usuarios.routes.js";
 import rolesRoutes from "./routes/roles.routes.js";
@@ -42,7 +42,8 @@ dotenv.config();
 const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-await redisReady;
+
+/* ───── Config sesión con Redis ─────────────────────────── */
 const isProd = process.env.NODE_ENV === "production";
 const redisStore = new RedisStore({ client: redisClient });
 
@@ -51,8 +52,8 @@ app.use(
   session({
     store: redisStore,
     secret: process.env.SESSION_SECRET,
-    resave: false, // ← evita UPDATE innecesario
-    saveUninitialized: false, // ← no crea sesiones vacías
+    resave: false,
+    saveUninitialized: false,
     cookie: {
       secure: isProd,
       sameSite: isProd ? "none" : "lax",
@@ -64,8 +65,8 @@ app.use(
 
 /* ───── CORS ─────────────────────────────────────────────── */
 const allowedOrigins = [
-  process.env.FRONT_URL, // prod
-  "http://localhost:5173", // dev
+  process.env.FRONT_URL, // producción
+  "http://localhost:5173", // desarrollo
 ].filter(Boolean);
 
 app.use(
@@ -84,7 +85,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(logger);
 
-/* ───── Rutas REST ───────────────────────────────────────── */
+/* ───── Rutas REST ──────────────────────────────────────── */
 app.use("/api/clientes", clientesRoutes);
 app.use("/api/servicios-productos", serviciosProductosRoutes);
 app.use("/api/proveedores", proveedoresRoutes);
@@ -112,7 +113,7 @@ app.use((req, res, next) => {
   next();
 });
 
-/* ───── Error handler global ─────────────────────────────── */
+/* ───── Error handler global ────────────────────────────── */
 app.use(errorHandler);
 
 export default app;
