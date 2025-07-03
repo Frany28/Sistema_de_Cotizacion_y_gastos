@@ -2,7 +2,8 @@
 import express from "express";
 import cors from "cors";
 import session from "express-session";
-import mysqlSession from "express-mysql-session";
+import connectRedis from "connect-redis";
+import redisClient from "./config/redisClient.js";
 import path from "path";
 import dotenv from "dotenv";
 import { fileURLToPath } from "url";
@@ -42,20 +43,17 @@ const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-/* ───── Session store persistente (MySQL) ────────────────── */
-const MySQLStore = mysqlSession(session);
-const sessionStore = new MySQLStore({}, db);
-
 app.set("trust proxy", 1);
 app.use(
   session({
+    store: new (connectRedis(session))({ client: redisClient }),
     secret: process.env.SESSION_SECRET,
-    resave: false,
-    saveUninitialized: false,
-    store: sessionStore,
+    resave: false, // ← evita UPDATE innecesario
+    saveUninitialized: false, // ← no crea sesiones vacías
     proxy: true,
     cookie: {
-      secure: true,
+      secure: isProd,
+      sameSite: isProd ? "none" : "lax",
       httpOnly: true,
       sameSite: "none",
       maxAge: 1000 * 60 * 60 * 8, // 8 h
