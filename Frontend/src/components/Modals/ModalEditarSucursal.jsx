@@ -25,6 +25,7 @@ export default function ModalEditarSucursal({
     telefono: "",
     email: "",
     responsable: "",
+    estado: "",
   });
 
   const [errors, setErrors] = useState({});
@@ -45,6 +46,7 @@ export default function ModalEditarSucursal({
         telefono: sucursal.telefono || "",
         email: sucursal.email || "",
         responsable: sucursal.responsable || "",
+        estado: sucursal.estado || "activo",
       });
     }
   }, [sucursal]);
@@ -80,6 +82,13 @@ export default function ModalEditarSucursal({
 
     if (form.email && !regexEmail.test(form.email)) {
       newErrors.email = "Email inválido";
+    }
+
+    if (
+      form.estado &&
+      !["activo", "inactivo"].includes(form.estado.toLowerCase())
+    ) {
+      newErrors.estado = "Estado inválido";
     }
 
     setErrors(newErrors);
@@ -130,7 +139,7 @@ export default function ModalEditarSucursal({
         return;
       }
 
-      await api.put(`/sucursales/${sucursal.id}`, cambios, {
+      await api.patch(`/sucursales/${sucursal.id}`, cambios, {
         withCredentials: true,
       });
 
@@ -354,6 +363,26 @@ export default function ModalEditarSucursal({
                     disabled={isSubmitting}
                     className="block w-full p-2.5 border rounded-lg bg-gray-600 border-gray-500 text-white"
                   />
+                </div>
+
+                {/* Quinta fila – Estado (select) */}
+                <div className="col-span-1">
+                  <label className="block mb-1 text-sm font-medium text-white">
+                    Estado *
+                  </label>
+                  <select
+                    name="estado"
+                    value={form.estado}
+                    onChange={handleChange}
+                    disabled={isSubmitting}
+                    className="block w-full p-2.5 border rounded-lg bg-gray-600 border-gray-500 text-white"
+                  >
+                    <option value="activo">Activo</option>
+                    <option value="inactivo">Inactivo</option>
+                  </select>
+                  {errors.estado && (
+                    <p className="text-red-500 text-xs mt-1">{errors.estado}</p>
+                  )}
                 </div>
 
                 {/* Botón de guardar */}

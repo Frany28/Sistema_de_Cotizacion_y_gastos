@@ -86,8 +86,15 @@ export default function SucursalesCRUD() {
     setShowModalEditar(true);
   };
 
-  const abrirModalEliminar = (id) => {
-    setSucursalEliminarId(id);
+  const abrirModalEliminar = (sucursal) => {
+    if (sucursal.estado === "activo") {
+      setDeleteErrorMsg(
+        "No puedes eliminar una sucursal activa. Cámbiala a inactivo primero."
+      );
+      setShowDeleteError(true);
+      return;
+    }
+    setSucursalEliminarId(sucursal.id);
     setShowModalEliminar(true);
   };
 
@@ -274,7 +281,7 @@ export default function SucursalesCRUD() {
                 {puedeEliminar && (
                   <BotonIcono
                     tipo="eliminar"
-                    onClick={() => abrirModalEliminar(s.id)}
+                    onClick={() => abrirModalEliminar(s)}
                     titulo="Eliminar sucursal"
                   />
                 )}

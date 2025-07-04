@@ -64,7 +64,11 @@ export const crearSucursal = async (req, res) => {
     telefono,
     email,
     responsable,
+    estado,
   } = req.body;
+
+  const estadoNormalizado =
+    estado?.trim().toLowerCase() === "inactivo" ? "inactivo" : "activo";
 
   // Validación básica
   if (!codigo?.trim() || !nombre?.trim() || !direccion?.trim()) {
@@ -93,7 +97,7 @@ export const crearSucursal = async (req, res) => {
 
     // Insertar en BD
     const [result] = await db.execute(
-      "INSERT INTO sucursales (codigo, nombre, direccion, ciudad, estado_provincia, pais, telefono, email, responsable) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO sucursales (codigo, nombre, direccion, ciudad, estado_provincia, pais, telefono, email, responsable, estado) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
       [
         codigo.trim(),
         nombre.trim(),
@@ -104,6 +108,7 @@ export const crearSucursal = async (req, res) => {
         telefono?.trim() || null,
         email?.trim() || null,
         responsable?.trim() || null,
+        estadoNormalizado,
       ]
     );
 
@@ -119,6 +124,7 @@ export const crearSucursal = async (req, res) => {
       telefono,
       email,
       responsable,
+      estado: estadoNormalizado,
     });
   } catch (error) {
     console.error("Error en crearSucursal:", {
@@ -136,83 +142,91 @@ export const crearSucursal = async (req, res) => {
 };
 
 // Actualizar sucursal
+// controllers/sucursales.controller.js
 export const actualizarSucursal = async (req, res) => {
-  const {
-    codigo,
-    nombre,
-    direccion,
-    ciudad,
-    estado_provincia,
-    pais,
-    telefono,
-    email,
-    responsable,
-  } = req.body;
-
   const id = req.params.id;
 
-  if (!codigo?.trim() || !nombre?.trim() || !direccion?.trim()) {
-    return res.status(400).json({
-      error: "Código, nombre y dirección son campos obligatorios",
-    });
+  // ① Filtrar campos permitidos
+  const camposPermitidos = [
+    "codigo",
+    "nombre",
+    "direccion",
+    "ciudad",
+    "estado_provincia",
+    "pais",
+    "telefono",
+    "email",
+    "responsable",
+    "estado",
+  ];
+  const paresActualizacion = Object.entries(req.body).filter(([k]) =>
+    camposPermitidos.includes(k)
+  );
+
+  if (paresActualizacion.length === 0) {
+    return res
+      .status(400)
+      .json({ error: "No se enviaron campos para actualizar" });
   }
 
-  try {
-    // Verificar si el código ya está en uso por otra sucursal
-    const [existing] = await db.execute(
+  // ② Si llega un código, corroborar que sea único
+  const codigoNuevo = req.body.codigo?.trim();
+  if (codigoNuevo) {
+    const [existente] = await db.execute(
       "SELECT id FROM sucursales WHERE codigo = ? AND id != ?",
-      [codigo.trim(), id]
+      [codigoNuevo, id]
     );
-
-    if (existing.length > 0) {
-      return res.status(409).json({
-        error: "El código de sucursal ya está en uso por otra sucursal",
-      });
+    if (existente.length > 0) {
+      return res
+        .status(409)
+        .json({ error: "El código de sucursal ya está en uso" });
     }
-
-    const [result] = await db.execute(
-      "UPDATE sucursales SET codigo = ?, nombre = ?, direccion = ?, ciudad = ?, estado_provincia = ?, pais = ?, telefono = ?, email = ?, responsable = ? WHERE id = ?",
-      [
-        codigo.trim(),
-        nombre.trim(),
-        direccion.trim(),
-        ciudad?.trim() || null,
-        estado_provincia?.trim() || null,
-        pais?.trim() || null,
-        telefono?.trim() || null,
-        email?.trim() || null,
-        responsable?.trim() || null,
-        id,
-      ]
-    );
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: "Sucursal no encontrada" });
-    }
-
-    res.json({
-      id: Number(id),
-      codigo,
-      nombre,
-      direccion,
-      ciudad,
-      estado_provincia,
-      pais,
-      telefono,
-      email,
-      responsable,
-      message: "Sucursal actualizada correctamente",
-    });
-  } catch (error) {
-    console.error("Error al actualizar sucursal:", error);
-    res.status(500).json({ message: "Error al actualizar la sucursal" });
   }
+
+  if (
+    req.body.estado &&
+    !["activo", "inactivo"].includes(req.body.estado.trim().toLowerCase())
+  ) {
+    return res
+      .status(400)
+      .json({ error: "El estado debe ser 'activo' o 'inactivo'" });
+  }
+
+  // ③ Construir SET dinámico y valores
+  const setSql = paresActualizacion.map(([k]) => `${k} = ?`).join(", ");
+  const valores = paresActualizacion.map(([_, v]) => v?.trim() || null);
+  valores.push(id); // para el WHERE
+
+  await db.execute(`UPDATE sucursales SET ${setSql} WHERE id = ?`, valores);
+
+  // ④ Devolver la fila actualizada
+  const [fila] = await db.execute("SELECT * FROM sucursales WHERE id = ?", [
+    id,
+  ]);
+  res.json({
+    ...fila[0],
+    message: "Sucursal actualizada correctamente",
+  });
 };
 
 // Eliminar sucursal
 export const eliminarSucursal = async (req, res) => {
   try {
-    // Verificar si hay clientes asociados a esta sucursal
+    const [[sucursal]] = await db.execute(
+      "SELECT estado FROM sucursales WHERE id = ?",
+      [req.params.id]
+    );
+
+    if (!sucursal) {
+      return res.status(404).json({ message: "Sucursal no encontrada" });
+    }
+
+    if (sucursal.estado === "activo") {
+      return res.status(400).json({
+        message: "Solo se puede eliminar una sucursal que esté inactiva",
+      });
+    }
+
     const [clientesAsociados] = await db.execute(
       "SELECT COUNT(*) AS count FROM clientes WHERE sucursal_id = ?",
       [req.params.id]

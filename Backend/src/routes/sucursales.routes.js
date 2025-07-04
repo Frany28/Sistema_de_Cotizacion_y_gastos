@@ -13,14 +13,14 @@ import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
 import { verificarPermiso } from "../Middleware/verificarPermiso.js";
 const router = express.Router();
 
-// CRUD básico
 router.post(
   "/",
-  validarSucursal,
-  crearSucursal,
   autenticarUsuario,
-  verificarPermiso("crearSucursal")
-); // Crear nueva sucursal
+  verificarPermiso("crearSucursal"),
+  validarSucursal,
+  crearSucursal
+);
+
 router.get(
   "/",
   obtenerSucursales,
@@ -29,13 +29,13 @@ router.get(
 ); // Obtener todas las sucursales (paginadas)
 router.get("/:id", obtenerSucursal); // Obtener una sucursal específica
 
-router.put(
+router.patch(
   "/:id",
   autenticarUsuario,
   verificarPermiso("editarSucursal"),
-  validarSucursal,
   actualizarSucursal
 ); // Actualizar sucursal
+
 router.delete(
   "/:id",
   autenticarUsuario,
