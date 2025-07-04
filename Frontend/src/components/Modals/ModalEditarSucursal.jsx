@@ -185,7 +185,7 @@ export default function ModalEditarSucursal({
             onClick={() => !isSubmitting && onClose()}
           >
             <motion.div
-              className="relative w-full max-w-2xl p-6 bg-gray-800 rounded-lg shadow"
+              className="relative w-full max-w-4xl p-6 bg-gray-800 rounded-lg shadow"
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
@@ -194,22 +194,22 @@ export default function ModalEditarSucursal({
               <button
                 onClick={() => !isSubmitting && onClose()}
                 disabled={isSubmitting}
-                className="cursor-pointer absolute top-3 right-3 text-gray-400  hover:text-white disabled:opacity-50"
+                className="cursor-pointer absolute top-3 right-3 text-gray-400 hover:text-white disabled:opacity-50"
               >
                 <X className="w-5 h-5" />
               </button>
 
               <div className="text-center mb-4">
                 <Building2 className="mx-auto mb-2 text-blue-600 w-10 h-10" />
-                <h3 className="text-lg font-semibold  text-white">
+                <h3 className="text-lg font-semibold text-white">
                   Editar Sucursal
                 </h3>
               </div>
 
-              <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
-                {/* Código */}
-                <div className="col-span-2">
-                  <label className="block mb-1 text-sm font-medium  text-white">
+              <form onSubmit={handleSubmit} className="grid grid-cols-3 gap-4">
+                {/* Primera fila - Código y Nombre */}
+                <div className="col-span-1">
+                  <label className="block mb-1 text-sm font-medium text-white">
                     Código *
                   </label>
                   <input
@@ -225,9 +225,8 @@ export default function ModalEditarSucursal({
                   )}
                 </div>
 
-                {/* Nombre */}
                 <div className="col-span-2">
-                  <label className="block mb-1 text-sm font-medium  text-white">
+                  <label className="block mb-1 text-sm font-medium text-white">
                     Nombre *
                   </label>
                   <input
@@ -236,16 +235,16 @@ export default function ModalEditarSucursal({
                     value={form.nombre}
                     onChange={handleChange}
                     disabled={isSubmitting}
-                    className="block w-full p-2.5  border rounded-lg bg-gray-600 border-gray-500 text-white"
+                    className="block w-full p-2.5 border rounded-lg bg-gray-600 border-gray-500 text-white"
                   />
                   {errors.nombre && (
                     <p className="text-red-500 text-xs mt-1">{errors.nombre}</p>
                   )}
                 </div>
 
-                {/* Dirección */}
-                <div className="col-span-2">
-                  <label className="block mb-1 text-sm font-medium  text-white">
+                {/* Segunda fila - Dirección completa */}
+                <div className="col-span-3">
+                  <label className="block mb-1 text-sm font-medium text-white">
                     Dirección *
                   </label>
                   <input
@@ -254,7 +253,7 @@ export default function ModalEditarSucursal({
                     value={form.direccion}
                     onChange={handleChange}
                     disabled={isSubmitting}
-                    className="block w-full p-2.5  border rounded-lg bg-gray-600 border-gray-500 text-white"
+                    className="block w-full p-2.5 border rounded-lg bg-gray-600 border-gray-500 text-white"
                   />
                   {errors.direccion && (
                     <p className="text-red-500 text-xs mt-1">
@@ -263,9 +262,9 @@ export default function ModalEditarSucursal({
                   )}
                 </div>
 
-                {/* Ciudad */}
-                <div>
-                  <label className="block mb-1 text-sm font-medium  text-white">
+                {/* Tercera fila - Ciudad, Estado/Provincia, País */}
+                <div className="col-span-1">
+                  <label className="block mb-1 text-sm font-medium text-white">
                     Ciudad
                   </label>
                   <input
@@ -274,13 +273,12 @@ export default function ModalEditarSucursal({
                     value={form.ciudad}
                     onChange={handleChange}
                     disabled={isSubmitting}
-                    className="block w-full p-2.5  border rounded-lg bg-gray-600 border-gray-500 text-white"
+                    className="block w-full p-2.5 border rounded-lg bg-gray-600 border-gray-500 text-white"
                   />
                 </div>
 
-                {/* Estado/Provincia */}
-                <div>
-                  <label className="block mb-1 text-sm font-medium  text-white">
+                <div className="col-span-1">
+                  <label className="block mb-1 text-sm font-medium text-white">
                     Estado/Provincia
                   </label>
                   <input
@@ -293,9 +291,8 @@ export default function ModalEditarSucursal({
                   />
                 </div>
 
-                {/* País */}
-                <div>
-                  <label className="block mb-1 text-sm font-medium  text-white">
+                <div className="col-span-1">
+                  <label className="block mb-1 text-sm font-medium text-white">
                     País
                   </label>
                   <input
@@ -304,13 +301,13 @@ export default function ModalEditarSucursal({
                     value={form.pais}
                     onChange={handleChange}
                     disabled={isSubmitting}
-                    className="block w-full p-2.5  border rounded-lg bg-gray-600 border-gray-500 text-white"
+                    className="block w-full p-2.5 border rounded-lg bg-gray-600 border-gray-500 text-white"
                   />
                 </div>
 
-                {/* Teléfono */}
-                <div>
-                  <label className="block mb-1 text-sm font-medium  text-white">
+                {/* Cuarta fila - Teléfono, Email, Responsable */}
+                <div className="col-span-1">
+                  <label className="block mb-1 text-sm font-medium text-white">
                     Teléfono
                   </label>
                   <input
@@ -319,7 +316,7 @@ export default function ModalEditarSucursal({
                     value={form.telefono}
                     onChange={handleChange}
                     disabled={isSubmitting}
-                    className="block w-full p-2.5  border rounded-lg bg-gray-600 border-gray-500 text-white"
+                    className="block w-full p-2.5 border rounded-lg bg-gray-600 border-gray-500 text-white"
                   />
                   {errors.telefono && (
                     <p className="text-red-500 text-xs mt-1">
@@ -328,9 +325,8 @@ export default function ModalEditarSucursal({
                   )}
                 </div>
 
-                {/* Email */}
-                <div>
-                  <label className="block mb-1 text-sm font-medium  text-white">
+                <div className="col-span-1">
+                  <label className="block mb-1 text-sm font-medium text-white">
                     Email
                   </label>
                   <input
@@ -339,16 +335,15 @@ export default function ModalEditarSucursal({
                     value={form.email}
                     onChange={handleChange}
                     disabled={isSubmitting}
-                    className="block w-full p-2.5  border rounded-lg bg-gray-600 border-gray-500 text-white"
+                    className="block w-full p-2.5 border rounded-lg bg-gray-600 border-gray-500 text-white"
                   />
                   {errors.email && (
                     <p className="text-red-500 text-xs mt-1">{errors.email}</p>
                   )}
                 </div>
 
-                {/* Responsable */}
-                <div className="col-span-2">
-                  <label className="block mb-1 text-sm font-medium  text-white">
+                <div className="col-span-1">
+                  <label className="block mb-1 text-sm font-medium text-white">
                     Responsable
                   </label>
                   <input
@@ -357,19 +352,19 @@ export default function ModalEditarSucursal({
                     value={form.responsable}
                     onChange={handleChange}
                     disabled={isSubmitting}
-                    className="block w-full p-2.5  border rounded-lg bg-gray-600 border-gray-500 text-white"
+                    className="block w-full p-2.5 border rounded-lg bg-gray-600 border-gray-500 text-white"
                   />
                 </div>
 
                 {/* Botón de guardar */}
-                <div className="col-span-2 flex justify-center pt-4">
+                <div className="col-span-3 flex justify-center pt-4">
                   <button
                     type="submit"
                     disabled={isSubmitting}
                     className={`cursor-pointer w-full p-2.5 text-white font-medium rounded-lg ${
                       isSubmitting
                         ? "bg-gray-400 cursor-not-allowed"
-                        : " focus:ring-4  bg-blue-600 hover:bg-blue-700 focus:ring-blue-800"
+                        : "focus:ring-4 bg-blue-600 hover:bg-blue-700 focus:ring-blue-800"
                     }`}
                   >
                     {isSubmitting ? "Guardando..." : "Guardar cambios"}
