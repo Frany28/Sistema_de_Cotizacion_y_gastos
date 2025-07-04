@@ -97,7 +97,7 @@ export const crearSucursal = async (req, res) => {
 
     // Insertar en BD
     const [result] = await db.execute(
-      "INSERT INTO sucursales (codigo, nombre, direccion, ciudad, estado_provincia, pais, telefono, email, responsable, estado) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO sucursales (codigo, nombre, direccion, ciudad, estado_provincia, pais, telefono, email, responsable, estado) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       [
         codigo.trim(),
         nombre.trim(),
