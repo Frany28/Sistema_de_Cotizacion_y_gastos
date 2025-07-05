@@ -1,9 +1,13 @@
 // controllers/proveedores.controller.js
 import db from "../config/database.js";
+import cacheMemoria from "../utils/cacheMemoria.js";
 
 // Verificar si un proveedor ya existe
 export const verificarProveedorExistente = async (req, res) => {
   const { nombre, email, telefono } = req.query;
+  const keyCheck = `verifProv_${nombre ?? ""}_${email ?? ""}_${telefono ?? ""}`;
+  const hit = cacheMemoria.get(keyCheck);
+  if (hit) return res.json(hit);
 
   if (!nombre?.trim() && !email?.trim() && !telefono?.trim()) {
     return res.status(400).json({
@@ -33,6 +37,18 @@ export const verificarProveedorExistente = async (req, res) => {
       " OR "
     )}`;
     const [rows] = await db.query(query, params);
+    cacheMemoria.set(
+      keyCheck,
+      {
+        exists: rows.length > 0,
+        duplicateFields: {
+          nombre: rows.some((r) => r.nombre === nombre),
+          email: rows.some((r) => r.email === email),
+          telefono: rows.some((r) => r.telefono === telefono),
+        },
+      },
+      60
+    );
 
     res.json({
       exists: rows.length > 0,
@@ -74,6 +90,10 @@ export const crearProveedor = async (req, res) => {
       ]
     );
 
+    for (const k of cacheMemoria.keys()) {
+      if (k.startsWith("proveedores_")) cacheMemoria.del(k);
+    }
+
     await conn.commit();
 
     // ✅ Consultar el proveedor recién creado y devolverlo completo
@@ -102,6 +122,10 @@ export const obtenerProveedores = async (req, res) => {
   const usaFiltro = terminoRaw.length > 0;
   const termino = `${terminoRaw}%`; // comodín ambos lados
   const offset = (page - 1) * limit;
+
+  const claveCache = `proveedores_${page}_${limit}_${terminoRaw}`;
+  const enCache = cacheMemoria.get(claveCache);
+  if (enCache) return res.json(enCache);
 
   try {
     /* ----------- total con posible filtro ----------- */
@@ -137,7 +161,7 @@ export const obtenerProveedores = async (req, res) => {
         [limit, offset]
       );
     }
-
+    cacheMemoria.set(claveCache, { proveedores, total }, 300);
     return res.json({ proveedores, total });
   } catch (error) {
     console.error("Error al obtener proveedores:", error);
@@ -168,6 +192,10 @@ export const actualizarProveedor = async (req, res) => {
       [nombre, email, telefono, direccion, rif, estado, id]
     );
 
+    for (const k of cacheMemoria.keys()) {
+      if (k.startsWith("proveedores_")) cacheMemoria.del(k);
+    }
+
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: "Proveedor no encontrado" });
     }
@@ -186,6 +214,10 @@ export const eliminarProveedor = async (req, res) => {
       req.params.id,
     ]);
 
+    for (const k of cacheMemoria.keys()) {
+      if (k.startsWith("proveedores_")) cacheMemoria.del(k);
+    }
+
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: "Proveedor no encontrado" });
     }
@@ -199,6 +231,9 @@ export const eliminarProveedor = async (req, res) => {
 
 export const buscarProveedores = async (req, res) => {
   const q = (req.query.q || "").trim();
+  const key = `buscProv_${q}`;
+  const hit = cacheMemoria.get(key);
+  if (hit) return res.json(hit);
   const [rows] = await db.query(
     `
       SELECT id, rif, nombre 
@@ -208,5 +243,6 @@ export const buscarProveedores = async (req, res) => {
       ORDER BY nombre LIMIT 20`,
     [`%${q}%`, `%${q}%`]
   );
+  cacheMemoria.set(key, rows, 120);
   res.json(rows);
 };
