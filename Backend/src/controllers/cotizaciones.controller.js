@@ -3,7 +3,7 @@ import db from "../config/database.js";
 import path from "path";
 import puppeteer from "puppeteer-core";
 import chromium from "@sparticuz/chromium";
-
+import cacheMemoria from "../utils/cacheMemoria.js";
 import { generarHTMLCotizacion } from "../../templates/generarHTMLCotizacion.js";
 import { fileURLToPath } from "url";
 
@@ -24,6 +24,10 @@ export const getCotizaciones = async (req, res) => {
 
   // 2) Parámetro de búsqueda (opcional)
   const q = (req.query.search || "").trim();
+
+  const claveCache = `cotizaciones_${page}_${limit}_${q}`;
+  const enCache = cacheMemoria.get(claveCache);
+  if (enCache) return res.json(enCache);
 
   try {
     // 3) Total de registros (filtrado si hay búsqueda)
@@ -100,6 +104,8 @@ export const getCotizaciones = async (req, res) => {
       );
     }
 
+    cacheMemoria.set(claveCache, { cotizaciones, total, page, limit });
+
     // 5) Enviar respuesta
     return res.json({ cotizaciones, total, page, limit });
   } catch (error) {
@@ -111,6 +117,10 @@ export const getCotizaciones = async (req, res) => {
 // controllers/cotizaciones.controller.js
 export const getCotizacionById = async (req, res) => {
   const { id } = req.params;
+  const claveCache = `cotizacion_${id}`;
+  const enCache = cacheMemoria.get(claveCache);
+  if (enCache) return res.json(enCache);
+
   try {
     // 1) Cabecera: agregamos los campos que faltaban
     const [[cot]] = await db.query(
@@ -169,6 +179,7 @@ export const getCotizacionById = async (req, res) => {
     cot.total = Number(cot.total);
     cot.detalle = detalle;
 
+    cacheMemoria.set(claveCache, cot);
     return res.json(cot);
   } catch (error) {
     console.error("Error al obtener cotización:", error);
@@ -248,6 +259,11 @@ export const actualizarEstadoCotizacion = async (req, res) => {
           `UPDATE cuentas_por_cobrar SET codigo = ? WHERE id = ?`,
           [codigoGenerado, nuevoId]
         );
+
+        cacheMemoria.del(`cotizacion_${id}`);
+        for (const k of cacheMemoria.keys()) {
+          if (k.startsWith("cotizaciones_")) cacheMemoria.del(k);
+        }
       }
     }
 
@@ -261,7 +277,12 @@ export const actualizarEstadoCotizacion = async (req, res) => {
 };
 
 export const buscarCotizaciones = async (req, res) => {
+  const clave = `buscCot_${q}`;
+  const hit = cacheMemoria.get(clave);
+  if (hit) return res.json(hit);
+
   const q = (req.query.q || "").trim();
+
   const [rows] = await db.query(
     `
       SELECT c.id,
@@ -274,6 +295,8 @@ export const buscarCotizaciones = async (req, res) => {
       ORDER BY c.id DESC LIMIT 20`,
     [`%${q}%`, `%${q}%`]
   );
+
+  cacheMemoria.set(clave, rows, 120);
   res.json(rows);
 };
 
@@ -295,6 +318,7 @@ export const editarCotizacion = async (req, res) => {
   } = req.body;
 
   const conn = await db.getConnection();
+
   try {
     await conn.beginTransaction();
 
@@ -456,6 +480,10 @@ export const editarCotizacion = async (req, res) => {
     );
 
     await conn.commit();
+    cacheMemoria.del(`cotizacion_${id}`);
+    for (const k of cacheMemoria.keys()) {
+      if (k.startsWith("cotizaciones_")) cacheMemoria.del(k);
+    }
     return res.json({
       message: "Cotización actualizada y reabierta como 'pendiente'.",
     });
@@ -502,6 +530,11 @@ export const deleteCotizacion = async (req, res) => {
       return res.status(404).json({ message: "Cotización no encontrada" });
     }
 
+    cacheMemoria.del(`cotizacion_${id}`);
+    for (const k of cacheMemoria.keys()) {
+      if (k.startsWith("cotizaciones_")) cacheMemoria.del(k);
+    }
+
     return res.json({ message: "Cotización eliminada exitosamente" });
   } catch (error) {
     console.error("Error al eliminar cotización:", error);
@@ -510,8 +543,6 @@ export const deleteCotizacion = async (req, res) => {
       .json({ message: "Hubo un error al eliminar la cotización" });
   }
 };
-
-
 
 // Generar PDF de cotización
 

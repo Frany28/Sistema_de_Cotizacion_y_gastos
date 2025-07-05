@@ -1,21 +1,44 @@
 import db from "../config/database.js";
 import { s3 } from "../utils/s3.js";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
+import cacheMemoria from "../utils/cacheMemoria.js";
 
 export const registrarAbono = async (req, res) => {
-  /* ───────── 1. Conexión y transacción ───────── */
+  /* ───────── 0. Parámetro de URL ───────── */
+  const cuentaId = Number(req.params.cuenta_id);
+  if (!cuentaId || Number.isNaN(cuentaId)) {
+    return res.status(400).json({ message: "cuenta_id requerido en la URL" });
+  }
+
+  /* ───────── 1. Conexión ───────── */
   const conn = await db.getConnection();
+
   try {
+    /* ───────── 1.a  Obtener cliente_id de la cuenta ───────── */
+    const [[cuentaRow]] = await conn.query(
+      "SELECT cliente_id FROM cuentas_por_cobrar WHERE id = ?",
+      [cuentaId]
+    );
+    if (!cuentaRow) {
+      conn.release();
+      return res
+        .status(404)
+        .json({ message: "Cuenta por cobrar no encontrada" });
+    }
+    const clienteId = cuentaRow.cliente_id;
+
+    /* ───────── 1.b  Iniciar transacción ───────── */
     await conn.beginTransaction();
 
     /* ───────── 2. Parámetros de entrada ───────── */
-    const cuentaId = Number(req.params.cuenta_id);
     const metodoPago = (
       req.body.metodo_pago ??
       req.body.metodoPago ??
       ""
     ).toUpperCase();
+
     const bancoId = req.body.banco_id ?? req.body.bancoId ?? null;
+
     const monedaPago = (
       req.body.moneda_pago ??
       req.body.moneda ??
@@ -28,6 +51,7 @@ export const registrarAbono = async (req, res) => {
     const montoAbonado = Number(
       req.body.monto_abonado ?? req.body.monto ?? req.body.montoAbonado ?? 0
     );
+
     const observaciones = req.body.observaciones ?? null;
 
     const usuarioId = req.user?.id || req.session?.usuario?.id || null;
@@ -37,9 +61,6 @@ export const registrarAbono = async (req, res) => {
       return res
         .status(401)
         .json({ message: "Sesión expirada: reingresa al sistema" });
-    }
-    if (!cuentaId || Number.isNaN(cuentaId)) {
-      return res.status(400).json({ message: "cuenta_id requerido en la URL" });
     }
     if (!montoAbonado || Number.isNaN(montoAbonado)) {
       return res
@@ -92,7 +113,7 @@ export const registrarAbono = async (req, res) => {
         cuentaId,
         metodoPago === "TRANSFERENCIA" ? bancoId : null,
         metodoPago,
-        usuarioId, 
+        usuarioId,
         monedaPago,
         tasaCambio,
         montoAbonado,
@@ -117,7 +138,7 @@ export const registrarAbono = async (req, res) => {
           extension,
           rutaComprobante,
           tamanioBytes,
-          usuarioId, // ⭐ nuevamente el usuario
+          usuarioId,
         ]
       );
       const archivoId = archivoRes.insertId;
@@ -129,7 +150,7 @@ export const registrarAbono = async (req, res) => {
          VALUES (?, 'subida', ?, NOW(), ?, ?, ?)`,
         [
           archivoId,
-          usuarioId, // ⭐
+          usuarioId,
           req.ip || null,
           req.get("user-agent") || null,
           JSON.stringify({ nombreOriginal, extension, rutaComprobante }),
@@ -139,7 +160,9 @@ export const registrarAbono = async (req, res) => {
 
     /* ───────── 8. Actualizar saldo de la CxC ───────── */
     const [[{ saldo_restante: saldoActual }]] = await conn.query(
-      "SELECT COALESCE(saldo_restante, monto) AS saldo_restante FROM cuentas_por_cobrar WHERE id = ? FOR UPDATE",
+      `SELECT COALESCE(saldo_restante, monto) AS saldo_restante
+         FROM cuentas_por_cobrar
+        WHERE id = ? FOR UPDATE`,
       [cuentaId]
     );
 
@@ -153,6 +176,13 @@ export const registrarAbono = async (req, res) => {
        WHERE id = ?`,
       [nuevoSaldo, nuevoSaldo, nuevoSaldo, cuentaId]
     );
+
+    /* ───────── 8.b  Invalidar caché ───────── */
+    cacheMemoria.del(`saldo_${cuentaId}`);
+    cacheMemoria.del(`totales_${clienteId}`);
+    for (const k of cacheMemoria.keys()) {
+      if (k.startsWith(`cxc_${clienteId}_`)) cacheMemoria.del(k);
+    }
 
     /* ───────── 9. Commit & respuesta ───────── */
     await conn.commit();
@@ -197,6 +227,10 @@ export const listaCuentasPorCobrar = async (req, res) => {
     : Number(req.query.limit);
   const offset = (page - 1) * limit;
   const { cliente_id } = req.query;
+
+  const claveCache = `cxc_${cliente_id}_${page}_${limit}`;
+  const enCache = cacheMemoria.get(claveCache);
+  if (enCache) return res.json(enCache);
 
   if (!cliente_id) {
     return res.status(400).json({ message: "cliente_id es requerido" });
@@ -259,6 +293,8 @@ export const listaCuentasPorCobrar = async (req, res) => {
       cuenta.saldo_restante = parseFloat((cuenta.monto - abonado).toFixed(2));
     });
 
+    cacheMemoria.set(claveCache, { cuentas, total, page, limit }); // TTL 5 min
+
     // 6. Enviar respuesta
     return res.json({
       cuentas,
@@ -276,6 +312,10 @@ export const listaCuentasPorCobrar = async (req, res) => {
 
 // CLIENTES CON CUENTAS POR COBRAR (APROBADAS)
 export const clientesConCXC = async (req, res) => {
+  const clave = "clientesConCxc";
+  const hit = cacheMemoria.get(clave);
+  if (hit) return res.json(hit);
+
   try {
     const [rows] = await db.query(
       `SELECT DISTINCT 
@@ -288,6 +328,7 @@ export const clientesConCXC = async (req, res) => {
        WHERE cot.estado = 'aprobada'
        ORDER BY cli.nombre ASC`
     );
+    cacheMemoria.set(clave, rows, 600);
 
     res.json(rows);
   } catch (error) {
@@ -304,6 +345,9 @@ export const clientesConCXC = async (req, res) => {
 // TOTALES (DEBE, HABER, SALDO) POR CLIENTE
 export const getTotalesPorCliente = async (req, res) => {
   const { cliente_id } = req.params;
+  const clave = `totales_${cliente_id}`;
+  const hit = cacheMemoria.get(clave);
+  if (hit) return res.json(hit);
 
   try {
     if (!cliente_id) {
@@ -334,7 +378,7 @@ export const getTotalesPorCliente = async (req, res) => {
 
     // 3. SALDO
     const saldo = parseFloat((debe - haber).toFixed(2));
-
+    cacheMemoria.set(clave, { debe, haber, saldo });
     res.json({ debe, haber, saldo });
   } catch (error) {
     console.error("Error al calcular totales del cliente:", error);
@@ -345,6 +389,9 @@ export const getTotalesPorCliente = async (req, res) => {
 // SALDO INDIVIDUAL DE UNA CUENTA
 export const getSaldoCuenta = async (req, res) => {
   const { cuenta_id } = req.params;
+  const clave = `saldo_${cuenta_id}`;
+  const hit = cacheMemoria.get(clave);
+  if (hit) return res.json(hit);
   try {
     const [[{ monto }]] = await db.query(
       "SELECT monto FROM cuentas_por_cobrar WHERE id = ?",
@@ -362,6 +409,7 @@ export const getSaldoCuenta = async (req, res) => {
     );
 
     const saldo = parseFloat((monto - abonado).toFixed(2));
+    cacheMemoria.set(clave, { saldo }, 120);
     res.json({ saldo });
   } catch (error) {
     console.error("Error al obtener saldo de la cuenta:", error);
