@@ -1,8 +1,13 @@
 // controllers/clientes.controller.js
 import db from "../config/database.js";
+import cacheMemoria from "../utils/cacheMemoria.js";
 
 // Verificar si un cliente ya existe (por nombre o email)
 export const verificarClienteExistente = async (req, res) => {
+  const key = `verif_${nombre ?? ""}_${email ?? ""}`; // 🆕
+  const hit = cacheMemoria.get(key); // 🆕
+  if (hit) return res.json(hit); // 🆕
+
   const { nombre, email } = req.query;
 
   if (!nombre?.trim() && !email?.trim()) {
@@ -36,7 +41,7 @@ export const verificarClienteExistente = async (req, res) => {
         email: rows.some((row) => row.email === email?.trim()),
       },
     };
-
+    cacheMemoria.set(key, response, 60);
     res.json(response);
   } catch (error) {
     console.error("Error al verificar cliente:", error);
@@ -106,6 +111,11 @@ export const crearCliente = async (req, res) => {
       ]
     );
 
+    // 🆕 invalidar listados
+    for (const k of cacheMemoria.keys()) {
+      if (k.startsWith("clientes_")) cacheMemoria.del(k);
+    }
+
     // Generar código de referencia
     const codigoReferencia = `CLI-${String(result.insertId).padStart(4, "0")}`;
     await db.execute("UPDATE clientes SET codigo_referencia = ? WHERE id = ?", [
@@ -150,6 +160,10 @@ export const obtenerClientes = async (req, res) => {
     : Number(req.query.limit);
   const offset = (page - 1) * limit;
 
+  const claveCache = `clientes_${page}_${limit}`;
+  const enCache = cacheMemoria.get(claveCache);
+  if (enCache) return res.json(enCache);
+
   try {
     // 1. Total de registros
     const [[{ total }]] = await db.query(
@@ -161,6 +175,8 @@ export const obtenerClientes = async (req, res) => {
         limit
       )} OFFSET ${Number(offset)}`
     );
+
+    cacheMemoria.set(claveCache, { clientes, total }, 300); // TTL 5 min
 
     res.json({ clientes, total });
   } catch (error) {
@@ -216,6 +232,12 @@ export const actualizarCliente = async (req, res) => {
       ]
     );
 
+    cacheMemoria.del(`cliente_${id}`); // si añades un endpoint detalle en futuro
+    for (const k of cacheMemoria.keys()) {
+      // borrar listados
+      if (k.startsWith("clientes_")) cacheMemoria.del(k);
+    }
+
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: "Cliente no encontrado" });
     }
@@ -242,6 +264,11 @@ export const eliminarCliente = async (req, res) => {
     const [result] = await db.execute("DELETE FROM clientes WHERE id = ?", [
       req.params.id,
     ]);
+
+    cacheMemoria.del(`cliente_${req.params.id}`);
+    for (const k of cacheMemoria.keys()) {
+      if (k.startsWith("clientes_")) cacheMemoria.del(k);
+    }
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: "Cliente no encontrado" });
