@@ -1,5 +1,6 @@
 // controllers/bancos.controller.js
 import db from "../config/database.js";
+import cacheMemoria from "../utils/cacheMemoria.js";
 
 /**
  * Crear un nuevo banco
@@ -36,6 +37,11 @@ export const crearBanco = async (req, res) => {
       ]
     );
 
+    // 🆕  invalidar listados
+    for (const k of cacheMemoria.keys()) {
+      if (k.startsWith("bancos_")) cacheMemoria.del(k);
+    }
+
     // 3) Responder con datos del nuevo registro
     res.status(201).json({
       message: "Banco creado correctamente",
@@ -60,6 +66,13 @@ export const crearBanco = async (req, res) => {
 // controllers/bancos.controller.js
 export const obtenerBancos = async (req, res) => {
   const { tipo_identificador, estado, moneda } = req.query; // ← nuevo
+
+  const claveCache = `bancos_${tipo_identificador ?? "all"}_${
+    estado ?? "all"
+  }_${moneda ?? "all"}`;
+  const hit = cacheMemoria.get(claveCache);
+  if (hit) return res.json(hit);
+
   const condiciones = [];
   const params = [];
 
@@ -82,7 +95,10 @@ export const obtenerBancos = async (req, res) => {
     `SELECT * FROM bancos ${where} ORDER BY nombre ASC`, // orden alfabético
     params
   );
-  res.json({ bancos });
+
+  const respuesta = { bancos };
+  cacheMemoria.set(claveCache, respuesta, 300);
+  res.json(respuesta);
 };
 
 /**
@@ -90,10 +106,16 @@ export const obtenerBancos = async (req, res) => {
  */
 export const obtenerBancoPorId = async (req, res) => {
   const { id } = req.params;
+
+  const key = `banco_${id}`;
+  const hit = cacheMemoria.get(key);
+  if (hit) return res.json(hit);
+
   try {
     const [filas] = await db.execute("SELECT * FROM bancos WHERE id = ?", [id]);
     if (filas.length === 0)
       return res.status(404).json({ message: "Banco no encontrado" });
+    cacheMemoria.set(key, filas[0], 300);
     res.json(filas[0]);
   } catch (error) {
     console.error("Error obtenerBancoPorId:", error);
@@ -129,6 +151,12 @@ export const actualizarBanco = async (req, res) => {
       ]
     );
 
+    cacheMemoria.del(`banco_${id}`); // 🆕 detalle
+    for (const k of cacheMemoria.keys()) {
+      // 🆕 listados
+      if (k.startsWith("bancos_")) cacheMemoria.del(k);
+    }
+
     if (resultado.affectedRows === 0)
       return res.status(404).json({ message: "Banco no encontrado" });
 
@@ -161,6 +189,12 @@ export const eliminarBanco = async (req, res) => {
     const [resultado] = await db.execute("DELETE FROM bancos WHERE id = ?", [
       id,
     ]);
+
+    cacheMemoria.del(`banco_${id}`);
+    for (const k of cacheMemoria.keys()) {
+      if (k.startsWith("bancos_")) cacheMemoria.del(k);
+    }
+
     if (resultado.affectedRows === 0)
       return res.status(404).json({ message: "Banco no encontrado" });
     res.json({ message: "Banco eliminado correctamente" });

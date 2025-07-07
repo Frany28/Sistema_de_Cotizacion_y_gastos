@@ -1,5 +1,6 @@
 // controllers/servicios_productos.controller.js
 import db from "../config/database.js";
+import cacheMemoria from "../utils/cacheMemoria.js";
 
 // Verificar si un servicio/producto ya existe
 export const verificarServicioProductoExistente = async (req, res) => {
@@ -11,18 +12,22 @@ export const verificarServicioProductoExistente = async (req, res) => {
       .json({ message: "Se requiere un nombre para verificar duplicados" });
   }
 
+  const key = `verifServ_${nombre.trim().toLowerCase()}`;
+  const hit = cacheMemoria.get(key);
+  if (hit) return res.json(hit);
+
   try {
     const [rows] = await db.execute(
       "SELECT nombre FROM servicios_productos WHERE nombre = ?",
       [nombre.trim()]
     );
 
-    res.json({
+    const respuesta = {
       exists: rows.length > 0,
-      duplicateFields: {
-        nombre: rows.length > 0,
-      },
-    });
+      duplicateFields: { nombre: rows.length > 0 },
+    };
+    cacheMemoria.set(key, respuesta, 60);
+    res.json(respuesta);
   } catch (error) {
     console.error("Error al verificar servicio/producto:", error);
     res.status(500).json({ message: "Error al verificar servicio/producto" });
@@ -97,6 +102,11 @@ export const crearServicioProducto = async (req, res) => {
       [insertId]
     );
 
+    // 🆕 invalidar listados
+    for (const k of cacheMemoria.keys()) {
+      if (k.startsWith("servicios_")) cacheMemoria.del(k);
+    }
+
     res.status(201).json(nuevo[0]);
   } catch (error) {
     console.error(" Error al crear servicio/producto:", error);
@@ -108,6 +118,9 @@ export const crearServicioProducto = async (req, res) => {
 
 export const getServicioProductoById = async (req, res) => {
   const { id } = req.params;
+  const key = `servicio_${id}`;
+  const hit = cacheMemoria.get(key);
+  if (hit) return res.json(hit);
   try {
     const [rows] = await db.query(
       "SELECT id, nombre, precio, cantidad_actual AS stock, tipo, IFNULL(porcentaje_iva, 0.00) AS porcentaje_iva FROM servicios_productos WHERE id = ?",
@@ -117,7 +130,7 @@ export const getServicioProductoById = async (req, res) => {
     if (rows.length === 0) {
       return res.status(404).json({ message: "Producto no encontrado" });
     }
-
+    cacheMemoria.set(key, rows[0], 300);
     res.json(rows[0]);
   } catch (error) {
     console.error("Error al obtener producto:", error);
@@ -134,9 +147,12 @@ export const obtenerServiciosProductos = async (req, res) => {
     ? 10
     : Number(req.query.limit);
   const offset = (page - 1) * limit;
-
-  // 2) Construir cláusulas SQL con filtro opcional por tipo
   const { tipo } = req.query;
+
+  // 🆕 HIT de caché
+  const claveCache = `servicios_${tipo ?? "all"}_${page}_${limit}`;
+  const enCache = cacheMemoria.get(claveCache);
+  if (enCache) return res.json(enCache);
   const whereSQL = tipo ? ` WHERE tipo = ?` : "";
   const params = tipo ? [tipo] : [];
 
@@ -158,6 +174,7 @@ export const obtenerServiciosProductos = async (req, res) => {
     );
 
     // 5. Responder igual que en clientes: { servicios, total }
+    cacheMemoria.set(claveCache, { servicios, total }, 300); // 🆕 5 min
     return res.json({ servicios, total });
   } catch (error) {
     console.error("Error al obtener servicios/productos:", error);
@@ -192,6 +209,11 @@ export const actualizarServicioProducto = async (req, res) => {
        WHERE id = ?`,
       [nombre, descripcion, precio, tipo, estado, porcentaje_iva, id]
     );
+
+    cacheMemoria.del(`servicio_${producto_id}`);
+    for (const k of cacheMemoria.keys()) {
+      if (k.startsWith("servicios_")) cacheMemoria.del(k);
+    }
 
     if (result.affectedRows === 0) {
       return res
@@ -259,6 +281,11 @@ export const eliminarServicioProducto = async (req, res) => {
       "DELETE FROM servicios_productos WHERE id = ?",
       [req.params.id]
     );
+
+    cacheMemoria.del(`servicio_${req.params.id}`); // 🆕
+    for (const k of cacheMemoria.keys()) {
+      if (k.startsWith("servicios_")) cacheMemoria.del(k);
+    }
 
     if (result.affectedRows === 0) {
       return res

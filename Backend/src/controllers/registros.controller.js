@@ -6,6 +6,7 @@ import { fileURLToPath } from "url";
 import db from "../config/database.js";
 import { s3 } from "../utils/s3.js";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
+import cacheMemoria from "../utils/cacheMemoria.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -13,6 +14,10 @@ const __dirname = path.dirname(__filename);
 // Obtener datos para formulario de nuevo registro
 export const getDatosRegistro = async (req, res) => {
   try {
+    const key = "datosRegistro_v1";
+    const hit = cacheMemoria.get(key);
+    if (hit) return res.json(hit);
+
     const [servicios] = await db.query(
       "SELECT id, nombre, precio, porcentaje_iva FROM servicios_productos"
     );
@@ -27,8 +32,7 @@ export const getDatosRegistro = async (req, res) => {
     `);
 
     const [proveedores] = await db.query("SELECT id, nombre FROM proveedores");
-
-    res.json({
+    const respuesta = {
       servicios,
       clientes,
       proveedores,
@@ -36,7 +40,10 @@ export const getDatosRegistro = async (req, res) => {
         { id: "cotizacion", nombre: "Cotización" },
         { id: "gasto", nombre: "Gasto" },
       ],
-    });
+    };
+
+    cacheMemoria.set(key, respuesta, 300); // TTL 5 min
+    res.json(respuesta);
   } catch (error) {
     console.error("Error en getDatosRegistro:", error);
     res
@@ -240,6 +247,11 @@ const crearGasto = async (datos) => {
     gastoId,
   ]);
 
+  for (const k of cacheMemoria.keys()) {
+    if (k.startsWith("gastos_") || k === "datosRegistro_v1")
+      cacheMemoria.del(k);
+  }
+
   return {
     message: "Gasto creado con éxito",
     registro_id: gastoId,
@@ -251,9 +263,14 @@ const crearGasto = async (datos) => {
 
 export const getTiposGasto = async (req, res) => {
   try {
+    const key = "tiposGasto_todos";
+    const hit = cacheMemoria.get(key);
+    if (hit) return res.json(hit);
     const [tipos] = await db.query(
       "SELECT id, nombre, descripcion, rentable FROM tipos_gasto"
     );
+
+    cacheMemoria.set(key, tipos, 3600);
     res.json(tipos);
   } catch (error) {
     console.error("Error al obtener tipos de gasto:", error);
@@ -404,6 +421,12 @@ export const crearCotizacionDesdeRegistro = async (datos) => {
       `UPDATE cotizaciones SET subtotal = ?, impuesto = ?, total = ? WHERE id = ?`,
       [subtotalGlobal, impuestoGlobal, totalGlobal, cotizacionId]
     );
+
+    for (const k of cacheMemoria.keys()) {
+      if (k.startsWith("servicios_") || k.startsWith("servicio_")) {
+        cacheMemoria.del(k);
+      }
+    }
 
     return {
       message: "Cotización creada con éxito",
