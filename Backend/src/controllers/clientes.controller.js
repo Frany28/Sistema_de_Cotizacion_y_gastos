@@ -187,13 +187,11 @@ export const obtenerClientes = async (req, res) => {
 
 // Actualizar cliente
 export const actualizarCliente = async (req, res) => {
-  /* 0. ID seguro ----------------------------------------------------------- */
   const id = Number(req.params.id);
   if (Number.isNaN(id)) {
     return res.status(400).json({ error: "ID de cliente inválido" });
   }
 
-  /* 1. Payload ------------------------------------------------------------- */
   const {
     nombre = "",
     email = "",
@@ -209,7 +207,7 @@ export const actualizarCliente = async (req, res) => {
     return res.status(400).json({ error: "Todos los campos son obligatorios" });
 
   try {
-    /* 2. Registro actual --------------------------------------------------- */
+    /* 1. Registro actual */
     const [[actual]] = await db.execute(
       "SELECT email, identificacion FROM clientes WHERE id = ?",
       [id]
@@ -217,13 +215,13 @@ export const actualizarCliente = async (req, res) => {
     if (!actual)
       return res.status(404).json({ message: "Cliente no encontrado" });
 
-    /* 3. ¿Qué cambió realmente? ------------------------------------------- */
+    /* 2. Detectar cambios */
     const emailCambio =
-      (actual.email ?? "").toLowerCase().trim() !== email.toLowerCase().trim();
+      actual.email?.toLowerCase().trim() !== email.toLowerCase().trim();
     const identCambio =
       (actual.identificacion ?? "").trim() !== identificacion.trim();
 
-    /* 4. Buscar duplicados SOLO en campos cambiados ----------------------- */
+    /* 3. Verificar duplicados solo si cambiaron */
     if (emailCambio || identCambio) {
       const conds = [];
       const params = [];
@@ -241,28 +239,17 @@ export const actualizarCliente = async (req, res) => {
         `SELECT id FROM clientes WHERE (${conds.join(" OR ")}) AND id <> ?`,
         [...params, id]
       );
-
       if (dup.length) {
-        return res.status(409).json({
-          error: "Conflicto de datos únicos",
-          duplicateFields: {
-            email: emailCambio && dup.length > 0,
-            identificacion: identCambio && dup.length > 0,
-          },
-        });
+        return res.status(409).json({ error: "Conflicto de datos únicos" });
       }
     }
 
-    /* 5. UPDATE ------------------------------------------------------------ */
+    /* 4. UPDATE */
     const [result] = await db.execute(
       `UPDATE clientes
-          SET nombre         = ?,
-              email          = ?,
-              telefono       = ?,
-              direccion      = ?,
-              identificacion = ?,
-              sucursal_id    = ?
-        WHERE id = ?`,
+         SET nombre = ?, email = ?, telefono = ?, direccion = ?,
+             identificacion = ?, sucursal_id = ?
+       WHERE id = ?`,
       [
         nombre.trim(),
         email.trim(),
@@ -274,18 +261,10 @@ export const actualizarCliente = async (req, res) => {
       ]
     );
 
-    /* 6. Limpiar caché ----------------------------------------------------- */
-    cacheMemoria?.del(`cliente_${id}`);
-    cacheMemoria?.keys?.().forEach((k) => {
-      if (k.startsWith("clientes_")) cacheMemoria.del(k);
-    });
-
-    /* 7. Respuesta --------------------------------------------------------- */
     return res.json({
-      message:
-        result.affectedRows > 0
-          ? "Cliente actualizado correctamente"
-          : "Sin cambios aplicados",
+      message: result.affectedRows
+        ? "Cliente actualizado correctamente"
+        : "Sin cambios aplicados",
     });
   } catch (err) {
     console.error("Error al actualizar cliente:", err);
