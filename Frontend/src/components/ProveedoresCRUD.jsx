@@ -82,6 +82,18 @@ function ListaProveedores() {
     }
   }, [page, limit, busqueda]);
 
+  const handleEliminarClick = (prov) => {
+    if (prov.estado === "activo") {
+      mostrarError({
+        titulo: "No permitido",
+        mensaje:
+          "El proveedor está ACTIVO; cámbialo a INACTIVO antes de eliminar.",
+      });
+      return;
+    }
+    setProveedorAEliminar(prov);
+  };
+
   /* ---------- 1. Cargar permisos UNA vez ---------- */
   useEffect(() => {
     const cargarPermisos = async () => {
@@ -136,11 +148,20 @@ function ListaProveedores() {
       await api.delete(`/proveedores/${id}`);
       setProveedores(proveedores.filter((p) => p.id !== id));
     } catch (error) {
-      console.error("Error al eliminar proveedor:", error);
-      mostrarError({
-        titulo: "Error al eliminar proveedor",
-        mensaje: "No se pudo eliminar el proveedor. Intenta nuevamente.",
-      });
+      if (error.response?.status === 409) {
+        mostrarError({
+          titulo: "No permitido",
+          mensaje:
+            error.response.data?.message ||
+            "El proveedor está ACTIVO; no puede eliminarse.",
+        });
+      } else {
+        console.error("Error al eliminar proveedor:", error);
+        mostrarError({
+          titulo: "Error al eliminar proveedor",
+          mensaje: "No se pudo eliminar el proveedor. Intenta nuevamente.",
+        });
+      }
     }
   };
 
@@ -272,9 +293,7 @@ function ListaProveedores() {
                 />
                 <BotonIcono
                   tipo="eliminar"
-                  onClick={() => {
-                    setProveedorAEliminar(p);
-                  }}
+                  onClick={() => handleEliminarClick(p)}
                   titulo="Eliminar proveedor"
                 />
               </td>

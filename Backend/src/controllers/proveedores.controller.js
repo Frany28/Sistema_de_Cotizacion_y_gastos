@@ -210,6 +210,20 @@ export const actualizarProveedor = async (req, res) => {
 // Eliminar proveedor
 export const eliminarProveedor = async (req, res) => {
   try {
+    const [[prov]] = await db.query(
+      "SELECT estado FROM proveedores WHERE id = ?",
+      [req.params.id]
+    );
+    if (!prov) {
+      return res.status(404).json({ message: "Proveedor no encontrado" });
+    }
+    if (prov.estado === "activo") {
+      return res.status(409).json({
+        error: "No permitido",
+        message:
+          "El proveedor está ACTIVO; primero cámbielo a INACTIVO para eliminarlo.",
+      });
+    }
     const [result] = await db.query("DELETE FROM proveedores WHERE id = ?", [
       req.params.id,
     ]);
