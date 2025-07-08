@@ -54,13 +54,11 @@ export const crearCliente = async (req, res) => {
   const { nombre, email, telefono, direccion, sucursal_id, identificacion } =
     req.body;
 
-  // Validación mejorada
+  // Validación básica
   if (
-    !nombre?.trim() ||
-    !email?.trim() ||
-    !telefono?.trim() ||
-    !direccion?.trim() ||
-    !identificacion?.trim()
+    ![nombre, email, telefono, direccion, identificacion].every((v) =>
+      v?.trim()
+    )
   ) {
     return res.status(400).json({
       error: "Todos los campos son obligatorios",
@@ -77,30 +75,23 @@ export const crearCliente = async (req, res) => {
   }
 
   try {
-    // Verificar duplicados
+    // 2.1  Verificar duplicados rápidos por email o identificación
     const [existing] = await db.execute(
       "SELECT id FROM clientes WHERE email = ? OR identificacion = ?",
       [email.trim(), identificacion.trim()]
     );
-
-    if (existing.length > 0) {
+    if (existing.length) {
       return res.status(409).json({
         error: "Cliente ya registrado",
-        duplicateFields: {
-          email: existing.some((row) => row.email === email.trim()),
-          identificacion: existing.some(
-            (row) => row.identificacion === identificacion.trim()
-          ),
-        },
       });
     }
 
-    // Asegurar que sucursal_id sea un número o usar valor por defecto (4)
-    const sucursalId = sucursal_id ? parseInt(sucursal_id) : 4;
+    // 2.2  Insertar registro
+    const sucursalId = sucursal_id ? parseInt(sucursal_id) : 4; // 4 = sucursal genérica
 
-    // Insertar en BD con valores asegurados
-    const [result] = await db.execute(
-      "INSERT INTO clientes (nombre, email, telefono, direccion, sucursal_id, identificacion) VALUES (?, ?, ?, ?, ?, ?)",
+    const [insert] = await db.execute(
+      `INSERT INTO clientes (nombre, email, telefono, direccion, sucursal_id, identificacion)
+       VALUES (?, ?, ?, ?, ?, ?)`,
       [
         nombre.trim(),
         email.trim(),
@@ -111,44 +102,39 @@ export const crearCliente = async (req, res) => {
       ]
     );
 
-    // 🆕 invalidar listados
+    const clienteId = insert.insertId;
+
+    // 2.3  Generar código de referencia
+    const codigoReferencia = `CLI-${String(clienteId).padStart(4, "0")}`;
+    await db.execute("UPDATE clientes SET codigo_referencia = ? WHERE id = ?", [
+      codigoReferencia,
+      clienteId,
+    ]);
+
+    // 2.4  Limpiar listados en caché
     for (const k of cacheMemoria.keys()) {
       if (k.startsWith("clientes_")) cacheMemoria.del(k);
     }
 
-    // Generar código de referencia
-    const codigoReferencia = `CLI-${String(result.insertId).padStart(4, "0")}`;
-    await db.execute("UPDATE clientes SET codigo_referencia = ? WHERE id = ?", [
-      codigoReferencia,
-      result.insertId,
-    ]);
+    // 2.5  Traer el registro completo con el nombre de la sucursal
+    const [[clienteCompleto]] = await db.execute(
+      `SELECT c.id, c.codigo_referencia, c.nombre, c.email, c.telefono,
+              c.direccion, c.identificacion, c.sucursal_id,
+              s.nombre AS sucursal_nombre
+       FROM clientes c
+       LEFT JOIN sucursales s ON s.id = c.sucursal_id
+       WHERE c.id = ?`,
+      [clienteId]
+    );
 
-    res.status(201).json({
-      message: "Cliente creado correctamente",
-      id: result.insertId,
-      codigo_referencia: codigoReferencia,
-      nombre,
-      email,
-      telefono,
-      direccion,
-      sucursal_id: sucursalId,
-      identificacion,
-    });
+    // 2.6  Respuesta coherente con el resto de la API
+    return res.status(201).json(clienteCompleto);
   } catch (error) {
-    console.error("Error en crearCliente:", {
-      message: error.message,
-      code: error.code,
-      sql: error.sql,
-      body: req.body,
-    });
-
-    res.status(500).json({
-      message: "Error al crear el cliente",
-      error: error.message,
-      code: error.code,
-    });
+    console.error("Error en crearCliente:", error);
+    return res.status(500).json({ message: "Error al crear el cliente" });
   }
 };
+
 // Obtener clientes paginados
 export const obtenerClientes = async (req, res) => {
   // Convertir explícitamente a número
