@@ -1,6 +1,13 @@
 import api from "../../api/index";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, FileText, Download } from "lucide-react";
+import {
+  X,
+  FileText,
+  Download,
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+} from "lucide-react";
 
 export default function ModalDetalleCotizacion({
   visible,
@@ -21,7 +28,18 @@ export default function ModalDetalleCotizacion({
     impuesto,
     total,
     detalle = [],
+    motivo_rechazo,
+    operacion,
+    mercancia,
+    bl,
+    contenedor,
+    puerto,
+    declarante,
   } = cotizacion;
+
+  const isRechazado = estado === "rechazada";
+  const isAprobado = estado === "aprobada";
+  const isPendiente = estado === "pendiente";
 
   const mostrarMonto = (valor) => {
     if (valor === undefined || valor === null) return "0.00";
@@ -36,6 +54,12 @@ export default function ModalDetalleCotizacion({
       month: "long",
       year: "numeric",
     });
+  };
+
+  const EstadoIcon = () => {
+    if (isAprobado) return <CheckCircle2 className="w-4 h-4 mr-1" />;
+    if (isRechazado) return <AlertCircle className="w-4 h-4 mr-1" />;
+    return <Clock className="w-4 h-4 mr-1" />;
   };
 
   return (
@@ -76,13 +100,14 @@ export default function ModalDetalleCotizacion({
             </div>
             <div
               className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                estado === "aprobada"
+                isAprobado
                   ? "bg-green-100 text-green-800"
-                  : estado === "pendiente"
+                  : isPendiente
                   ? "bg-yellow-100 text-yellow-800"
                   : "bg-red-100 text-red-800"
               }`}
             >
+              <EstadoIcon />
               <span className="capitalize">{estado}</span>
             </div>
           </div>
@@ -113,8 +138,59 @@ export default function ModalDetalleCotizacion({
                       {confirmacion_cliente ? "Sí" : "No"}
                     </span>
                   </p>
+                  <p>
+                    <span className="text-gray-400">Declarante:</span>{" "}
+                    <span className="font-medium">{declarante || "N/A"}</span>
+                  </p>
                 </div>
               </div>
+
+              {/* Información de operación */}
+              <div className="bg-gray-700 p-4 rounded-lg border border-gray-600">
+                <h3 className="font-medium text-gray-300 mb-2 flex items-center">
+                  <span className="w-3 h-3 bg-purple-400 rounded-full mr-2"></span>
+                  Información de Operación
+                </h3>
+                <div className="space-y-2 text-sm text-gray-300">
+                  <p>
+                    <span className="text-gray-400">Operación:</span>{" "}
+                    <span className="font-medium">{operacion || "N/A"}</span>
+                  </p>
+                  <p>
+                    <span className="text-gray-400">Mercancía:</span>{" "}
+                    <span className="font-medium">{mercancia || "N/A"}</span>
+                  </p>
+                  <p>
+                    <span className="text-gray-400">BL:</span>{" "}
+                    <span className="font-medium">{bl || "N/A"}</span>
+                  </p>
+                  <p>
+                    <span className="text-gray-400">Contenedor:</span>{" "}
+                    <span className="font-medium">{contenedor || "N/A"}</span>
+                  </p>
+                  <p>
+                    <span className="text-gray-400">Puerto:</span>{" "}
+                    <span className="font-medium">{puerto || "N/A"}</span>
+                  </p>
+                </div>
+              </div>
+
+              {/* Motivo de rechazo - Estilo igual a gastos */}
+              {isRechazado && (
+                <div className="bg-red-900/30 p-4 rounded-lg border border-red-700">
+                  <div className="flex items-start">
+                    <AlertCircle className="w-5 h-5 text-red-400 mr-2 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <h4 className="font-medium text-red-300 mb-1">
+                        Motivo de rechazo
+                      </h4>
+                      <span className="text-red-400 italic">
+                        {motivo_rechazo}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Observaciones */}
               {observaciones && (
@@ -192,7 +268,7 @@ export default function ModalDetalleCotizacion({
                         ${mostrarMonto(impuesto)}
                       </span>
                     </div>
-                    <div className="pt-2 border-t border-gray-600 flex justify-between text-sm font-bold text-lg">
+                    <div className="pt-2 border-t border-gray-600 flex justify-between font-bold text-lg">
                       <span>Total:</span>
                       <span className="text-blue-400">
                         ${mostrarMonto(total)}

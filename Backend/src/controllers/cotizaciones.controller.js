@@ -141,6 +141,7 @@ export const getCotizacionById = async (req, res) => {
          c.bl,
          c.contenedor,
          c.puerto,
+         c.motivo_rechazo, // <-- Agregamos este campo
          cli.nombre  AS cliente_nombre,
          cli.email,
          u.nombre    AS declarante
