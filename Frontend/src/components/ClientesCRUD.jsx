@@ -1,5 +1,5 @@
 // src/components/ListaClientes.jsx
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import api from "../api/index";
 import ModalAñadirCliente from "../components/Modals/ModalAñadirCliente";
 import BotonIcono from "./general/BotonIcono";
