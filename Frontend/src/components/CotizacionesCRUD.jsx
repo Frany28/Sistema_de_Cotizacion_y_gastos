@@ -262,7 +262,7 @@ function ListaCotizaciones() {
             <input
               type="text"
               id="busqueda-simple"
-              placeholder="Buscar cotización..."
+              placeholder="Buscar..."
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               onKeyDown={(e) => {

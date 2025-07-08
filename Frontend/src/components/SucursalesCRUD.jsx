@@ -236,7 +236,7 @@ export default function SucursalesCRUD() {
             </div>
             <input
               type="text"
-              placeholder="Buscar sucursales..."
+              placeholder="Buscar..."
               value={busqueda}
               onChange={manejarBusqueda}
               className="pl-10 border rounded-lg text-sm focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-600 text-white"

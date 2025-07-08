@@ -256,7 +256,7 @@ export default function UsuariosCRUD() {
             </div>
             <input
               type="text"
-              placeholder="Buscar usuarios..."
+              placeholder="Buscar..."
               value={busqueda}
               onChange={manejarBusqueda}
               className="pl-10  borde rounded-lg text-sm focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-600 text-white"
