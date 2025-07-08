@@ -160,9 +160,15 @@ export default function ModalDetalleCotizacion({
                     <span className="font-medium">{mercancia || "N/A"}</span>
                   </p>
                   <p>
-                    <span className="text-gray-400">BL/Contenedor:</span>{" "}
+                    <span className="text-gray-400">Contenedor:</span>{" "}
                     <span className="font-medium">
-                      {bl ? `${bl} / ${contenedor || "N/A"}` : "N/A"}
+                      {contenedor ? `${contenedor} || "N/A"}` : "N/A"}
+                    </span>
+                  </p>
+                  <p>
+                    <span className="text-gray-400">BL:</span>{" "}
+                    <span className="font-medium">
+                      {bl ? `${bl} || "N/A"}` : "N/A"}
                     </span>
                   </p>
                   <p>
