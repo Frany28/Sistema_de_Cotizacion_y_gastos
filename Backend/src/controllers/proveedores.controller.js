@@ -208,38 +208,59 @@ export const actualizarProveedor = async (req, res) => {
 };
 
 // Eliminar proveedor
+// proveedores.controller.js
 export const eliminarProveedor = async (req, res) => {
+  const { id } = req.params;
+
   try {
-    const [[prov]] = await db.query(
+    /* 1️⃣  Comprobar existencia y estado */
+    const [[proveedor]] = await db.query(
       "SELECT estado FROM proveedores WHERE id = ?",
-      [req.params.id]
+      [id]
     );
-    if (!prov) {
+
+    if (!proveedor) {
       return res.status(404).json({ message: "Proveedor no encontrado" });
     }
-    if (prov.estado === "activo") {
+
+    if (proveedor.estado === "activo") {
       return res.status(409).json({
         error: "No permitido",
         message:
-          "El proveedor está ACTIVO; primero cámbielo a INACTIVO para eliminarlo.",
+          "El proveedor está ACTIVO; primero cámbielo a INACTIVO para poder eliminarlo.",
       });
     }
-    const [result] = await db.query("DELETE FROM proveedores WHERE id = ?", [
-      req.params.id,
-    ]);
 
-    for (const k of cacheMemoria.keys()) {
-      if (k.startsWith("proveedores_")) cacheMemoria.del(k);
+    /* 2️⃣  Intentar eliminar; capturar FK para responder 409 */
+    let resultado;
+    try {
+      [resultado] = await db.query("DELETE FROM proveedores WHERE id = ?", [
+        id,
+      ]);
+    } catch (err) {
+      if (err.code === "ER_ROW_IS_REFERENCED_2") {
+        return res.status(409).json({
+          error: "Proveedor con gastos",
+          message:
+            "No puedes eliminar un proveedor que tiene gastos registrados.",
+        });
+      }
+      throw err; // otros errores los maneja el catch exterior
     }
 
-    if (result.affectedRows === 0) {
+    if (resultado.affectedRows === 0) {
       return res.status(404).json({ message: "Proveedor no encontrado" });
     }
 
-    res.json({ message: "Proveedor eliminado correctamente" });
+    /* 3️⃣  Limpiar caché de listados */
+    for (const clave of cacheMemoria.keys()) {
+      if (clave.startsWith("proveedores_")) cacheMemoria.del(clave);
+    }
+
+    return res.json({ message: "Proveedor eliminado correctamente" });
   } catch (error) {
-    console.error("Error al eliminar proveedor:", error);
-    res.status(500).json({ message: "Error al eliminar proveedor" });
+    console.error("Error eliminarProveedor:", error);
+    return res.status(500).json({ message: "Error al eliminar proveedor" });
   }
 };
 

@@ -14,6 +14,7 @@ import { verificarPermisoFront } from "../../utils/verificarPermisoFront";
 
 function ListaProveedores() {
   const [proveedores, setProveedores] = useState([]);
+  const [modalError, setModalError] = useState({ visible: false, mensaje: "" });
   const [busqueda, setBusqueda] = useState("");
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(() => {
@@ -87,16 +88,24 @@ function ListaProveedores() {
     }
   }, []);
 
-  const handleEliminarClick = (prov) => {
-    if (prov.estado === "activo") {
-      mostrarError({
-        titulo: "No permitido",
-        mensaje:
-          "El proveedor está ACTIVO; cámbialo a INACTIVO antes de eliminar.",
-      });
-      return;
+  const handleEliminarClick = async (proveedor) => {
+    try {
+      await api.delete(`/proveedores/${proveedor.id}`);
+      cargarProveedores();
+    } catch (err) {
+      if (err?.response?.status === 409) {
+        mostrarError({
+          titulo: "Operación no permitida",
+          mensaje: err.response.data.message, // ← texto que envía el backend (activo o con gastos)
+        });
+      } else {
+        console.error("Error al eliminar proveedor:", err);
+        mostrarError({
+          titulo: "Error al eliminar proveedor",
+          mensaje: "No se pudo eliminar el proveedor. Intenta nuevamente.",
+        });
+      }
     }
-    setProveedorAEliminar(prov);
   };
 
   /* ---------- 1. Cargar permisos UNA vez ---------- */
