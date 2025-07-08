@@ -297,8 +297,13 @@ function ListaServiciosProductos() {
           <ModalAñadirServicioProducto
             onCancel={cerrarModal}
             onSubmit={(nuevo) => {
-              setServicios((prev) => [...prev, nuevo]); // actualiza correctamente
               cerrarModal();
+              setPage(1);
+              fetchServicios();
+              mostrarMensajeExito({
+                titulo: "Creado",
+                mensaje: "El producto/servicio se registró correctamente.",
+              });
             }}
             onSuccess={mostrarMensajeExito}
           />
