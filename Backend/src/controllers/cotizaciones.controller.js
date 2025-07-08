@@ -141,7 +141,8 @@ export const getCotizacionById = async (req, res) => {
          c.bl,
          c.contenedor,
          c.puerto,
-         c.motivo_rechazo, // <-- Agregamos este campo
+         c.motivo_rechazo,
+         c.codigo_referencia AS codigo, 
          cli.nombre  AS cliente_nombre,
          cli.email,
          u.nombre    AS declarante
@@ -278,11 +279,10 @@ export const actualizarEstadoCotizacion = async (req, res) => {
 };
 
 export const buscarCotizaciones = async (req, res) => {
+  const q = (req.query.q || "").trim();
   const clave = `buscCot_${q}`;
   const hit = cacheMemoria.get(clave);
   if (hit) return res.json(hit);
-
-  const q = (req.query.q || "").trim();
 
   const [rows] = await db.query(
     `
