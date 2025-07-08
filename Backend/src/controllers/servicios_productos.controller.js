@@ -210,7 +210,7 @@ export const actualizarServicioProducto = async (req, res) => {
       [nombre, descripcion, precio, tipo, estado, porcentaje_iva, id]
     );
 
-    cacheMemoria.del(`servicio_${producto_id}`);
+    cacheMemoria.del(`servicio_${id}`);
     for (const k of cacheMemoria.keys()) {
       if (k.startsWith("servicios_")) cacheMemoria.del(k);
     }
