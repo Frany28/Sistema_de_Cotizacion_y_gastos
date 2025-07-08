@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const regexNombre = /^[A-Za-zÁÉÍÓÚáéíóúÜüÑñ\s]+$/;
 const regexEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const regexCuenta = /^[0-9]+$/;
+const regexCuenta = /^[0-9-]+$/;
 
 export default function ModalAñadirBanco({ onCancel, onSubmit }) {
   const [form, setForm] = useState({
@@ -186,7 +186,7 @@ export default function ModalAñadirBanco({ onCancel, onSubmit }) {
                     placeholder={
                       form.tipo_identificador === "email"
                         ? "correo@dominio.com"
-                        : "1234567890"
+                        : "0000-0000-00-0000000000"
                     }
                     required
                   />

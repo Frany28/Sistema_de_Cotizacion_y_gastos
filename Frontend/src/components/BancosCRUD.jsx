@@ -401,7 +401,11 @@ function BancosCRUD() {
                 { value: "email", label: "Email" },
               ],
             },
-            { name: "identificador", label: "Identificador" },
+            {
+              name: "identificador",
+              label: "Identificador",
+              pattern: "^[0-9-]+$",
+            },
             {
               name: "estado",
               label: "Estado",

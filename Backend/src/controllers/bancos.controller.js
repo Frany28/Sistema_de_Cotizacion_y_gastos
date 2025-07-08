@@ -12,11 +12,11 @@ export const crearBanco = async (req, res) => {
   try {
     // 1) Verificar duplicados (mismo nombre o misma cuenta/email)
     const [existe] = await db.execute(
-      `SELECT id 
-         FROM bancos 
-        WHERE nombre = ? 
-           OR (tipo_identificador = ? AND identificador = ?)`,
-      [nombre.trim(), tipo_identificador, identificador.trim()]
+      `SELECT id FROM bancos 
+    WHERE nombre = ? 
+     OR (tipo_identificador = ? 
+          AND REPLACE(identificador, '-', '') = ?)`,
+      [nombre.trim(), tipo_identificador, identificadorNormalizado]
     );
 
     if (existe.length > 0) {
