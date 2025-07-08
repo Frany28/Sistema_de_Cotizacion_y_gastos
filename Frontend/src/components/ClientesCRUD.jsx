@@ -29,6 +29,7 @@ function ListaClientes() {
   const [clienteAEliminar, setClienteAEliminar] = useState(null);
   const [mostrarModalEditar, setMostrarModalEditar] = useState(false);
   const [mostrarModal, setMostrarModal] = useState(false);
+  const [sucursales, setSucursales] = useState([]);
   const [modalExitoData, setModalExitoData] = useState({
     visible: false,
     titulo: "",
@@ -47,12 +48,10 @@ function ListaClientes() {
     telefono: "",
     direccion: "",
   });
-  const sucursalesMap = {
-    4: "Sucursal Central",
-    5: "Sucursal Norte",
-    6: "Sucursal Sur",
-  };
-
+  const sucursalesMap = useMemo(
+    () => Object.fromEntries(sucursales.map((s) => [s.id, s.nombre])),
+    [sucursales]
+  );
   const mostrarMensajeExito = ({
     titulo,
     mensaje,
@@ -90,6 +89,17 @@ function ListaClientes() {
   useEffect(() => {
     fetchClientes();
   }, [fetchClientes]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await api.get("/sucursales/dropdown/list");
+        setSucursales(data);
+      } catch (err) {
+        console.error("Error carga sucursales:", err);
+      }
+    })();
+  }, []);
 
   // ───── Verificar permisos sólo al montar ─────
   useEffect(() => {
@@ -379,11 +389,10 @@ function ListaClientes() {
               name: "sucursal_id",
               label: "Sucursal",
               type: "select",
-              options: [
-                { value: 4, label: "Sucursal Central" },
-                { value: 5, label: "Sucursal Norte" },
-                { value: 6, label: "Sucursal Sur" },
-              ],
+              options: sucursales.map((s) => ({
+                value: s.id,
+                label: s.nombre,
+              })),
             },
           ]}
           datosIniciales={clienteEditado}
