@@ -162,14 +162,12 @@ export default function ModalDetalleCotizacion({
                   <p>
                     <span className="text-gray-400">Contenedor:</span>{" "}
                     <span className="font-medium">
-                      {contenedor ? `${contenedor} || "N/A"}` : "N/A"}
+                      {contenedor ? `${contenedor}` : "N/A"}
                     </span>
                   </p>
                   <p>
                     <span className="text-gray-400">BL:</span>{" "}
-                    <span className="font-medium">
-                      {bl ? `${bl} || "N/A"}` : "N/A"}
-                    </span>
+                    <span className="font-medium">{bl ? `${bl}` : "N/A"}</span>
                   </p>
                   <p>
                     <span className="text-gray-400">Puerto:</span>{" "}
