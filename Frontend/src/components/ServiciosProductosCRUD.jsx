@@ -49,6 +49,20 @@ function ListaServiciosProductos() {
     tipo: "servicio",
   });
 
+  const handleEliminarClick = (item) => {
+    if (item.estado === "activo") {
+      mostrarError({
+        titulo: "No permitido",
+        mensaje:
+          "El producto/servicio está ACTIVO; cámbialo a INACTIVO antes de eliminar.",
+      });
+      return; // ⬅️  NO abre el modal de confirmación
+    }
+
+    setEditandoServicio(item); // producto inactivo → procede
+    setMostrarConfirmacion(true);
+  };
+
   const mostrarMensajeExito = ({
     titulo,
     mensaje,
@@ -355,10 +369,7 @@ function ListaServiciosProductos() {
                 {puedeEliminar && (
                   <BotonIcono
                     tipo="eliminar"
-                    onClick={() => {
-                      setEditandoServicio(item);
-                      setMostrarConfirmacion(true);
-                    }}
+                    onClick={() => handleEliminarClick(item)}
                     titulo="Eliminar"
                   />
                 )}
