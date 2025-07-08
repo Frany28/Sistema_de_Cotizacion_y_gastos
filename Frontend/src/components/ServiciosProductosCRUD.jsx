@@ -173,6 +173,7 @@ function ListaServiciosProductos() {
   const eliminarServicio = async () => {
     try {
       await api.delete(`servicios-productos/${editandoServicio.id}`);
+
       const actualizados = servicios.filter(
         (s) => s.id !== editandoServicio.id
       );
@@ -182,11 +183,20 @@ function ListaServiciosProductos() {
         mensaje: "El registro ha sido eliminado correctamente.",
       });
     } catch (error) {
-      console.error("Error al eliminar servicio/producto:", error);
-      mostrarError({
-        titulo: "Error",
-        mensaje: "No se pudo eliminar el servicio/producto.",
-      });
+      if (error.response?.status === 409) {
+        mostrarError({
+          titulo: "No permitido",
+          mensaje:
+            error.response.data?.message ||
+            "El producto/servicio está ACTIVO; cámbialo a INACTIVO antes de eliminar.",
+        });
+      } else {
+        console.error("Error al eliminar servicio/producto:", error);
+        mostrarError({
+          titulo: "Error",
+          mensaje: "No se pudo eliminar el servicio/producto.",
+        });
+      }
     } finally {
       setMostrarConfirmacion(false);
     }

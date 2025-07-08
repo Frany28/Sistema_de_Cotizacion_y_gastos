@@ -275,27 +275,44 @@ export const restarCantidadProducto = async (req, res) => {
 };
 
 // Eliminar servicio/producto
+// controllers/servicios_productos.controller.js
 export const eliminarServicioProducto = async (req, res) => {
+  const id = req.params.id;
+
   try {
-    const [result] = await db.execute(
-      "DELETE FROM servicios_productos WHERE id = ?",
-      [req.params.id]
+    /* 1️⃣  ¿Sigue activo? -------------------------------------------------- */
+    const [[registro]] = await db.execute(
+      "SELECT estado FROM servicios_productos WHERE id = ?",
+      [id]
     );
 
-    cacheMemoria.del(`servicio_${req.params.id}`); // 🆕
-    for (const k of cacheMemoria.keys()) {
-      if (k.startsWith("servicios_")) cacheMemoria.del(k);
-    }
-
-    if (result.affectedRows === 0) {
+    if (!registro) {
       return res
         .status(404)
         .json({ message: "Servicio/Producto no encontrado" });
     }
 
-    res.json({ message: "Servicio/Producto eliminado correctamente" });
+    if (registro.estado === "activo") {
+      return res.status(409).json({
+        error: "No permitido",
+        message:
+          "El producto/servicio está ACTIVO; cámbielo a INACTIVO antes de eliminar",
+      });
+    }
+
+    /* 2️⃣  Ya inactivo → procedemos --------------------------------------- */
+    const [result] = await db.execute(
+      "DELETE FROM servicios_productos WHERE id = ?",
+      [id]
+    );
+
+    cacheMemoria.del(`servicio_${id}`);
+    for (const k of cacheMemoria.keys())
+      if (k.startsWith("servicios_")) cacheMemoria.del(k);
+
+    return res.json({ message: "Servicio/Producto eliminado correctamente" });
   } catch (error) {
     console.error("Error al eliminar servicio/producto:", error);
-    res.status(500).json({ message: "Error al eliminar servicio/producto" });
+    return res.status(500).json({ message: "Error interno al eliminar" });
   }
 };
