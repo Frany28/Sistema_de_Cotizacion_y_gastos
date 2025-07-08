@@ -8,6 +8,7 @@ const ClienteSelector = ({
   onClienteSeleccionado,
   mostrarError = false,
   setClientes,
+  añadirCliente,
 }) => {
   const [clienteId, setClienteId] = useState("");
   const [datosCliente, setDatosCliente] = useState(null);

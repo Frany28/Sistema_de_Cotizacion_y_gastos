@@ -27,6 +27,14 @@ const AgregarCotizacion = ({
     contenedor: "",
   });
 
+  const añadirCliente = (clienteCreado) => {
+    // 1) Lo insertamos en la lista general
+    setClientes((prev) => [...prev, clienteCreado]);
+
+    // 2) Lo marcamos como seleccionado para esta cotización
+    setClienteSeleccionado(clienteCreado);
+  };
+
   useEffect(() => {
     if (onActualizarDatos) {
       onActualizarDatos(datosGenerales);
@@ -55,6 +63,7 @@ const AgregarCotizacion = ({
               setClientes={setClientes}
               onClienteSeleccionado={setClienteSeleccionado}
               mostrarError={mostrarClienteInvalido}
+              añadirCliente={añadirCliente}
             />
             <div className="w-full">
               <DatosGeneralesCotizacion
