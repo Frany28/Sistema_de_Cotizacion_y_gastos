@@ -256,7 +256,16 @@ export default function ModalEditarUsuario({
                     accept="image/*"
                     onChange={handleFileChange}
                     disabled={isSubmitting}
-                    className="block w-full p-2.5  border rounded-lg bg-gray-600 border-gray-500 text-white"
+                    className="
+                      block w-full p-2.5  text-gray-200 rounded
+                      file:px-4 file:py-2
+                      file:bg-gray-700
+                       file:text-gray-200
+                      file:border  file:border-gray-500
+                      file:rounded file:cursor-pointer
+                    file:hover:bg-gray-500
+                      transition
+                      duration-200 ease-in-out"
                   />
                 </div>
 
