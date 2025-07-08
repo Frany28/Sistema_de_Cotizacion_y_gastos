@@ -65,14 +65,15 @@ export const validarBanco = (req, res, next) => {
         .json({ message: "El identificador debe ser un email válido." });
     }
   } else {
-    const regexCuenta = /^[0-9]+$/;
+    // Acepta dígitos y guiones (-)  →  0102-0123-56-0123456789
+    const regexCuenta = /^[0-9-]+$/;
     if (!regexCuenta.test(identificador.trim())) {
-      return res
-        .status(400)
-        .json({ message: "El identificador debe contener sólo dígitos." });
+      return res.status(400).json({
+        message:
+          "El identificador debe contener sólo dígitos y guiones (ej. 0102-0123-56-0123456789).",
+      });
     }
   }
-
   // ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
   // 6) Validar 'estado' (opcional)
   // Puede llegar 'activo' o 'inactivo'; si no viene, lo asumimos 'activo'

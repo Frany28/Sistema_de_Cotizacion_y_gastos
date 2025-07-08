@@ -157,7 +157,8 @@ function BancosCRUD() {
 
   const guardarEdicion = async (valores) => {
     try {
-      await api.put(`/bancos/${editandoBanco.id}`, valores);
+      const payload = { ...datosEdicion, ...valores };
+      await api.put(`/bancos/${editandoBanco.id}`, payload);
       await fetchBancos();
       mostrarMensajeExito({
         titulo: "Banco actualizado",

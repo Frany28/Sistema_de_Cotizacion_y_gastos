@@ -10,6 +10,7 @@ export const crearBanco = async (req, res) => {
     req.body;
 
   try {
+    const identificadorNormalizado = identificador.replace(/-/g, "").trim();
     // 1) Verificar duplicados (mismo nombre o misma cuenta/email)
     const [existe] = await db.execute(
       `SELECT id FROM bancos 
@@ -126,44 +127,82 @@ export const obtenerBancoPorId = async (req, res) => {
 /**
  * Actualizar un banco
  */
+// bancos.controller.js
 export const actualizarBanco = async (req, res) => {
   const { id } = req.params;
   const { nombre, moneda, tipo_identificador, identificador, estado } =
     req.body;
 
+  /* 1️⃣  Validaciones básicas */
+  if (
+    ![nombre, moneda, tipo_identificador, identificador, estado].every(Boolean)
+  ) {
+    return res.status(400).json({ message: "Faltan datos obligatorios" });
+  }
+
+  /* 2️⃣  Validar formato del identificador: solo dígitos y guiones */
+  const patronIdentificador = /^[0-9-]+$/;
+  if (!patronIdentificador.test(identificador)) {
+    return res
+      .status(400)
+      .json({ message: "Formato de identificador inválido" });
+  }
+
+  /* 3️⃣  Normalizar identificador quitando guiones para comparar-duplicados */
+  const identificadorNormalizado = identificador.replace(/-/g, "").trim();
+
   try {
+    /* 4️⃣  Comprobar que no exista otro banco con mismo nombre o identificador lógico */
+    const [duplicado] = await db.execute(
+      `SELECT id
+         FROM bancos
+        WHERE id <> ?
+          AND ( nombre = ?
+             OR ( tipo_identificador = ?
+                  AND REPLACE(identificador, '-', '') = ? ) )`,
+      [id, nombre.trim(), tipo_identificador, identificadorNormalizado]
+    );
+
+    if (duplicado.length) {
+      return res
+        .status(409)
+        .json({ message: "Ya existe un banco con esos datos" });
+    }
+
+    /* 5️⃣  Actualizar registro */
     const [resultado] = await db.execute(
-      `UPDATE bancos 
-          SET nombre = ?, 
-              moneda = ?, 
-              tipo_identificador = ?, 
-              identificador = ?, 
-              estado = ?, 
-              actualizado_en = CURRENT_TIMESTAMP 
+      `UPDATE bancos
+          SET nombre = ?,
+              moneda = ?,
+              tipo_identificador = ?,
+              identificador = ?,
+              estado = ?,
+              actualizado_en = CURRENT_TIMESTAMP
         WHERE id = ?`,
       [
         nombre.trim(),
         moneda,
         tipo_identificador,
-        identificador.trim(),
+        identificador.trim(), // se guarda tal cual (con guiones)
         estado,
         id,
       ]
     );
 
-    cacheMemoria.del(`banco_${id}`); // 🆕 detalle
-    for (const k of cacheMemoria.keys()) {
-      // 🆕 listados
-      if (k.startsWith("bancos_")) cacheMemoria.del(k);
+    if (resultado.affectedRows === 0) {
+      return res.status(404).json({ message: "Banco no encontrado" });
     }
 
-    if (resultado.affectedRows === 0)
-      return res.status(404).json({ message: "Banco no encontrado" });
+    /* 6️⃣  Invalidar caches: detalle y listados */
+    cacheMemoria.del(`banco_${id}`);
+    for (const clave of cacheMemoria.keys()) {
+      if (clave.startsWith("bancos_")) cacheMemoria.del(clave);
+    }
 
-    res.json({ message: "Banco actualizado correctamente", id });
+    return res.json({ message: "Banco actualizado correctamente", id });
   } catch (error) {
     console.error("Error actualizarBanco:", error);
-    res.status(500).json({ message: "Error al actualizar el banco" });
+    return res.status(500).json({ message: "Error al actualizar el banco" });
   }
 };
 
