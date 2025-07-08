@@ -93,11 +93,11 @@ export const obtenerUrlComprobante = async (req, res) => {
       .status(404)
       .json({ message: "Este gasto no tiene un comprobante adjunto" });
   }
-  cacheMemoria.set(claveCache, { data: gastos, total, page, limit });
-  // 2) Generar URL pre-firmada (5 min)
   const url = await generarUrlPrefirmadaLectura(fila.keyS3, 300);
+  const respuesta = { url };
+  cacheMemoria.set(claveCache, respuesta);
 
-  res.json({ url });
+  res.json(respuesta);
 };
 
 export const updateGasto = async (req, res) => {
