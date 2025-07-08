@@ -66,21 +66,26 @@ function ListaProveedores() {
   const fetchProveedores = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await api.get("/proveedores", {
-        params: { page, limit, buscar: busqueda.trim() },
-      });
-      setProveedores(data.proveedores);
-      setTotal(data.total);
+      /* 2) UNA sola llamada, sin filtros */
+      const { data } = await api.get("/proveedores"); // GET /proveedores
+
+      if (data && Array.isArray(data.proveedores)) {
+        setProveedores(data.proveedores); // lista completa
+        setTotal(data.proveedores.length); // total local
+      } else {
+        console.warn("Respuesta inesperada:", data);
+        throw new Error("Formato de respuesta no válido");
+      }
     } catch (error) {
       console.error("Error al obtener proveedores:", error);
       mostrarError({
-        titulo: "Error al obtener los proveedores",
-        mensaje: "No se pudieron cargar los datos desde la base de datos.",
+        titulo: "Error al obtener proveedores",
+        mensaje: "No se pudieron cargar los datos desde el servidor.",
       });
     } finally {
       setLoading(false);
     }
-  }, [page, limit, busqueda]);
+  }, []);
 
   const handleEliminarClick = (prov) => {
     if (prov.estado === "activo") {
@@ -123,6 +128,18 @@ function ListaProveedores() {
     setBusqueda(termino);
     setPage(1);
   };
+
+  const proveedoresFiltrados = proveedores.filter((p) =>
+    ["nombre", "email", "telefono", "direccion", "rif"].some((campo) =>
+      p[campo]?.toLowerCase().includes(busqueda.toLowerCase())
+    )
+  );
+
+  const proveedoresPaginados = proveedoresFiltrados.slice(
+    (page - 1) * limit,
+    page * limit
+  );
+  const totalPaginas = Math.ceil(proveedoresFiltrados.length / limit);
 
   const abrirModal = () => setMostrarModal(true);
   const cerrarModal = () => setMostrarModal(false);
@@ -191,9 +208,6 @@ function ListaProveedores() {
     }
   };
 
-  const totalPaginas = Math.ceil(total / limit);
-  const proveedoresPaginados = proveedores; // ya viene paginado
-
   const cambiarLimite = (nuevoLimite) => {
     setLimit(nuevoLimite);
     localStorage.setItem("proveedoresLimit", nuevoLimite);
@@ -256,7 +270,8 @@ function ListaProveedores() {
       </div>
 
       <div className="px-4 pb-2 text-sm  text-gray-400">
-        Mostrando {proveedores.length} de {total} resultados
+        Mostrando {proveedoresPaginados.length} de {proveedoresFiltrados.length}{" "}
+        resultados
       </div>
 
       <table className="w-full text-sm text-left  text-gray-400">
