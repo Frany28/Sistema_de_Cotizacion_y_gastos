@@ -396,12 +396,6 @@ const CrearRegistro = () => {
         formData.append("tasa_cambio", datosGasto.tasa_cambio);
       }
 
-      for (let [key, value] of formData.entries()) {
-        console.log(key, value);
-      }
-
-      console.log("FormData completa:", formData);
-
       const response = await api.post("/registros", formData, {
         withCredentials: true,
       });
