@@ -159,13 +159,15 @@ function ListaClientes() {
     try {
       const response = await api.put(`/clientes/${editandoCliente.id}`, datos);
 
-      await fetchClientes();
+      setClientes((prev) =>
+        prev.map((c) => (c.id === editandoCliente.id ? { ...c, ...data } : c))
+      );
 
       setEditandoCliente(null);
       setMostrarModalEditar(false);
       mostrarMensajeExito({
         titulo: "Cliente actualizado",
-        mensaje: `Los datos de ${response.data.nombre} se han actualizado correctamente.`,
+        mensaje: `Los datos de ${data.nombre} se han actualizado correctamente.`,
         textoBoton: "Cerrar",
       });
     } catch (error) {
