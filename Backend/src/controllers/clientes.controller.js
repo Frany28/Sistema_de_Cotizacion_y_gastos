@@ -187,63 +187,73 @@ export const obtenerClientes = async (req, res) => {
 
 // Actualizar cliente
 export const actualizarCliente = async (req, res) => {
-  /* 0. Sanitizar id --------------------------------------------------------- */
+  /* 0. ID seguro ----------------------------------------------------------- */
   const id = Number(req.params.id);
   if (Number.isNaN(id)) {
     return res.status(400).json({ error: "ID de cliente inválido" });
   }
 
-  /* 1. Extraer y validar payload ------------------------------------------- */
-  const { nombre, email, telefono, direccion, identificacion, sucursal_id } =
-    req.body;
+  /* 1. Payload ------------------------------------------------------------- */
+  const {
+    nombre = "",
+    email = "",
+    telefono = "",
+    direccion = "",
+    identificacion = "",
+    sucursal_id = null,
+  } = req.body;
 
   if (
-    ![nombre, email, telefono, direccion, identificacion].every(
-      (v) => typeof v === "string" && v.trim() !== ""
-    )
-  ) {
+    ![nombre, email, telefono, direccion, identificacion].every((v) => v.trim())
+  )
     return res.status(400).json({ error: "Todos los campos son obligatorios" });
-  }
 
   try {
-    /* 2. Traer registro actual --------------------------------------------- */
+    /* 2. Registro actual --------------------------------------------------- */
     const [[actual]] = await db.execute(
       "SELECT email, identificacion FROM clientes WHERE id = ?",
       [id]
     );
-    if (!actual) {
+    if (!actual)
       return res.status(404).json({ message: "Cliente no encontrado" });
-    }
 
-    /* 3. Detectar cambios en campos únicos --------------------------------- */
+    /* 3. ¿Qué cambió realmente? ------------------------------------------- */
     const emailCambio =
-      actual.email.toLowerCase().trim() !== email.toLowerCase().trim();
-    const identCambio = actual.identificacion.trim() !== identificacion.trim();
+      (actual.email ?? "").toLowerCase().trim() !== email.toLowerCase().trim();
+    const identCambio =
+      (actual.identificacion ?? "").trim() !== identificacion.trim();
 
-    /* 4. Buscar duplicados SOLO si cambiaron ------------------------------- */
+    /* 4. Buscar duplicados SOLO en campos cambiados ----------------------- */
     if (emailCambio || identCambio) {
+      const conds = [];
+      const params = [];
+
+      if (emailCambio) {
+        conds.push("email = ?");
+        params.push(email.trim());
+      }
+      if (identCambio) {
+        conds.push("identificacion = ?");
+        params.push(identificacion.trim());
+      }
+
       const [dup] = await db.execute(
-        `SELECT id, email, identificacion
-           FROM clientes
-          WHERE ( (email = ? AND ?) OR (identificacion = ? AND ?) )
-            AND id <> ?`,
-        [email.trim(), emailCambio, identificacion.trim(), identCambio, id]
+        `SELECT id FROM clientes WHERE (${conds.join(" OR ")}) AND id <> ?`,
+        [...params, id]
       );
 
       if (dup.length) {
         return res.status(409).json({
           error: "Conflicto de datos únicos",
           duplicateFields: {
-            email: dup.some((r) => r.email === email.trim()),
-            identificacion: dup.some(
-              (r) => r.identificacion === identificacion.trim()
-            ),
+            email: emailCambio && dup.length > 0,
+            identificacion: identCambio && dup.length > 0,
           },
         });
       }
     }
 
-    /* 5. Ejecutar UPDATE ---------------------------------------------------- */
+    /* 5. UPDATE ------------------------------------------------------------ */
     const [result] = await db.execute(
       `UPDATE clientes
           SET nombre         = ?,
@@ -264,26 +274,27 @@ export const actualizarCliente = async (req, res) => {
       ]
     );
 
-    /* 6. Invalidar caché (opcional) ---------------------------------------- */
+    /* 6. Limpiar caché ----------------------------------------------------- */
     cacheMemoria?.del(`cliente_${id}`);
     cacheMemoria?.keys?.().forEach((k) => {
       if (k.startsWith("clientes_")) cacheMemoria.del(k);
     });
 
-    /* 7. Responder ---------------------------------------------------------- */
+    /* 7. Respuesta --------------------------------------------------------- */
     return res.json({
       message:
         result.affectedRows > 0
           ? "Cliente actualizado correctamente"
           : "Sin cambios aplicados",
     });
-  } catch (error) {
-    console.error("Error al actualizar cliente:", error);
+  } catch (err) {
+    console.error("Error al actualizar cliente:", err);
     return res
       .status(500)
       .json({ message: "Error interno al actualizar cliente" });
   }
 };
+
 // Eliminar cliente
 export const eliminarCliente = async (req, res) => {
   try {
