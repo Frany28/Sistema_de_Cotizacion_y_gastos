@@ -157,30 +157,30 @@ function ListaClientes() {
 
   const guardarClienteEditado = async (datos) => {
     try {
-      // 1. petición
-      const { data: clienteActualizado } = await api.put(
-        `/clientes/${editandoCliente.id}`,
-        datos
-      );
+      // 1 ·  Envía la petición
+      await api.put(`/clientes/${editandoCliente.id}`, datos);
 
-      // 2. actualiza el estado en memoria
+      // 2 ·  Fusiona los cambios en el array local.
+      //     Usamos editandoCliente.id porque el backend podría
+      //     no devolver el objeto completo ni el id.
       setClientes((prev) =>
-        prev.map((c) =>
-          c.id === clienteActualizado.id ? clienteActualizado : c
-        )
+        prev.map((c) => (c.id === editandoCliente.id ? { ...c, ...datos } : c))
       );
 
-      // 3. cierra modal y muestra toast
+      // 3 ·  Cierra modal y muestra toast
       setEditandoCliente(null);
       setMostrarModalEditar(false);
       mostrarMensajeExito({
         titulo: "Cliente actualizado",
-        mensaje: `Los datos de ${clienteActualizado.nombre} se han actualizado correctamente.`,
+        mensaje: `Los datos de ${datos.nombre} se han actualizado correctamente.`,
         textoBoton: "Cerrar",
       });
     } catch (error) {
-      console.error(error);
-      mostrarMensajeError("Ocurrió un error al actualizar el cliente");
+      console.error("Error al actualizar cliente:", error);
+      mostrarError({
+        titulo: "Error",
+        mensaje: "No se pudo guardar el cliente. Intenta nuevamente.",
+      });
     }
   };
 
