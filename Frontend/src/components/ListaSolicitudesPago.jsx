@@ -8,6 +8,7 @@ import ModalVerSolicitudDePago from "../components/Modals/ModalVerSolicitudDePag
 import ModalRegistrarPago from "../components/Modals/ModalRegistrarPago";
 import Paginacion from "../components/general/Paginacion";
 import Loader from "./general/Loader";
+import { verificarPermisoFront } from "../../utils/verificarPermisoFront";
 api.defaults.baseURL = import.meta.env.VITE_API_URL;
 
 function ListaSolicitudesPago() {
@@ -17,6 +18,7 @@ function ListaSolicitudesPago() {
   const [page, setPage] = useState(1);
   const [totalSolicitudes, setTotalSolicitudes] = useState(0);
   const [todasSolicitudes, setTodasSolicitudes] = useState([]);
+  const [puedePagar, setPuedePagar] = useState(false);
 
   const [limit, setLimit] = useState(() => {
     const stored = localStorage.getItem("solicitudesLimit");
@@ -57,6 +59,17 @@ function ListaSolicitudesPago() {
   useEffect(() => {
     fetchSolicitudes();
   }, [fetchSolicitudes]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const tiene = await verificarPermisoFront("pagarSolicitudPago");
+        setPuedePagar(tiene);
+      } catch (err) {
+        console.error("Error verificando permiso:", err);
+      }
+    })();
+  }, []);
 
   const solicitudesFiltradas = todasSolicitudes.filter((s) =>
     [s.codigo, s.proveedor_nombre, s.estado, s.moneda].some((campo) =>
@@ -325,17 +338,19 @@ function ListaSolicitudesPago() {
                     titulo="Ver solicitud"
                   />
 
-                  <BotonIcono
-                    tipo="abonar"
-                    onClick={() => handleAgregarPago(solicitud)}
-                    disabled={solicitud.estado !== "por_pagar"}
-                    className={`${
-                      solicitud.estado !== "por_pagar"
-                        ? "opacity-50 cursor-not-allowed"
-                        : ""
-                    }`}
-                    titulo="Agregar pago"
-                  />
+                  {puedePagar && (
+                    <BotonIcono
+                      tipo="abonar"
+                      onClick={() => handleAgregarPago(solicitud)}
+                      disabled={solicitud.estado !== "por_pagar"}
+                      className={`${
+                        solicitud.estado !== "por_pagar"
+                          ? "opacity-50 cursor-not-allowed"
+                          : ""
+                      }`}
+                      titulo="Agregar pago"
+                    />
+                  )}
                 </td>
               </tr>
             );
