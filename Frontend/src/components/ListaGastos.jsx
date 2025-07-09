@@ -24,6 +24,9 @@ function ListaGastos() {
     return stored ? parseInt(stored, 10) : 5;
   });
   const [puedeCambiarEstado, setPuedeCambiarEstado] = useState(false);
+  const [puedeEditar, setPuedeEditar] = useState(false);
+  const [puedeEliminar, setPuedeEliminar] = useState(false);
+
   const [loadingInicial, setLoadingInicial] = useState(true); // sólo 1ª vez
   const [loading, setLoading] = useState(false);
 
@@ -163,11 +166,20 @@ function ListaGastos() {
   useEffect(() => {
     const verificarPermisos = async () => {
       try {
-        const tienePermiso = await verificarPermisoFront("aprobarGasto");
-        setPuedeCambiarEstado(tienePermiso);
+        const [cambiar, editar, eliminar] = await Promise.all([
+          verificarPermisoFront("aprobarGasto"), // ya existía
+          verificarPermisoFront("editarGasto"), // nuevo
+          verificarPermisoFront("eliminarGasto"), // nuevo
+        ]);
+
+        setPuedeCambiarEstado(cambiar);
+        setPuedeEditar(editar);
+        setPuedeEliminar(eliminar);
       } catch (error) {
         console.error("Error verificando permisos:", error);
         setPuedeCambiarEstado(false);
+        setPuedeEditar(false);
+        setPuedeEliminar(false);
       }
     };
     verificarPermisos();
@@ -420,7 +432,11 @@ function ListaGastos() {
             <th className="px-4 py-3">Monto Total</th>
             <th className="px-4 py-3">Sucursal</th>
             <th className="px-4 py-3">Estado</th>
-            <th className="px-4 py-3">Acciones</th>
+            <tr>
+              {(puedeCambiarEstado || puedeEditar || puedeEliminar) && (
+                <th className="px-4 py-3">Acciones</th>
+              )}
+            </tr>
           </tr>
         </thead>
 
@@ -477,84 +493,94 @@ function ListaGastos() {
                     {gasto.estado}
                   </span>
                 </td>
-                <td className="px-4 py-3 flex space-x-2 items-center">
-                  {puedeCambiarEstado && (
+                {(puedeCambiarEstado || puedeEditar || puedeEliminar) && (
+                  <td className="px-4 py-3 flex space-x-2 items-center">
+                    {puedeCambiarEstado && (
+                      <BotonIcono
+                        tipo="estado"
+                        onClick={() => {
+                          if (gasto.estado === "rechazado") {
+                            mostrarError({
+                              titulo: "Gasto rechazado",
+                              mensaje: "El gasto ya está rechazado.",
+                            });
+                            return;
+                          }
+
+                          if (gasto.estado === "aprobado") {
+                            mostrarError({
+                              titulo: "Gasto aprobado",
+                              mensaje:
+                                "No puedes cambiar el estado de un gasto aprobado.",
+                            });
+                            return;
+                          }
+
+                          setGastoCambioEstado(gasto);
+                          setMostrarModalCambio(true);
+                        }}
+                        titulo="Cambiar estado"
+                        disabled={gasto.estado === "aprobado"}
+                        className={`${
+                          gasto.estado === "aprobado"
+                            ? "opacity-50 cursor-not-allowed"
+                            : ""
+                        }`}
+                      />
+                    )}
+
+                    {/* VER siempre visible */}
                     <BotonIcono
-                      tipo="estado"
+                      tipo="ver"
                       onClick={() => {
-                        if (gasto.estado === "rechazado") {
-                          mostrarError({
-                            titulo: "Gasto rechazado",
-                            mensaje: "El gasto ya está rechazado.",
-                          });
-                          return;
-                        }
-
-                        if (gasto.estado === "aprobado") {
-                          mostrarError({
-                            titulo: "Gasto aprobado",
-                            mensaje:
-                              "No puedes cambiar el estado de un gasto aprobado.",
-                          });
-                          return;
-                        }
-
-                        setGastoCambioEstado(gasto);
-                        setMostrarModalCambio(true);
+                        setGastoSeleccionado(gasto);
+                        setMostrarModalVer(true);
                       }}
-                      titulo="Cambiar estado"
-                      disabled={gasto.estado === "aprobado"}
-                      className={`${
-                        gasto.estado === "aprobado"
-                          ? "opacity-50 cursor-not-allowed"
-                          : ""
-                      }`}
+                      titulo="Ver gasto"
                     />
-                  )}
-                  <BotonIcono
-                    tipo="ver"
-                    onClick={() => {
-                      setGastoSeleccionado(gasto);
-                      setMostrarModalVer(true);
-                    }}
-                    titulo="Ver gasto"
-                  />
 
-                  <BotonIcono
-                    tipo="editar"
-                    onClick={() => iniciarEdicion(gasto)}
-                    titulo="Editar gasto"
-                    disabled={gasto.estado === "aprobado"}
-                    className={`${
-                      gasto.estado === "aprobado"
-                        ? "opacity-50 cursor-not-allowed"
-                        : ""
-                    }`}
-                  />
+                    {/* EDITAR visible solo si tiene permiso */}
+                    {puedeEditar && (
+                      <BotonIcono
+                        tipo="editar"
+                        onClick={() => iniciarEdicion(gasto)}
+                        titulo="Editar gasto"
+                        disabled={gasto.estado === "aprobado"}
+                        className={`${
+                          gasto.estado === "aprobado"
+                            ? "opacity-50 cursor-not-allowed"
+                            : ""
+                        }`}
+                      />
+                    )}
 
-                  <BotonIcono
-                    tipo="eliminar"
-                    onClick={() => {
-                      if (gasto.estado === "aprobado") {
-                        mostrarError({
-                          titulo: "Gasto aprobado",
-                          mensaje:
-                            "No puedes eliminar un gasto que ya está aprobado.",
-                        });
-                        return;
-                      }
-                      setGastoAEliminar(gasto);
-                      setMostrarConfirmacion(true);
-                    }}
-                    titulo="Eliminar gasto"
-                    disabled={gasto.estado === "aprobado"}
-                    className={`${
-                      gasto.estado === "aprobado"
-                        ? "opacity-50 cursor-not-allowed"
-                        : ""
-                    }`}
-                  />
-                </td>
+                    {/* ELIMINAR visible solo si tiene permiso */}
+                    {puedeEliminar && (
+                      <BotonIcono
+                        tipo="eliminar"
+                        onClick={() => {
+                          if (gasto.estado === "aprobado") {
+                            mostrarError({
+                              titulo: "Gasto aprobado",
+                              mensaje:
+                                "No puedes eliminar un gasto que ya está aprobado.",
+                            });
+                            return;
+                          }
+                          setGastoAEliminar(gasto);
+                          setMostrarConfirmacion(true);
+                        }}
+                        titulo="Eliminar gasto"
+                        disabled={gasto.estado === "aprobado"}
+                        className={`${
+                          gasto.estado === "aprobado"
+                            ? "opacity-50 cursor-not-allowed"
+                            : ""
+                        }`}
+                      />
+                    )}
+                  </td>
+                )}
               </tr>
             );
           })}
