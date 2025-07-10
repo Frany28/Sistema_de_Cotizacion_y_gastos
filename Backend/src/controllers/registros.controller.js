@@ -64,146 +64,141 @@ export const createRegistro = async (req, res) => {
   const datos = { ...req.combinedData };
   const tipoNormalizado = (datos.tipo || "").trim().toLowerCase();
 
+  const conexion = await db.getConnection();
+  let claveS3 = null;
+
   try {
-    let resultado;
-
     if (tipoNormalizado === "gasto") {
-      await db.beginTransaction();
+      await conexion.beginTransaction();
 
-      try {
-        const resultado = await crearGasto(datos);
+      const resultado = await crearGasto(datos, conexion);
 
-        const { registro_id: registroId, codigo } = resultado;
+      const { registro_id: registroId, codigo } = resultado;
 
-        let claveS3 = null;
+      if (req.file) {
+        // 1. Calcular path S3
+        const meses = [
+          "enero",
+          "febrero",
+          "marzo",
+          "abril",
+          "mayo",
+          "junio",
+          "julio",
+          "agosto",
+          "septiembre",
+          "octubre",
+          "noviembre",
+          "diciembre",
+        ];
+        const ahora = new Date();
+        const anio = ahora.getFullYear();
+        const mesPalabra = meses[ahora.getMonth()];
+        const nombreSeguro = req.file.originalname.replace(/\s+/g, "_");
+        claveS3 = `facturas_gastos/${anio}/${mesPalabra}/${codigo}/${Date.now()}-${nombreSeguro}`;
 
-        if (req.file) {
-          // 1. Calcular path S3
-          const meses = [
-            "enero",
-            "febrero",
-            "marzo",
-            "abril",
-            "mayo",
-            "junio",
-            "julio",
-            "agosto",
-            "septiembre",
-            "octubre",
-            "noviembre",
-            "diciembre",
-          ];
-          const ahora = new Date();
-          const anio = ahora.getFullYear();
-          const mesPalabra = meses[ahora.getMonth()];
-          const nombreSeguro = req.file.originalname.replace(/\s+/g, "_");
-          claveS3 = `facturas_gastos/${anio}/${mesPalabra}/${codigo}/${Date.now()}-${nombreSeguro}`;
+        // 2. Subir archivo a S3
+        await s3.send(
+          new PutObjectCommand({
+            Bucket: process.env.S3_BUCKET,
+            Key: claveS3,
+            Body: req.file.buffer,
+            ContentType: req.file.mimetype,
+            ACL: "private",
+          })
+        );
 
-          // 2. Subir archivo a S3
-          await s3.send(
-            new PutObjectCommand({
-              Bucket: process.env.S3_BUCKET,
-              Key: claveS3,
-              Body: req.file.buffer,
-              ContentType: req.file.mimetype,
-              ACL: "private",
-            })
-          );
+        // 3. Actualizar gasto con ruta
+        await conexion.query(`UPDATE gastos SET documento = ? WHERE id = ?`, [
+          claveS3,
+          registroId,
+        ]);
 
-          // 3. Actualizar gasto con ruta
-          await db.query(`UPDATE gastos SET documento = ? WHERE id = ?`, [
-            claveS3,
+        // 4. Versionado de archivos
+        const [[{ total }]] = await conexion.query(
+          `SELECT COUNT(*) AS total 
+             FROM archivos 
+            WHERE registroTipo = ? AND registroId = ?`,
+          ["facturasGastos", registroId]
+        );
+
+        const numeroVersion = total + 1;
+
+        const extension = path.extname(req.file.originalname).substring(1);
+        const tamanioBytes = req.file.size;
+
+        const [resArchivo] = await conexion.query(
+          `INSERT INTO archivos
+            (registroTipo, registroId, nombreOriginal, extension, rutaS3,
+            tamanioBytes, numeroVersion, subidoPor, creadoEn, actualizadoEn)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+          [
+            "facturasGastos",
             registroId,
-          ]);
+            req.file.originalname,
+            extension,
+            claveS3,
+            tamanioBytes,
+            numeroVersion,
+            datos.usuario_id,
+          ]
+        );
 
-          // 4. Versionado de archivos
-          const [[{ total }]] = await db.query(
-            `SELECT COUNT(*) AS total 
-               FROM archivos 
-              WHERE registroTipo = ? AND registroId = ?`,
-            ["facturasGastos", registroId]
-          );
+        const archivoId = resArchivo.insertId;
 
-          const numeroVersion = total + 1;
-
-          const extension = path.extname(req.file.originalname).substring(1);
-          const tamanioBytes = req.file.size;
-
-          const [resArchivo] = await db.query(
-            `INSERT INTO archivos
-              (registroTipo, registroId, nombreOriginal, extension, rutaS3,
-              tamanioBytes, numeroVersion, subidoPor, creadoEn, actualizadoEn)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-            [
-              "facturasGastos",
-              registroId,
-              req.file.originalname,
+        await conexion.query(
+          `INSERT INTO eventosArchivo
+             (archivoId, accion, usuarioId, fechaHora, ip, userAgent, detalles)
+           VALUES (?, ?, ?, NOW(), ?, ?, ?)`,
+          [
+            archivoId,
+            "subida",
+            datos.usuario_id,
+            req.ip || null,
+            req.get("user-agent") || null,
+            JSON.stringify({
+              nombre: req.file.originalname,
               extension,
-              claveS3,
-              tamanioBytes,
-              numeroVersion,
-              datos.usuario_id,
-            ]
-          );
-
-          const archivoId = resArchivo.insertId;
-
-          await db.query(
-            `INSERT INTO eventosArchivo
-               (archivoId, accion, usuarioId, fechaHora, ip, userAgent, detalles)
-             VALUES (?, ?, ?, NOW(), ?, ?, ?)`,
-            [
-              archivoId,
-              "subida",
-              datos.usuario_id,
-              req.ip || null,
-              req.get("user-agent") || null,
-              JSON.stringify({
-                nombre: req.file.originalname,
-                extension,
-                ruta: claveS3,
-              }),
-            ]
-          );
-        }
-
-        await db.commit();
-
-        return res.status(201).json(resultado);
-      } catch (error) {
-        await db.rollback();
-
-        // Si subiste archivo y falla → borrar en S3
-        if (claveS3) {
-          try {
-            await s3.send({
-              Bucket: process.env.S3_BUCKET,
-              Key: claveS3,
-            });
-          } catch (err) {
-            console.error("Error al eliminar archivo de S3 tras fallo:", err);
-          }
-        }
-
-        console.error("Error al crear el gasto:", error);
-        return res.status(500).json({
-          message: `Error interno al crear el gasto`,
-        });
+              ruta: claveS3,
+            }),
+          ]
+        );
       }
+
+      await conexion.commit();
+
+      return res.status(201).json(resultado);
     } else if (tipoNormalizado === "cotizacion") {
-      resultado = await crearCotizacionDesdeRegistro(datos);
+      const resultado = await crearCotizacionDesdeRegistro(datos);
+      return res.status(201).json(resultado);
     } else {
       return res.status(400).json({
         message: "Tipo de registro no válido.",
       });
     }
-
-    return res.status(201).json(resultado);
   } catch (error) {
-    console.error("Error al crear el registro:", error);
+    await conexion.rollback();
+
+    // Si subiste archivo y falla → borrar en S3
+    if (claveS3) {
+      try {
+        await s3.send(
+          new DeleteObjectCommand({
+            Bucket: process.env.S3_BUCKET,
+            Key: claveS3,
+          })
+        );
+      } catch (err) {
+        console.error("Error al eliminar archivo de S3 tras fallo:", err);
+      }
+    }
+
+    console.error("Error al crear el gasto:", error);
     return res.status(500).json({
-      message: `Error interno al crear el registro de tipo ${tipoNormalizado}`,
+      message: `Error interno al crear el gasto`,
     });
+  } finally {
+    conexion.release();
   }
 };
 
