@@ -379,7 +379,7 @@ export const deleteGasto = async (req, res) => {
       // 2.2) Actualizar ruta y estado en archivos
       await conexion.query(
         `UPDATE archivos
-            SET estado = 'eliminacion',
+            SET estado = 'eliminado',
                 rutaS3 = ?
           WHERE registroTipo = ? AND registroId = ?`,
         [nuevaClave, "facturasGastos", id]
