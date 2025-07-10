@@ -3,7 +3,7 @@ import db from "../config/database.js";
 import { generarUrlPrefirmadaLectura } from "../utils/s3.js";
 import bcrypt from "bcrypt";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
-import { s3 } from "../utils/s3.js";
+import { s3, moverArchivoAS3AlPapelera } from "../utils/s3.js";
 
 // Crear usuario (incluye registro de firma en S3, tabla archivos y eventosArchivo)
 export const crearUsuario = async (req, res) => {
@@ -86,6 +86,7 @@ export const crearUsuario = async (req, res) => {
 // Actualizar usuario (puede cambiar datos básicos y subir nueva firma)
 export const actualizarUsuario = async (req, res) => {
   const conexion = await db.getConnection();
+  let firmaKeyNueva = null;
   try {
     await conexion.beginTransaction();
 
@@ -111,24 +112,38 @@ export const actualizarUsuario = async (req, res) => {
     if (firmaKey) {
       campos.push("firma = ?");
       valores.push(firmaKey);
+      firmaKeyNueva = firmaKey;
     }
     valores.push(id);
 
-    // 2) Ejecutar actualización de usuario
-    await conexion.query(
-      `UPDATE usuarios
-         SET ${campos.join(", ")}
-       WHERE id = ?`,
-      valores
-    );
+    // 2) Actualizar datos usuario
+    if (campos.length > 0) {
+      await conexion.query(
+        `UPDATE usuarios
+           SET ${campos.join(", ")}
+         WHERE id = ?`,
+        valores
+      );
+    }
 
-    // 3) Si sube nueva firma, registrar en archivos y evento
+    // 3) Si sube nueva firma → manejar versiones y auditoría
     if (firmaKey) {
+      // 3.1 Consultar versión máxima
+      const [[{ maxVersion }]] = await conexion.query(
+        `SELECT MAX(numeroVersion) AS maxVersion
+           FROM archivos
+          WHERE registroTipo = 'firmas'
+            AND registroId   = ?`,
+        [id]
+      );
+      const numeroVersion = (maxVersion || 0) + 1;
+
+      // 3.2 Insertar archivo
       const [aResult] = await conexion.query(
         `INSERT INTO archivos
-        (registroTipo, registroId, nombreOriginal, extension, tamanioBytes,
-        rutaS3, estado, subidoPor, creadoEn, actualizadoEn)
-        VALUES (?, ?, ?, ?, ?, ?, 'activo', ?, NOW(), NOW())`,
+          (registroTipo, registroId, nombreOriginal, extension, tamanioBytes,
+           rutaS3, numeroVersion, estado, subidoPor, creadoEn, actualizadoEn)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'activo', ?, NOW(), NOW())`,
         [
           "firmas",
           id,
@@ -136,11 +151,13 @@ export const actualizarUsuario = async (req, res) => {
           extension,
           tamanioBytes,
           rutaS3,
+          numeroVersion,
           req.user.id,
         ]
       );
       const archivoId = aResult.insertId;
 
+      // 3.3 Registrar evento de auditoría
       const detalleEvento = JSON.stringify({
         ruta: firmaKey,
         nombre: nombreOriginal,
@@ -149,15 +166,52 @@ export const actualizarUsuario = async (req, res) => {
       await conexion.query(
         `INSERT INTO eventosArchivo
            (archivoId, versionId, accion, usuarioId, ip, userAgent, detalles)
-         VALUES (?, NULL, 'subida', ?, ?, ?, ?)`,
+         VALUES (?, NULL, 'actualizacion', ?, ?, ?, ?)`,
         [archivoId, req.user.id, req.ip, req.get("User-Agent"), detalleEvento]
       );
+
+      // 3.4 Buscar firma anterior (si existe)
+      const [anterior] = await conexion.query(
+        `SELECT rutaS3
+           FROM archivos
+          WHERE registroTipo = 'firmas'
+            AND registroId   = ?
+            AND estado       = 'activo'
+          ORDER BY numeroVersion DESC
+          LIMIT 1 OFFSET 1`,
+        [id]
+      );
+
+      if (anterior.length > 0) {
+        const rutaS3Anterior = anterior[0].rutaS3;
+        await s3.send(
+          new DeleteObjectCommand({
+            Bucket: process.env.S3_BUCKET,
+            Key: rutaS3Anterior,
+          })
+        );
+      }
     }
 
     await conexion.commit();
     res.json({ id, firma: firmaKey });
   } catch (err) {
     await conexion.rollback();
+
+    // Rollback: eliminar archivo subido si ocurrió error
+    if (firmaKeyNueva) {
+      try {
+        await s3.send(
+          new DeleteObjectCommand({
+            Bucket: process.env.S3_BUCKET,
+            Key: firmaKeyNueva,
+          })
+        );
+      } catch (err2) {
+        console.error("Error borrando firma tras rollback:", err2);
+      }
+    }
+
     console.error("Error al actualizar usuario:", err);
     res.status(500).json({ error: "Error al actualizar usuario" });
   } finally {
@@ -243,21 +297,40 @@ export const eliminarUsuario = async (req, res) => {
       ["firmas", id]
     );
 
-    // 3) Eliminar cada archivo de S3 y sus registros
+    // 3) Mover cada archivo a papelera
     for (const archivo of archivos) {
-      // 3.1) Borrar de S3
-      await s3.send(
-        new DeleteObjectCommand({
-          Bucket: process.env.S3_BUCKET,
-          Key: archivo.rutaS3,
-        })
+      // 3.1) Mover a papelera en S3
+      const nuevaClave = await moverArchivoAS3AlPapelera(
+        archivo.rutaS3,
+        "firmas",
+        id
       );
-      // 3.2) Borrar eventos de auditoría
-      await conexion.query(`DELETE FROM eventosArchivo WHERE archivoId = ?`, [
-        archivo.id,
-      ]);
-      // 3.3) Borrar registro en archivos
-      await conexion.query(`DELETE FROM archivos WHERE id = ?`, [archivo.id]);
+
+      // 3.2) Actualizar registro archivo
+      await conexion.query(
+        `UPDATE archivos
+            SET estado = 'eliminado',
+                rutaS3 = ?
+          WHERE id = ?`,
+        [nuevaClave, archivo.id]
+      );
+
+      // 3.3) Insertar evento de auditoría
+      await conexion.query(
+        `INSERT INTO eventosArchivo
+             (archivoId, versionId, accion, usuarioId, ip, userAgent, detalles)
+           VALUES (?, NULL, 'borrado', ?, ?, ?, ?)`,
+        [
+          archivo.id,
+          req.user?.id || null,
+          req.ip || null,
+          req.get("user-agent") || null,
+          JSON.stringify({
+            motivo: "Eliminación de usuario",
+            nuevaRuta: nuevaClave,
+          }),
+        ]
+      );
     }
 
     // 4) Borrar usuario
@@ -265,12 +338,12 @@ export const eliminarUsuario = async (req, res) => {
 
     await conexion.commit();
     res.json({
-      message: "Usuario y archivos asociados eliminados correctamente",
+      message: "Usuario eliminado y archivos movidos a papelera correctamente.",
     });
   } catch (error) {
     await conexion.rollback();
     console.error("Error al eliminar usuario:", error);
-    res.status(500).json({ message: "Error interno al eliminar usuario" });
+    res.status(500).json({ message: "Error interno al eliminar usuario." });
   } finally {
     conexion.release();
   }

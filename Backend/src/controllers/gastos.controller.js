@@ -1,6 +1,10 @@
 // controllers/gastos.controller.js
 import db from "../config/database.js";
-import { generarUrlPrefirmadaLectura, s3 } from "../utils/s3.js";
+import {
+  generarUrlPrefirmadaLectura,
+  s3,
+  moverArchivoAS3AlPapelera,
+} from "../utils/s3.js";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 import cacheMemoria from "../utils/cacheMemoria.js";
 
@@ -101,8 +105,11 @@ export const obtenerUrlComprobante = async (req, res) => {
 };
 
 export const updateGasto = async (req, res) => {
+  const { id } = req.params;
+  let claveS3Nueva = null;
+
   try {
-    const { id } = req.params;
+    await db.beginTransaction();
 
     // 1. Verificar si existe el gasto
     const [[gastoExistente]] = await db.query(
@@ -113,14 +120,13 @@ export const updateGasto = async (req, res) => {
       return res.status(404).json({ message: "Gasto no encontrado" });
     }
 
-    // 2. Si está aprobado, no se puede editar
     if (gastoExistente.estado === "aprobado") {
       return res
         .status(403)
         .json({ message: "No puedes editar un gasto aprobado." });
     }
 
-    // 3. Preparar nuevos valores y validar inputs
+    // 2. Preparar nuevos valores
     const {
       proveedor_id,
       concepto_pago,
@@ -137,8 +143,6 @@ export const updateGasto = async (req, res) => {
       motivo_rechazo,
     } = req.body;
 
-    const documento = req.file ? req.file.key : undefined;
-
     const subtotalNum = parseFloat(subtotal);
     if (isNaN(subtotalNum)) {
       return res.status(400).json({ message: "Subtotal inválido." });
@@ -152,7 +156,6 @@ export const updateGasto = async (req, res) => {
     const impuesto = parseFloat(((subtotalNum * ivaNum) / 100).toFixed(2));
     const total = parseFloat((subtotalNum + impuesto).toFixed(2));
 
-    /* ---- manejo de estado y rechazos ---- */
     const estadosPermitidos = ["pendiente", "rechazado"];
     let nuevoEstado =
       gastoExistente.estado === "rechazado"
@@ -172,7 +175,6 @@ export const updateGasto = async (req, res) => {
       motivoRechazoFinal = null;
     }
 
-    /* ---- manejo de tasa de cambio ---- */
     let tasaCambioFinal = tasa_cambio;
     if (moneda === "VES" && (!tasa_cambio || isNaN(parseFloat(tasa_cambio)))) {
       return res
@@ -182,7 +184,10 @@ export const updateGasto = async (req, res) => {
       tasaCambioFinal = null;
     }
 
-    // 4. Ejecutar UPDATE
+    // Clave S3 del archivo nuevo (si existe)
+    const documentoNuevo = req.file ? req.file.key : undefined;
+
+    // 3. Actualizar gasto
     await db.query(
       `
       UPDATE gastos SET 
@@ -201,7 +206,7 @@ export const updateGasto = async (req, res) => {
         tasa_cambio      = ?, 
         estado           = ?, 
         motivo_rechazo   = ?, 
-        ${documento ? "documento = ?," : ""}
+        ${documentoNuevo ? "documento = ?," : ""}
         updated_at       = NOW()
       WHERE id = ?`,
       [
@@ -220,30 +225,95 @@ export const updateGasto = async (req, res) => {
         tasaCambioFinal,
         nuevoEstado,
         motivoRechazoFinal,
-        ...(documento ? [documento] : []),
+        ...(documentoNuevo ? [documentoNuevo] : []),
         id,
       ]
     );
 
-    /* ---- 5. Invalidar caché ---- */
-    cacheMemoria.del(`gasto_${id}`); // detalle individual
-    for (const k of cacheMemoria.keys()) {
-      if (k.startsWith("gastos_")) cacheMemoria.del(k); // listados
+    // 4. Si subieron archivo nuevo → procesar versión y auditoría
+    if (documentoNuevo) {
+      claveS3Nueva = documentoNuevo;
+
+      // 4.1 Traer versión máxima anterior
+      const [[{ maxVersion }]] = await db.query(
+        `
+        SELECT MAX(numeroVersion) AS maxVersion
+          FROM archivos
+         WHERE registroTipo = ? AND registroId = ?
+        `,
+        ["facturasGastos", id]
+      );
+      const numeroVersion = (maxVersion || 0) + 1;
+
+      const extension = req.file.originalname.split(".").pop().toLowerCase();
+      const tamanioBytes = req.file.size;
+
+      const [resArchivo] = await db.query(
+        `INSERT INTO archivos
+          (registroTipo, registroId, nombreOriginal, extension, rutaS3,
+          tamanioBytes, numeroVersion, subidoPor, creadoEn, actualizadoEn)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+        [
+          "facturasGastos",
+          id,
+          req.file.originalname,
+          extension,
+          claveS3Nueva,
+          tamanioBytes,
+          numeroVersion,
+          req.user?.id || null,
+        ]
+      );
+
+      const archivoId = resArchivo.insertId;
+
+      await db.query(
+        `INSERT INTO eventosArchivo
+           (archivoId, accion, usuarioId, fechaHora, ip, userAgent, detalles)
+         VALUES (?, ?, ?, NOW(), ?, ?, ?)`,
+        [
+          archivoId,
+          "actualizacion",
+          req.user?.id || null,
+          req.ip || null,
+          req.get("user-agent") || null,
+          JSON.stringify({
+            nombre: req.file.originalname,
+            extension,
+            ruta: claveS3Nueva,
+          }),
+        ]
+      );
+
+      // 4.2 Borrar archivo anterior en S3 (si existía)
+      if (gastoExistente.documento) {
+        await s3.send(
+          new DeleteObjectCommand({
+            Bucket: process.env.S3_BUCKET,
+            Key: gastoExistente.documento,
+          })
+        );
+      }
     }
 
-    /* ---- 6. Traer gasto actualizado + URL firmada ---- */
+    await db.commit();
+
+    cacheMemoria.del(`gasto_${id}`);
+    for (const k of cacheMemoria.keys()) {
+      if (k.startsWith("gastos_")) cacheMemoria.del(k);
+    }
+
     const [[gastoActualizado]] = await db.query(
       "SELECT * FROM gastos WHERE id = ?",
       [id]
     );
 
     const urlFacturaFirmada = gastoActualizado.documento
-      ? generarUrlPrefirmadaLectura(gastoActualizado.documento)
+      ? await generarUrlPrefirmadaLectura(gastoActualizado.documento)
       : null;
 
-    // 7. Responder
-    res.json({
-      message: "Gasto actualizado",
+    return res.json({
+      message: "Gasto actualizado correctamente",
       data: {
         ...gastoActualizado,
         urlFacturaFirmada,
@@ -251,81 +321,120 @@ export const updateGasto = async (req, res) => {
     });
   } catch (error) {
     console.error("Error al actualizar gasto:", error);
-    res.status(500).json({ message: "Error interno al actualizar gasto" });
+
+    await db.rollback();
+
+    // Si subiste archivo nuevo y hubo error → eliminarlo de S3
+    if (claveS3Nueva) {
+      try {
+        await s3.send(
+          new DeleteObjectCommand({
+            Bucket: process.env.S3_BUCKET,
+            Key: claveS3Nueva,
+          })
+        );
+      } catch (err) {
+        console.error("Error al borrar archivo nuevo tras fallo:", err);
+      }
+    }
+
+    return res
+      .status(500)
+      .json({ message: "Error interno al actualizar gasto." });
   }
 };
 
 export const deleteGasto = async (req, res) => {
+  const { id } = req.params;
+  const conexion = await db.getConnection();
+
   try {
-    const { id } = req.params;
+    await conexion.beginTransaction();
 
     // 1) Verificar existencia y estado
-    const [[gastoExistente]] = await db.query(
+    const [[gastoExistente]] = await conexion.query(
       "SELECT estado, documento FROM gastos WHERE id = ?",
       [id]
     );
     if (!gastoExistente) {
+      await conexion.rollback();
       return res.status(404).json({ message: "Gasto no encontrado" });
     }
     if (gastoExistente.estado === "aprobado") {
-      return res
-        .status(403)
-        .json({ message: "No puedes eliminar un gasto aprobado." });
+      await conexion.rollback();
+      return res.status(403).json({
+        message: "No puedes eliminar un gasto aprobado.",
+      });
     }
 
-    // 2) Si hay documento, eliminar archivo en S3 y limpiar BD de archivos y eventos
+    // 2) Si hay documento, mover archivo a papelera y actualizar BD
     if (gastoExistente.documento) {
-      // 2.1) Borrar objeto de S3
-      await s3.send(
-        new DeleteObjectCommand({
-          Bucket: process.env.S3_BUCKET,
-          Key: gastoExistente.documento,
-        })
+      // 2.1) Mover archivo a papelera
+      const nuevaClave = await moverArchivoAS3AlPapelera(
+        gastoExistente.documento,
+        "facturasGastos",
+        id
       );
 
-      // 2.2) Encontrar el registro de archivos
-      const [archivos] = await db.query(
-        `SELECT id 
-           FROM archivos 
-          WHERE registroTipo = ? 
-            AND registroId = ?`,
+      // 2.2) Actualizar ruta y estado en archivos
+      await conexion.query(
+        `UPDATE archivos
+            SET estado = 'eliminado',
+                rutaS3 = ?
+          WHERE registroTipo = ? AND registroId = ?`,
+        [nuevaClave, "facturasGastos", id]
+      );
+
+      // 2.3) Insertar evento de borrado
+      const [archivos] = await conexion.query(
+        `SELECT id
+           FROM archivos
+          WHERE registroTipo = ? AND registroId = ?`,
         ["facturasGastos", id]
       );
 
       if (archivos.length > 0) {
         const archivoId = archivos[0].id;
-
-        // 2.3) Borrar eventos relacionados
-        await db.query(
-          `DELETE FROM eventosArchivo 
-             WHERE archivoId = ?`,
-          [archivoId]
-        );
-
-        // 2.4) Borrar el registro principal
-        await db.query(
-          `DELETE FROM archivos 
-             WHERE id = ?`,
-          [archivoId]
+        await conexion.query(
+          `INSERT INTO eventosArchivo
+             (archivoId, accion, usuarioId, fechaHora, ip, userAgent, detalles)
+           VALUES (?, 'borrado', ?, NOW(), ?, ?, ?)`,
+          [
+            archivoId,
+            req.user?.id || null,
+            req.ip || null,
+            req.get("user-agent") || null,
+            JSON.stringify({
+              motivo: "Eliminación del gasto",
+              nuevaRuta: nuevaClave,
+            }),
+          ]
         );
       }
     }
 
-    // 3) Eliminar el gasto
-    await db.query("DELETE FROM gastos WHERE id = ?", [id]);
+    // 3) Eliminar gasto
+    await conexion.query("DELETE FROM gastos WHERE id = ?", [id]);
+
+    await conexion.commit();
+
+    // 4) Limpiar caché
     cacheMemoria.del(`gasto_${id}`);
-    cacheMemoria
-      .keys()
-      .forEach((k) => k.startsWith("gastos_") && cacheMemoria.del(k));
+    for (const k of cacheMemoria.keys()) {
+      if (k.startsWith("gastos_")) cacheMemoria.del(k);
+    }
 
     return res.json({
-      message: "Gasto y archivo asociados eliminados correctamente.",
+      message: "Gasto eliminado y archivo movido a papelera correctamente.",
     });
   } catch (error) {
+    await conexion.rollback();
     console.error("Error al eliminar gasto:", error);
     return res
       .status(500)
       .json({ message: "Error interno al eliminar gasto." });
+  } finally {
+    conexion.release();
   }
 };
 
