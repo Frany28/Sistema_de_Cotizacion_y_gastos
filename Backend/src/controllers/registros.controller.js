@@ -68,83 +68,128 @@ export const createRegistro = async (req, res) => {
     let resultado;
 
     if (tipoNormalizado === "gasto") {
-      resultado = await crearGasto(datos);
+      await db.beginTransaction();
 
-      const { registro_id: registroId, codigo } = resultado;
+      try {
+        const resultado = await crearGasto(datos);
 
-      const meses = [
-        "enero",
-        "febrero",
-        "marzo",
-        "abril",
-        "mayo",
-        "junio",
-        "julio",
-        "agosto",
-        "septiembre",
-        "octubre",
-        "noviembre",
-        "diciembre",
-      ];
-      const ahora = new Date();
-      const anio = ahora.getFullYear();
-      const mesPalabra = meses[ahora.getMonth()];
-      const nombreSeguro = req.file.originalname.replace(/\s+/g, "_");
-      const claveS3 = `facturas_gastos/${anio}/${mesPalabra}/${codigo}/${Date.now()}-${nombreSeguro}`;
+        const { registro_id: registroId, codigo } = resultado;
 
-      await s3.send(
-        new PutObjectCommand({
-          Bucket: process.env.S3_BUCKET,
-          Key: claveS3,
-          Body: req.file.buffer,
-          ContentType: req.file.mimetype,
-          ACL: "private",
-        })
-      );
+        let claveS3 = null;
 
-      await db.query(`UPDATE gastos SET documento = ? WHERE id = ?`, [
-        claveS3,
-        registroId,
-      ]);
+        if (req.file) {
+          // 1. Calcular path S3
+          const meses = [
+            "enero",
+            "febrero",
+            "marzo",
+            "abril",
+            "mayo",
+            "junio",
+            "julio",
+            "agosto",
+            "septiembre",
+            "octubre",
+            "noviembre",
+            "diciembre",
+          ];
+          const ahora = new Date();
+          const anio = ahora.getFullYear();
+          const mesPalabra = meses[ahora.getMonth()];
+          const nombreSeguro = req.file.originalname.replace(/\s+/g, "_");
+          claveS3 = `facturas_gastos/${anio}/${mesPalabra}/${codigo}/${Date.now()}-${nombreSeguro}`;
 
-      const extension = path.extname(req.file.originalname).substring(1);
-      const tamanioBytes = req.file.size;
+          // 2. Subir archivo a S3
+          await s3.send(
+            new PutObjectCommand({
+              Bucket: process.env.S3_BUCKET,
+              Key: claveS3,
+              Body: req.file.buffer,
+              ContentType: req.file.mimetype,
+              ACL: "private",
+            })
+          );
 
-      const [resArchivo] = await db.query(
-        `INSERT INTO archivos
-          (registroTipo, registroId, nombreOriginal, extension, rutaS3,
-          tamanioBytes, subidoPor, creadoEn, actualizadoEn)
-         VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-        [
-          "facturasGastos",
-          registroId,
-          req.file.originalname,
-          extension,
-          claveS3,
-          tamanioBytes,
-          datos.usuario_id,
-        ]
-      );
+          // 3. Actualizar gasto con ruta
+          await db.query(`UPDATE gastos SET documento = ? WHERE id = ?`, [
+            claveS3,
+            registroId,
+          ]);
 
-      const archivoId = resArchivo.insertId;
+          // 4. Versionado de archivos
+          const [[{ total }]] = await db.query(
+            `SELECT COUNT(*) AS total 
+               FROM archivos 
+              WHERE registroTipo = ? AND registroId = ?`,
+            ["facturasGastos", registroId]
+          );
 
-      await db.query(
-        `INSERT INTO eventosArchivo
-           (archivoId, accion, usuarioId, fechaHora, ip, userAgent, detalles)
-         VALUES (?, ?, ?, NOW(), ?, ?, ?)`,
-        [
-          archivoId,
-          "subida",
-          datos.usuario_id,
-          req.ip || null,
-          req.get("user-agent") || null,
-          JSON.stringify({
-            nombre: req.file.originalname,
-            extension,
-            ruta: claveS3,
-          }),
-        ]
-      );
+          const numeroVersion = total + 1;
+
+          const extension = path.extname(req.file.originalname).substring(1);
+          const tamanioBytes = req.file.size;
+
+          const [resArchivo] = await db.query(
+            `INSERT INTO archivos
+              (registroTipo, registroId, nombreOriginal, extension, rutaS3,
+              tamanioBytes, numeroVersion, subidoPor, creadoEn, actualizadoEn)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+            [
+              "facturasGastos",
+              registroId,
+              req.file.originalname,
+              extension,
+              claveS3,
+              tamanioBytes,
+              numeroVersion,
+              datos.usuario_id,
+            ]
+          );
+
+          const archivoId = resArchivo.insertId;
+
+          await db.query(
+            `INSERT INTO eventosArchivo
+               (archivoId, accion, usuarioId, fechaHora, ip, userAgent, detalles)
+             VALUES (?, ?, ?, NOW(), ?, ?, ?)`,
+            [
+              archivoId,
+              "subida",
+              datos.usuario_id,
+              req.ip || null,
+              req.get("user-agent") || null,
+              JSON.stringify({
+                nombre: req.file.originalname,
+                extension,
+                ruta: claveS3,
+              }),
+            ]
+          );
+        }
+
+        await db.commit();
+
+        return res.status(201).json(resultado);
+      } catch (error) {
+        await db.rollback();
+
+        // Si subiste archivo y falla → borrar en S3
+        if (claveS3) {
+          try {
+            await s3.send({
+              Bucket: process.env.S3_BUCKET,
+              Key: claveS3,
+            });
+          } catch (err) {
+            console.error("Error al eliminar archivo de S3 tras fallo:", err);
+          }
+        }
+
+        console.error("Error al crear el gasto:", error);
+        return res.status(500).json({
+          message: `Error interno al crear el gasto`,
+        });
+      }
     } else if (tipoNormalizado === "cotizacion") {
       resultado = await crearCotizacionDesdeRegistro(datos);
     } else {
