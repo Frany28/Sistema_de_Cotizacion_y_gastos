@@ -220,14 +220,38 @@ export const uploadComprobantePago = multer({
     acl: "private",
     metadata: (req, file, cb) => cb(null, { fieldName: file.fieldname }),
     key: (req, file, cb) => {
+      const meses = [
+        "enero",
+        "febrero",
+        "marzo",
+        "abril",
+        "mayo",
+        "junio",
+        "julio",
+        "agosto",
+        "septiembre",
+        "octubre",
+        "noviembre",
+        "diciembre",
+      ];
+
       const ahora = new Date();
       const anio = ahora.getFullYear();
-      const mes = String(ahora.getMonth() + 1).padStart(2, "0");
-      const solicitudId = req.params.id || "sin-id";
-      const nombreSeguro = file.originalname.replace(/\s+/g, "_");
-      const timestamp = Date.now();
-      const clave = `comprobantes_pagos/${anio}/${mes}/${solicitudId}/${timestamp}-${nombreSeguro}`;
-      cb(null, clave);
+      const mesPalabra = meses[ahora.getMonth()];
+      const solicitudId = req.params.id;
+
+      db.query("SELECT codigo FROM solicitudes_pago WHERE id = ?", [
+        solicitudId,
+      ])
+        .then(([rows]) => {
+          const codigoSolicitud =
+            rows[0]?.codigo?.trim().replace(/\s+/g, "_") || `SP-${solicitudId}`;
+          const nombreSeguro = file.originalname.replace(/\s+/g, "_");
+          const timestamp = Date.now();
+          const clave = `comprobantes_pagos/${anio}/${mesPalabra}/${codigoSolicitud}/${timestamp}-${nombreSeguro}`;
+          cb(null, clave);
+        })
+        .catch((err) => cb(err));
     },
   }),
   limits: { fileSize: 8 * 1024 * 1024 },
