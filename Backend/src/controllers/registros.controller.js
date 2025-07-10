@@ -5,7 +5,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import db from "../config/database.js";
 import { s3 } from "../utils/s3.js";
-import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import cacheMemoria from "../utils/cacheMemoria.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -114,24 +114,15 @@ export const createRegistro = async (req, res) => {
           registroId,
         ]);
 
-        // 4. Versionado de archivos
-        const [[{ total }]] = await conexion.query(
-          `SELECT COUNT(*) AS total 
-             FROM archivos 
-            WHERE registroTipo = ? AND registroId = ?`,
-          ["facturasGastos", registroId]
-        );
-
-        const numeroVersion = total + 1;
-
+        // 4. Insertar en tabla archivos (sin numeroVersion)
         const extension = path.extname(req.file.originalname).substring(1);
         const tamanioBytes = req.file.size;
 
         const [resArchivo] = await conexion.query(
           `INSERT INTO archivos
-            (registroTipo, registroId, nombreOriginal, extension, rutaS3,
-            tamanioBytes, numeroVersion, subidoPor, creadoEn, actualizadoEn)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+              (registroTipo, registroId, nombreOriginal, extension, rutaS3,
+               tamanioBytes, estado, subidoPor, creadoEn, actualizadoEn)
+           VALUES (?, ?, ?, ?, ?, ?, 'activo', ?, NOW(), NOW())`,
           [
             "facturasGastos",
             registroId,
@@ -139,13 +130,30 @@ export const createRegistro = async (req, res) => {
             extension,
             claveS3,
             tamanioBytes,
-            numeroVersion,
             datos.usuario_id,
           ]
         );
 
         const archivoId = resArchivo.insertId;
 
+        // 5. Insertar en versionesArchivo
+        await conexion.query(
+          `INSERT INTO versionesArchivo
+             (archivoId, numeroVersion, nombreOriginal, extension,
+              tamanioBytes, rutaS3, subidoPor, creadoEn)
+           VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
+          [
+            archivoId,
+            1,
+            req.file.originalname,
+            extension,
+            tamanioBytes,
+            claveS3,
+            datos.usuario_id,
+          ]
+        );
+
+        // 6. Evento de auditoría
         await conexion.query(
           `INSERT INTO eventosArchivo
              (archivoId, accion, usuarioId, fechaHora, ip, userAgent, detalles)
