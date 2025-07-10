@@ -398,7 +398,7 @@ export const deleteGasto = async (req, res) => {
         await conexion.query(
           `INSERT INTO eventosArchivo
              (archivoId, accion, usuarioId, fechaHora, ip, userAgent, detalles)
-           VALUES (?, 'borrado', ?, NOW(), ?, ?, ?)`,
+           VALUES (?, 'eliminacion', ?, NOW(), ?, ?, ?)`,
           [
             archivoId,
             req.user?.id || null,
