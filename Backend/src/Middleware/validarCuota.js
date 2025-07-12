@@ -1,5 +1,5 @@
 // middlewares/validarCuota.js
-import { tieneEspacio } from "../services/cuotaService.js";
+import { tieneEspacio } from "../config/database.js";
 
 /**
  * Bloquea la petición si el archivo a subir excede la cuota del usuario.
