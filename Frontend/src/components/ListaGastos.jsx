@@ -393,7 +393,7 @@ function ListaGastos() {
 
       {/* Filtros por tipo de gasto */}
       <div className="px-4 pb-2">
-        <div className="flex gap-2 mb-2">
+        <div className="flex gap-2 mb-2 overflow-x-auto pb-2">
           {[
             { id: "todos", nombre: "Todos" },
             { id: "1", nombre: "Operativo" },
@@ -403,7 +403,7 @@ function ListaGastos() {
             <button
               key={tipo.id}
               onClick={() => setTipoFiltro(tipo.id)}
-              className={`px-4 py-1 rounded-full text-sm border cursor-pointer ${
+              className={`px-4 py-1 rounded-full text-sm border cursor-pointer whitespace-nowrap ${
                 tipoFiltro === tipo.id
                   ? "bg-gray-600 text-white"
                   : "bg-gray-800 text-white hover:bg-gray-500"
@@ -418,174 +418,343 @@ function ListaGastos() {
         </div>
       </div>
 
-      {/* Tabla de gastos */}
-      <table className="w-full text-sm text-left  text-gray-400">
-        {/* Encabezados de tabla */}
-        <thead className="text-xs  uppercase  bg-gray-700 text-gray-400">
-          <tr>
-            <th className="px-4 py-3">Fecha</th>
-            <th className="px-4 py-3">Código</th>
-            <th className="px-4 py-3">Proveedor</th>
-            <th className="px-4 py-3">Concepto</th>
-            <th className="px-4 py-3">Subtotal</th>
-            <th className="px-4 py-3">Impuesto</th>
-            <th className="px-4 py-3">Monto Total</th>
-            <th className="px-4 py-3">Sucursal</th>
-            <th className="px-4 py-3">Estado</th>
+      {/* Vista de tabla para pantallas grandes */}
+      <div className="hidden md:block">
+        <table className="w-full text-sm text-left  text-gray-400">
+          {/* Encabezados de tabla */}
+          <thead className="text-xs  uppercase  bg-gray-700 text-gray-400">
             <tr>
+              <th className="px-4 py-3">Fecha</th>
+              <th className="px-4 py-3">Código</th>
+              <th className="px-4 py-3">Proveedor</th>
+              <th className="px-4 py-3">Concepto</th>
+              <th className="px-4 py-3">Subtotal</th>
+              <th className="px-4 py-3">Impuesto</th>
+              <th className="px-4 py-3">Monto Total</th>
+              <th className="px-4 py-3">Sucursal</th>
+              <th className="px-4 py-3">Estado</th>
               {(puedeCambiarEstado || puedeEditar || puedeEliminar) && (
                 <th className="px-4 py-3">Acciones</th>
               )}
             </tr>
-          </tr>
-        </thead>
+          </thead>
 
-        {/* Cuerpo de tabla */}
-        <tbody>
-          {gastosPaginados.map((gasto) => {
-            const isBolivares = gasto.moneda === "VES";
+          {/* Cuerpo de tabla */}
+          <tbody>
+            {gastosPaginados.map((gasto) => {
+              const isBolivares = gasto.moneda === "VES";
 
-            return (
-              <tr key={gasto.id} className="border-b border-gray-700">
-                <td className="px-5 py-3">
+              return (
+                <tr key={gasto.id} className="border-b border-gray-700">
+                  <td className="px-5 py-3">
+                    {new Date(gasto.fecha).toLocaleDateString("es-VE", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                    })}
+                  </td>
+                  <td className="px-5 py-3">{gasto.codigo}</td>
+                  <td className="px-5 py-3">
+                    {gasto.proveedor && gasto.proveedor.trim() !== ""
+                      ? gasto.proveedor
+                      : "N/A"}
+                  </td>
+                  <td>{gasto.concepto_pago || "—"}</td>
+                  <td>
+                    {formatearMonto(
+                      gasto.subtotal,
+                      gasto.moneda,
+                      gasto.tasa_cambio
+                    )}
+                  </td>
+                  <td className="px-5 py-3">
+                    {formatearMonto(
+                      gasto.impuesto,
+                      gasto.moneda,
+                      gasto.tasa_cambio
+                    )}
+                  </td>
+                  <td>
+                    {formatearMonto(
+                      gasto.total,
+                      gasto.moneda,
+                      gasto.tasa_cambio
+                    )}
+                  </td>
+                  <td>{gasto.sucursal || "—"}</td>
+
+                  <td className="px-5 py-3">
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs ${
+                        gasto.estado === "aprobado"
+                          ? "bg-green-100 text-green-800"
+                          : gasto.estado === "pendiente"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : "bg-red-100 text-red-800"
+                      }`}
+                    >
+                      {gasto.estado}
+                    </span>
+                  </td>
+                  {(puedeCambiarEstado || puedeEditar || puedeEliminar) && (
+                    <td className="px-4 py-3 flex space-x-2 items-center">
+                      {puedeCambiarEstado && (
+                        <BotonIcono
+                          tipo="estado"
+                          onClick={() => {
+                            if (gasto.estado === "rechazado") {
+                              mostrarError({
+                                titulo: "Gasto rechazado",
+                                mensaje: "El gasto ya está rechazado.",
+                              });
+                              return;
+                            }
+
+                            if (gasto.estado === "aprobado") {
+                              mostrarError({
+                                titulo: "Gasto aprobado",
+                                mensaje:
+                                  "No puedes cambiar el estado de un gasto aprobado.",
+                              });
+                              return;
+                            }
+
+                            setGastoCambioEstado(gasto);
+                            setMostrarModalCambio(true);
+                          }}
+                          titulo="Cambiar estado"
+                          disabled={gasto.estado === "aprobado"}
+                          className={`${
+                            gasto.estado === "aprobado"
+                              ? "opacity-50 cursor-not-allowed"
+                              : ""
+                          }`}
+                        />
+                      )}
+
+                      {/* VER siempre visible */}
+                      <BotonIcono
+                        tipo="ver"
+                        onClick={() => {
+                          setGastoSeleccionado(gasto);
+                          setMostrarModalVer(true);
+                        }}
+                        titulo="Ver gasto"
+                      />
+
+                      {/* EDITAR visible solo si tiene permiso */}
+                      {puedeEditar && (
+                        <BotonIcono
+                          tipo="editar"
+                          onClick={() => iniciarEdicion(gasto)}
+                          titulo="Editar gasto"
+                          disabled={gasto.estado === "aprobado"}
+                          className={`${
+                            gasto.estado === "aprobado"
+                              ? "opacity-50 cursor-not-allowed"
+                              : ""
+                          }`}
+                        />
+                      )}
+
+                      {/* ELIMINAR visible solo si tiene permiso */}
+                      {puedeEliminar && (
+                        <BotonIcono
+                          tipo="eliminar"
+                          onClick={() => {
+                            if (gasto.estado === "aprobado") {
+                              mostrarError({
+                                titulo: "Gasto aprobado",
+                                mensaje:
+                                  "No puedes eliminar un gasto que ya está aprobado.",
+                              });
+                              return;
+                            }
+                            setGastoAEliminar(gasto);
+                            setMostrarConfirmacion(true);
+                          }}
+                          titulo="Eliminar gasto"
+                          disabled={gasto.estado === "aprobado"}
+                          className={`${
+                            gasto.estado === "aprobado"
+                              ? "opacity-50 cursor-not-allowed"
+                              : ""
+                          }`}
+                        />
+                      )}
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Vista de tarjetas para móviles */}
+      <div className="md:hidden space-y-3 p-2">
+        {gastosPaginados.map((gasto) => (
+          <div key={gasto.id} className="bg-gray-800 rounded-lg p-4 shadow">
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="font-medium text-white">{gasto.codigo}</h3>
+                <p className="text-sm text-gray-400">
+                  {gasto.proveedor && gasto.proveedor.trim() !== ""
+                    ? gasto.proveedor
+                    : "N/A"}
+                </p>
+              </div>
+              <span
+                className={`px-2 py-1 rounded-full text-xs ${
+                  gasto.estado === "aprobado"
+                    ? "bg-green-100 text-green-800"
+                    : gasto.estado === "pendiente"
+                    ? "bg-yellow-100 text-yellow-800"
+                    : "bg-red-100 text-red-800"
+                }`}
+              >
+                {gasto.estado}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 mt-3 text-sm">
+              <div>
+                <span className="text-gray-400">Fecha:</span>
+                <span className="text-white ml-1">
                   {new Date(gasto.fecha).toLocaleDateString("es-VE", {
                     day: "2-digit",
                     month: "2-digit",
                     year: "numeric",
                   })}
-                </td>
-                <td className="px-5 py-3">{gasto.codigo}</td>
-                <td className="px-5 py-3">
-                  {gasto.proveedor && gasto.proveedor.trim() !== ""
-                    ? gasto.proveedor
-                    : "N/A"}
-                </td>
-                <td>{gasto.concepto_pago || "—"}</td>
-                <td>
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-400">Concepto:</span>
+                <span className="text-white ml-1">
+                  {gasto.concepto_pago || "—"}
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-400">Subtotal:</span>
+                <span className="text-white ml-1">
                   {formatearMonto(
                     gasto.subtotal,
                     gasto.moneda,
                     gasto.tasa_cambio
                   )}
-                </td>
-                <td className="px-5 py-3">
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-400">Impuesto:</span>
+                <span className="text-white ml-1">
                   {formatearMonto(
                     gasto.impuesto,
                     gasto.moneda,
                     gasto.tasa_cambio
                   )}
-                </td>
-                <td>
+                </span>
+              </div>
+              <div className="col-span-2">
+                <span className="text-gray-400">Total:</span>
+                <span className="text-white ml-1 font-semibold">
                   {formatearMonto(gasto.total, gasto.moneda, gasto.tasa_cambio)}
-                </td>
-                <td>{gasto.sucursal || "—"}</td>
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-400">Sucursal:</span>
+                <span className="text-white ml-1">{gasto.sucursal || "—"}</span>
+              </div>
+            </div>
 
-                <td className="px-5 py-3">
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs ${
-                      gasto.estado === "aprobado"
-                        ? "bg-green-100 text-green-800"
-                        : gasto.estado === "pendiente"
-                        ? "bg-yellow-100 text-yellow-800"
-                        : "bg-red-100 text-red-800"
-                    }`}
-                  >
-                    {gasto.estado}
-                  </span>
-                </td>
-                {(puedeCambiarEstado || puedeEditar || puedeEliminar) && (
-                  <td className="px-4 py-3 flex space-x-2 items-center">
-                    {puedeCambiarEstado && (
-                      <BotonIcono
-                        tipo="estado"
-                        onClick={() => {
-                          if (gasto.estado === "rechazado") {
-                            mostrarError({
-                              titulo: "Gasto rechazado",
-                              mensaje: "El gasto ya está rechazado.",
-                            });
-                            return;
-                          }
+            <div className="flex justify-end space-x-2 mt-3">
+              <BotonIcono
+                tipo="ver"
+                titulo="Ver detalle"
+                small
+                onClick={() => {
+                  setGastoSeleccionado(gasto);
+                  setMostrarModalVer(true);
+                }}
+              />
 
-                          if (gasto.estado === "aprobado") {
-                            mostrarError({
-                              titulo: "Gasto aprobado",
-                              mensaje:
-                                "No puedes cambiar el estado de un gasto aprobado.",
-                            });
-                            return;
-                          }
+              {puedeCambiarEstado && (
+                <BotonIcono
+                  tipo="estado"
+                  titulo="Cambiar Estado"
+                  small
+                  onClick={() => {
+                    if (gasto.estado === "rechazado") {
+                      mostrarError({
+                        titulo: "Gasto rechazado",
+                        mensaje: "El gasto ya está rechazado.",
+                      });
+                      return;
+                    }
 
-                          setGastoCambioEstado(gasto);
-                          setMostrarModalCambio(true);
-                        }}
-                        titulo="Cambiar estado"
-                        disabled={gasto.estado === "aprobado"}
-                        className={`${
-                          gasto.estado === "aprobado"
-                            ? "opacity-50 cursor-not-allowed"
-                            : ""
-                        }`}
-                      />
-                    )}
+                    if (gasto.estado === "aprobado") {
+                      mostrarError({
+                        titulo: "Gasto aprobado",
+                        mensaje:
+                          "No puedes cambiar el estado de un gasto aprobado.",
+                      });
+                      return;
+                    }
 
-                    {/* VER siempre visible */}
-                    <BotonIcono
-                      tipo="ver"
-                      onClick={() => {
-                        setGastoSeleccionado(gasto);
-                        setMostrarModalVer(true);
-                      }}
-                      titulo="Ver gasto"
-                    />
+                    setGastoCambioEstado(gasto);
+                    setMostrarModalCambio(true);
+                  }}
+                  disabled={gasto.estado === "aprobado"}
+                  className={`${
+                    gasto.estado === "aprobado"
+                      ? "opacity-50 cursor-not-allowed"
+                      : ""
+                  }`}
+                />
+              )}
 
-                    {/* EDITAR visible solo si tiene permiso */}
-                    {puedeEditar && (
-                      <BotonIcono
-                        tipo="editar"
-                        onClick={() => iniciarEdicion(gasto)}
-                        titulo="Editar gasto"
-                        disabled={gasto.estado === "aprobado"}
-                        className={`${
-                          gasto.estado === "aprobado"
-                            ? "opacity-50 cursor-not-allowed"
-                            : ""
-                        }`}
-                      />
-                    )}
+              {puedeEditar && (
+                <BotonIcono
+                  tipo="editar"
+                  titulo="Editar"
+                  small
+                  onClick={() => iniciarEdicion(gasto)}
+                  disabled={gasto.estado === "aprobado"}
+                  className={`${
+                    gasto.estado === "aprobado"
+                      ? "opacity-50 cursor-not-allowed"
+                      : ""
+                  }`}
+                />
+              )}
 
-                    {/* ELIMINAR visible solo si tiene permiso */}
-                    {puedeEliminar && (
-                      <BotonIcono
-                        tipo="eliminar"
-                        onClick={() => {
-                          if (gasto.estado === "aprobado") {
-                            mostrarError({
-                              titulo: "Gasto aprobado",
-                              mensaje:
-                                "No puedes eliminar un gasto que ya está aprobado.",
-                            });
-                            return;
-                          }
-                          setGastoAEliminar(gasto);
-                          setMostrarConfirmacion(true);
-                        }}
-                        titulo="Eliminar gasto"
-                        disabled={gasto.estado === "aprobado"}
-                        className={`${
-                          gasto.estado === "aprobado"
-                            ? "opacity-50 cursor-not-allowed"
-                            : ""
-                        }`}
-                      />
-                    )}
-                  </td>
-                )}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+              {puedeEliminar && (
+                <BotonIcono
+                  tipo="eliminar"
+                  small
+                  onClick={() => {
+                    if (gasto.estado === "aprobado") {
+                      mostrarError({
+                        titulo: "Gasto aprobado",
+                        mensaje:
+                          "No puedes eliminar un gasto que ya está aprobado.",
+                      });
+                      return;
+                    }
+                    setGastoAEliminar(gasto);
+                    setMostrarConfirmacion(true);
+                  }}
+                  disabled={gasto.estado === "aprobado"}
+                  className={`${
+                    gasto.estado === "aprobado"
+                      ? "opacity-50 cursor-not-allowed"
+                      : ""
+                  }`}
+                />
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
 
       {/* Paginación */}
       <Paginacion
