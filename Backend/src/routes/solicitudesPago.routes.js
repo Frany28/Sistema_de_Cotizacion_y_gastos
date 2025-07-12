@@ -11,6 +11,7 @@ import {
 import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
 import { verificarPermiso } from "../Middleware/verificarPermiso.js";
 import { uploadComprobantePago } from "../utils/s3.js";
+import { validarCuota } from "../Middleware/validarCuota.js";
 
 const router = express.Router();
 
@@ -53,6 +54,7 @@ router.patch(
   "/:id/pagar",
   autenticarUsuario,
   verificarPermiso("pagarSolicitudPago"),
+  validarCuota,
   uploadComprobantePago.single("comprobante"),
   pagarSolicitudPago
 );

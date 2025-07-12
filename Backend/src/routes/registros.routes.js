@@ -10,6 +10,7 @@ import { validarRegistro } from "../Middleware/validarRegistro.js";
 import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
 import { verificaPermisoDinamico } from "../Middleware/verificarPermisoDinamico.js";
 import { uploadComprobanteMemoria } from "../utils/s3.js";
+import { validarCuota } from "../Middleware/validarCuota.js";
 
 const router = express.Router();
 
@@ -19,6 +20,7 @@ router.post(
   "/",
   autenticarUsuario,
   uploadComprobanteMemoria,
+  validarCuota,
   verificaPermisoDinamico,
   validarRegistro,
   createRegistro

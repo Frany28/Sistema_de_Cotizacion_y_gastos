@@ -20,6 +20,7 @@ import {
   scopeEdicionGasto,
 } from "../Middleware/verificarPermiso.js";
 import { validarGasto } from "../Middleware/validarGasto.js";
+import { validarCuota } from "../Middleware/validarCuota.js";
 
 const router = express.Router();
 
@@ -41,6 +42,7 @@ router.post(
   "/:id/comprobante",
   autenticarUsuario,
   verificarPermiso("editarGasto"),
+  validarCuota,
   uploadComprobante.single("comprobante"),
   async (req, res) => {
     try {

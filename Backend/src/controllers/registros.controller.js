@@ -53,7 +53,6 @@ export const getDatosRegistro = async (req, res) => {
 };
 
 export const createRegistro = async (req, res) => {
-  console.log("=== createRegistro ===");
 
   if (!req.combinedData) {
     return res.status(400).json({
