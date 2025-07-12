@@ -212,7 +212,7 @@ function BancosCRUD() {
       {/* Barra superior: Nuevo + filtros */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 p-4 gap-2">
         {puedeCrear && <BotonAgregar onClick={abrirAdd} texto="Nuevo Banco" />}
-        <div className="flex w-full md:w-1/2 gap-2">
+        <div className="flex flex-col md:flex-row w-full md:w-1/2 gap-2">
           <div className="flex items-center gap-2">
             <label htmlFor="cantidad" className="text-sm text-gray-300">
               Mostrar:
@@ -232,104 +232,165 @@ function BancosCRUD() {
           </div>
           <div className="relative w-full">
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-              {/* icono búsqueda */}
               <svg
                 className="w-5 h-5 text-gray-400"
                 fill="currentColor"
                 viewBox="0 0 20 20"
               >
-                {/* … */}
+                <path
+                  fillRule="evenodd"
+                  d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
+                  clipRule="evenodd"
+                />
               </svg>
             </div>
-            <div className="relative w-full">
-              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                <svg
-                  className="w-5 h-5  text-gray-400"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </div>
-              <input
-                type="text"
-                placeholder="Buscar..."
-                value={busqueda}
-                onChange={manejarBusqueda}
-                className="pl-10  text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-600 text-white"
-              />
-            </div>
+            <input
+              type="text"
+              placeholder="Buscar..."
+              value={busqueda}
+              onChange={manejarBusqueda}
+              className="pl-10 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-600 text-white"
+            />
           </div>
         </div>
       </div>
 
-      {/* Tabla de Bancos */}
-      <table className="w-full text-sm text-left text-gray-400">
-        <thead className="bg-gray-700 uppercase text-gray-400 text-xs">
-          <tr>
-            <th className="px-4 py-2">ID</th>
-            <th className="px-4 py-2">Nombre</th>
-            <th className="px-4 py-2">Moneda</th>
-            <th className="px-4 py-2">Tipo Ident.</th>
-            <th className="px-4 py-2">Identificador</th>
-            <th className="px-4 py-2">Estado</th>
-            {(puedeEditar || puedeEliminar) && (
-              <th className="px-4 py-2">Acciones</th>
-            )}
-          </tr>
-        </thead>
-        <tbody>
-          {visibles.map((banco) => (
-            <tr key={banco.id} className="border-b border-gray-700">
-              <td className="px-4 py-2 text-white">{banco.id}</td>
-              <td className="px-4 py-2">{banco.nombre}</td>
-              <td className="px-4 py-2">{banco.moneda}</td>
-              <td className="px-4 py-2">{banco.tipo_identificador}</td>
-              <td className="px-4 py-2">{banco.identificador}</td>
-              <td className="px-4 py-2">{banco.estado}</td>
+      {/* Vista de tabla para pantallas medianas y grandes */}
+      <div className="hidden md:block">
+        <table className="w-full text-sm text-left text-gray-400">
+          <thead className="bg-gray-700 uppercase text-gray-400 text-xs">
+            <tr>
+              <th className="px-4 py-2">ID</th>
+              <th className="px-4 py-2">Nombre</th>
+              <th className="px-4 py-2">Moneda</th>
+              <th className="px-4 py-2">Tipo Ident.</th>
+              <th className="px-4 py-2">Identificador</th>
+              <th className="px-4 py-2">Estado</th>
               {(puedeEditar || puedeEliminar) && (
-                <td className="px-4 py-2 flex space-x-2">
-                  {puedeEditar && (
-                    <BotonIcono
-                      tipo="editar"
-                      onClick={() => iniciarEdicion(banco)}
-                      titulo="Editar banco"
-                    />
-                  )}
-
-                  {puedeEliminar && (
-                    <BotonIcono
-                      tipo="eliminar"
-                      onClick={() => {
-                        if (banco.estado === "activo") {
-                          mostrarMensajeError({
-                            titulo: "No permitido",
-                            mensaje:
-                              "No se puede eliminar un banco activo. Cámbialo a inactivo primero.",
-                            textoBoton: "Cerrar",
-                          });
-                          return;
-                        }
-                        confirmarEliminacion(banco);
-                      }}
-                      disabled={banco.estado === "activo"}
-                      titulo={
-                        banco.estado === "activo"
-                          ? "No se puede eliminar un banco activo"
-                          : "Eliminar banco"
-                      }
-                    />
-                  )}
-                </td>
+                <th className="px-4 py-2">Acciones</th>
               )}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {visibles.map((banco) => (
+              <tr key={banco.id} className="border-b border-gray-700">
+                <td className="px-4 py-2 text-white">{banco.id}</td>
+                <td className="px-4 py-2">{banco.nombre}</td>
+                <td className="px-4 py-2">{banco.moneda}</td>
+                <td className="px-4 py-2">{banco.tipo_identificador}</td>
+                <td className="px-4 py-2">{banco.identificador}</td>
+                <td className="px-4 py-2">{banco.estado}</td>
+                {(puedeEditar || puedeEliminar) && (
+                  <td className="px-4 py-2 flex space-x-2">
+                    {puedeEditar && (
+                      <BotonIcono
+                        tipo="editar"
+                        onClick={() => iniciarEdicion(banco)}
+                        titulo="Editar banco"
+                      />
+                    )}
+
+                    {puedeEliminar && (
+                      <BotonIcono
+                        tipo="eliminar"
+                        onClick={() => {
+                          if (banco.estado === "activo") {
+                            mostrarMensajeError({
+                              titulo: "No permitido",
+                              mensaje:
+                                "No se puede eliminar un banco activo. Cámbialo a inactivo primero.",
+                              textoBoton: "Cerrar",
+                            });
+                            return;
+                          }
+                          confirmarEliminacion(banco);
+                        }}
+                        disabled={banco.estado === "activo"}
+                        titulo={
+                          banco.estado === "activo"
+                            ? "No se puede eliminar un banco activo"
+                            : "Eliminar banco"
+                        }
+                      />
+                    )}
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Vista de tarjetas para móviles */}
+      <div className="md:hidden space-y-3 p-2">
+        {visibles.map((banco) => (
+          <div key={banco.id} className="bg-gray-800 rounded-lg p-4 shadow">
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="font-medium text-white">{banco.nombre}</h3>
+                <p className="text-sm text-gray-400">ID: {banco.id}</p>
+              </div>
+              <div className="flex space-x-2">
+                {puedeEditar && (
+                  <BotonIcono
+                    tipo="editar"
+                    onClick={() => iniciarEdicion(banco)}
+                    titulo="Editar banco"
+                    small
+                  />
+                )}
+                {puedeEliminar && (
+                  <BotonIcono
+                    tipo="eliminar"
+                    onClick={() => {
+                      if (banco.estado === "activo") {
+                        mostrarMensajeError({
+                          titulo: "No permitido",
+                          mensaje:
+                            "No se puede eliminar un banco activo. Cámbialo a inactivo primero.",
+                          textoBoton: "Cerrar",
+                        });
+                        return;
+                      }
+                      confirmarEliminacion(banco);
+                    }}
+                    disabled={banco.estado === "activo"}
+                    titulo={
+                      banco.estado === "activo"
+                        ? "No se puede eliminar un banco activo"
+                        : "Eliminar banco"
+                    }
+                    small
+                  />
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 mt-3 text-sm">
+              <div>
+                <span className="text-gray-400">Moneda:</span>
+                <span className="text-white ml-1">{banco.moneda}</span>
+              </div>
+              <div>
+                <span className="text-gray-400">Tipo ID:</span>
+                <span className="text-white ml-1">
+                  {banco.tipo_identificador}
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-400">Identificador:</span>
+                <span className="text-white ml-1">{banco.identificador}</span>
+              </div>
+              <div>
+                <span className="text-gray-400">Estado:</span>
+                <span className="text-white ml-1 capitalize">
+                  {banco.estado}
+                </span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
 
       {/* Paginación */}
       <Paginacion
