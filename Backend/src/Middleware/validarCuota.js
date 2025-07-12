@@ -1,5 +1,5 @@
 // middlewares/validarCuota.js
-import { tieneEspacio } from "../config/database.js";
+import { tieneEspacio } from "../services/cuotaService.js";
 
 /**
  * Bloquea la petición si el archivo a subir excede la cuota del usuario.
@@ -31,7 +31,7 @@ export const validarCuota = async (req, res, next) => {
       });
     }
 
-    return next(); 
+    return next();
   } catch (error) {
     return next(error);
   }

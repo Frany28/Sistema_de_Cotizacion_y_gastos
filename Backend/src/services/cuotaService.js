@@ -1,5 +1,5 @@
 // services/cuotaService.js
-import db from "../database/conexionDb.js";
+import db from "../config/database.js";
 
 const BYTES_EN_MB = 1024 * 1024;
 
