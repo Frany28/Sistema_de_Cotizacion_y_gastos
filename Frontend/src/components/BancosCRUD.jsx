@@ -321,16 +321,45 @@ function BancosCRUD() {
         </table>
       </div>
 
-      {/* Vista de tarjetas para móviles */}
-      <div className="md:hidden space-y-3 p-2">
-        {visibles.map((banco) => (
-          <div key={banco.id} className="bg-gray-800 rounded-lg p-4 shadow">
-            <div className="flex justify-between items-start">
-              <div>
-                <h3 className="font-medium text-white">{banco.nombre}</h3>
-                <p className="text-sm text-gray-400">ID: {banco.id}</p>
+      {/* Vista de tarjetas para tablets */}
+      <div className="hidden sm:block md:hidden">
+        <div className="grid grid-cols-1 gap-4 p-2">
+          {visibles.map((banco) => (
+            <div key={banco.id} className="bg-gray-800 rounded-lg p-4 shadow">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="font-medium text-white">{banco.nombre}</h3>
+                  <p className="text-sm text-gray-400">ID: {banco.id}</p>
+                </div>
+                <span
+                  className={`text-xs px-2 py-1 rounded-full ${
+                    banco.estado === "activo"
+                      ? "bg-green-100 text-green-800"
+                      : "bg-gray-100 text-gray-800"
+                  }`}
+                >
+                  {banco.estado}
+                </span>
               </div>
-              <div className="flex space-x-2">
+
+              <div className="grid grid-cols-2 gap-2 mt-3 text-sm">
+                <div>
+                  <span className="text-gray-400">Moneda:</span>
+                  <span className="text-white ml-1">{banco.moneda}</span>
+                </div>
+                <div>
+                  <span className="text-gray-400">Tipo ID:</span>
+                  <span className="text-white ml-1">
+                    {banco.tipo_identificador}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-400">Identificador:</span>
+                  <span className="text-white ml-1">{banco.identificador}</span>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-2 mt-3">
                 {puedeEditar && (
                   <BotonIcono
                     tipo="editar"
@@ -365,31 +394,83 @@ function BancosCRUD() {
                 )}
               </div>
             </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Vista de tarjetas para móviles */}
+      <div className="sm:hidden space-y-3 p-2">
+        {visibles.map((banco) => (
+          <div key={banco.id} className="bg-gray-800 rounded-lg p-4 shadow">
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="font-medium text-white">{banco.nombre}</h3>
+                <p className="text-sm text-gray-400">ID: {banco.id}</p>
+              </div>
+              <span
+                className={`text-xs px-2 py-1 rounded-full ${
+                  banco.estado === "activo"
+                    ? "bg-green-100 text-green-800"
+                    : "bg-gray-100 text-gray-800"
+                }`}
+              >
+                {banco.estado}
+              </span>
+            </div>
 
             <div className="grid grid-cols-2 gap-2 mt-3 text-sm">
-              <div>
+              <div className="col-span-2">
                 <span className="text-gray-400">Moneda:</span>
                 <span className="text-white ml-1">{banco.moneda}</span>
               </div>
-              <div>
+              <div className="col-span-2">
                 <span className="text-gray-400">Tipo ID:</span>
                 <span className="text-white ml-1">
                   {banco.tipo_identificador}
                 </span>
               </div>
-              <div>
+              <div className="col-span-2">
                 <span className="text-gray-400">Identificador:</span>
                 <span className="text-white ml-1">{banco.identificador}</span>
               </div>
-              <div>
-                <span className="text-gray-400">Estado:</span>
-                <span className="text-white ml-1 capitalize">
-                  {banco.estado}
-                </span>
-              </div>
+            </div>
+
+            <div className="flex justify-end space-x-2 mt-3">
+              {puedeEditar && (
+                <BotonIcono
+                  tipo="editar"
+                  onClick={() => iniciarEdicion(banco)}
+                  titulo="Editar banco"
+                  small
+                />
+              )}
+              {puedeEliminar && (
+                <BotonIcono
+                  tipo="eliminar"
+                  onClick={() => {
+                    if (banco.estado === "activo") {
+                      mostrarMensajeError({
+                        titulo: "No permitido",
+                        mensaje:
+                          "No se puede eliminar un banco activo. Cámbialo a inactivo primero.",
+                        textoBoton: "Cerrar",
+                      });
+                      return;
+                    }
+                    confirmarEliminacion(banco);
+                  }}
+                  disabled={banco.estado === "activo"}
+                  titulo={
+                    banco.estado === "activo"
+                      ? "No se puede eliminar un banco activo"
+                      : "Eliminar banco"
+                  }
+                  small 
+                />
+              )}
             </div>
           </div>
-        ))}
+        ))} 
       </div>
 
       {/* Paginación */}
