@@ -101,7 +101,6 @@ function ListaClientes() {
     })();
   }, []);
 
-  // ───── Verificar permisos sólo al montar ─────
   useEffect(() => {
     const cargarPermisos = async () => {
       try {
@@ -157,17 +156,10 @@ function ListaClientes() {
 
   const guardarClienteEditado = async (datos) => {
     try {
-      // 1 ·  Envía la petición
       await api.put(`/clientes/${editandoCliente.id}`, datos);
-
-      // 2 ·  Fusiona los cambios en el array local.
-      //     Usamos editandoCliente.id porque el backend podría
-      //     no devolver el objeto completo ni el id.
       setClientes((prev) =>
         prev.map((c) => (c.id === editandoCliente.id ? { ...c, ...datos } : c))
       );
-
-      // 3 ·  Cierra modal y muestra toast
       setEditandoCliente(null);
       setMostrarModalEditar(false);
       mostrarMensajeExito({
@@ -284,42 +276,113 @@ function ListaClientes() {
         resultados
       </div>
 
-      <table className="w-full text-sm text-left  text-gray-400">
-        <thead className="text-xs  uppercase  bg-gray-700 text-gray-400">
-          <tr>
-            <th className="px-4 py-3">Código</th>
-            <th className="px-4 py-3">Cliente</th>
-            <th className="px-4 py-3">Cédula / Pasaporte</th>
-            <th className="px-4 py-3">Email</th>
-            <th className="px-4 py-3">Teléfono</th>
-            <th className="px-4 py-3">Dirección</th>
-            <th className="px-4 py-3">Sucursal</th>
-            {(puedeEditar || puedeEliminar) && (
-              <th className="px-4 py-3">Acciones</th>
-            )}
-          </tr>
-        </thead>
-        <tbody>
-          {clientesPaginados.map((cliente) => (
-            <tr key={cliente.id} className="border-b border-gray-700">
-              <td className="px-4 py-3 font-medium  whitespace-nowrap text-white">
-                {cliente.codigo_referencia || "—"}
-              </td>
-              <td className="px-4 py-3">{cliente.nombre}</td>
-              <td className="px-4 py-3">{cliente.identificacion || "—"}</td>
-              <td className="px-4 py-3">{cliente.email}</td>
-              <td className="px-4 py-3">{cliente.telefono}</td>
-              <td className="px-4 py-3">{cliente.direccion}</td>
+      {/* Vista de tabla para pantallas grandes */}
+      <div className="hidden lg:block">
+        <table className="w-full text-sm text-left  text-gray-400">
+          <thead className="text-xs  uppercase  bg-gray-700 text-gray-400">
+            <tr>
+              <th className="px-4 py-3">Código</th>
+              <th className="px-4 py-3">Cliente</th>
+              <th className="px-4 py-3">Cédula / Pasaporte</th>
+              <th className="px-4 py-3">Email</th>
+              <th className="px-4 py-3">Teléfono</th>
+              <th className="px-4 py-3">Dirección</th>
+              <th className="px-4 py-3">Sucursal</th>
+              {(puedeEditar || puedeEliminar) && (
+                <th className="px-4 py-3">Acciones</th>
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {clientesPaginados.map((cliente) => (
+              <tr key={cliente.id} className="border-b border-gray-700">
+                <td className="px-4 py-3 font-medium  whitespace-nowrap text-white">
+                  {cliente.codigo_referencia || "—"}
+                </td>
+                <td className="px-4 py-3">{cliente.nombre}</td>
+                <td className="px-4 py-3">{cliente.identificacion || "—"}</td>
+                <td className="px-4 py-3">{cliente.email}</td>
+                <td className="px-4 py-3">{cliente.telefono}</td>
+                <td className="px-4 py-3">{cliente.direccion}</td>
+                <td className="px-4 py-3">
+                  {sucursalesMap[cliente.sucursal_id] || "—"}
+                </td>
+                {(puedeEditar || puedeEliminar) && (
+                  <td className="px-4 py-3 flex space-x-2">
+                    {puedeEditar && (
+                      <BotonIcono
+                        tipo="editar"
+                        onClick={() => {
+                          iniciarEdicion(cliente);
+                          setMostrarModalEditar(true);
+                        }}
+                        titulo="Editar cliente"
+                      />
+                    )}
+                    {puedeEliminar && (
+                      <BotonIcono
+                        tipo="eliminar"
+                        onClick={() => {
+                          setClienteAEliminar(cliente);
+                          setMostrarConfirmacion(true);
+                        }}
+                        titulo="Eliminar cliente"
+                      />
+                    )}
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
-              <td className="px-4 py-3">
-                {sucursalesMap[cliente.sucursal_id] || "—"}
-              </td>
+      {/* Vista de tarjetas para tablets */}
+      <div className="hidden md:block lg:hidden">
+        <div className="grid grid-cols-1 gap-4 p-2">
+          {clientesPaginados.map((cliente) => (
+            <div key={cliente.id} className="bg-gray-800 rounded-lg p-4 shadow">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <p className="text-gray-400 text-sm">Código</p>
+                  <p className="text-white">
+                    {cliente.codigo_referencia || "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-400 text-sm">Cliente</p>
+                  <p className="text-white">{cliente.nombre}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400 text-sm">Identificación</p>
+                  <p className="text-white">{cliente.identificacion || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400 text-sm">Email</p>
+                  <p className="text-white">{cliente.email}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400 text-sm">Teléfono</p>
+                  <p className="text-white">{cliente.telefono}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400 text-sm">Dirección</p>
+                  <p className="text-white">{cliente.direccion}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400 text-sm">Sucursal</p>
+                  <p className="text-white">
+                    {sucursalesMap[cliente.sucursal_id] || "—"}
+                  </p>
+                </div>
+              </div>
 
               {(puedeEditar || puedeEliminar) && (
-                <td className="px-4 py-3 flex space-x-2">
+                <div className="flex justify-end space-x-2 mt-3">
                   {puedeEditar && (
                     <BotonIcono
                       tipo="editar"
+                      small
                       onClick={() => {
                         iniciarEdicion(cliente);
                         setMostrarModalEditar(true);
@@ -327,10 +390,10 @@ function ListaClientes() {
                       titulo="Editar cliente"
                     />
                   )}
-
                   {puedeEliminar && (
                     <BotonIcono
                       tipo="eliminar"
+                      small
                       onClick={() => {
                         setClienteAEliminar(cliente);
                         setMostrarConfirmacion(true);
@@ -338,12 +401,77 @@ function ListaClientes() {
                       titulo="Eliminar cliente"
                     />
                   )}
-                </td>
+                </div>
               )}
-            </tr>
+            </div>
           ))}
-        </tbody>
-      </table>
+        </div>
+      </div>
+
+      {/* Vista de tarjetas para móviles */}
+      <div className="md:hidden space-y-3 p-2">
+        {clientesPaginados.map((cliente) => (
+          <div key={cliente.id} className="bg-gray-800 rounded-lg p-4 shadow">
+            <div className="space-y-2">
+              <div>
+                <p className="text-gray-400 text-sm">Código</p>
+                <p className="text-white">{cliente.codigo_referencia || "—"}</p>
+              </div>
+              <div>
+                <p className="text-gray-400 text-sm">Cliente</p>
+                <p className="text-white font-medium">{cliente.nombre}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <p className="text-gray-400 text-sm">Identificación</p>
+                  <p className="text-white">{cliente.identificacion || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400 text-sm">Teléfono</p>
+                  <p className="text-white">{cliente.telefono}</p>
+                </div>
+              </div>
+              <div>
+                <p className="text-gray-400 text-sm">Email</p>
+                <p className="text-white truncate">{cliente.email}</p>
+              </div>
+              <div>
+                <p className="text-gray-400 text-sm">Sucursal</p>
+                <p className="text-white">
+                  {sucursalesMap[cliente.sucursal_id] || "—"}
+                </p>
+              </div>
+            </div>
+
+            {(puedeEditar || puedeEliminar) && (
+              <div className="flex justify-end space-x-2 mt-3">
+                {puedeEditar && (
+                  <BotonIcono
+                    tipo="editar"
+                    small
+                    onClick={() => {
+                      iniciarEdicion(cliente);
+                      setMostrarModalEditar(true);
+                    }}
+                    titulo="Editar cliente"
+                  />
+                )}
+                {puedeEliminar && (
+                  <BotonIcono
+                    tipo="eliminar"
+                    small
+                    onClick={() => {
+                      setClienteAEliminar(cliente);
+                      setMostrarConfirmacion(true);
+                    }}
+                    titulo="Eliminar cliente"
+                  />
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
 
       <Paginacion
         paginaActual={page}

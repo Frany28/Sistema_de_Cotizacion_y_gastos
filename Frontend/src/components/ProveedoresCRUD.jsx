@@ -67,12 +67,10 @@ function ListaProveedores() {
   const fetchProveedores = useCallback(async () => {
     setLoading(true);
     try {
-      /* 2) UNA sola llamada, sin filtros */
-      const { data } = await api.get("/proveedores"); // GET /proveedores
-
+      const { data } = await api.get("/proveedores");
       if (data && Array.isArray(data.proveedores)) {
-        setProveedores(data.proveedores); // lista completa
-        setTotal(data.proveedores.length); // total local
+        setProveedores(data.proveedores);
+        setTotal(data.proveedores.length);
       } else {
         console.warn("Respuesta inesperada:", data);
         throw new Error("Formato de respuesta no válido");
@@ -91,12 +89,12 @@ function ListaProveedores() {
   const handleEliminarClick = async (proveedor) => {
     try {
       await api.delete(`/proveedores/${proveedor.id}`);
-      cargarProveedores();
+      fetchProveedores();
     } catch (err) {
       if (err?.response?.status === 409) {
         mostrarError({
           titulo: "Operación no permitida",
-          mensaje: err.response.data.message, // ← texto que envía el backend (activo o con gastos)
+          mensaje: err.response.data.message,
         });
       } else {
         console.error("Error al eliminar proveedor:", err);
@@ -108,7 +106,6 @@ function ListaProveedores() {
     }
   };
 
-  /* ---------- 1. Cargar permisos UNA vez ---------- */
   useEffect(() => {
     const cargarPermisos = async () => {
       try {
@@ -124,7 +121,6 @@ function ListaProveedores() {
         console.error("Error obteniendo permisos:", e);
       }
     };
-
     cargarPermisos();
   }, []);
 
@@ -238,19 +234,19 @@ function ListaProveedores() {
           <BotonAgregar onClick={abrirModal} texto="Nuevo Proveedor" />
         )}
 
-        <div className="flex w-full md:w-1/2 gap-2">
+        <div className="flex flex-col sm:flex-row w-full md:w-1/2 gap-2">
           <div className="flex items-center gap-2">
             <label
               htmlFor="cantidad"
-              className="text-sm  text-gray-300 font-medium"
+              className="text-sm text-gray-300 font-medium"
             >
-              Mostrar Registros:
+              Mostrar:
             </label>
             <select
               id="cantidad"
               value={limit}
               onChange={(e) => cambiarLimite(Number(e.target.value))}
-              className="cursor-pointer text-sm rounded-md  border-gray-600 bg-gray-700 text-white"
+              className="cursor-pointer text-sm rounded-md border-gray-600 bg-gray-700 text-white"
             >
               <option value="5">5</option>
               <option value="10">10</option>
@@ -260,7 +256,7 @@ function ListaProveedores() {
           <div className="relative w-full">
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
               <svg
-                className="w-5 h-5  text-gray-400"
+                className="w-5 h-5 text-gray-400"
                 fill="currentColor"
                 viewBox="0 0 20 20"
               >
@@ -276,7 +272,7 @@ function ListaProveedores() {
               placeholder="Buscar..."
               value={busqueda}
               onChange={manejarBusqueda}
-              className="pl-10   text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-600 text-white"
+              className="pl-10 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-600 text-white"
             />
           </div>
         </div>
@@ -293,35 +289,170 @@ function ListaProveedores() {
         )}
       </div>
 
-      <div className="px-4 pb-2 text-sm  text-gray-400">
+      <div className="px-4 pb-2 text-sm text-gray-400">
         Mostrando {proveedoresPaginados.length} de {proveedoresFiltrados.length}{" "}
         resultados
       </div>
 
-      <table className="w-full text-sm text-left  text-gray-400">
-        <thead className="text-xs  uppercase  bg-gray-700 text-gray-400">
-          <tr>
-            <th className="px-4 py-3">Código</th>
-            <th className="px-4 py-3">Nombre</th>
-            <th className="px-4 py-3">Email</th>
-            <th className="px-4 py-3">Teléfono</th>
-            <th className="px-4 py-3">Dirección</th>
-            <th className="px-4 py-3">Estado</th>
-            {(puedeEditar || puedeEliminar) && (
-              <th className="px-4 py-3">Acciones</th>
-            )}
-          </tr>
-        </thead>
-        <tbody>
+      {/* Vista de tabla para pantallas grandes */}
+      <div className="hidden lg:block">
+        <table className="w-full text-sm text-left text-gray-400">
+          <thead className="text-xs uppercase bg-gray-700 text-gray-400">
+            <tr>
+              <th className="px-4 py-3">RIF</th>
+              <th className="px-4 py-3">Nombre</th>
+              <th className="px-4 py-3">Email</th>
+              <th className="px-4 py-3">Teléfono</th>
+              <th className="px-4 py-3">Dirección</th>
+              <th className="px-4 py-3">Estado</th>
+              {(puedeEditar || puedeEliminar) && (
+                <th className="px-4 py-3">Acciones</th>
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {proveedoresPaginados.map((p) => (
+              <tr key={p.id} className="border-b border-gray-700">
+                <td className="px-4 py-3">{p.rif}</td>
+                <td className="px-4 py-3">{p.nombre}</td>
+                <td className="px-4 py-3">{p.email}</td>
+                <td className="px-4 py-3">{p.telefono}</td>
+                <td className="px-4 py-3">{p.direccion || "—"}</td>
+                <td className="px-4 py-3">
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs ${
+                      p.estado === "activo"
+                        ? "bg-green-100 text-green-800"
+                        : "bg-gray-100 text-gray-800"
+                    }`}
+                  >
+                    {p.estado}
+                  </span>
+                </td>
+                <td className="px-4 py-3 flex space-x-2">
+                  {puedeEditar && (
+                    <BotonIcono
+                      tipo="editar"
+                      onClick={() => {
+                        iniciarEdicion(p);
+                        setMostrarModalEditar(true);
+                      }}
+                      titulo="Editar proveedor"
+                    />
+                  )}
+                  {puedeEliminar && (
+                    <BotonIcono
+                      tipo="eliminar"
+                      onClick={() => handleEliminarClick(p)}
+                      titulo="Eliminar proveedor"
+                    />
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Vista de tarjetas para tablets */}
+      <div className="hidden sm:block lg:hidden">
+        <div className="grid grid-cols-1 gap-4 p-2">
           {proveedoresPaginados.map((p) => (
-            <tr key={p.id} className="border-b border-gray-700">
-              <td className="px-4 py-3">{p.rif}</td>
-              <td className="px-4 py-3">{p.nombre}</td>
-              <td className="px-4 py-3">{p.email}</td>
-              <td className="px-4 py-3">{p.telefono}</td>
-              <td className="px-4 py-3">{p.direccion || "—"}</td>
-              <td className="px-4 py-3">{p.estado}</td>
-              <td className="px-4 py-3 flex space-x-2">
+            <div key={p.id} className="bg-gray-800 rounded-lg p-4 shadow">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="font-medium text-white">{p.nombre}</h3>
+                  <p className="text-sm text-gray-400">{p.rif}</p>
+                </div>
+                <span
+                  className={`px-2 py-1 rounded-full text-xs ${
+                    p.estado === "activo"
+                      ? "bg-green-100 text-green-800"
+                      : "bg-gray-100 text-gray-800"
+                  }`}
+                >
+                  {p.estado}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 mt-3 text-sm">
+                <div>
+                  <span className="text-gray-400">Email:</span>
+                  <span className="text-white ml-1">{p.email}</span>
+                </div>
+                <div>
+                  <span className="text-gray-400">Teléfono:</span>
+                  <span className="text-white ml-1">{p.telefono}</span>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-gray-400">Dirección:</span>
+                  <span className="text-white ml-1">{p.direccion || "—"}</span>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-2 mt-3">
+                {puedeEditar && (
+                  <BotonIcono
+                    tipo="editar"
+                    onClick={() => {
+                      iniciarEdicion(p);
+                      setMostrarModalEditar(true);
+                    }}
+                    titulo="Editar proveedor"
+                    small
+                  />
+                )}
+                {puedeEliminar && (
+                  <BotonIcono
+                    tipo="eliminar"
+                    onClick={() => handleEliminarClick(p)}
+                    titulo="Eliminar proveedor"
+                    small
+                  />
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Vista de tarjetas para móviles */}
+      <div className="sm:hidden space-y-3 p-2">
+        {proveedoresPaginados.map((p) => (
+          <div key={p.id} className="bg-gray-800 rounded-lg p-4 shadow">
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="font-medium text-white">{p.nombre}</h3>
+                <p className="text-sm text-gray-400">{p.rif}</p>
+              </div>
+              <span
+                className={`px-2 py-1 rounded-full text-xs ${
+                  p.estado === "activo"
+                    ? "bg-green-100 text-green-800"
+                    : "bg-gray-100 text-gray-800"
+                }`}
+              >
+                {p.estado}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2 mt-3 text-sm">
+              <div>
+                <span className="text-gray-400">Email:</span>
+                <span className="text-white ml-1">{p.email}</span>
+              </div>
+              <div>
+                <span className="text-gray-400">Teléfono:</span>
+                <span className="text-white ml-1">{p.telefono}</span>
+              </div>
+              <div>
+                <span className="text-gray-400">Dirección:</span>
+                <span className="text-white ml-1">{p.direccion || "—"}</span>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-2 mt-3">
+              {puedeEditar && (
                 <BotonIcono
                   tipo="editar"
                   onClick={() => {
@@ -329,17 +460,21 @@ function ListaProveedores() {
                     setMostrarModalEditar(true);
                   }}
                   titulo="Editar proveedor"
+                  small
                 />
+              )}
+              {puedeEliminar && (
                 <BotonIcono
                   tipo="eliminar"
                   onClick={() => handleEliminarClick(p)}
                   titulo="Eliminar proveedor"
+                  small
                 />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
 
       <Paginacion
         paginaActual={page}
