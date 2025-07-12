@@ -1,4 +1,4 @@
-// CotizacionesCRUD.jsx actualizado con mejoras visuales de ClientesCRUD
+// src/components/CotizacionesCRUD.jsx
 import React, { useEffect, useState, useCallback } from "react";
 import api from "../api/index";
 import BotonAgregar from "../components/general/BotonAgregar";
@@ -36,6 +36,7 @@ function ListaCotizaciones() {
   const [mostrarModalRechazo, setMostrarModalRechazo] = useState(false);
   const [estadoSeleccionado, setEstadoSeleccionado] = useState("");
   const [serviciosProductos, setServiciosProductos] = useState([]);
+
   const eliminarCotizacion = async (id) => {
     try {
       await api.delete(`/cotizaciones/${id}`);
@@ -116,13 +117,10 @@ function ListaCotizaciones() {
     setPage(nuevaPagina);
   };
 
-  // --- Fetch de cotizaciones con paginación en servidor ---
   const fetchCotizaciones = useCallback(async () => {
     setLoading(true);
     try {
-      // Llama al endpoint con paginación
       const res = await api.get("/cotizaciones");
-
       setCotizaciones(res.data.cotizaciones);
       setTotal(res.data.total);
     } catch (error) {
@@ -156,11 +154,8 @@ function ListaCotizaciones() {
     );
   }
 
-  // Dentro de CotizacionesCRUD.jsx, justo antes del `return ( ... )`:
-
   const cambiarEstadoCotizacion = async (id, estado, motivo = null) => {
     try {
-      // 1) Construir payload
       const payload = { estado };
       if (estado === "rechazada") {
         if (!motivo || !motivo.trim()) {
@@ -173,12 +168,10 @@ function ListaCotizaciones() {
         payload.motivo_rechazo = motivo.trim();
       }
 
-      // 2) Llamada al API
       await api.patch(`/cotizaciones/${id}/estado`, payload, {
         withCredentials: true,
       });
 
-      // 3) Mostrar éxito y recargar datos
       mostrarMensajeExito({
         titulo: "Estado actualizado",
         mensaje: `La cotización ahora está ${estado}.`,
@@ -191,7 +184,6 @@ function ListaCotizaciones() {
         mensaje: "No se pudo actualizar el estado de la cotización.",
       });
     } finally {
-      // 4) Limpiar todos los modales y estados asociados
       setMostrarModalEstado(false);
       setMostrarModalRechazo(false);
       setCotizacionAActualizar(null);
@@ -205,10 +197,7 @@ function ListaCotizaciones() {
     )
   );
 
-  // 2) Calcular total de páginas según los filtrados
   const totalPaginas = Math.ceil(cotizacionesFiltradas.length / limit);
-
-  // 3) Slice para la página actual
   const cotizacionesPaginadas = cotizacionesFiltradas.slice(
     (page - 1) * limit,
     page * limit
@@ -226,19 +215,19 @@ function ListaCotizaciones() {
           )}
         </div>
 
-        <div className="flex w-full md:w-1/2 gap-2">
+        <div className="flex flex-col sm:flex-row w-full md:w-1/2 gap-2">
           <div className="flex items-center gap-2">
             <label
               htmlFor="cantidad"
-              className="text-sm  text-gray-300 font-medium"
+              className="text-sm text-gray-300 font-medium"
             >
-              Mostrar Registros:
+              Mostrar:
             </label>
             <select
               id="cantidad"
               value={limit}
               onChange={(e) => cambiarLimite(Number(e.target.value))}
-              className="cursor-pointer text-sm rounded-md  border-gray-600 bg-gray-700 text-white"
+              className="cursor-pointer text-sm rounded-md border-gray-600 bg-gray-700 text-white"
             >
               <option value="5">5</option>
               <option value="10">10</option>
@@ -248,7 +237,7 @@ function ListaCotizaciones() {
           <div className="relative w-full">
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
               <svg
-                className="w-5 h-5  text-gray-400"
+                className="w-5 h-5 text-gray-400"
                 fill="currentColor"
                 viewBox="0 0 20 20"
               >
@@ -271,49 +260,193 @@ function ListaCotizaciones() {
                   fetchCotizaciones();
                 }
               }}
-              className="pl-10  border   text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-600 text-white"
+              className="pl-10 border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-600 text-white"
             />
           </div>
         </div>
       </div>
+
       <div className="px-4 pb-2 text-sm text-gray-400">
         Mostrando {cotizacionesPaginadas.length} de{" "}
         {cotizacionesFiltradas.length} resultados
       </div>
 
-      <table className="w-full text-sm text-left  text-gray-400">
-        <thead className="text-xs  uppercase bg-gray-700 text-gray-400">
-          <tr>
-            <th className="px-4 py-3">Código</th>
-            <th className="px-4 py-3">Cliente</th>
-            <th className="px-4 py-3">Fecha</th>
-            <th className="px-4 py-3">Sucursal</th>
-            <th className="px-4 py-3">Subtotal</th>
-            <th className="px-4 py-3">IVA</th>
-            <th className="px-4 py-3">Total</th>
-            <th className="px-4 py-3">Estado</th>
-            <th className="px-4 py-3">Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
+      {/* Vista de tabla para pantallas grandes */}
+      <div className="hidden lg:block">
+        <table className="w-full text-sm text-left text-gray-400">
+          <thead className="text-xs uppercase bg-gray-700 text-gray-400">
+            <tr>
+              <th className="px-4 py-3">Código</th>
+              <th className="px-4 py-3">Cliente</th>
+              <th className="px-4 py-3">Fecha</th>
+              <th className="px-4 py-3">Sucursal</th>
+              <th className="px-4 py-3">Subtotal</th>
+              <th className="px-4 py-3">IVA</th>
+              <th className="px-4 py-3">Total</th>
+              <th className="px-4 py-3">Estado</th>
+              <th className="px-4 py-3">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {cotizacionesPaginadas.map((c) => (
+              <tr key={c.id} className="border-b border-gray-700">
+                <td className="px-4 py-3 font-medium text-white">{c.codigo}</td>
+                <td className="px-4 py-3">{c.cliente_nombre}</td>
+                <td className="px-4 py-3">
+                  {new Date(c.fecha).toLocaleDateString("es-VE")}
+                </td>
+                <td className="px-4 py-3">{c.sucursal || "—"}</td>
+                <td className="px-4 py-3">
+                  ${parseFloat(c.subtotal).toFixed(2)}
+                </td>
+                <td className="px-4 py-3">
+                  ${parseFloat(c.impuesto).toFixed(2)}
+                </td>
+                <td className="px-4 py-3 font-semibold">
+                  ${parseFloat(c.total).toFixed(2)}
+                </td>
+                <td className="px-4 py-3">
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs ${
+                      c.estado === "aprobada"
+                        ? "bg-green-100 text-green-800"
+                        : c.estado === "pendiente"
+                        ? "bg-yellow-100 text-yellow-800"
+                        : "bg-red-100 text-red-800"
+                    }`}
+                  >
+                    {c.estado}
+                  </span>
+                </td>
+                <td className="px-4 py-3 flex space-x-2">
+                  {puedeAprobar && (
+                    <BotonIcono
+                      tipo="estado"
+                      titulo="Cambiar Estado"
+                      onClick={() => {
+                        if (
+                          c.estado === "aprobada" ||
+                          c.estado === "rechazada"
+                        ) {
+                          mostrarError({
+                            titulo: "Acción no permitida",
+                            mensaje:
+                              "No puedes cambiar el estado de una cotización que ya fue aprobada o rechazada.",
+                          });
+                        } else {
+                          setCotizacionAActualizar(c);
+                          setMostrarModalEstado(true);
+                        }
+                      }}
+                    />
+                  )}
+
+                  <BotonIcono
+                    tipo="ver"
+                    titulo="Ver detalle"
+                    onClick={async () => {
+                      try {
+                        const res = await api.get(`/cotizaciones/${c.id}`);
+                        setCotizacionSeleccionada(res.data);
+                        setMostrarModalDetalle(true);
+                      } catch (error) {
+                        console.error(
+                          "Error al cargar detalle de cotización:",
+                          error
+                        );
+                        mostrarError({
+                          titulo: "Error",
+                          mensaje:
+                            "No se pudo cargar la cotización para ver el detalle.",
+                        });
+                      }
+                    }}
+                  />
+
+                  {puedeEditar && (
+                    <BotonIcono
+                      tipo="editar"
+                      titulo="Editar Cotización"
+                      onClick={async () => {
+                        if (c.estado === "aprobada") {
+                          return mostrarError({
+                            titulo: "Acción no permitida",
+                            mensaje:
+                              "No puedes editar una cotización aprobada.",
+                          });
+                        }
+                        setLoading(true);
+                        try {
+                          const { data } = await api.get(
+                            `/cotizaciones/${c.id}`
+                          );
+                          setCotizacionSeleccionada({
+                            id: data.id,
+                            cliente_id: data.cliente_id?.toString() || "",
+                            sucursal_id: data.sucursal_id?.toString() || "",
+                            estado: data.estado,
+                            confirmacion_cliente: data.confirmacion_cliente
+                              ? "1"
+                              : "0",
+                            observaciones: data.observaciones || "",
+                            operacion: data.operacion || "",
+                            mercancia: data.mercancia || "",
+                            bl: data.bl || "",
+                            contenedor: data.contenedor || "",
+                            puerto: data.puerto || "",
+                            detalle: Array.isArray(data.detalle)
+                              ? data.detalle
+                              : [],
+                          });
+                          setMostrarModalEditar(true);
+                        } catch (error) {
+                          console.error("Error cargando cotización:", error);
+                          mostrarError({
+                            titulo: "Error al cargar",
+                            mensaje:
+                              "No se pudo cargar la cotización para edición.",
+                          });
+                        } finally {
+                          setLoading(false);
+                        }
+                      }}
+                    />
+                  )}
+
+                  {puedeEliminar && (
+                    <BotonIcono
+                      tipo="eliminar"
+                      onClick={() => {
+                        if (c.estado === "aprobada") {
+                          mostrarError({
+                            titulo: "Acción no permitida",
+                            mensaje:
+                              "No puedes eliminar una cotización aprobada.",
+                          });
+                        } else {
+                          setIdAEliminar(c.id);
+                          setMostrarConfirmacion(true);
+                        }
+                      }}
+                    />
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Vista de tarjetas para tablets */}
+      <div className="hidden md:block lg:hidden">
+        <div className="grid grid-cols-1 gap-4 p-2">
           {cotizacionesPaginadas.map((c) => (
-            <tr key={c.id} className="border-b border-gray-700">
-              <td className="px-4 py-3 font-medium  text-white">{c.codigo}</td>
-              <td className="px-4 py-3">{c.cliente_nombre}</td>
-              <td className="px-4 py-3">
-                {new Date(c.fecha).toLocaleDateString("es-VE")}
-              </td>
-              <td className="px-4 py-3">{c.sucursal || "—"}</td>
-              <td className="px-4 py-3">
-                ${parseFloat(c.subtotal).toFixed(2)}
-              </td>
-              <td className="px-4 py-3">
-                ${parseFloat(c.impuesto).toFixed(2)}
-              </td>
-              <td className="px-4 py-3 font-semibold">
-                ${parseFloat(c.total).toFixed(2)}
-              </td>
-              <td className="px-4 py-3">
+            <div key={c.id} className="bg-gray-800 rounded-lg p-4 shadow">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="font-medium text-white">{c.codigo}</h3>
+                  <p className="text-sm text-gray-400">{c.cliente_nombre}</p>
+                </div>
                 <span
                   className={`px-2 py-1 rounded-full text-xs ${
                     c.estado === "aprobada"
@@ -325,12 +458,45 @@ function ListaCotizaciones() {
                 >
                   {c.estado}
                 </span>
-              </td>
-              <td className="px-4 py-3 flex space-x-2">
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 mt-3 text-sm">
+                <div>
+                  <span className="text-gray-400">Fecha:</span>
+                  <span className="text-white ml-1">
+                    {new Date(c.fecha).toLocaleDateString("es-VE")}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-400">Sucursal:</span>
+                  <span className="text-white ml-1">{c.sucursal || "—"}</span>
+                </div>
+                <div>
+                  <span className="text-gray-400">Subtotal:</span>
+                  <span className="text-white ml-1">
+                    ${parseFloat(c.subtotal).toFixed(2)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-400">IVA:</span>
+                  <span className="text-white ml-1">
+                    ${parseFloat(c.impuesto).toFixed(2)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-400">Total:</span>
+                  <span className="text-white ml-1 font-semibold">
+                    ${parseFloat(c.total).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-2 mt-3">
                 {puedeAprobar && (
                   <BotonIcono
                     tipo="estado"
                     titulo="Cambiar Estado"
+                    small
                     onClick={() => {
                       if (c.estado === "aprobada" || c.estado === "rechazada") {
                         mostrarError({
@@ -349,6 +515,7 @@ function ListaCotizaciones() {
                 <BotonIcono
                   tipo="ver"
                   titulo="Ver detalle"
+                  small
                   onClick={async () => {
                     try {
                       const res = await api.get(`/cotizaciones/${c.id}`);
@@ -372,6 +539,7 @@ function ListaCotizaciones() {
                   <BotonIcono
                     tipo="editar"
                     titulo="Editar Cotización"
+                    small
                     onClick={async () => {
                       if (c.estado === "aprobada") {
                         return mostrarError({
@@ -418,6 +586,7 @@ function ListaCotizaciones() {
                 {puedeEliminar && (
                   <BotonIcono
                     tipo="eliminar"
+                    small
                     onClick={() => {
                       if (c.estado === "aprobada") {
                         mostrarError({
@@ -432,17 +601,175 @@ function ListaCotizaciones() {
                     }}
                   />
                 )}
-              </td>
-            </tr>
+              </div>
+            </div>
           ))}
-        </tbody>
-      </table>
+        </div>
+      </div>
+
+      {/* Vista de tarjetas para móviles */}
+      <div className="md:hidden space-y-3 p-2">
+        {cotizacionesPaginadas.map((c) => (
+          <div key={c.id} className="bg-gray-800 rounded-lg p-4 shadow">
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="font-medium text-white">{c.codigo}</h3>
+                <p className="text-sm text-gray-400">{c.cliente_nombre}</p>
+              </div>
+              <span
+                className={`px-2 py-1 rounded-full text-xs ${
+                  c.estado === "aprobada"
+                    ? "bg-green-100 text-green-800"
+                    : c.estado === "pendiente"
+                    ? "bg-yellow-100 text-yellow-800"
+                    : "bg-red-100 text-red-800"
+                }`}
+              >
+                {c.estado}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 mt-3 text-sm">
+              <div>
+                <span className="text-gray-400">Fecha:</span>
+                <span className="text-white ml-1">
+                  {new Date(c.fecha).toLocaleDateString("es-VE")}
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-400">Sucursal:</span>
+                <span className="text-white ml-1">{c.sucursal || "—"}</span>
+              </div>
+              <div className="col-span-2">
+                <span className="text-gray-400">Total:</span>
+                <span className="text-white ml-1 font-semibold">
+                  ${parseFloat(c.total).toFixed(2)}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-2 mt-3">
+              <BotonIcono
+                tipo="ver"
+                titulo="Ver detalle"
+                small
+                onClick={async () => {
+                  try {
+                    const res = await api.get(`/cotizaciones/${c.id}`);
+                    setCotizacionSeleccionada(res.data);
+                    setMostrarModalDetalle(true);
+                  } catch (error) {
+                    console.error(
+                      "Error al cargar detalle de cotización:",
+                      error
+                    );
+                    mostrarError({
+                      titulo: "Error",
+                      mensaje:
+                        "No se pudo cargar la cotización para ver el detalle.",
+                    });
+                  }
+                }}
+              />
+
+              {puedeAprobar && (
+                <BotonIcono
+                  tipo="estado"
+                  titulo="Cambiar Estado"
+                  small
+                  onClick={() => {
+                    if (c.estado === "aprobada" || c.estado === "rechazada") {
+                      mostrarError({
+                        titulo: "Acción no permitida",
+                        mensaje:
+                          "No puedes cambiar el estado de una cotización que ya fue aprobada o rechazada.",
+                      });
+                    } else {
+                      setCotizacionAActualizar(c);
+                      setMostrarModalEstado(true);
+                    }
+                  }}
+                />
+              )}
+
+              {puedeEditar && (
+                <BotonIcono
+                  tipo="editar"
+                  titulo="Editar"
+                  small
+                  onClick={async () => {
+                    if (c.estado === "aprobada") {
+                      return mostrarError({
+                        titulo: "Acción no permitida",
+                        mensaje: "No puedes editar una cotización aprobada.",
+                      });
+                    }
+                    setLoading(true);
+                    try {
+                      const { data } = await api.get(`/cotizaciones/${c.id}`);
+                      setCotizacionSeleccionada({
+                        id: data.id,
+                        cliente_id: data.cliente_id?.toString() || "",
+                        sucursal_id: data.sucursal_id?.toString() || "",
+                        estado: data.estado,
+                        confirmacion_cliente: data.confirmacion_cliente
+                          ? "1"
+                          : "0",
+                        observaciones: data.observaciones || "",
+                        operacion: data.operacion || "",
+                        mercancia: data.mercancia || "",
+                        bl: data.bl || "",
+                        contenedor: data.contenedor || "",
+                        puerto: data.puerto || "",
+                        detalle: Array.isArray(data.detalle)
+                          ? data.detalle
+                          : [],
+                      });
+                      setMostrarModalEditar(true);
+                    } catch (error) {
+                      console.error("Error cargando cotización:", error);
+                      mostrarError({
+                        titulo: "Error al cargar",
+                        mensaje:
+                          "No se pudo cargar la cotización para edición.",
+                      });
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                />
+              )}
+
+              {puedeEliminar && (
+                <BotonIcono
+                  tipo="eliminar"
+                  small
+                  onClick={() => {
+                    if (c.estado === "aprobada") {
+                      mostrarError({
+                        titulo: "Acción no permitida",
+                        mensaje: "No puedes eliminar una cotización aprobada.",
+                      });
+                    } else {
+                      setIdAEliminar(c.id);
+                      setMostrarConfirmacion(true);
+                    }
+                  }}
+                />
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
       {/* Paginación */}
       <Paginacion
         paginaActual={page}
         totalPaginas={totalPaginas}
         onCambiarPagina={cambiarPagina}
       />
+
+      {/* Modales */}
       <ModalDetalleCotizacion
         visible={mostrarModalDetalle}
         onClose={() => {
@@ -451,6 +778,7 @@ function ListaCotizaciones() {
         }}
         cotizacion={cotizacionSeleccionada}
       />
+
       <ModalExito
         visible={modalExitoData.visible}
         onClose={() => setModalExitoData({ ...modalExitoData, visible: false })}
@@ -458,6 +786,7 @@ function ListaCotizaciones() {
         mensaje={modalExitoData.mensaje}
         textoBoton={modalExitoData.textoBoton}
       />
+
       <ModalError
         visible={modalErrorData.visible}
         onClose={() => setModalErrorData({ ...modalErrorData, visible: false })}
@@ -465,6 +794,7 @@ function ListaCotizaciones() {
         mensaje={modalErrorData.mensaje}
         textoBoton={modalErrorData.textoBoton}
       />
+
       {mostrarModalEditar && cotizacionSeleccionada && (
         <ModalEditarCotizacion
           titulo="Editar Cotización"
@@ -484,7 +814,6 @@ function ListaCotizaciones() {
                 porcentaje_iva: Number(item.porcentaje_iva),
               }));
 
-              // 2) Enviamos el PUT con la cabecera + detallePayload (sin total)
               await api.put(`/cotizaciones/${id}`, {
                 cliente_id: Number(formActualizado.cliente_id),
                 sucursal_id: Number(formActualizado.sucursal_id),
@@ -544,6 +873,7 @@ function ListaCotizaciones() {
         textoConfirmar="Sí, eliminar"
         textoCancelar="Cancelar"
       />
+
       <ModalCambioEstado
         visible={mostrarModalEstado}
         onClose={() => {
@@ -570,17 +900,16 @@ function ListaCotizaciones() {
           },
         ]}
         onSeleccionar={async (nuevoEstado) => {
-          // Si el usuario elige “rechazada”, abrimos el modal de motivo
           if (nuevoEstado === "rechazada") {
             setEstadoSeleccionado(nuevoEstado);
             setMostrarModalEstado(false);
             setMostrarModalRechazo(true);
             return;
           }
-          // Para cualquier otro estado, reutilizamos la función
           cambiarEstadoCotizacion(cotizacionAActualizar.id, nuevoEstado);
         }}
       />
+
       {mostrarModalRechazo && (
         <ModalMotivoRechazo
           visible={mostrarModalRechazo}
