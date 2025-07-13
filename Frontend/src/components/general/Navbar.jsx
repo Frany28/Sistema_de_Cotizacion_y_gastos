@@ -101,6 +101,11 @@ function Navbar() {
       type: "link",
     },
     {
+      label: "Archivos",
+      type: "dropdown",
+      items: [{ path: "/archivos", label: "Archivos" }],
+    },
+    {
       label: "Reportes",
       type: "dropdown",
       items: [

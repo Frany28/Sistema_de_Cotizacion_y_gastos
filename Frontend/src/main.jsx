@@ -3,7 +3,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Layout from "./components/layout.jsx";
-import RutaPrivada from "./components/RutaPrivada.jsx"; 
+import RutaPrivada from "./components/RutaPrivada.jsx";
 import "./Styles/styles.css";
 import {
   Dashboard,
@@ -23,6 +23,7 @@ import {
   UsuariosPage,
   SucursalesPage,
   BancosPage,
+  ArchivosPage,
 } from "./pages/pages.js";
 
 createRoot(document.getElementById("root")).render(
@@ -58,9 +59,7 @@ createRoot(document.getElementById("root")).render(
             path="/administracion/sucursales"
             element={<SucursalesPage />}
           />
-
           <Route path="/administracion/bancos" element={<BancosPage />} />
-
           <Route path="/operaciones" element={<Operaciones />} />
           <Route
             path="/operaciones/cotizaciones"
@@ -73,6 +72,7 @@ createRoot(document.getElementById("root")).render(
             element={<SolicitudesPage />}
           />
           <Route path="/crearRegistro" element={<CrearRegistro />} />
+          <Route path="/archivos" element={<ArchivosPage />} />;
           <Route path="/reportes" element={<RelacionesGatos />} />
         </Route>
 

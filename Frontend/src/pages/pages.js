@@ -22,5 +22,8 @@ export { default as GastosPage } from "./Operaciones/GastosPage";
 export { default as SolicitudesPage } from "./Operaciones/SolicitudesPage";
 // Crear Registro
 export { default as CrearRegistro } from "./crearRegistro/CrearRegistro";
+
+//Archivos
+export { default as ArchivosPage } from "./Gestor de Archivos/ArchivosPage";
 // Reportes
 export { default as RelacionesGatos } from "./reportes/RelacionesGatos";
