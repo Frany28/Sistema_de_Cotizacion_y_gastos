@@ -73,22 +73,22 @@ export default function AgregarGasto({
         </button>
         <button
           className={`flex-1 py-2 text-sm font-medium rounded-md ${
-            mobileView === "resumen"
+            mobileView === "monetario"
               ? "bg-gray-700 text-white shadow"
               : "text-gray-300"
           }`}
-          onClick={() => setMobileView("resumen")}
+          onClick={() => setMobileView("monetario")}
         >
-          Resumen
+          Datos Monetarios
         </button>
       </div>
 
-      <div className="lg:grid lg:grid-cols-2 lg:gap-4">
-        {/* Columna izquierda - Información */}
+      <div className="lg:grid lg:grid-cols-3 lg:gap-4">
+        {/* Columna izquierda - Información básica */}
         <div
           className={`${
             mobileView === "informacion" ? "block" : "hidden"
-          } lg:block space-y-3`}
+          } lg:block lg:col-span-2 space-y-3`}
         >
           <div className="bg-gray-800 p-3 rounded-lg">
             <TipoGastoSelector
@@ -142,7 +142,14 @@ export default function AgregarGasto({
               compactMode={true}
             />
           </div>
+        </div>
 
+        {/* Columna derecha - Datos monetarios y resumen */}
+        <div
+          className={`${
+            mobileView === "monetario" ? "block" : "hidden"
+          } lg:block lg:col-span-1 space-y-3`}
+        >
           <div className="bg-gray-800 p-3 rounded-lg">
             <DatosMonetariosGasto
               gasto={gasto}
@@ -150,14 +157,7 @@ export default function AgregarGasto({
               compactMode={true}
             />
           </div>
-        </div>
 
-        {/* Columna derecha - Resumen */}
-        <div
-          className={`${
-            mobileView === "resumen" ? "block" : "hidden"
-          } lg:block`}
-        >
           <div className="bg-gray-800 p-3 rounded-lg sticky top-4">
             <ResumenGasto
               gasto={gasto}
