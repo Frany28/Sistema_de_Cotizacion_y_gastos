@@ -27,59 +27,57 @@ const TotalesCXC = ({ clienteId, refreshKey }) => {
     obtenerTotales();
   }, [clienteId, refreshKey]);
 
+  const formatoMonto = (monto) =>
+    isLoading ? "Cargando..." : monto.toFixed(2);
+
   return (
-    <div className="mb-6 bg-gray-800 rounded-xl p-4 shadow-md">
-      <h2 className="text-white text-md font-semibold mb-4">Totales</h2>
+    <div className="mb-6 rounded-xl bg-gray-800 p-4 shadow-md">
+      <h2 className="mb-4 text-md font-semibold text-white">Totales</h2>
 
-      {/* Contenedor principal con diseño responsivo */}
-      <div className="space-y-4">
-        {/* Primera fila - Debe y Haber */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Debe */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
-            <label className="text-white font-medium mb-1 sm:mb-0 sm:mr-2 whitespace-nowrap">
-              Debe
-            </label>
-            <input
-              type="text"
-              readOnly
-              value={isLoading ? "Cargando..." : totales.debe.toFixed(2)}
-              className="bg-gray-700 text-white text-right border border-gray-600 rounded-lg px-3 py-1 w-full sm:w-28"
-              aria-label="Total debe"
-            />
-          </div>
-
-          {/* Haber */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
-            <label className="text-white font-medium mb-1 sm:mb-0 sm:mr-2 whitespace-nowrap">
-              Haber
-            </label>
-            <input
-              type="text"
-              readOnly
-              value={isLoading ? "Cargando..." : totales.haber.toFixed(2)}
-              className="bg-gray-700 text-white text-right border border-gray-600 rounded-lg px-3 py-1 w-full sm:w-28"
-              aria-label="Total haber"
-            />
-          </div>
+      {/* Contenedor responsivo */}
+      <div className="grid gap-3 sm:gap-4">
+        {/* Debe */}
+        <div className="flex flex-col items-stretch rounded-lg bg-gray-700/40 px-4 py-3 sm:bg-transparent sm:px-0 sm:py-0 sm:flex-row sm:items-center sm:justify-between">
+          <label className="mb-1 text-center text-white font-medium sm:mb-0 sm:mr-2 sm:text-left whitespace-nowrap">
+            Debe
+          </label>
+          <input
+            type="text"
+            readOnly
+            value={formatoMonto(totales.debe)}
+            className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-center text-lg text-white sm:w-32 sm:text-right sm:text-base"
+            aria-label="Total debe"
+          />
         </div>
 
-        {/* Segunda fila - Saldo */}
-        <div className="pt-3 border-t border-gray-700">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
-            <label className="text-white font-medium mb-1 sm:mb-0 whitespace-nowrap">
-              Saldo
-            </label>
-            <input
-              type="text"
-              readOnly
-              value={isLoading ? "Cargando..." : totales.saldo.toFixed(2)}
-              className={`bg-gray-700 text-white text-right border border-gray-600 rounded-lg px-3 py-1 w-full sm:w-36 ${
-                totales.saldo < 0 ? "text-red-400" : "text-green-400"
-              }`}
-              aria-label="Saldo total"
-            />
-          </div>
+        {/* Haber */}
+        <div className="flex flex-col items-stretch rounded-lg bg-gray-700/40 px-4 py-3 sm:bg-transparent sm:px-0 sm:py-0 sm:flex-row sm:items-center sm:justify-between">
+          <label className="mb-1 text-center text-white font-medium sm:mb-0 sm:mr-2 sm:text-left whitespace-nowrap">
+            Haber
+          </label>
+          <input
+            type="text"
+            readOnly
+            value={formatoMonto(totales.haber)}
+            className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-center text-lg text-white sm:w-32 sm:text-right sm:text-base"
+            aria-label="Total haber"
+          />
+        </div>
+
+        {/* Saldo */}
+        <div className="flex flex-col items-stretch rounded-lg bg-gray-700/40 px-4 py-3 sm:bg-transparent sm:px-0 sm:py-0 sm:flex-row sm:items-center sm:justify-between sm:border-t sm:border-gray-700 sm:pt-3">
+          <label className="mb-1 text-center text-white font-medium sm:mb-0 sm:text-left whitespace-nowrap">
+            Saldo
+          </label>
+          <input
+            type="text"
+            readOnly
+            value={formatoMonto(totales.saldo)}
+            className={`w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-center text-lg sm:w-40 sm:text-right sm:text-base ${
+              totales.saldo < 0 ? "text-red-400" : "text-green-400"
+            }`}
+            aria-label="Saldo total"
+          />
         </div>
       </div>
     </div>
