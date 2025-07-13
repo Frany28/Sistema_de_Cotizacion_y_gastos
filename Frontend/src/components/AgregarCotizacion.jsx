@@ -27,7 +27,7 @@ const AgregarCotizacion = ({
     contenedor: "",
   });
 
-  const [activeTab, setActiveTab] = useState("informacion"); // 'informacion' o 'productos'
+  const [activeTab, setActiveTab] = useState("informacion");
 
   const añadirCliente = (clienteCreado) => {
     setClientes((prev) => [...prev, clienteCreado]);
@@ -50,15 +50,15 @@ const AgregarCotizacion = ({
   };
 
   return (
-    <div className="mx-auto p-4 sm:p-6 rounded-lg bg-gray-900">
-      <h2 className="text-xl font-semibold mb-4 sm:mb-6 text-white">
+    <div className="mx-auto p-2 sm:p-4 md:p-6 rounded-lg bg-gray-900">
+      <h2 className="text-lg sm:text-xl font-semibold mb-2 sm:mb-4 text-white">
         Crear Solicitud de Cotización
       </h2>
 
-      {/* Pestañas para móvil */}
-      <div className="lg:hidden flex border-b border-gray-700 mb-4">
+      {/* Pestañas para móvil - más compactas */}
+      <div className="lg:hidden flex border-b border-gray-700 mb-2">
         <button
-          className={`px-4 py-2 font-medium ${
+          className={`px-3 py-1 text-sm sm:text-base font-medium ${
             activeTab === "informacion"
               ? "text-blue-400 border-b-2 border-blue-400"
               : "text-gray-400"
@@ -68,23 +68,23 @@ const AgregarCotizacion = ({
           Información
         </button>
         <button
-          className={`px-4 py-2 font-medium ${
+          className={`px-3 py-1 text-sm sm:text-base font-medium ${
             activeTab === "productos"
               ? "text-blue-400 border-b-2 border-blue-400"
               : "text-gray-400"
           }`}
           onClick={() => setActiveTab("productos")}
         >
-          Productos/Servicios
+          Productos
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full">
-        {/* Columna izquierda - Información del cliente */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 md:gap-6 w-full">
+        {/* Columna izquierda - más compacta */}
         <div
           className={`${
             activeTab === "informacion" ? "block" : "hidden"
-          } lg:block flex flex-col gap-6 w-full`}
+          } lg:block flex flex-col gap-3 sm:gap-4 w-full`}
         >
           <ClienteSelector
             clientes={clientes}
@@ -100,14 +100,15 @@ const AgregarCotizacion = ({
             mostrarCamposOperacion={itemsAgregados.some(
               (item) => item.tipo === "producto"
             )}
+            compactMode={true}
           />
         </div>
 
-        {/* Columna derecha - Productos y resumen */}
+        {/* Columna derecha - más compacta */}
         <div
           className={`${
             activeTab === "productos" ? "block" : "hidden"
-          } lg:block flex flex-col gap-6 w-full`}
+          } lg:block flex flex-col gap-3 sm:gap-4 w-full`}
         >
           <ServProCotizacion
             servicios={servicios}
@@ -123,6 +124,7 @@ const AgregarCotizacion = ({
               };
               setItemsAgregados((prevItems) => [...prevItems, nuevoItem]);
             }}
+            compactMode={true}
           />
 
           <ItemsSeleccionados
@@ -131,12 +133,14 @@ const AgregarCotizacion = ({
             onRemove={(id) =>
               setItemsAgregados((prev) => prev.filter((item) => item.id !== id))
             }
+            compactMode={true}
           />
 
           <ResumenCotizacion
             items={itemsAgregados}
             onGenerar={handleGenerarCotizacion}
             subtotal={subtotal}
+            compactMode={true}
           />
         </div>
       </div>
