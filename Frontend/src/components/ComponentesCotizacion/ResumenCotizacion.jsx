@@ -21,7 +21,7 @@ export default function ResumenCotizacion({ items = [], onGenerar }) {
   const totalGeneral = subtotalSinIva + totalImpuestos;
 
   return (
-    <div className="w-full bg-gray-800 rounded-xl p-6 shadow-md">
+    <div className="w-full bg-gray-800 rounded-xl p-4 md:p-6 shadow-md sticky top-4">
       <h3 className="text-white text-lg font-semibold mb-4">
         Resumen de Cotización
       </h3>
@@ -46,7 +46,7 @@ export default function ResumenCotizacion({ items = [], onGenerar }) {
 
       <button
         onClick={onGenerar}
-        className="cursor-pointer mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition"
+        className="cursor-pointer mt-4 md:mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition text-sm md:text-base"
       >
         Generar Cotización
       </button>
