@@ -27,7 +27,7 @@ const ClienteSelectorCXC = ({ onClienteSeleccionado }) => {
   return (
     <div className="mb-6 bg-gray-800 rounded-xl p-4 shadow-md">
       <label className="block text-sm font-medium text-white mb-2">
-        Seleccionar Cliente por Código
+        Seleccionar Cliente
       </label>
       <select
         value={clienteIdSeleccionado}
