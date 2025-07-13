@@ -96,13 +96,13 @@ function Navbar() {
       ],
     },
     {
-      path: "/crearRegistro",
       label: "Crear Registro",
+      path: "/crearRegistro",
       type: "link",
     },
     {
-      path: "/archivos",
       label: "Archivos",
+      path: "/archivos",
       type: "link",
     },
     {

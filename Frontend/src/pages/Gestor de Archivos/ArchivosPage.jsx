@@ -1,5 +1,10 @@
 function ArchivosPage() {
-  <h1 className="text-white">Modulo para archivos</h1>;
+  return (
+    <>
+      <h1 className="text-white"> Pagina Archivos</h1>
+    </>
+  );
+  
 }
 
 export default ArchivosPage;
