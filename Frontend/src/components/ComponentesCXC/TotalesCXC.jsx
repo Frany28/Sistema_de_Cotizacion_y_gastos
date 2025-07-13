@@ -26,39 +26,43 @@ const TotalesCXC = ({ clienteId, refreshKey }) => {
     <div className="mb-6 bg-gray-800 rounded-xl p-4 shadow-md">
       <h2 className="text-white text-md font-semibold mb-4">Totales</h2>
 
-      <div className="grid grid-cols-2 gap-4 md:flex md:items-center md:justify-between mb-3">
-        <div className="md:flex md:items-center">
-          <label className="text-white font-medium block md:inline md:mr-2">
+      {/* Primera fila: Debe y Haber */}
+      <div className="flex flex-col sm:flex-row gap-4 mb-3">
+        <div className="flex-1 flex items-center justify-between sm:justify-start">
+          <label className="text-white font-medium mr-2 whitespace-nowrap">
             Debe
           </label>
           <input
             type="text"
             readOnly
             value={totales.debe.toFixed(2)}
-            className="bg-gray-700 text-white text-right border border-gray-600 rounded-lg px-3 py-1 w-full md:w-28"
+            className="bg-gray-700 text-white text-right border border-gray-600 rounded-lg px-3 py-1 w-28"
           />
         </div>
 
-        <div className="md:flex md:items-center">
-          <label className="text-white font-medium block md:inline md:mr-2 md:ml-4">
+        <div className="flex-1 flex items-center justify-between sm:justify-start">
+          <label className="text-white font-medium mr-2 whitespace-nowrap">
             Haber
           </label>
           <input
             type="text"
             readOnly
             value={totales.haber.toFixed(2)}
-            className="bg-gray-700 text-white text-right border border-gray-600 rounded-lg px-3 py-1 w-full md:w-28"
+            className="bg-gray-700 text-white text-right border border-gray-600 rounded-lg px-3 py-1 w-28"
           />
         </div>
       </div>
 
-      <div className="mt-4">
-        <label className="text-white font-medium block mb-1">Saldo</label>
+      {/* Segunda fila: Saldo (ocupando todo el ancho) */}
+      <div className="flex items-center justify-between mt-4">
+        <label className="text-white font-medium whitespace-nowrap">
+          Saldo
+        </label>
         <input
           type="text"
           readOnly
           value={totales.saldo.toFixed(2)}
-          className="bg-gray-700 text-white text-right border border-gray-600 rounded-lg px-3 py-1 w-full"
+          className="bg-gray-700 text-white text-right border border-gray-600 rounded-lg px-3 py-1 w-28 sm:w-36"
         />
       </div>
     </div>
