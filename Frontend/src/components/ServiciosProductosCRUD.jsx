@@ -56,10 +56,10 @@ function ListaServiciosProductos() {
         mensaje:
           "El producto/servicio está ACTIVO; cámbialo a INACTIVO antes de eliminar.",
       });
-      return; // ⬅️  NO abre el modal de confirmación
+      return;
     }
 
-    setEditandoServicio(item); // producto inactivo → procede
+    setEditandoServicio(item);
     setMostrarConfirmacion(true);
   };
 
@@ -469,45 +469,57 @@ function ListaServiciosProductos() {
         </div>
       </div>
 
-      {/* Vista de tarjetas para móviles */}
+      {/* Vista de tarjetas para móviles - MEJORADA */}
       <div className="sm:hidden space-y-3 p-2">
         {paginados.map((item) => (
           <div key={item.id} className="bg-gray-800 rounded-lg p-4 shadow">
-            <div className="flex justify-between items-start">
-              <div>
-                <h3 className="font-medium text-white">{item.nombre}</h3>
-                <p className="text-xs text-gray-400 line-clamp-1">
+            <div className="flex justify-between items-start mb-2">
+              <div className="flex-1 min-w-0">
+                <h3 className="font-medium text-white truncate">
+                  {item.nombre}
+                </h3>
+                <p className="text-xs text-gray-400 truncate">
                   {item.descripcion}
                 </p>
               </div>
-              <span
-                className={`px-2 py-1 rounded-full text-xs capitalize ${
-                  item.estado === "activo"
-                    ? "bg-green-100 text-green-800"
-                    : "bg-red-100 text-red-800"
-                }`}
-              >
-                {item.estado}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-y-1 gap-x-2 mt-2 text-xs">
-              <div className="col-span-2 flex items-center">
-                <span className="text-gray-400">Tipo:</span>
-                <span className="text-white ml-1 capitalize">{item.tipo}</span>
-              </div>
-              <div className="flex items-center">
-                <span className="text-gray-400">Precio:</span>
-                <span className="text-white ml-1">
+              <div className="flex flex-col items-end ml-2">
+                <span className="text-sm font-semibold text-white">
                   ${Number(item.precio).toFixed(2)}
                 </span>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-xs capitalize mt-1 ${
+                    item.estado === "activo"
+                      ? "bg-green-100 text-green-800"
+                      : "bg-red-100 text-red-800"
+                  }`}
+                >
+                  {item.estado}
+                </span>
               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-3 text-xs">
+              <div className="flex flex-col">
+                <span className="text-gray-400">Código</span>
+                <span className="text-white">{item.codigo || "—"}</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-gray-400">Tipo</span>
+                <span className="text-white capitalize">{item.tipo}</span>
+              </div>
+
               {item.tipo === "producto" && (
                 <>
-                  <div className="flex items-center">
-                    <span className="text-gray-400">Cantidad:</span>
-                    <span className="text-white ml-1">
+                  <div className="flex flex-col">
+                    <span className="text-gray-400">Cantidad</span>
+                    <span className="text-white">
                       {item.cantidad_actual || "—"}
+                    </span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-gray-400">Anterior</span>
+                    <span className="text-white">
+                      {item.cantidad_anterior || "—"}
                     </span>
                   </div>
                 </>
@@ -573,7 +585,6 @@ function ListaServiciosProductos() {
               className: "col-span-2",
             },
 
-            // Ahora dos campos por fila:
             {
               name: "precio",
               label: "Precio",
