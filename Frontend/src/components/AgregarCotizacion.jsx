@@ -27,11 +27,10 @@ const AgregarCotizacion = ({
     contenedor: "",
   });
 
-  const añadirCliente = (clienteCreado) => {
-    // 1) Lo insertamos en la lista general
-    setClientes((prev) => [...prev, clienteCreado]);
+  const [activeTab, setActiveTab] = useState("informacion"); // 'informacion' o 'productos'
 
-    // 2) Lo marcamos como seleccionado para esta cotización
+  const añadirCliente = (clienteCreado) => {
+    setClientes((prev) => [...prev, clienteCreado]);
     setClienteSeleccionado(clienteCreado);
   };
 
@@ -51,69 +50,97 @@ const AgregarCotizacion = ({
   };
 
   return (
-    <>
-      <div className="mx-auto p-6 rounded-lg bg-gray-900">
-        <h2 className="text-xl font-semibold mb-6 text-white">
-          Crear Solicitud de Cotización
-        </h2>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full mb-6">
-          <div className="flex flex-col gap-6 w-full mb-6">
-            <ClienteSelector
-              clientes={clientes}
-              setClientes={setClientes}
-              onClienteSeleccionado={setClienteSeleccionado}
-              mostrarError={mostrarClienteInvalido}
-              añadirCliente={añadirCliente}
-            />
-            <div className="w-full">
-              <DatosGeneralesCotizacion
-                datos={datosGenerales}
-                onChange={setDatosGenerales}
-                mostrarCamposOperacion={itemsAgregados.some(
-                  (item) => item.tipo === "producto"
-                )}
-              />
-            </div>
-          </div>
+    <div className="mx-auto p-4 sm:p-6 rounded-lg bg-gray-900">
+      <h2 className="text-xl font-semibold mb-4 sm:mb-6 text-white">
+        Crear Solicitud de Cotización
+      </h2>
 
-          <div>
-            <div className="flex flex-col gap-6 w-full mb-6">
-              <ServProCotizacion
-                servicios={servicios}
-                itemsSeleccionados={itemsAgregados}
-                onAgregar={(servicio) => {
-                  const nuevoItem = {
-                    id: servicio.id,
-                    nombre: servicio.nombre,
-                    precio: parseFloat(servicio.precio),
-                    cantidad: 1,
-                    porcentaje_iva: parseFloat(servicio.porcentaje_iva) || 0,
-                    tipo: servicio.tipo,
-                  };
-                  setItemsAgregados((prevItems) => [...prevItems, nuevoItem]);
-                }}
-              />
+      {/* Pestañas para móvil */}
+      <div className="lg:hidden flex border-b border-gray-700 mb-4">
+        <button
+          className={`px-4 py-2 font-medium ${
+            activeTab === "informacion"
+              ? "text-blue-400 border-b-2 border-blue-400"
+              : "text-gray-400"
+          }`}
+          onClick={() => setActiveTab("informacion")}
+        >
+          Información
+        </button>
+        <button
+          className={`px-4 py-2 font-medium ${
+            activeTab === "productos"
+              ? "text-blue-400 border-b-2 border-blue-400"
+              : "text-gray-400"
+          }`}
+          onClick={() => setActiveTab("productos")}
+        >
+          Productos/Servicios
+        </button>
+      </div>
 
-              <ItemsSeleccionados
-                items={itemsAgregados}
-                onUpdate={setItemsAgregados}
-                onRemove={(id) =>
-                  setItemsAgregados((prev) =>
-                    prev.filter((item) => item.id !== id)
-                  )
-                }
-              />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full">
+        {/* Columna izquierda - Información del cliente */}
+        <div
+          className={`${
+            activeTab === "informacion" ? "block" : "hidden"
+          } lg:block flex flex-col gap-6 w-full`}
+        >
+          <ClienteSelector
+            clientes={clientes}
+            setClientes={setClientes}
+            onClienteSeleccionado={setClienteSeleccionado}
+            mostrarError={mostrarClienteInvalido}
+            añadirCliente={añadirCliente}
+          />
 
-              <ResumenCotizacion
-                items={itemsAgregados}
-                onGenerar={handleGenerarCotizacion}
-                subtotal={subtotal}
-              />
-            </div>
-          </div>
+          <DatosGeneralesCotizacion
+            datos={datosGenerales}
+            onChange={setDatosGenerales}
+            mostrarCamposOperacion={itemsAgregados.some(
+              (item) => item.tipo === "producto"
+            )}
+          />
+        </div>
+
+        {/* Columna derecha - Productos y resumen */}
+        <div
+          className={`${
+            activeTab === "productos" ? "block" : "hidden"
+          } lg:block flex flex-col gap-6 w-full`}
+        >
+          <ServProCotizacion
+            servicios={servicios}
+            itemsSeleccionados={itemsAgregados}
+            onAgregar={(servicio) => {
+              const nuevoItem = {
+                id: servicio.id,
+                nombre: servicio.nombre,
+                precio: parseFloat(servicio.precio),
+                cantidad: 1,
+                porcentaje_iva: parseFloat(servicio.porcentaje_iva) || 0,
+                tipo: servicio.tipo,
+              };
+              setItemsAgregados((prevItems) => [...prevItems, nuevoItem]);
+            }}
+          />
+
+          <ItemsSeleccionados
+            items={itemsAgregados}
+            onUpdate={setItemsAgregados}
+            onRemove={(id) =>
+              setItemsAgregados((prev) => prev.filter((item) => item.id !== id))
+            }
+          />
+
+          <ResumenCotizacion
+            items={itemsAgregados}
+            onGenerar={handleGenerarCotizacion}
+            subtotal={subtotal}
+          />
         </div>
       </div>
-    </>
+    </div>
   );
 };
 
