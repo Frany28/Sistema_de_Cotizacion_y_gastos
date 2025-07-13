@@ -1,10 +1,11 @@
+import AsideArchivo from "../../components/ComponentesArchivos/AsideArchivo";
+
 function ArchivosPage() {
   return (
     <>
-      <h1 className="text-white"> Pagina Archivos</h1>
+      <AsideArchivo />
     </>
   );
-  
 }
 
 export default ArchivosPage;
