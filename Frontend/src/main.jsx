@@ -34,7 +34,7 @@ createRoot(document.getElementById("root")).render(
         <Route path="/" element={<Login />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-
+        <Route path="/archivos" element={<ArchivosPage />} />;
         {/* Rutas privadas protegidas con layout */}
         <Route
           element={
@@ -72,10 +72,9 @@ createRoot(document.getElementById("root")).render(
             element={<SolicitudesPage />}
           />
           <Route path="/crearRegistro" element={<CrearRegistro />} />
-          <Route path="/archivos" element={<ArchivosPage />} />;
+
           <Route path="/reportes" element={<RelacionesGatos />} />
         </Route>
-
         {/* Ruta no encontrada */}
         <Route path="*" element={<h1>Not Found</h1>} />
       </Routes>

@@ -28,6 +28,7 @@ import cxcRoutes from "./routes/cxc.routes.js";
 import solicitudesPagoRoutes from "./routes/solicitudesPago.routes.js";
 import bancosRoutes from "./routes/bancos.routes.js";
 import archivosRoutes from "./routes/archivos.routes.js";
+import almacenamientoRoutes from "./routes/almacenamiento.routes.js";
 import "./jobs/purgarPapeleras.js";
 
 import authRoutes from "./routes/auth.routes.js";
@@ -97,9 +98,9 @@ app.use("/api/cuentas", cxcRoutes);
 app.use("/api/solicitudes-pago", solicitudesPagoRoutes);
 app.use("/api/bancos", bancosRoutes);
 app.use("/api/archivos", archivosRoutes);
-
-/* ───── Rutas de seguridad ──────────────────────────────── */
-app.use("/api/auth", authRoutes);
+app.use("/api/almacenamiento", almacenamientoRoutes),
+  /* ───── Rutas de seguridad ──────────────────────────────── */
+  app.use("/api/auth", authRoutes);
 app.use("/api/usuarios", usuariosRoutes);
 app.use("/api/roles", rolesRoutes);
 app.use("/api/permisos", permisosRoutes);
