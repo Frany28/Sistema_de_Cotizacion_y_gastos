@@ -212,7 +212,7 @@ const AgregarCotizacion = ({
             />
           </div>
 
-          <div className="bg-gray-800 p-3 rounded-lg sticky bottom-0">
+          <div className="bg-gray-800 p-3 rounded-lg bottom-0">
             <ResumenCotizacion
               items={itemsAgregados}
               onGenerar={handleGenerarCotizacion}
