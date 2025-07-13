@@ -387,16 +387,63 @@ function ListaServiciosProductos() {
         </table>
       </div>
 
-      {/* Vista de tarjetas para móviles */}
-      <div className="md:hidden space-y-3 p-2">
-        {paginados.map((item) => (
-          <div key={item.id} className="bg-gray-800 rounded-lg p-4 shadow">
-            <div className="flex justify-between items-start">
-              <div>
-                <h3 className="font-medium text-white">{item.nombre}</h3>
-                <p className="text-sm text-gray-400">{item.descripcion}</p>
+      {/* Vista de tarjetas para tablets */}
+      <div className="hidden sm:block md:hidden">
+        <div className="grid grid-cols-1 gap-4 p-2">
+          {paginados.map((item) => (
+            <div key={item.id} className="bg-gray-800 rounded-lg p-4 shadow">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="font-medium text-white">{item.nombre}</h3>
+                  <p className="text-sm text-gray-400">{item.descripcion}</p>
+                </div>
+                <span
+                  className={`px-2 py-1 rounded-full text-xs capitalize ${
+                    item.estado === "activo"
+                      ? "bg-green-100 text-green-800"
+                      : "bg-red-100 text-red-800"
+                  }`}
+                >
+                  {item.estado}
+                </span>
               </div>
-              <div className="flex space-x-2">
+
+              <div className="grid grid-cols-2 gap-2 mt-3 text-sm">
+                <div>
+                  <span className="text-gray-400">Código:</span>
+                  <span className="text-white ml-1">{item.codigo || "—"}</span>
+                </div>
+                <div>
+                  <span className="text-gray-400">Precio:</span>
+                  <span className="text-white ml-1">
+                    ${Number(item.precio).toFixed(2)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-400">Tipo:</span>
+                  <span className="text-white ml-1 capitalize">
+                    {item.tipo}
+                  </span>
+                </div>
+                {item.tipo === "producto" && (
+                  <>
+                    <div>
+                      <span className="text-gray-400">Cantidad:</span>
+                      <span className="text-white ml-1">
+                        {item.cantidad_actual || "—"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Anterior:</span>
+                      <span className="text-white ml-1">
+                        {item.cantidad_anterior || "—"}
+                      </span>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="flex justify-end space-x-2 mt-3">
                 {puedeEditar && (
                   <BotonIcono
                     tipo="editar"
@@ -418,43 +465,74 @@ function ListaServiciosProductos() {
                 )}
               </div>
             </div>
+          ))}
+        </div>
+      </div>
 
-            <div className="grid grid-cols-2 gap-2 mt-3 text-sm">
+      {/* Vista de tarjetas para móviles */}
+      <div className="sm:hidden space-y-3 p-2">
+        {paginados.map((item) => (
+          <div key={item.id} className="bg-gray-800 rounded-lg p-4 shadow">
+            <div className="flex justify-between items-start">
               <div>
-                <span className="text-gray-400">Código:</span>
-                <span className="text-white ml-1">{item.codigo || "—"}</span>
+                <h3 className="font-medium text-white">{item.nombre}</h3>
+                <p className="text-xs text-gray-400 line-clamp-1">
+                  {item.descripcion}
+                </p>
               </div>
-              <div>
+              <span
+                className={`px-2 py-1 rounded-full text-xs capitalize ${
+                  item.estado === "activo"
+                    ? "bg-green-100 text-green-800"
+                    : "bg-red-100 text-red-800"
+                }`}
+              >
+                {item.estado}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-y-1 gap-x-2 mt-2 text-xs">
+              <div className="col-span-2 flex items-center">
+                <span className="text-gray-400">Tipo:</span>
+                <span className="text-white ml-1 capitalize">{item.tipo}</span>
+              </div>
+              <div className="flex items-center">
                 <span className="text-gray-400">Precio:</span>
                 <span className="text-white ml-1">
                   ${Number(item.precio).toFixed(2)}
                 </span>
               </div>
-              <div>
-                <span className="text-gray-400">Tipo:</span>
-                <span className="text-white ml-1 capitalize">{item.tipo}</span>
-              </div>
-              <div>
-                <span className="text-gray-400">Estado:</span>
-                <span className="text-white ml-1 capitalize">
-                  {item.estado}
-                </span>
-              </div>
               {item.tipo === "producto" && (
                 <>
-                  <div>
+                  <div className="flex items-center">
                     <span className="text-gray-400">Cantidad:</span>
                     <span className="text-white ml-1">
                       {item.cantidad_actual || "—"}
                     </span>
                   </div>
-                  <div>
-                    <span className="text-gray-400">Anterior:</span>
-                    <span className="text-white ml-1">
-                      {item.cantidad_anterior || "—"}
-                    </span>
-                  </div>
                 </>
+              )}
+            </div>
+
+            <div className="flex justify-end space-x-2 mt-3">
+              {puedeEditar && (
+                <BotonIcono
+                  tipo="editar"
+                  onClick={() => {
+                    iniciarEdicion(item);
+                    setMostrarModalEditar(true);
+                  }}
+                  titulo="Editar"
+                  small
+                />
+              )}
+              {puedeEliminar && (
+                <BotonIcono
+                  tipo="eliminar"
+                  onClick={() => handleEliminarClick(item)}
+                  titulo="Eliminar"
+                  small
+                />
               )}
             </div>
           </div>
