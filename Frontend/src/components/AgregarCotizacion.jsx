@@ -27,7 +27,7 @@ const AgregarCotizacion = ({
     contenedor: "",
   });
 
-  const [activeTab, setActiveTab] = useState("informacion");
+  const [mobileView, setMobileView] = useState("informacion");
 
   const añadirCliente = (clienteCreado) => {
     setClientes((prev) => [...prev, clienteCreado]);
@@ -49,99 +49,119 @@ const AgregarCotizacion = ({
     onGenerarCotizacion(datosGenerales);
   };
 
+  // Efecto para cambiar a la vista de productos cuando se agrega un ítem en móviles
+  useEffect(() => {
+    if (itemsAgregados.length > 0 && window.innerWidth < 1024) {
+      setMobileView("productos");
+    }
+  }, [itemsAgregados]);
+
   return (
-    <div className="mx-auto p-2 sm:p-4 md:p-6 rounded-lg bg-gray-900">
-      <h2 className="text-lg sm:text-xl font-semibold mb-2 sm:mb-4 text-white">
-        Crear Solicitud de Cotización
+    <div className="mx-auto p-2 sm:p-4 bg-gray-900 rounded-lg">
+      <h2 className="text-lg sm:text-xl font-semibold mb-3 text-white">
+        Crear Cotización
       </h2>
 
-      {/* Pestañas para móvil - más compactas */}
-      <div className="lg:hidden flex border-b border-gray-700 mb-2">
+      {/* Barra de navegación móvil mejorada */}
+      <div className="lg:hidden flex mb-3 bg-gray-800 rounded-md p-1">
         <button
-          className={`px-3 py-1 text-sm sm:text-base font-medium ${
-            activeTab === "informacion"
-              ? "text-blue-400 border-b-2 border-blue-400"
-              : "text-gray-400"
+          className={`flex-1 py-2 text-sm font-medium rounded-md ${
+            mobileView === "informacion"
+              ? "bg-gray-700 text-white shadow"
+              : "text-gray-300"
           }`}
-          onClick={() => setActiveTab("informacion")}
+          onClick={() => setMobileView("informacion")}
         >
           Información
         </button>
         <button
-          className={`px-3 py-1 text-sm sm:text-base font-medium ${
-            activeTab === "productos"
-              ? "text-blue-400 border-b-2 border-blue-400"
-              : "text-gray-400"
+          className={`flex-1 py-2 text-sm font-medium rounded-md ${
+            mobileView === "productos"
+              ? "bg-gray-700 text-white shadow"
+              : "text-gray-300"
           }`}
-          onClick={() => setActiveTab("productos")}
+          onClick={() => setMobileView("productos")}
         >
-          Productos
+          Productos ({itemsAgregados.length})
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 md:gap-6 w-full">
-        {/* Columna izquierda - más compacta */}
+      <div className="lg:grid lg:grid-cols-2 lg:gap-4">
+        {/* Columna izquierda - Siempre visible en desktop */}
         <div
           className={`${
-            activeTab === "informacion" ? "block" : "hidden"
-          } lg:block flex flex-col gap-3 sm:gap-4 w-full`}
+            mobileView === "informacion" ? "block" : "hidden"
+          } lg:block space-y-3`}
         >
-          <ClienteSelector
-            clientes={clientes}
-            setClientes={setClientes}
-            onClienteSeleccionado={setClienteSeleccionado}
-            mostrarError={mostrarClienteInvalido}
-            añadirCliente={añadirCliente}
-          />
+          <div className="bg-gray-800 p-3 rounded-lg">
+            <ClienteSelector
+              clientes={clientes}
+              setClientes={setClientes}
+              onClienteSeleccionado={setClienteSeleccionado}
+              mostrarError={mostrarClienteInvalido}
+              añadirCliente={añadirCliente}
+              compactMode={true}
+            />
+          </div>
 
-          <DatosGeneralesCotizacion
-            datos={datosGenerales}
-            onChange={setDatosGenerales}
-            mostrarCamposOperacion={itemsAgregados.some(
-              (item) => item.tipo === "producto"
-            )}
-            compactMode={true}
-          />
+          <div className="bg-gray-800 p-3 rounded-lg">
+            <DatosGeneralesCotizacion
+              datos={datosGenerales}
+              onChange={setDatosGenerales}
+              mostrarCamposOperacion={itemsAgregados.some(
+                (item) => item.tipo === "producto"
+              )}
+              compactMode={true}
+            />
+          </div>
         </div>
 
-        {/* Columna derecha - más compacta */}
+        {/* Columna derecha - Productos y resumen */}
         <div
           className={`${
-            activeTab === "productos" ? "block" : "hidden"
-          } lg:block flex flex-col gap-3 sm:gap-4 w-full`}
+            mobileView === "productos" ? "block" : "hidden"
+          } lg:block space-y-3`}
         >
-          <ServProCotizacion
-            servicios={servicios}
-            itemsSeleccionados={itemsAgregados}
-            onAgregar={(servicio) => {
-              const nuevoItem = {
-                id: servicio.id,
-                nombre: servicio.nombre,
-                precio: parseFloat(servicio.precio),
-                cantidad: 1,
-                porcentaje_iva: parseFloat(servicio.porcentaje_iva) || 0,
-                tipo: servicio.tipo,
-              };
-              setItemsAgregados((prevItems) => [...prevItems, nuevoItem]);
-            }}
-            compactMode={true}
-          />
+          <div className="bg-gray-800 p-3 rounded-lg">
+            <ServProCotizacion
+              servicios={servicios}
+              itemsSeleccionados={itemsAgregados}
+              onAgregar={(servicio) => {
+                const nuevoItem = {
+                  id: servicio.id,
+                  nombre: servicio.nombre,
+                  precio: parseFloat(servicio.precio),
+                  cantidad: 1,
+                  porcentaje_iva: parseFloat(servicio.porcentaje_iva) || 0,
+                  tipo: servicio.tipo,
+                };
+                setItemsAgregados((prevItems) => [...prevItems, nuevoItem]);
+              }}
+              compactMode={true}
+            />
+          </div>
 
-          <ItemsSeleccionados
-            items={itemsAgregados}
-            onUpdate={setItemsAgregados}
-            onRemove={(id) =>
-              setItemsAgregados((prev) => prev.filter((item) => item.id !== id))
-            }
-            compactMode={true}
-          />
+          <div className="bg-gray-800 p-3 rounded-lg">
+            <ItemsSeleccionados
+              items={itemsAgregados}
+              onUpdate={setItemsAgregados}
+              onRemove={(id) =>
+                setItemsAgregados((prev) =>
+                  prev.filter((item) => item.id !== id)
+                )
+              }
+              compactMode={true}
+            />
+          </div>
 
-          <ResumenCotizacion
-            items={itemsAgregados}
-            onGenerar={handleGenerarCotizacion}
-            subtotal={subtotal}
-            compactMode={true}
-          />
+          <div className="bg-gray-800 p-3 rounded-lg sticky bottom-0">
+            <ResumenCotizacion
+              items={itemsAgregados}
+              onGenerar={handleGenerarCotizacion}
+              subtotal={subtotal}
+              compactMode={true}
+            />
+          </div>
         </div>
       </div>
     </div>
