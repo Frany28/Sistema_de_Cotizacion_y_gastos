@@ -241,7 +241,7 @@ function ListaServiciosProductos() {
   return (
     <div>
       <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 p-4 gap-2">
-        <div className="grid grid-cols-1 md:grid-cols-2 items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {puedeCrear && (
             <BotonAgregar
               onClick={abrirModal}
@@ -250,7 +250,7 @@ function ListaServiciosProductos() {
           )}
         </div>
 
-        <div className="flex flex-col md:flex-row w-full md:w-1/2 gap-2">
+        <div className="flex flex-col sm:flex-row w-full md:w-1/2 gap-2">
           <div className="flex items-center gap-2">
             <label
               htmlFor="cantidad"
@@ -331,8 +331,8 @@ function ListaServiciosProductos() {
         Mostrando {paginados.length} de {total} resultados
       </div>
 
-      {/* Vista de tabla para pantallas medianas y grandes */}
-      <div className="hidden md:block">
+      {/* Vista de tabla para pantallas grandes */}
+      <div className="hidden lg:block">
         <table className="w-full text-sm text-left text-gray-400">
           <thead className="text-xs uppercase bg-gray-700 text-gray-400">
             <tr>
@@ -388,7 +388,7 @@ function ListaServiciosProductos() {
       </div>
 
       {/* Vista de tarjetas para tablets */}
-      <div className="hidden sm:block md:hidden">
+      <div className="hidden md:block lg:hidden">
         <div className="grid grid-cols-1 gap-4 p-2">
           {paginados.map((item) => (
             <div key={item.id} className="bg-gray-800 rounded-lg p-4 shadow">
@@ -470,19 +470,15 @@ function ListaServiciosProductos() {
       </div>
 
       {/* Vista de tarjetas para móviles - MEJORADA */}
-      <div className="sm:hidden space-y-3 p-2">
+      <div className="md:hidden space-y-3 p-2">
         {paginados.map((item) => (
           <div key={item.id} className="bg-gray-800 rounded-lg p-4 shadow">
             <div className="flex justify-between items-start mb-2">
-              <div className="flex-1 min-w-0">
-                <h3 className="font-medium text-white truncate">
-                  {item.nombre}
-                </h3>
-                <p className="text-xs text-gray-400 truncate">
-                  {item.descripcion}
-                </p>
+              <div>
+                <h3 className="font-medium text-white">{item.nombre}</h3>
+                <p className="text-xs text-gray-400">{item.codigo || "—"}</p>
               </div>
-              <div className="flex flex-col items-end ml-2">
+              <div className="flex flex-col items-end">
                 <span className="text-sm font-semibold text-white">
                   ${Number(item.precio).toFixed(2)}
                 </span>
@@ -498,27 +494,27 @@ function ListaServiciosProductos() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-3 text-xs">
-              <div className="flex flex-col">
-                <span className="text-gray-400">Código</span>
-                <span className="text-white">{item.codigo || "—"}</span>
+            <div className="grid grid-cols-2 gap-2 mt-3 text-xs">
+              <div>
+                <span className="text-gray-400">Tipo:</span>
+                <span className="text-white ml-1 capitalize">{item.tipo}</span>
               </div>
-              <div className="flex flex-col">
-                <span className="text-gray-400">Tipo</span>
-                <span className="text-white capitalize">{item.tipo}</span>
+              <div>
+                <span className="text-gray-400">IVA:</span>
+                <span className="text-white ml-1">{item.porcentaje_iva}%</span>
               </div>
 
               {item.tipo === "producto" && (
                 <>
-                  <div className="flex flex-col">
-                    <span className="text-gray-400">Cantidad</span>
-                    <span className="text-white">
+                  <div>
+                    <span className="text-gray-400">Cantidad:</span>
+                    <span className="text-white ml-1">
                       {item.cantidad_actual || "—"}
                     </span>
                   </div>
-                  <div className="flex flex-col">
-                    <span className="text-gray-400">Anterior</span>
-                    <span className="text-white">
+                  <div>
+                    <span className="text-gray-400">Anterior:</span>
+                    <span className="text-white ml-1">
                       {item.cantidad_anterior || "—"}
                     </span>
                   </div>
@@ -527,23 +523,33 @@ function ListaServiciosProductos() {
             </div>
 
             <div className="flex justify-end space-x-2 mt-3">
+              <BotonIcono
+                tipo="ver"
+                titulo="Ver detalles"
+                small
+                onClick={() => {
+                  iniciarEdicion(item);
+                  setMostrarModalEditar(true);
+                }}
+              />
+
               {puedeEditar && (
                 <BotonIcono
                   tipo="editar"
+                  titulo="Editar"
+                  small
                   onClick={() => {
                     iniciarEdicion(item);
                     setMostrarModalEditar(true);
                   }}
-                  titulo="Editar"
-                  small
                 />
               )}
               {puedeEliminar && (
                 <BotonIcono
                   tipo="eliminar"
-                  onClick={() => handleEliminarClick(item)}
                   titulo="Eliminar"
                   small
+                  onClick={() => handleEliminarClick(item)}
                 />
               )}
             </div>
