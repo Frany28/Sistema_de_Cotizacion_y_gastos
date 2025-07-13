@@ -44,7 +44,7 @@ export default function ServProCotizacion({
   };
 
   return (
-    <div className="bg-gray-800 rounded-xl p-6 shadow-md">
+    <div className="bg-gray-800 rounded-xl p-4 md:p-6 shadow-md">
       <ModalError
         visible={modalError.visible}
         mensaje={modalError.mensaje}
@@ -58,12 +58,42 @@ export default function ServProCotizacion({
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
           placeholder="Buscar servicios o productos..."
-          className="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white"
+          className="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white text-sm md:text-base"
         />
       </div>
 
-      {/* CONTENEDOR SCROLLABLE */}
-      <div className="overflow-x-auto overflow-y-auto max-h-[400px]">
+      {/* VERSIÓN PARA MÓVILES */}
+      <div className="md:hidden space-y-2">
+        {filtrar.length === 0 ? (
+          <div className="text-center text-gray-400 py-4 text-sm">
+            No hay servicios o productos que coincidan
+          </div>
+        ) : (
+          filtrar.map((servicio) => (
+            <div
+              key={servicio.id}
+              className="bg-gray-700 rounded-lg p-3 flex justify-between items-center"
+            >
+              <div className="flex-1 min-w-0">
+                <p className="text-white font-medium truncate">
+                  {servicio.nombre}
+                </p>
+                <p className="text-gray-400 text-sm">${servicio.precio}</p>
+              </div>
+              <BotonIcono
+                tipo="agregar"
+                onClick={() => agregarServicio(servicio)}
+                titulo="Agregar"
+                className="ml-2"
+                size="sm"
+              />
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* VERSIÓN PARA DESKTOP/TABLET */}
+      <div className="hidden md:block overflow-x-auto overflow-y-auto max-h-[400px]">
         <table className="w-full text-sm text-left text-gray-400">
           <thead className="text-xs uppercase bg-gray-700">
             <tr>
