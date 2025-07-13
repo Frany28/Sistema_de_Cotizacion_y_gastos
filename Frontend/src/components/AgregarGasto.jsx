@@ -28,8 +28,10 @@ export default function AgregarGasto({
     moneda: "USD",
     documento: null,
   });
+
   const [tipoGastoSeleccionado, setTipoGastoSeleccionado] = useState(null);
   const [cotizacionSeleccionada, setCotizacionSeleccionada] = useState(null);
+  const [mobileView, setMobileView] = useState("informacion");
 
   // Cuando el usuario elige una cotización, guardamos su id en gasto
   useEffect(() => {
@@ -52,62 +54,118 @@ export default function AgregarGasto({
   };
 
   return (
-    <div className="mx-auto p-6 rounded-lg bg-gray-900">
-      <h2 className="text-xl font-semibold mb-6 text-white">
+    <div className="mx-auto p-2 sm:p-4 bg-gray-900 rounded-lg">
+      <h2 className="text-lg sm:text-xl font-semibold mb-3 text-white">
         Crear Solicitud de Gasto
       </h2>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* 1. Selector de Tipo de Gasto */}
-        <TipoGastoSelector
-          tipoGastoSeleccionado={tipoGastoSeleccionado}
-          onSeleccionar={(tipo) => {
-            setTipoGastoSeleccionado(tipo);
-            setGasto((prev) => ({
-              ...prev,
-              tipo_gasto_id: tipo.id,
-            }));
-          }}
-        />
+      {/* Barra de navegación móvil */}
+      <div className="lg:hidden flex mb-3 bg-gray-800 rounded-md p-1">
+        <button
+          className={`flex-1 py-2 text-sm font-medium rounded-md ${
+            mobileView === "informacion"
+              ? "bg-gray-700 text-white shadow"
+              : "text-gray-300"
+          }`}
+          onClick={() => setMobileView("informacion")}
+        >
+          Información
+        </button>
+        <button
+          className={`flex-1 py-2 text-sm font-medium rounded-md ${
+            mobileView === "resumen"
+              ? "bg-gray-700 text-white shadow"
+              : "text-gray-300"
+          }`}
+          onClick={() => setMobileView("resumen")}
+        >
+          Resumen
+        </button>
+      </div>
 
-        {/* 2. Selector de Proveedor (solo si aplica) */}
-        {esProveedor && (
-          <ProveedorSelector
-            proveedores={proveedores}
-            setProveedores={setProveedores}
-            proveedorSeleccionado={
-              proveedores.find((p) => p.id === gasto.proveedor_id) || null
-            }
-            onSeleccionar={(prov) =>
-              setGasto((prev) => ({
-                ...prev,
-                proveedor_id: prov.id,
-              }))
-            }
-          />
-        )}
+      <div className="lg:grid lg:grid-cols-2 lg:gap-4">
+        {/* Columna izquierda - Información */}
+        <div
+          className={`${
+            mobileView === "informacion" ? "block" : "hidden"
+          } lg:block space-y-3`}
+        >
+          <div className="bg-gray-800 p-3 rounded-lg">
+            <TipoGastoSelector
+              tipoGastoSeleccionado={tipoGastoSeleccionado}
+              onSeleccionar={(tipo) => {
+                setTipoGastoSeleccionado(tipo);
+                setGasto((prev) => ({
+                  ...prev,
+                  tipo_gasto_id: tipo.id,
+                }));
+              }}
+              compactMode={true}
+            />
+          </div>
 
-        {/* 3. Selector de Cotización (solo si es rentable) */}
-        {esRentable && (
-          <CotizacionSelector
-            cotizaciones={cotizaciones}
-            cotizacionSeleccionada={cotizacionSeleccionada}
-            onSeleccionar={setCotizacionSeleccionada}
-          />
-        )}
+          {esProveedor && (
+            <div className="bg-gray-800 p-3 rounded-lg">
+              <ProveedorSelector
+                proveedores={proveedores}
+                setProveedores={setProveedores}
+                proveedorSeleccionado={
+                  proveedores.find((p) => p.id === gasto.proveedor_id) || null
+                }
+                onSeleccionar={(prov) =>
+                  setGasto((prev) => ({
+                    ...prev,
+                    proveedor_id: prov.id,
+                  }))
+                }
+                compactMode={true}
+              />
+            </div>
+          )}
 
-        {/* 4. Datos Generales del Gasto */}
-        <DatosGeneralesGasto
-          gasto={gasto}
-          setGasto={setGasto}
-          sucursales={sucursales}
-        />
+          {esRentable && (
+            <div className="bg-gray-800 p-3 rounded-lg">
+              <CotizacionSelector
+                cotizaciones={cotizaciones}
+                cotizacionSeleccionada={cotizacionSeleccionada}
+                onSeleccionar={setCotizacionSeleccionada}
+                compactMode={true}
+              />
+            </div>
+          )}
 
-        {/* 5. Datos Monetarios (subtotal, IVA, total) */}
-        <DatosMonetariosGasto gasto={gasto} setGasto={setGasto} />
+          <div className="bg-gray-800 p-3 rounded-lg">
+            <DatosGeneralesGasto
+              gasto={gasto}
+              setGasto={setGasto}
+              sucursales={sucursales}
+              compactMode={true}
+            />
+          </div>
 
-        {/* 6. Resumen y botón de registrar */}
-        <ResumenGasto gasto={gasto} onRegistrar={handleRegistrar} />
+          <div className="bg-gray-800 p-3 rounded-lg">
+            <DatosMonetariosGasto
+              gasto={gasto}
+              setGasto={setGasto}
+              compactMode={true}
+            />
+          </div>
+        </div>
+
+        {/* Columna derecha - Resumen */}
+        <div
+          className={`${
+            mobileView === "resumen" ? "block" : "hidden"
+          } lg:block`}
+        >
+          <div className="bg-gray-800 p-3 rounded-lg sticky top-4">
+            <ResumenGasto
+              gasto={gasto}
+              onRegistrar={handleRegistrar}
+              compactMode={true}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
