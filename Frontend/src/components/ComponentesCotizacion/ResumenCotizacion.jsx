@@ -21,7 +21,7 @@ export default function ResumenCotizacion({ items = [], onGenerar }) {
   const totalGeneral = subtotalSinIva + totalImpuestos;
 
   return (
-    <div className="w-full bg-gray-800 rounded-xl p-4 md:p-6 shadow-md sticky top-4">
+    <div className="w-full bg-gray-800 rounded-xl p-4 md:p-6 shadow-md lg:sticky lg:top-4">
       <h3 className="text-white text-lg font-semibold mb-4">
         Resumen de Cotización
       </h3>
@@ -32,7 +32,6 @@ export default function ResumenCotizacion({ items = [], onGenerar }) {
           <span>${safeValue(subtotalSinIva)}</span>
         </div>
 
-        {/* Mostrar solo IVA total */}
         <div className="flex justify-between">
           <span>IVA</span>
           <span>${safeValue(totalImpuestos)}</span>
