@@ -1,69 +1,81 @@
-// src/components/SucursalesCRUD.jsx
+// src/components/UsuariosCRUD.jsx
 import React, { useEffect, useState, useCallback } from "react";
 import api from "../api/index";
 import BotonIcono from "../components/general/BotonIcono";
 import BotonAgregar from "../components/general/BotonAgregar";
 import Paginacion from "../components/general/Paginacion";
 import Loader from "../components/general/Loader";
-import { verificarPermisoFront } from "../../utils/verificarPermisoFront";
-
+import ModalCrearUsuario from "../components/Modals/ModalCrearUsuario";
+import ModalEditarUsuario from "../components/Modals/ModalEditarUsuario";
 import ModalConfirmacion from "../components/Modals/ModalConfirmacion";
-import ModalCrearSucursal from "./Modals/ModalCrearSucursal";
-import ModalEditarSucursal from "./Modals/ModalEditarSucursal";
 import ModalExito from "../components/Modals/ModalExito";
 import ModalError from "../components/Modals/ModalError";
+import { verificarPermisoFront } from "../../utils/verificarPermisoFront";
 
-export default function SucursalesCRUD() {
-  const [sucursales, setSucursales] = useState([]);
+export default function UsuariosCRUD() {
+  const [usuarios, setUsuarios] = useState([]);
   const [busqueda, setBusqueda] = useState("");
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(() => {
-    const stored = localStorage.getItem("sucursalesLimit");
+    const stored = localStorage.getItem("usuariosLimit");
     return stored ? parseInt(stored, 10) : 5;
   });
   const [loading, setLoading] = useState(true);
 
   const [showModalCrear, setShowModalCrear] = useState(false);
   const [showModalEditar, setShowModalEditar] = useState(false);
-  const [sucursalEditar, setSucursalEditar] = useState(null);
-  // Verificar permisos
+  const [usuarioEditar, setUsuarioEditar] = useState(null);
+
   const [puedeCrear, setPuedeCrear] = useState(false);
   const [puedeEditar, setPuedeEditar] = useState(false);
   const [puedeEliminar, setPuedeEliminar] = useState(false);
 
   // Estados para eliminación
   const [showModalEliminar, setShowModalEliminar] = useState(false);
-  const [sucursalEliminarId, setSucursalEliminarId] = useState(null);
+  const [usuarioEliminarId, setUsuarioEliminarId] = useState(null);
 
   // Estados para éxito/error de borrado
   const [showDeleteExito, setShowDeleteExito] = useState(false);
   const [showDeleteError, setShowDeleteError] = useState(false);
   const [deleteErrorMsg, setDeleteErrorMsg] = useState("");
 
-  const fetchSucursales = useCallback(async () => {
+  const [roles, setRoles] = useState([]);
+
+  const fetchUsuarios = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await api.get("/sucursales", {
-        params: { page, limit },
+      const response = await api.get("/usuarios", {
         withCredentials: true,
       });
-      setSucursales(response.data.sucursales || []);
+      setUsuarios(
+        Array.isArray(response.data) ? response.data : response.data.usuarios
+      );
     } catch (error) {
       console.error(error);
     } finally {
       setLoading(false);
     }
-  }, [page, limit]);
+  }, []);
+
+  const fetchRoles = async () => {
+    try {
+      const { data } = await api.get("/roles", { withCredentials: true });
+      setRoles(data);
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   useEffect(() => {
-    fetchSucursales();
-  }, [fetchSucursales]);
+    fetchUsuarios();
+    fetchRoles();
+  }, [fetchUsuarios]);
 
   useEffect(() => {
     (async () => {
-      setPuedeCrear(await verificarPermisoFront("crearSucursal"));
-      setPuedeEditar(await verificarPermisoFront("editarSucursal"));
-      setPuedeEliminar(await verificarPermisoFront("eliminarSucursal"));
+      setPuedeCrear(await verificarPermisoFront("crearUsuario"));
+      setPuedeEditar(await verificarPermisoFront("editarUsuario"));
+      setPuedeEliminar(await verificarPermisoFront("eliminarUsuario"));
     })();
   }, []);
 
@@ -74,42 +86,45 @@ export default function SucursalesCRUD() {
 
   const cambiarLimite = (nuevo) => {
     setLimit(nuevo);
-    localStorage.setItem("sucursalesLimit", nuevo);
+    localStorage.setItem("usuariosLimit", nuevo);
     setPage(1);
   };
 
   const abrirModalEditar = async (id) => {
-    const { data } = await api.get(`/sucursales/${id}`, {
-      withCredentials: true,
-    });
-    setSucursalEditar(data);
-    setShowModalEditar(true);
+    try {
+      const { data } = await api.get(`/usuarios/${id}`, {
+        withCredentials: true,
+      });
+      setUsuarioEditar(data);
+      setShowModalEditar(true);
+    } catch (error) {
+      console.error(error);
+    }
   };
 
-  const abrirModalEliminar = (sucursal) => {
-    if (sucursal.estado === "activo") {
-      setDeleteErrorMsg(
-        "No puedes eliminar una sucursal activa. Cámbiala a inactivo primero."
-      );
+  const abrirModalEliminar = (id) => {
+    const u = usuarios.find((u) => u.id === id);
+    if (u?.estado !== "inactivo") {
+      setDeleteErrorMsg("Solo usuarios inactivos pueden eliminarse");
       setShowDeleteError(true);
       return;
     }
-    setSucursalEliminarId(sucursal.id);
+    setUsuarioEliminarId(id);
     setShowModalEliminar(true);
   };
 
   const handleConfirmEliminar = async () => {
     try {
-      await api.delete(`/sucursales/${sucursalEliminarId}`, {
+      await api.delete(`/usuarios/${usuarioEliminarId}`, {
         withCredentials: true,
       });
       setShowModalEliminar(false);
       setShowDeleteExito(true);
-      fetchSucursales();
+      fetchUsuarios();
     } catch (error) {
       setShowModalEliminar(false);
       setDeleteErrorMsg(
-        error.response?.data?.error || "Error al eliminar sucursal"
+        error.response?.data?.error || "Error al eliminar usuario"
       );
       setShowDeleteError(true);
     }
@@ -124,9 +139,9 @@ export default function SucursalesCRUD() {
   };
 
   // Filtrado y paginado
-  const filtrados = sucursales.filter((s) =>
-    ["codigo", "nombre", "direccion", "ciudad", "responsable"].some((campo) =>
-      s[campo]?.toLowerCase().includes(busqueda.toLowerCase())
+  const filtrados = usuarios.filter((u) =>
+    ["codigo", "nombre", "email", "rol", "estado"].some((campo) =>
+      u[campo]?.toLowerCase().includes(busqueda.toLowerCase())
     )
   );
   const totalPaginas = Math.ceil(filtrados.length / limit);
@@ -146,8 +161,8 @@ export default function SucursalesCRUD() {
       <ModalExito
         visible={showDeleteExito}
         onClose={handleDeleteExitoClose}
-        titulo="Sucursal eliminada"
-        mensaje="La sucursal se borró correctamente"
+        titulo="Usuario eliminado"
+        mensaje="El usuario se borró correctamente"
         textoBoton="Continuar"
       />
       <ModalError
@@ -158,24 +173,25 @@ export default function SucursalesCRUD() {
         textoBoton="Entendido"
       />
 
-      {/* Crear sucursal */}
-      <ModalCrearSucursal
+      {/* Crear usuario */}
+      <ModalCrearUsuario
         visible={showModalCrear}
         onCancel={() => setShowModalCrear(false)}
         onSuccess={() => {
           setShowModalCrear(false);
-          fetchSucursales();
+          fetchUsuarios();
         }}
       />
 
-      {/* Editar sucursal */}
-      <ModalEditarSucursal
+      {/* Editar usuario */}
+      <ModalEditarUsuario
         visible={showModalEditar}
         onClose={() => setShowModalEditar(false)}
-        sucursal={sucursalEditar}
-        onSucursalActualizada={() => {
+        usuario={usuarioEditar}
+        roles={roles}
+        onUsuarioActualizado={() => {
           setShowModalEditar(false);
-          fetchSucursales();
+          fetchUsuarios();
         }}
       />
 
@@ -184,8 +200,8 @@ export default function SucursalesCRUD() {
         visible={showModalEliminar}
         onClose={() => setShowModalEliminar(false)}
         onConfirmar={handleConfirmEliminar}
-        titulo="Eliminar sucursal"
-        mensaje="¿Deseas eliminar esta sucursal?"
+        titulo="Eliminar usuario"
+        mensaje="¿Deseas eliminar este usuario?"
         textoConfirmar="Sí, eliminar"
         textoCancelar="Cancelar"
       />
@@ -195,7 +211,7 @@ export default function SucursalesCRUD() {
         {puedeCrear && (
           <BotonAgregar
             onClick={() => setShowModalCrear(true)}
-            texto="Nueva Sucursal"
+            texto="Nuevo Usuario"
           />
         )}
 
@@ -257,33 +273,39 @@ export default function SucursalesCRUD() {
             <tr>
               <th className="px-4 py-3">Código</th>
               <th className="px-4 py-3">Nombre</th>
-              <th className="px-4 py-3">Dirección</th>
-              <th className="px-4 py-3">Ciudad</th>
-              <th className="px-4 py-3">Responsable</th>
+              <th className="px-4 py-3">Email</th>
+              <th className="px-4 py-3">Rol</th>
+              <th className="px-4 py-3">Estado</th>
+              <th className="px-4 py-3">Creado</th>
               <th className="px-4 py-3">Acciones</th>
             </tr>
           </thead>
           <tbody>
-            {paginados.map((s) => (
-              <tr key={s.id} className="border-b border-gray-700">
-                <td className="px-4 py-3 font-medium text-white">{s.codigo}</td>
-                <td className="px-4 py-3">{s.nombre}</td>
-                <td className="px-4 py-3">{s.direccion}</td>
-                <td className="px-4 py-3">{s.ciudad || "-"}</td>
-                <td className="px-4 py-3">{s.responsable || "-"}</td>
+            {paginados.map((u) => (
+              <tr key={u.id} className="border-b border-gray-700">
+                <td className="px-4 py-3 font-medium text-white">
+                  {u.codigo || `USR${String(u.id).padStart(4, "0")}`}
+                </td>
+                <td className="px-4 py-3">{u.nombre}</td>
+                <td className="px-4 py-3">{u.email}</td>
+                <td className="px-4 py-3">{u.rol}</td>
+                <td className="px-4 py-3 capitalize">{u.estado}</td>
+                <td className="px-4 py-3">
+                  {new Date(u.created_at).toLocaleDateString()}
+                </td>
                 <td className="px-4 py-3 flex space-x-2">
                   {puedeEditar && (
                     <BotonIcono
                       tipo="editar"
-                      onClick={() => abrirModalEditar(s.id)}
-                      titulo="Editar sucursal"
+                      onClick={() => abrirModalEditar(u.id)}
+                      titulo="Editar usuario"
                     />
                   )}
                   {puedeEliminar && (
                     <BotonIcono
                       tipo="eliminar"
-                      onClick={() => abrirModalEliminar(s)}
-                      titulo="Eliminar sucursal"
+                      onClick={() => abrirModalEliminar(u.id)}
+                      titulo="Eliminar usuario"
                     />
                   )}
                 </td>
@@ -296,48 +318,60 @@ export default function SucursalesCRUD() {
       {/* Vista de tarjetas para tablets */}
       <div className="hidden md:block lg:hidden">
         <div className="grid grid-cols-1 gap-4 p-2">
-          {paginados.map((s) => (
-            <div key={s.id} className="bg-gray-800 rounded-lg p-4 shadow">
+          {paginados.map((u) => (
+            <div key={u.id} className="bg-gray-800 rounded-lg p-4 shadow">
               <div className="flex justify-between items-start">
                 <div>
-                  <h3 className="font-medium text-white">{s.codigo}</h3>
-                  <p className="text-sm text-gray-400">{s.nombre}</p>
+                  <h3 className="font-medium text-white">
+                    {u.codigo || `USR${String(u.id).padStart(4, "0")}`}
+                  </h3>
+                  <p className="text-sm text-gray-400">{u.nombre}</p>
                 </div>
-                <div className="flex space-x-2">
-                  {puedeEditar && (
-                    <BotonIcono
-                      tipo="editar"
-                      small
-                      onClick={() => abrirModalEditar(s.id)}
-                      titulo="Editar sucursal"
-                    />
-                  )}
-                  {puedeEliminar && (
-                    <BotonIcono
-                      tipo="eliminar"
-                      small
-                      onClick={() => abrirModalEliminar(s)}
-                      titulo="Eliminar sucursal"
-                    />
-                  )}
-                </div>
+                <span
+                  className={`px-2 py-1 rounded-full text-xs ${
+                    u.estado === "activo"
+                      ? "bg-green-100 text-green-800"
+                      : "bg-yellow-100 text-yellow-800"
+                  }`}
+                >
+                  {u.estado}
+                </span>
               </div>
 
               <div className="grid grid-cols-2 gap-2 mt-3 text-sm">
                 <div>
-                  <span className="text-gray-400">Dirección:</span>
-                  <span className="text-white ml-1">{s.direccion}</span>
+                  <span className="text-gray-400">Email:</span>
+                  <span className="text-white ml-1">{u.email}</span>
                 </div>
                 <div>
-                  <span className="text-gray-400">Ciudad:</span>
-                  <span className="text-white ml-1">{s.ciudad || "-"}</span>
+                  <span className="text-gray-400">Rol:</span>
+                  <span className="text-white ml-1">{u.rol}</span>
                 </div>
                 <div>
-                  <span className="text-gray-400">Responsable:</span>
+                  <span className="text-gray-400">Creado:</span>
                   <span className="text-white ml-1">
-                    {s.responsable || "-"}
+                    {new Date(u.created_at).toLocaleDateString()}
                   </span>
                 </div>
+              </div>
+
+              <div className="flex justify-end space-x-2 mt-3">
+                {puedeEditar && (
+                  <BotonIcono
+                    tipo="editar"
+                    small
+                    onClick={() => abrirModalEditar(u.id)}
+                    titulo="Editar usuario"
+                  />
+                )}
+                {puedeEliminar && (
+                  <BotonIcono
+                    tipo="eliminar"
+                    small
+                    onClick={() => abrirModalEliminar(u.id)}
+                    titulo="Eliminar usuario"
+                  />
+                )}
               </div>
             </div>
           ))}
@@ -346,46 +380,64 @@ export default function SucursalesCRUD() {
 
       {/* Vista de tarjetas para móviles */}
       <div className="md:hidden space-y-3 p-2">
-        {paginados.map((s) => (
-          <div key={s.id} className="bg-gray-800 rounded-lg p-4 shadow">
+        {paginados.map((u) => (
+          <div key={u.id} className="bg-gray-800 rounded-lg p-4 shadow">
             <div className="flex justify-between items-start">
               <div>
-                <h3 className="font-medium text-white">{s.codigo}</h3>
-                <p className="text-sm text-gray-400">{s.nombre}</p>
+                <h3 className="font-medium text-white">
+                  {u.codigo || `USR${String(u.id).padStart(4, "0")}`}
+                </h3>
+                <p className="text-sm text-gray-400">{u.nombre}</p>
               </div>
-              <div className="flex space-x-2">
-                {puedeEditar && (
-                  <BotonIcono
-                    tipo="editar"
-                    small
-                    onClick={() => abrirModalEditar(s.id)}
-                    titulo="Editar sucursal"
-                  />
-                )}
-                {puedeEliminar && (
-                  <BotonIcono
-                    tipo="eliminar"
-                    small
-                    onClick={() => abrirModalEliminar(s)}
-                    titulo="Eliminar sucursal"
-                  />
-                )}
-              </div>
+              <span
+                className={`px-2 py-1 rounded-full text-xs ${
+                  u.estado === "activo"
+                    ? "bg-green-100 text-green-800"
+                    : "bg-yellow-100 text-yellow-800"
+                }`}
+              >
+                {u.estado}
+              </span>
             </div>
 
             <div className="grid grid-cols-1 gap-2 mt-3 text-sm">
               <div>
-                <span className="text-gray-400">Dirección:</span>
-                <span className="text-white ml-1">{s.direccion}</span>
+                <span className="text-gray-400">Email:</span>
+                <span className="text-white ml-1">{u.email}</span>
               </div>
               <div>
-                <span className="text-gray-400">Ciudad:</span>
-                <span className="text-white ml-1">{s.ciudad || "-"}</span>
+                <span className="text-gray-400">Rol:</span>
+                <span className="text-white ml-1">{u.rol}</span>
               </div>
               <div>
-                <span className="text-gray-400">Responsable:</span>
-                <span className="text-white ml-1">{s.responsable || "-"}</span>
+                <span className="text-gray-400">Estado:</span>
+                <span className="text-white ml-1 capitalize">{u.estado}</span>
               </div>
+              <div>
+                <span className="text-gray-400">Creado:</span>
+                <span className="text-white ml-1">
+                  {new Date(u.created_at).toLocaleDateString()}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-2 mt-3">
+              {puedeEditar && (
+                <BotonIcono
+                  tipo="editar"
+                  small
+                  onClick={() => abrirModalEditar(u.id)}
+                  titulo="Editar usuario"
+                />
+              )}
+              {puedeEliminar && (
+                <BotonIcono
+                  tipo="eliminar"
+                  small
+                  onClick={() => abrirModalEliminar(u.id)}
+                  titulo="Eliminar usuario"
+                />
+              )}
             </div>
           </div>
         ))}
