@@ -199,7 +199,7 @@ export default function SucursalesCRUD() {
           />
         )}
 
-        <div className="flex w-full md:w-1/2 gap-2">
+        <div className="flex flex-col sm:flex-row w-full md:w-1/2 gap-2">
           <div className="flex items-center gap-2">
             <label
               htmlFor="cantidad"
@@ -223,7 +223,7 @@ export default function SucursalesCRUD() {
           <div className="relative w-full">
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
               <svg
-                className="w-5 h-5  text-gray-400"
+                className="w-5 h-5 text-gray-400"
                 fill="currentColor"
                 viewBox="0 0 20 20"
               >
@@ -246,34 +246,118 @@ export default function SucursalesCRUD() {
       </div>
 
       {/* Resumen */}
-      <div className="px-4 pb-2 text-sm  text-gray-400">
+      <div className="px-4 pb-2 text-sm text-gray-400">
         Mostrando {paginados.length} de {filtrados.length} resultados
       </div>
 
-      {/* Tabla de sucursales */}
-      <table className="w-full text-sm text-left  text-gray-400">
-        <thead className="text-xs  uppercase  bg-gray-700 text-gray-400">
-          <tr>
-            <th className="px-4 py-3">Código</th>
-            <th className="px-4 py-3">Nombre</th>
-            <th className="px-4 py-3">Dirección</th>
-            <th className="px-4 py-3">Ciudad</th>
-            <th className="px-4 py-3">Responsable</th>
-            <th className="px-4 py-3">Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
+      {/* Vista de tabla para pantallas grandes */}
+      <div className="hidden lg:block">
+        <table className="w-full text-sm text-left text-gray-400">
+          <thead className="text-xs uppercase bg-gray-700 text-gray-400">
+            <tr>
+              <th className="px-4 py-3">Código</th>
+              <th className="px-4 py-3">Nombre</th>
+              <th className="px-4 py-3">Dirección</th>
+              <th className="px-4 py-3">Ciudad</th>
+              <th className="px-4 py-3">Responsable</th>
+              <th className="px-4 py-3">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {paginados.map((s) => (
+              <tr key={s.id} className="border-b border-gray-700">
+                <td className="px-4 py-3 font-medium text-white">{s.codigo}</td>
+                <td className="px-4 py-3">{s.nombre}</td>
+                <td className="px-4 py-3">{s.direccion}</td>
+                <td className="px-4 py-3">{s.ciudad || "-"}</td>
+                <td className="px-4 py-3">{s.responsable || "-"}</td>
+                <td className="px-4 py-3 flex space-x-2">
+                  {puedeEditar && (
+                    <BotonIcono
+                      tipo="editar"
+                      onClick={() => abrirModalEditar(s.id)}
+                      titulo="Editar sucursal"
+                    />
+                  )}
+                  {puedeEliminar && (
+                    <BotonIcono
+                      tipo="eliminar"
+                      onClick={() => abrirModalEliminar(s)}
+                      titulo="Eliminar sucursal"
+                    />
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Vista de tarjetas para tablets */}
+      <div className="hidden md:block lg:hidden">
+        <div className="grid grid-cols-1 gap-4 p-2">
           {paginados.map((s) => (
-            <tr key={s.id} className="border-b border-gray-700">
-              <td className="px-4 py-3 font-medium  text-white">{s.codigo}</td>
-              <td className="px-4 py-3">{s.nombre}</td>
-              <td className="px-4 py-3">{s.direccion}</td>
-              <td className="px-4 py-3">{s.ciudad || "-"}</td>
-              <td className="px-4 py-3">{s.responsable || "-"}</td>
-              <td className="px-4 py-3 flex space-x-2">
+            <div key={s.id} className="bg-gray-800 rounded-lg p-4 shadow">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="font-medium text-white">{s.codigo}</h3>
+                  <p className="text-sm text-gray-400">{s.nombre}</p>
+                </div>
+                <div className="flex space-x-2">
+                  {puedeEditar && (
+                    <BotonIcono
+                      tipo="editar"
+                      small
+                      onClick={() => abrirModalEditar(s.id)}
+                      titulo="Editar sucursal"
+                    />
+                  )}
+                  {puedeEliminar && (
+                    <BotonIcono
+                      tipo="eliminar"
+                      small
+                      onClick={() => abrirModalEliminar(s)}
+                      titulo="Eliminar sucursal"
+                    />
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 mt-3 text-sm">
+                <div>
+                  <span className="text-gray-400">Dirección:</span>
+                  <span className="text-white ml-1">{s.direccion}</span>
+                </div>
+                <div>
+                  <span className="text-gray-400">Ciudad:</span>
+                  <span className="text-white ml-1">{s.ciudad || "-"}</span>
+                </div>
+                <div>
+                  <span className="text-gray-400">Responsable:</span>
+                  <span className="text-white ml-1">
+                    {s.responsable || "-"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Vista de tarjetas para móviles */}
+      <div className="md:hidden space-y-3 p-2">
+        {paginados.map((s) => (
+          <div key={s.id} className="bg-gray-800 rounded-lg p-4 shadow">
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="font-medium text-white">{s.codigo}</h3>
+                <p className="text-sm text-gray-400">{s.nombre}</p>
+              </div>
+              <div className="flex space-x-2">
                 {puedeEditar && (
                   <BotonIcono
                     tipo="editar"
+                    small
                     onClick={() => abrirModalEditar(s.id)}
                     titulo="Editar sucursal"
                   />
@@ -281,15 +365,31 @@ export default function SucursalesCRUD() {
                 {puedeEliminar && (
                   <BotonIcono
                     tipo="eliminar"
+                    small
                     onClick={() => abrirModalEliminar(s)}
                     titulo="Eliminar sucursal"
                   />
                 )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2 mt-3 text-sm">
+              <div>
+                <span className="text-gray-400">Dirección:</span>
+                <span className="text-white ml-1">{s.direccion}</span>
+              </div>
+              <div>
+                <span className="text-gray-400">Ciudad:</span>
+                <span className="text-white ml-1">{s.ciudad || "-"}</span>
+              </div>
+              <div>
+                <span className="text-gray-400">Responsable:</span>
+                <span className="text-white ml-1">{s.responsable || "-"}</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
 
       {/* Paginación */}
       <Paginacion
