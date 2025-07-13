@@ -191,7 +191,7 @@ function ListaSolicitudesPago() {
           <div className="flex items-center gap-2">
             <label
               htmlFor="cantidad"
-              className="text-sm  text-gray-300 font-medium"
+              className="text-sm text-gray-300 font-medium"
             >
               Mostrar:
             </label>
@@ -199,7 +199,7 @@ function ListaSolicitudesPago() {
               id="cantidad"
               value={limit}
               onChange={(e) => cambiarLimite(Number(e.target.value))}
-              className="text-sm rounded-md  border-gray-600 bg-gray-700 text-white"
+              className="text-sm rounded-md border-gray-600 bg-gray-700 text-white"
             >
               <option value="5">5</option>
               <option value="10">10</option>
@@ -211,7 +211,7 @@ function ListaSolicitudesPago() {
           <div className="relative w-full">
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
               <svg
-                className="w-5 h-5  text-gray-400"
+                className="w-5 h-5 text-gray-400"
                 fill="currentColor"
                 viewBox="0 0 20 20"
               >
@@ -264,58 +264,126 @@ function ListaSolicitudesPago() {
         </div>
       </div>
 
-      {/* Tabla de solicitudes */}
-      <table className="w-full text-sm text-left  text-gray-400">
-        {/* Encabezados de tabla */}
-        <thead className="text-xs  uppercase  bg-gray-700 text-gray-400">
-          <tr>
-            <th className="px-4 py-3">Código</th>
-            <th className="px-4 py-3">Fecha</th>
+      {/* Vista de tabla para pantallas grandes */}
+      <div className="hidden lg:block">
+        <table className="w-full text-sm text-left text-gray-400">
+          {/* Encabezados de tabla */}
+          <thead className="text-xs uppercase bg-gray-700 text-gray-400">
+            <tr>
+              <th className="px-4 py-3">Código</th>
+              <th className="px-4 py-3">Fecha</th>
+              <th className="px-4 py-3">Moneda</th>
+              <th className="px-4 py-3">Monto Total</th>
+              <th className="px-4 py-3">Monto Pagado</th>
+              <th className="px-4 py-3">Saldo Pendiente</th>
+              <th className="px-4 py-3">Estado</th>
+              <th className="px-4 py-3">Acciones</th>
+            </tr>
+          </thead>
 
-            <th className="px-4 py-3">Moneda</th>
-            <th className="px-4 py-3">Monto Total</th>
-            <th className="px-4 py-3">Monto Pagado</th>
-            <th className="px-4 py-3">Saldo Pendiente</th>
-            <th className="px-4 py-3">Estado</th>
-            <th className="px-4 py-3">Acciones</th>
-          </tr>
-        </thead>
+          {/* Cuerpo de tabla */}
+          <tbody>
+            {solicitudesPaginadas.map((solicitud) => {
+              const saldoPendiente = solicitud.monto - solicitud.pagado;
+              const isBolivares = solicitud.moneda === "VES";
 
-        {/* Cuerpo de tabla */}
-        <tbody>
+              return (
+                <tr key={solicitud.id} className="border-b border-gray-700">
+                  <td className="px-5 py-3 font-medium text-white">
+                    {solicitud.codigo}
+                  </td>
+                  <td className="px-5 py-3">
+                    {new Date(solicitud.fecha).toLocaleDateString("es-VE", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                    })}
+                  </td>
+                  <td className="px-5 py-3">{solicitud.moneda}</td>
+                  <td className="px-5 py-3">
+                    {isBolivares
+                      ? `${parseFloat(solicitud.monto).toFixed(2)} BS`
+                      : `$${parseFloat(solicitud.monto).toFixed(2)}`}
+                  </td>
+                  <td className="px-5 py-3">
+                    {isBolivares
+                      ? `${parseFloat(solicitud.pagado).toFixed(2)} BS`
+                      : `$${parseFloat(solicitud.pagado).toFixed(2)}`}
+                  </td>
+                  <td className="px-5 py-3">
+                    {isBolivares
+                      ? `${saldoPendiente.toFixed(2)} BS`
+                      : `$${saldoPendiente.toFixed(2)}`}
+                  </td>
+                  <td className="px-5 py-3">
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs ${
+                        solicitud.estado === "por_pagar"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : solicitud.estado === "pagada"
+                          ? "bg-green-100 text-green-800"
+                          : solicitud.estado === "cancelada" ||
+                            solicitud.estado === "rechazada"
+                          ? "bg-red-100 text-red-800"
+                          : ""
+                      }`}
+                    >
+                      {solicitud.estado}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 flex space-x-2 items-center">
+                    <BotonIcono
+                      tipo="ver"
+                      onClick={() => handleVerSolicitud(solicitud)}
+                      titulo="Ver solicitud"
+                    />
+
+                    {puedePagar && (
+                      <BotonIcono
+                        tipo="abonar"
+                        onClick={() => handleAgregarPago(solicitud)}
+                        disabled={solicitud.estado !== "por_pagar"}
+                        className={`${
+                          solicitud.estado !== "por_pagar"
+                            ? "opacity-50 cursor-not-allowed"
+                            : ""
+                        }`}
+                        titulo="Agregar pago"
+                      />
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Vista de tarjetas para tablets */}
+      <div className="hidden md:block lg:hidden">
+        <div className="grid grid-cols-1 gap-4 p-2">
           {solicitudesPaginadas.map((solicitud) => {
             const saldoPendiente = solicitud.monto - solicitud.pagado;
             const isBolivares = solicitud.moneda === "VES";
 
             return (
-              <tr key={solicitud.id} className="border-b border-gray-700">
-                <td className="px-5 py-3 font-medium  text-white">
-                  {solicitud.codigo}
-                </td>
-                <td className="px-5 py-3">
-                  {new Date(solicitud.fecha).toLocaleDateString("es-VE", {
-                    day: "2-digit",
-                    month: "2-digit",
-                    year: "numeric",
-                  })}
-                </td>
-                <td className="px-5 py-3">{solicitud.moneda}</td>
-                <td className="px-5 py-3">
-                  {isBolivares
-                    ? `${parseFloat(solicitud.monto).toFixed(2)} BS`
-                    : `$${parseFloat(solicitud.monto).toFixed(2)}`}
-                </td>
-                <td className="px-5 py-3">
-                  {isBolivares
-                    ? `${parseFloat(solicitud.pagado).toFixed(2)} BS`
-                    : `$${parseFloat(solicitud.pagado).toFixed(2)}`}
-                </td>
-                <td className="px-5 py-3">
-                  {isBolivares
-                    ? `${saldoPendiente.toFixed(2)} BS`
-                    : `$${saldoPendiente.toFixed(2)}`}
-                </td>
-                <td className="px-5 py-3">
+              <div
+                key={solicitud.id}
+                className="bg-gray-800 rounded-lg p-4 shadow"
+              >
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="font-medium text-white">
+                      {solicitud.codigo}
+                    </h3>
+                    <p className="text-sm text-gray-400">
+                      {new Date(solicitud.fecha).toLocaleDateString("es-VE", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                      })}
+                    </p>
+                  </div>
                   <span
                     className={`px-2 py-1 rounded-full text-xs ${
                       solicitud.estado === "por_pagar"
@@ -330,12 +398,45 @@ function ListaSolicitudesPago() {
                   >
                     {solicitud.estado}
                   </span>
-                </td>
-                <td className="px-4 py-3 flex space-x-2 items-center">
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 mt-3 text-sm">
+                  <div>
+                    <span className="text-gray-400">Moneda:</span>
+                    <span className="text-white ml-1">{solicitud.moneda}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Total:</span>
+                    <span className="text-white ml-1">
+                      {isBolivares
+                        ? `${parseFloat(solicitud.monto).toFixed(2)} BS`
+                        : `$${parseFloat(solicitud.monto).toFixed(2)}`}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Pagado:</span>
+                    <span className="text-white ml-1">
+                      {isBolivares
+                        ? `${parseFloat(solicitud.pagado).toFixed(2)} BS`
+                        : `$${parseFloat(solicitud.pagado).toFixed(2)}`}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Saldo:</span>
+                    <span className="text-white ml-1">
+                      {isBolivares
+                        ? `${saldoPendiente.toFixed(2)} BS`
+                        : `$${saldoPendiente.toFixed(2)}`}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-2 mt-3">
                   <BotonIcono
                     tipo="ver"
-                    onClick={() => handleVerSolicitud(solicitud)}
                     titulo="Ver solicitud"
+                    small
+                    onClick={() => handleVerSolicitud(solicitud)}
                   />
 
                   {puedePagar && (
@@ -343,6 +444,7 @@ function ListaSolicitudesPago() {
                       tipo="abonar"
                       onClick={() => handleAgregarPago(solicitud)}
                       disabled={solicitud.estado !== "por_pagar"}
+                      small
                       className={`${
                         solicitud.estado !== "por_pagar"
                           ? "opacity-50 cursor-not-allowed"
@@ -351,12 +453,105 @@ function ListaSolicitudesPago() {
                       titulo="Agregar pago"
                     />
                   )}
-                </td>
-              </tr>
+                </div>
+              </div>
             );
           })}
-        </tbody>
-      </table>
+        </div>
+      </div>
+
+      {/* Vista de tarjetas compactas para móviles */}
+      <div className="md:hidden space-y-3 p-2">
+        {solicitudesPaginadas.map((solicitud) => {
+          const saldoPendiente = solicitud.monto - solicitud.pagado;
+          const isBolivares = solicitud.moneda === "VES";
+
+          return (
+            <div
+              key={solicitud.id}
+              className="bg-gray-800 rounded-lg p-4 shadow"
+            >
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="font-medium text-white">{solicitud.codigo}</h3>
+                  <p className="text-sm text-gray-400">
+                    {new Date(solicitud.fecha).toLocaleDateString("es-VE", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                    })}
+                  </p>
+                </div>
+                <span
+                  className={`px-2 py-1 rounded-full text-xs ${
+                    solicitud.estado === "por_pagar"
+                      ? "bg-yellow-100 text-yellow-800"
+                      : solicitud.estado === "pagada"
+                      ? "bg-green-100 text-green-800"
+                      : solicitud.estado === "cancelada" ||
+                        solicitud.estado === "rechazada"
+                      ? "bg-red-100 text-red-800"
+                      : ""
+                  }`}
+                >
+                  {solicitud.estado}
+                </span>
+              </div>
+
+              <div className="mt-2 text-sm">
+                <div className="flex justify-between py-1 border-b border-gray-700">
+                  <span className="text-gray-400">Total:</span>
+                  <span className="text-white">
+                    {isBolivares
+                      ? `${parseFloat(solicitud.monto).toFixed(2)} BS`
+                      : `$${parseFloat(solicitud.monto).toFixed(2)}`}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-gray-700">
+                  <span className="text-gray-400">Pagado:</span>
+                  <span className="text-white">
+                    {isBolivares
+                      ? `${parseFloat(solicitud.pagado).toFixed(2)} BS`
+                      : `$${parseFloat(solicitud.pagado).toFixed(2)}`}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span className="text-gray-400">Saldo:</span>
+                  <span className="text-white font-semibold">
+                    {isBolivares
+                      ? `${saldoPendiente.toFixed(2)} BS`
+                      : `$${saldoPendiente.toFixed(2)}`}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-2 mt-3">
+                <BotonIcono
+                  tipo="ver"
+                  titulo="Ver"
+                  small
+                  onClick={() => handleVerSolicitud(solicitud)}
+                />
+
+                {puedePagar && (
+                  <BotonIcono
+                    tipo="abonar"
+                    onClick={() => handleAgregarPago(solicitud)}
+                    disabled={solicitud.estado !== "por_pagar"}
+                    small
+                    className={`${
+                      solicitud.estado !== "por_pagar"
+                        ? "opacity-50 cursor-not-allowed"
+                        : ""
+                    }`}
+                    titulo="Pagar"
+                  />
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
 
       {/* Paginación */}
       <Paginacion
