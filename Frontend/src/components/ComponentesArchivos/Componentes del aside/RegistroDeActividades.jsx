@@ -7,15 +7,15 @@ import api from "../../../api";
 /**
  * RegistroDeActividades
  * ---------------------
- * ▸ Muestra los 4 eventos de archivo más recientes que el backend
+ * ▸ Muestra los **3** eventos de archivo más recientes que el backend
  *   permite ver al usuario autenticado (empleado → solo propios,
  *   supervisor/admin → todos).
- * ▸ Llama a GET /archivos/eventos?limit=4 una sola vez al montar.
- * ▸ Usa tailwind para estilo oscuro coherente con el resto de módulos.
+ * ▸ Llama a GET /archivos/eventos?limit=3 una sola vez al montar.
+ * ▸ Usa tailwind para estilo oscuro coherente con el resto del proyecto.
  */
 function RegistroDeActividades() {
   // Estado local ------------------------------------------------------
-  const [eventos, setEventos] = useState([]); // ← lista recibida del backend
+  const [eventos, setEventos] = useState([]);
 
   // Helpers -----------------------------------------------------------
   const obtenerDescripcionAccion = (tipoEvento) => {
@@ -35,8 +35,6 @@ function RegistroDeActividades() {
 
   const formatearTiempo = (fechaIso) => {
     const fecha = new Date(fechaIso);
-
-    // Si la diferencia es < 48 h muestra relativo, si no fecha corta
     const diffHoras = (Date.now() - fecha.getTime()) / 3_600_000;
     return diffHoras < 48
       ? formatDistanceToNowStrict(fecha, { locale: es, addSuffix: true })
@@ -47,7 +45,7 @@ function RegistroDeActividades() {
   const fetchEventos = useCallback(async () => {
     try {
       const { data } = await api.get("/archivos/eventos", {
-        params: { limit: 4 },
+        params: { limit: 3 },
         withCredentials: true,
       });
       setEventos(data.eventos ?? []);
