@@ -30,6 +30,7 @@ import bancosRoutes from "./routes/bancos.routes.js";
 import archivosRoutes from "./routes/archivos.routes.js";
 import almacenamientoRoutes from "./routes/almacenamiento.routes.js";
 import "./jobs/purgarPapeleras.js";
+import eventosArchivosRoutes from "./routes/eventosArchivos.routes.js";
 
 import authRoutes from "./routes/auth.routes.js";
 import usuariosRoutes from "./routes/usuarios.routes.js";
@@ -105,6 +106,7 @@ app.use("/api/usuarios", usuariosRoutes);
 app.use("/api/roles", rolesRoutes);
 app.use("/api/permisos", permisosRoutes);
 app.use("/api/roles-permisos", rolesPermisosRoutes);
+app.use("/api/archivos/eventos", eventosArchivosRoutes);
 
 /* ───── 404 para API inexistente ─────────────────────────── */
 app.use((req, res, next) => {

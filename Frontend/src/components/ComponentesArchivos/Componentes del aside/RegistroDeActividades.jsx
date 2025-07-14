@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Bell, File } from "lucide-react";
 import { format, formatDistanceToNowStrict } from "date-fns";
 import { es } from "date-fns/locale";
+import api from "../../../api";
 
 /**
  * RegistroDeActividades
@@ -9,7 +10,7 @@ import { es } from "date-fns/locale";
  * ▸ Muestra los 4 eventos de archivo más recientes que el backend
  *   permite ver al usuario autenticado (empleado → solo propios,
  *   supervisor/admin → todos).
- * ▸ Llama a GET /api/archivos/eventos?limit=4 una sola vez al montar.
+ * ▸ Llama a GET /archivos/eventos?limit=4 una sola vez al montar.
  * ▸ Usa tailwind para estilo oscuro coherente con el resto de módulos.
  */
 function RegistroDeActividades() {
@@ -45,11 +46,11 @@ function RegistroDeActividades() {
   // Petición al backend ----------------------------------------------
   const fetchEventos = useCallback(async () => {
     try {
-      const respuesta = await fetch("/api/archivos/eventos?limit=4", {
-        credentials: "include", // envía cookie de sesión si existe
+      const { data } = await api.get("/archivos/eventos", {
+        params: { limit: 4 },
+        withCredentials: true,
       });
-      const datos = await respuesta.json();
-      setEventos(datos.eventos ?? []);
+      setEventos(data.eventos ?? []);
     } catch (error) {
       console.error("Error al obtener eventos:", error);
     }
