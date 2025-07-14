@@ -4,15 +4,7 @@ import { format, formatDistanceToNowStrict } from "date-fns";
 import { es } from "date-fns/locale";
 import api from "../../../api";
 
-/**
- * RegistroDeActividades
- * ---------------------
- * ▸ Muestra los **3** eventos de archivo más recientes que el backend
- *   permite ver al usuario autenticado (empleado → solo propios,
- *   supervisor/admin → todos).
- * ▸ Llama a GET /archivos/eventos?limit=3 una sola vez al montar.
- * ▸ Usa tailwind para estilo oscuro coherente con el resto del proyecto.
- */
+
 function RegistroDeActividades() {
   // Estado local ------------------------------------------------------
   const [eventos, setEventos] = useState([]);
@@ -60,7 +52,7 @@ function RegistroDeActividades() {
 
   // Render ------------------------------------------------------------
   return (
-    <div className="w-72 bg-gray-700 rounded-2xl shadow p-4 flex flex-col gap-3">
+    <div className="w-69 bg-gray-700 rounded-2xl shadow p-4 flex flex-col gap-3">
       {/* Encabezado */}
       <div className="flex items-center gap-2">
         <Bell size={20} color="#1A56DB" />

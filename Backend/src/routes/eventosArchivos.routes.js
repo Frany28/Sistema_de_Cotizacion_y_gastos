@@ -8,7 +8,7 @@ const router = Router();
 
 /*  /api/archivos/eventos  →  GET   (app.js hace el prefix) */
 router.get(
-  "/", // <-- dejamos '/' porque app.js ya añade el prefijo
+  "/", 
   autenticarUsuario,
   verificarPermiso("verEventosArchivos"),
   listarEventosArchivos

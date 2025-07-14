@@ -72,7 +72,7 @@ createRoot(document.getElementById("root")).render(
             element={<SolicitudesPage />}
           />
           <Route path="/crearRegistro" element={<CrearRegistro />} />
-
+          <Route path="/archivos" element={<ArchivosPage />} />;
           <Route path="/reportes" element={<RelacionesGatos />} />
         </Route>
         {/* Ruta no encontrada */}
