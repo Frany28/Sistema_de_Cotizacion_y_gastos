@@ -1,7 +1,5 @@
 // services/cuotaService.js
 import db from "../config/database.js";
-import { es } from "date-fns/locale";
-
 
 /**
  * Verifica si el usuario aún dispone de espacio para subir un archivo.
