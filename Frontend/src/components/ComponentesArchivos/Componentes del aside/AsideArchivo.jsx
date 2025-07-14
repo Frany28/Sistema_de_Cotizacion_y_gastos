@@ -7,8 +7,8 @@ export default function AsideArchivo() {
       <div className="left-0 w-[320px] h-screen bg-gray-800">
         <div className="grid justify-center items-center gap-4 pt-25">
           <VistaPreviaAlmacenamiento />
-          <PapeleraButton />
           <RegistroDeActividades />
+          <PapeleraButton />
         </div>
       </div>
     </>
