@@ -425,8 +425,8 @@ const CrearRegistro = () => {
   };
 
   return (
-    <div className="pt-5">
-      <div className=" bg-gray-800 text-white rounded-lg shadow-md">
+    <div className="pt-5 pl-5 pr-5">
+      <div className=" bg-gray-800 text-white rounded-lg shadow-md p-3.5">
         <ModalExito
           visible={modalExito}
           mensaje={mensajeExito}
