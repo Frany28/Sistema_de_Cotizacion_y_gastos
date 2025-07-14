@@ -4,7 +4,7 @@ import Busqueda from "../../components/ComponentesArchivos/Busqueda";
 function ArchivosPage() {
   return (
     <>
-      <div className="flex w-full h-full gap-10">
+      <div className="flex w-full h-full gap-10 pt-5">
         <AsideArchivo />
         <Busqueda />
       </div>
