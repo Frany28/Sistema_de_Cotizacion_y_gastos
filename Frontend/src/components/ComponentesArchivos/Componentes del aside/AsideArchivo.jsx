@@ -5,7 +5,7 @@ export default function AsideArchivo() {
   return (
     <>
       <div className="left-0 w-[320px] h-screen bg-gray-800">
-        <div className="grid justify-center items-center gap-4 pt-25">
+        <div className="grid justify-center items-center gap-4 pt-5">
           <VistaPreviaAlmacenamiento />
           <RegistroDeActividades />
           <PapeleraButton />
