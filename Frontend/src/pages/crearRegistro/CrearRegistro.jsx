@@ -425,113 +425,115 @@ const CrearRegistro = () => {
   };
 
   return (
-    <div className=" bg-gray-800 text-white rounded-lg shadow-md">
-      <ModalExito
-        visible={modalExito}
-        mensaje={mensajeExito}
-        onClose={() => setModalExito(false)}
-      />
-      <ModalError
-        visible={modalError.visible}
-        mensaje={modalError.mensaje}
-        onClose={() => setModalError({ visible: false, mensaje: "" })}
-      />
-
-      <h1 className="text-2xl font-bold mb-6">Nuevo Registro</h1>
-
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-white mb-2">
-          Tipo de registro *
-        </label>
-        <select
-          value={tipoRegistro}
-          onChange={async (e) => {
-            const tipo = e.target.value;
-
-            if (tipo === "cotizacion") {
-              const tienePermiso = await verificarPermisoFront(
-                "crearCotizacion"
-              );
-              if (!tienePermiso) {
-                setModalError({
-                  visible: true,
-                  mensaje:
-                    "No tienes permiso para crear cotizaciones con tu rol actual.",
-                });
-                return;
-              }
-            }
-
-            if (tipo === "gasto") {
-              const tienePermiso = await verificarPermisoFront("crearGasto");
-              if (!tienePermiso) {
-                setModalError({
-                  visible: true,
-                  mensaje:
-                    "No tienes permiso para registrar gastos con tu rol actual.",
-                });
-                return;
-              }
-            }
-
-            setTipoRegistro(tipo);
-            setItemsAgregados([]);
-          }}
-          className="cursor-pointer bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
-          required
-        >
-          <option value="">Seleccione un tipo de registro</option>
-          <option value="cotizacion">Cotización</option>
-          <option value="gasto">Gasto</option>
-        </select>
-      </div>
-
-      {tipoRegistro === "cotizacion" && (
-        <>
-          <AgregarCotizacion
-            servicios={servicios}
-            clientes={clientes}
-            setClientes={setClientes}
-            setClienteSeleccionado={setClienteSeleccionado}
-            clienteSeleccionado={clienteSeleccionado}
-            loading={loading}
-            itemsAgregados={itemsAgregados}
-            setItemsAgregados={setItemsAgregados}
-            onGenerarCotizacion={(datosGenerales) => {
-              setForm(datosGenerales);
-              crearCotizacion(datosGenerales);
-            }}
-            onActualizarDatos={setDatosGeneralesPreview}
-          />
-
-          {clienteSeleccionado && itemsAgregados.length > 0 && (
-            <div className="mt-6">
-              <button
-                onClick={() => verVistaPrevia(datosGeneralesPreview)}
-                className="cursor-pointer bg-green-600 hover:bg-green-700 px-4 py-2 rounded text-white"
-              >
-                Ver Vista Previa (PDF)
-              </button>
-            </div>
-          )}
-        </>
-      )}
-
-      {tipoRegistro === "gasto" && (
-        <AgregarGasto
-          categoriasGastos={categoriasGastos}
-          proveedores={proveedores}
-          setProveedores={setProveedores}
-          sucursales={sucursales}
-          cotizaciones={cotizaciones}
-          crearGasto={crearGasto}
-          onAgregarGasto={(nuevoGasto) => {
-            setItemsAgregados((prevItems) => [...prevItems, nuevoGasto]);
-            setModalExito(true);
-          }}
-          loading={loading}
+    <div className="pt-5 px-4 sm:px-6">
+      <div className=" bg-gray-800 text-white rounded-lg shadow-md">
+        <ModalExito
+          visible={modalExito}
+          mensaje={mensajeExito}
+          onClose={() => setModalExito(false)}
         />
-      )}
+        <ModalError
+          visible={modalError.visible}
+          mensaje={modalError.mensaje}
+          onClose={() => setModalError({ visible: false, mensaje: "" })}
+        />
+
+        <h1 className="text-2xl font-bold mb-6">Nuevo Registro</h1>
+
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-white mb-2">
+            Tipo de registro *
+          </label>
+          <select
+            value={tipoRegistro}
+            onChange={async (e) => {
+              const tipo = e.target.value;
+
+              if (tipo === "cotizacion") {
+                const tienePermiso = await verificarPermisoFront(
+                  "crearCotizacion"
+                );
+                if (!tienePermiso) {
+                  setModalError({
+                    visible: true,
+                    mensaje:
+                      "No tienes permiso para crear cotizaciones con tu rol actual.",
+                  });
+                  return;
+                }
+              }
+
+              if (tipo === "gasto") {
+                const tienePermiso = await verificarPermisoFront("crearGasto");
+                if (!tienePermiso) {
+                  setModalError({
+                    visible: true,
+                    mensaje:
+                      "No tienes permiso para registrar gastos con tu rol actual.",
+                  });
+                  return;
+                }
+              }
+
+              setTipoRegistro(tipo);
+              setItemsAgregados([]);
+            }}
+            className="cursor-pointer bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+            required
+          >
+            <option value="">Seleccione un tipo de registro</option>
+            <option value="cotizacion">Cotización</option>
+            <option value="gasto">Gasto</option>
+          </select>
+        </div>
+
+        {tipoRegistro === "cotizacion" && (
+          <>
+            <AgregarCotizacion
+              servicios={servicios}
+              clientes={clientes}
+              setClientes={setClientes}
+              setClienteSeleccionado={setClienteSeleccionado}
+              clienteSeleccionado={clienteSeleccionado}
+              loading={loading}
+              itemsAgregados={itemsAgregados}
+              setItemsAgregados={setItemsAgregados}
+              onGenerarCotizacion={(datosGenerales) => {
+                setForm(datosGenerales);
+                crearCotizacion(datosGenerales);
+              }}
+              onActualizarDatos={setDatosGeneralesPreview}
+            />
+
+            {clienteSeleccionado && itemsAgregados.length > 0 && (
+              <div className="mt-6">
+                <button
+                  onClick={() => verVistaPrevia(datosGeneralesPreview)}
+                  className="cursor-pointer bg-green-600 hover:bg-green-700 px-4 py-2 rounded text-white"
+                >
+                  Ver Vista Previa (PDF)
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
+        {tipoRegistro === "gasto" && (
+          <AgregarGasto
+            categoriasGastos={categoriasGastos}
+            proveedores={proveedores}
+            setProveedores={setProveedores}
+            sucursales={sucursales}
+            cotizaciones={cotizaciones}
+            crearGasto={crearGasto}
+            onAgregarGasto={(nuevoGasto) => {
+              setItemsAgregados((prevItems) => [...prevItems, nuevoGasto]);
+              setModalExito(true);
+            }}
+            loading={loading}
+          />
+        )}
+      </div>
     </div>
   );
 };
