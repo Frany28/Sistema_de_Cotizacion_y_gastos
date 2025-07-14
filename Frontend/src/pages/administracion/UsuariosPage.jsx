@@ -1,6 +1,5 @@
 import UsuariosCRUD from "../../components/UsuariosCRUD";
 
-
 function UsuariosPage() {
   return (
     <>
