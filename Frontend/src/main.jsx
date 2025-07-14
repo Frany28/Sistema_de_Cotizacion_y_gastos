@@ -34,7 +34,6 @@ createRoot(document.getElementById("root")).render(
         <Route path="/" element={<Login />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/archivos" element={<ArchivosPage />} />;
         {/* Rutas privadas protegidas con layout */}
         <Route
           element={
