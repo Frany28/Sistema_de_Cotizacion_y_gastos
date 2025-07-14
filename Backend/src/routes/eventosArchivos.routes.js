@@ -1,4 +1,4 @@
-import { listarEventosArchivos } from "../controllers/eventosArchivos.controller";
+import { listarEventosArchivos } from "../controllers/eventosArchivos.controller.js";
 import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
 import { verificarPermiso } from "../Middleware/verificarPermiso.js";
 
