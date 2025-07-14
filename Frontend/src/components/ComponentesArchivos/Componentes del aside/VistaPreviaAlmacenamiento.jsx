@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { HardDrive } from "lucide-react";
 import { useNavigate } from "react-router-dom"; // si usas react-router
-import api from "../../api"; // misma instancia Axios
+import api from "../../../api"; // misma instancia Axios
 
 function VistaPreviaAlmacenamiento() {
   const [datos, setDatos] = useState(null);
@@ -37,11 +37,11 @@ function VistaPreviaAlmacenamiento() {
 
   /* ────────────────────────── UI ─────────────────────────── */
   return (
-    <div className="absolute top-2 left-6.5 w-69 h-40 bg-gray-700 rounded-2xl">
+    <div className="w-69 h-40 bg-gray-700 rounded-2xl">
       {/* Encabezado */}
       <div className="flex p-5 gap-2 items-center">
         <HardDrive color="#1A56DB" className="w-5 h-5" />
-        <h2 className="text-white font-semibold">Almacenamiento</h2>
+        <h2 className="text-white font-semibold text-1xl">Almacenamiento</h2>
       </div>
 
       {/* Métricas principales */}

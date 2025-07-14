@@ -1,4 +1,4 @@
-import AsideArchivo from "../../components/ComponentesArchivos/AsideArchivo";
+import AsideArchivo from "../../components/ComponentesArchivos/Componentes del aside/AsideArchivo";
 
 function ArchivosPage() {
   return (
