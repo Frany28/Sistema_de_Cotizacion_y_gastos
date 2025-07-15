@@ -7,7 +7,7 @@ function ArchivosPage() {
     <>
       <div className="flex w-full h-full gap-10">
         <AsideArchivo />
-        <div>
+        <div className="gap-3 flex flex-col w-full h-full">
           <Busqueda />
           <TablaArchivos />
         </div>

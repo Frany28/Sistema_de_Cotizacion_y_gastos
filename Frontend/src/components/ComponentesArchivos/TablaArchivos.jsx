@@ -15,12 +15,12 @@ import { es } from "date-fns/locale";
 import api from "../../api/index";
 
 /**
- * TablaArchivos (v3.2)
+ * TablaArchivos (v3.3)
  * ---------------------------------------------------------------------------
- * ▸ Tabla explorador con búsqueda, orden y UI responsive.
- * ▸ Cabecera sticky, sombreado zebra y animación skeleton mientras carga.
- * ▸ Corrige posibles TypeErrors (array null/objeto).
- * ▸ Variables y funciones en camelCase y en español.
+ * ▸ Tabla explorador con búsqueda, orden y UI responsive mejorada.
+ * ▸ Muestra tamaño total y última modificación para carpetas.
+ * ▸ Diseño más amplio y mejorado con nueva paleta de colores.
+ * ▸ Efectos visuales mejorados y filtrado optimizado.
  */
 
 function TablaArchivos() {
@@ -55,7 +55,7 @@ function TablaArchivos() {
   }, [obtenerArbolArchivos]);
 
   /* ----------------------------------------------------------------------- */
-  /* Helpers                                                                  */
+  /* Helpers                                                                 */
   /* ----------------------------------------------------------------------- */
   const formatoFecha = (iso) => {
     if (!iso) return "-";
@@ -82,7 +82,7 @@ function TablaArchivos() {
     const e = ext?.toLowerCase();
     switch (e) {
       case "pdf":
-        return <FileText size={18} className="text-red-500" />;
+        return <FileText size={18} className="text-red-400" />;
       case "jpg":
       case "jpeg":
       case "png":
@@ -93,10 +93,10 @@ function TablaArchivos() {
         return <FileArchive size={18} className="text-amber-400" />;
       case "mp3":
       case "wav":
-        return <FileAudio size={18} className="text-yellow-500" />;
+        return <FileAudio size={18} className="text-yellow-400" />;
       case "mp4":
       case "avi":
-        return <FileVideo size={18} className="text-violet-500" />;
+        return <FileVideo size={18} className="text-violet-400" />;
       default:
         return <FileWarning size={18} className="text-gray-400" />;
     }
@@ -109,6 +109,42 @@ function TablaArchivos() {
     cadena.toLowerCase().includes(terminoBusqueda.trim().toLowerCase());
 
   /* ----------------------------------------------------------------------- */
+  /* Cálculos para carpetas                                                  */
+  /* ----------------------------------------------------------------------- */
+  const calcularTamanoCarpeta = (carpeta) => {
+    if (!carpeta.hijos || !Array.isArray(carpeta.hijos)) return 0;
+
+    return carpeta.hijos.reduce((total, hijo) => {
+      if (hijo.tipo === "archivo") {
+        return total + (hijo.tamanoBytes || 0);
+      } else if (hijo.tipo === "carpeta") {
+        return total + calcularTamanoCarpeta(hijo);
+      }
+      return total;
+    }, 0);
+  };
+
+  const obtenerUltimaModificacion = (carpeta) => {
+    if (!carpeta.hijos || !Array.isArray(carpeta.hijos)) return null;
+
+    let ultimaFecha = new Date(carpeta.creadoEn);
+
+    carpeta.hijos.forEach((hijo) => {
+      const fechaHijo = new Date(hijo.creadoEn);
+      if (hijo.tipo === "carpeta") {
+        const fechaSubcarpeta = obtenerUltimaModificacion(hijo);
+        if (fechaSubcarpeta && fechaSubcarpeta > ultimaFecha) {
+          ultimaFecha = fechaSubcarpeta;
+        }
+      } else if (fechaHijo > ultimaFecha) {
+        ultimaFecha = fechaHijo;
+      }
+    });
+
+    return ultimaFecha;
+  };
+
+  /* ----------------------------------------------------------------------- */
   /* Ordenación                                                              */
   /* ----------------------------------------------------------------------- */
   const ordenar = (a, b) => {
@@ -116,9 +152,21 @@ function TablaArchivos() {
     const factor = orden.asc ? 1 : -1;
     switch (orden.campo) {
       case "tamanoBytes":
-        return factor * ((a.tamanoBytes || 0) - (b.tamanoBytes || 0));
+        const tamanoA =
+          a.tipo === "carpeta" ? calcularTamanoCarpeta(a) : a.tamanoBytes || 0;
+        const tamanoB =
+          b.tipo === "carpeta" ? calcularTamanoCarpeta(b) : b.tamanoBytes || 0;
+        return factor * (tamanoA - tamanoB);
       case "creadoEn":
-        return factor * (new Date(a.creadoEn) - new Date(b.creadoEn));
+        const fechaA =
+          a.tipo === "carpeta"
+            ? obtenerUltimaModificacion(a)
+            : new Date(a.creadoEn);
+        const fechaB =
+          b.tipo === "carpeta"
+            ? obtenerUltimaModificacion(b)
+            : new Date(b.creadoEn);
+        return factor * (fechaA - fechaB);
       default:
         return factor * a.nombre.localeCompare(b.nombre);
     }
@@ -129,51 +177,60 @@ function TablaArchivos() {
   /* ----------------------------------------------------------------------- */
   const renderizarNodo = (nodo, nivel = 0) => {
     // Filtrado por búsqueda -------------------------------------------------
-    if (
-      terminoBusqueda &&
-      nodo.tipo === "archivo" &&
-      !coincideBusqueda(nodo.nombre)
-    ) {
+    const tieneCoincidencia = coincideBusqueda(nodo.nombre);
+
+    if (terminoBusqueda && nodo.tipo === "archivo" && !tieneCoincidencia) {
       return [];
     }
 
-    const sangriaPx = 16 + nivel * 20;
+    const sangriaPx = 16 + nivel * 24;
 
     if (nodo.tipo === "carpeta") {
-      // Si la carpeta no contiene coincidencias, ocultar en modo búsqueda
+      // Renderizar hijos primero para determinar si hay coincidencias
       const hijosFiltrados = (
         Array.isArray(nodo.hijos) ? nodo.hijos : []
       ).flatMap((h) => renderizarNodo(h, nivel + 1));
-      if (
-        terminoBusqueda &&
-        hijosFiltrados.length === 0 &&
-        !coincideBusqueda(nodo.nombre)
-      ) {
+
+      const tieneHijosCoincidentes = hijosFiltrados.length > 0;
+
+      if (terminoBusqueda && !tieneCoincidencia && !tieneHijosCoincidentes) {
         return [];
       }
 
       const abierta = !!nodosExpandidos[nodo.ruta] || terminoBusqueda;
 
+      // Calcular tamaño y fecha para la carpeta
+      const tamanoCarpeta = calcularTamanoCarpeta(nodo);
+      const ultimaModificacion = obtenerUltimaModificacion(nodo);
+
       const filaCarpeta = (
         <tr
           key={nodo.ruta}
-          className="cursor-pointer hover:bg-gray-600/30 select-none"
+          className="cursor-pointer hover:bg-gray-600/40 transition-colors duration-150 select-none"
           onClick={() => alternarNodo(nodo.ruta)}
         >
           <td
-            className="py-2 flex items-center gap-2 font-medium text-gray-100"
+            className="py-3 flex items-center gap-2 font-medium text-gray-50"
             style={{ paddingLeft: sangriaPx }}
           >
             {abierta ? (
-              <ChevronDown size={16} className="text-gray-400" />
+              <ChevronDown size={16} className="text-blue-300" />
             ) : (
               <ChevronRight size={16} className="text-gray-400" />
             )}
             <Folder size={18} className="text-blue-400" />
-            <span>{nodo.nombre.replace(/_/g, " ")}</span>
+            <span className="truncate max-w-[24rem]">
+              {nodo.nombre.replace(/_/g, " ")}
+            </span>
           </td>
-          <td className="text-sm text-gray-400">-</td>
-          <td className="text-sm text-gray-400 pr-4 text-right">-</td>
+          <td className="text-sm text-gray-300 whitespace-nowrap">
+            {ultimaModificacion
+              ? formatoFecha(ultimaModificacion.toISOString())
+              : "-"}
+          </td>
+          <td className="text-sm text-gray-300 pr-6 text-right">
+            {tamanoCarpeta > 0 ? formatoTamano(tamanoCarpeta) : "-"}
+          </td>
         </tr>
       );
 
@@ -184,20 +241,21 @@ function TablaArchivos() {
 
     // Archivo ---------------------------------------------------------------
     return [
-      <tr key={nodo.ruta} className="hover:bg-gray-600/30">
+      <tr
+        key={nodo.ruta}
+        className="hover:bg-gray-600/30 transition-colors duration-150"
+      >
         <td
-          className="py-2 flex items-center gap-2 text-gray-100"
+          className="py-3 flex items-center gap-2 text-gray-100"
           style={{ paddingLeft: sangriaPx }}
         >
           {iconoPorExtension(nodo.extension)}
-          <span className="truncate max-w-[18rem] md:max-w-none">
-            {nodo.nombre}
-          </span>
+          <span className="truncate max-w-[24rem]">{nodo.nombre}</span>
         </td>
-        <td className="text-sm text-gray-400 whitespace-nowrap md:w-56">
+        <td className="text-sm text-gray-300 whitespace-nowrap">
           {formatoFecha(nodo.creadoEn)}
         </td>
-        <td className="text-sm text-gray-400 pr-4 text-right hidden sm:table-cell md:w-28">
+        <td className="text-sm text-gray-300 pr-6 text-right">
           {formatoTamano(nodo.tamanoBytes)}
         </td>
       </tr>,
@@ -219,7 +277,7 @@ function TablaArchivos() {
   /* ----------------------------------------------------------------------- */
   if (cargando) {
     return (
-      <div className="w-full bg-gray-700 rounded-2xl p-4 animate-pulse h-56" />
+      <div className="w-full bg-gray-700 rounded-xl p-4 animate-pulse h-64" />
     );
   }
 
@@ -227,56 +285,62 @@ function TablaArchivos() {
   /* Render tabla                                                            */
   /* ----------------------------------------------------------------------- */
   return (
-    <div className="w-full bg-gray-700 rounded-2xl shadow-lg overflow-x-auto">
+    <div className="w-full bg-gray-750 rounded-xl shadow-lg overflow-x-auto">
       {/* Barra de herramientas */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-2 p-4 pb-0">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-5 pb-3">
         <input
           type="text"
-          placeholder="Buscar…"
+          placeholder="Buscar archivos o carpetas..."
           value={terminoBusqueda}
           onChange={(e) => setTerminoBusqueda(e.target.value)}
-          className="w-full sm:w-60 bg-gray-600/60 border border-gray-500 rounded-lg px-3 py-1.5 text-sm text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full sm:w-72 bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-sm text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
         />
-        <div className="flex gap-1 text-xs text-gray-300">
+        <div className="flex gap-2 text-sm text-gray-300">
           <button
             onClick={() => setOrden({ campo: "nombre", asc: !orden.asc })}
-            className="px-2 py-1 rounded-md hover:bg-gray-600/40"
+            className={`px-3 py-1.5 rounded-lg hover:bg-gray-600/40 transition-colors ${
+              orden.campo === "nombre" ? "bg-gray-600/60" : ""
+            }`}
           >
-            Nombre {orden.campo === "nombre" && (orden.asc ? "▲" : "▼")}
+            Nombre {orden.campo === "nombre" && (orden.asc ? "↑" : "↓")}
           </button>
           <button
             onClick={() => setOrden({ campo: "creadoEn", asc: !orden.asc })}
-            className="px-2 py-1 rounded-md hover:bg-gray-600/40"
+            className={`px-3 py-1.5 rounded-lg hover:bg-gray-600/40 transition-colors ${
+              orden.campo === "creadoEn" ? "bg-gray-600/60" : ""
+            }`}
           >
-            Fecha {orden.campo === "creadoEn" && (orden.asc ? "▲" : "▼")}
+            Fecha {orden.campo === "creadoEn" && (orden.asc ? "↑" : "↓")}
           </button>
           <button
             onClick={() => setOrden({ campo: "tamanoBytes", asc: !orden.asc })}
-            className="px-2 py-1 rounded-md hover:bg-gray-600/40 hidden sm:inline-block"
+            className={`px-3 py-1.5 rounded-lg hover:bg-gray-600/40 transition-colors ${
+              orden.campo === "tamanoBytes" ? "bg-gray-600/60" : ""
+            }`}
           >
-            Tamaño {orden.campo === "tamanoBytes" && (orden.asc ? "▲" : "▼")}
+            Tamaño {orden.campo === "tamanoBytes" && (orden.asc ? "↑" : "↓")}
           </button>
         </div>
       </div>
 
       {/* Tabla */}
       <table className="min-w-full text-left border-collapse text-sm">
-        <thead className="sticky top-0 bg-gray-800/70 backdrop-blur-md z-10">
-          <tr className="text-gray-300 font-semibold border-b border-gray-600/40 text-xs sm:text-sm">
-            <th className="py-3 pl-4">Nombre</th>
-            <th className="w-48">Última modificación</th>
-            <th className="w-28 pr-4 text-right hidden sm:table-cell">
-              Tamaño
-            </th>
+        <thead className="sticky top-0 bg-gray-800/90 backdrop-blur-sm z-10">
+          <tr className="text-gray-300 font-semibold border-b border-gray-600/40">
+            <th className="py-3.5 pl-6 text-base">Nombre</th>
+            <th className="py-3.5 w-56 text-base">Última modificación</th>
+            <th className="py-3.5 w-32 pr-6 text-right text-base">Tamaño</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-600/25">
+        <tbody className="divide-y divide-gray-600/30">
           {filas.length ? (
             filas
           ) : (
             <tr>
-              <td colSpan={3} className="py-10 text-center text-gray-400">
-                No hay archivos que mostrar
+              <td colSpan={3} className="py-12 text-center text-gray-400">
+                {terminoBusqueda
+                  ? "No se encontraron resultados para tu búsqueda"
+                  : "No hay archivos que mostrar"}
               </td>
             </tr>
           )}
