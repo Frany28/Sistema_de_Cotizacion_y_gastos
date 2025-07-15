@@ -12,33 +12,37 @@ import {
 } from "lucide-react";
 import { format, formatDistanceToNowStrict } from "date-fns";
 import { es } from "date-fns/locale";
-import api from "../../api/index";
+import axios from "axios";
 import clsx from "clsx";
 
 /**
- * TablaArchivos
- * --------------
- * ▸ Consume GET /archivos/arbol y pinta una tabla estilo explorador.
- * ▸ Permite expandir/cerrar carpetas. El estado se guarda en memory (no URL).
- * ▸ Iconos según tipo de archivo (pdf, img, docx, etc.) siguiendo el color
- *   de tu mockup.
+ * TablaArchivos (v2 – diseño refinado)
+ * ------------------------------------
+ * ▸ Árbol de archivos con look minimalista dark, header fijo, líneas divisorias
+ * ▸ Animación sutil al expandir carpetas, colores de hover + separación filas
+ * ▸ Placeholder skeleton mientras carga la data
  */
 function TablaArchivos() {
   /* =============================================================
-   *  Estado y helpers
+   *  Estado
    * ============================================================= */
-  const [arbol, setArbol] = useState([]); // árbol completo desde el backend
-  const [expandido, setExpandido] = useState({}); // { "ruta/carpeta": true }
+  const [arbol, setArbol] = useState([]);
+  const [expandido, setExpandido] = useState({});
+  const [cargando, setCargando] = useState(true);
 
-  /** Cargar árbol una sola vez */
+  /* =============================================================
+   *  Helpers
+   * ============================================================= */
   const fetchArbol = useCallback(async () => {
     try {
-      const { data } = await api.get("/archivos/arbol", {
+      const { data } = await axios.get("/archivos/arbol", {
         withCredentials: true,
       });
       setArbol(data);
     } catch (e) {
-      console.error("Error al traer árbol de archivos", e);
+      console.error("Error al traer árbol", e);
+    } finally {
+      setCargando(false);
     }
   }, []);
 
@@ -46,83 +50,85 @@ function TablaArchivos() {
     fetchArbol();
   }, [fetchArbol]);
 
-  /** Toggle carpeta */
-  const handleToggle = (ruta) => {
-    setExpandido((prev) => ({ ...prev, [ruta]: !prev[ruta] }));
-  };
+  const toggle = (ruta) => setExpandido((p) => ({ ...p, [ruta]: !p[ruta] }));
 
-  /** Formatear tiempo modificación (igual lógica de tarjeta) */
   const fmtFecha = (iso) => {
-    const fecha = new Date(iso);
-    const diffH = (Date.now() - fecha) / 3_600_000;
-    return diffH < 48
-      ? formatDistanceToNowStrict(fecha, { locale: es, addSuffix: true })
-      : format(fecha, "LLL dd, yyyy", { locale: es });
+    if (!iso) return "-";
+    const d = new Date(iso);
+    const diff = (Date.now() - d) / 3_600_000;
+    return diff < 48
+      ? formatDistanceToNowStrict(d, { locale: es, addSuffix: true })
+      : format(d, "LLL dd, yyyy", { locale: es });
   };
 
-  const fmtTamano = (bytes) => {
-    if (bytes == null) return "-";
-    const unidades = ["B", "KB", "MB", "GB", "TB"];
+  const fmtSize = (b) => {
+    if (!b) return "-";
+    const u = ["B", "KB", "MB", "GB", "TB"];
     let i = 0;
-    let num = bytes;
-    while (num >= 1024 && i < unidades.length - 1) {
-      num /= 1024;
+    let n = b;
+    while (n >= 1024 && i < u.length - 1) {
+      n /= 1024;
       i++;
     }
-    return `${num.toFixed(i === 0 ? 0 : 1)} ${unidades[i]}`;
+    return `${n.toFixed(i ? 1 : 0)} ${u[i]}`;
   };
 
-  /** icono segun extension */
-  const getIconoArchivo = (ext) => {
-    switch (ext.toLowerCase()) {
+  const icono = (ext) => {
+    switch (ext?.toLowerCase()) {
       case "pdf":
-        return <FileText size={18} color="#DC2626" />; // rojo
+        return <FileText size={18} className="text-red-500" />;
       case "jpg":
       case "jpeg":
       case "png":
       case "gif":
-        return <ImageIcon size={18} color="#22D3EE" />; // cian
+        return <ImageIcon size={18} className="text-cyan-400" />;
       case "zip":
       case "rar":
-        return <FileArchive size={18} color="#FBBF24" />; // ámbar
+        return <FileArchive size={18} className="text-amber-400" />;
       case "mp3":
       case "wav":
-        return <FileAudio size={18} color="#F59E0B" />;
+        return <FileAudio size={18} className="text-amber-500" />;
       case "mp4":
       case "avi":
-        return <FileVideo size={18} color="#A855F7" />;
+        return <FileVideo size={18} className="text-violet-500" />;
       default:
-        return <FileWarning size={18} color="#6B7280" />; // gris
+        return <FileWarning size={18} className="text-gray-400" />;
     }
   };
 
   /* =============================================================
-   *  Render fila recursiva (folder o file)
+   *  Render recursivo
    * ============================================================= */
-  const renderNodo = (nodo, nivel = 0) => {
-    if (nodo.tipo === "carpeta") {
-      const abierto = !!expandido[nodo.ruta];
+  const renderNodo = (n, lvl = 0) => {
+    if (n.tipo === "carpeta") {
+      const open = !!expandido[n.ruta];
       return (
         <>
           <tr
-            key={nodo.ruta}
-            className="cursor-pointer hover:bg-gray-600/40"
-            onClick={() => handleToggle(nodo.ruta)}
+            key={n.ruta}
+            className="group border-b border-gray-600/50 hover:bg-gray-600/30 cursor-pointer select-none"
+            onClick={() => toggle(n.ruta)}
           >
-            <td className="py-2 pl-4 pr-3 flex items-center gap-2 text-white font-medium">
-              {abierto ? (
-                <ChevronDown size={16} className="text-gray-400" />
+            <td className="py-2 pl-4 flex items-center gap-2 text-gray-100 font-medium">
+              {open ? (
+                <ChevronDown
+                  size={16}
+                  className="text-gray-400 transition-transform group-hover:translate-x-0.5"
+                />
               ) : (
-                <ChevronRight size={16} className="text-gray-400" />
+                <ChevronRight
+                  size={16}
+                  className="text-gray-400 transition-transform group-hover:translate-x-0.5"
+                />
               )}
-              <Folder size={18} color="#3B82F6" />
-              {nodo.nombre}
+              <Folder size={18} className="text-blue-400" />
+              <span>{n.nombre.replace(/_/g, " ")}</span>
             </td>
             <td className="text-sm text-gray-400">-</td>
             <td className="text-sm text-gray-400 pr-4 text-right">-</td>
           </tr>
-          {abierto &&
-            nodo.hijos
+          {open &&
+            n.hijos
               .sort((a, b) =>
                 a.tipo === b.tipo
                   ? a.nombre.localeCompare(b.nombre)
@@ -130,39 +136,52 @@ function TablaArchivos() {
                   ? -1
                   : 1
               )
-              .flatMap((h) => renderNodo(h, nivel + 1))}
+              .flatMap((h) => renderNodo(h, lvl + 1))}
         </>
       );
     }
 
     // archivo
+    const padding = 4 + lvl * 4;
     return (
-      <tr key={nodo.ruta} className="hover:bg-gray-600/40">
+      <tr
+        key={n.ruta}
+        className="border-b border-gray-600/50 hover:bg-gray-600/30"
+      >
         <td
           className={clsx(
-            "py-2 pr-3 flex items-center gap-2 text-white",
-            nivel > 0 && `pl-${4 + nivel * 4}`
+            "py-2 flex items-center gap-2 text-gray-100",
+            `pl-${padding}`
           )}
         >
-          {getIconoArchivo(nodo.extension)}
-          {nodo.nombre}
+          {icono(n.extension)}
+          <span>{n.nombre}</span>
         </td>
-        <td className="text-sm text-gray-400">{fmtFecha(nodo.creadoEn)}</td>
+        <td className="text-sm text-gray-400">{fmtFecha(n.creadoEn)}</td>
         <td className="text-sm text-gray-400 pr-4 text-right">
-          {fmtTamano(nodo.tamanoBytes)}
+          {fmtSize(n.tamanoBytes)}
         </td>
       </tr>
     );
   };
 
   /* =============================================================
-   *  Tabla completa
+   *  Skeleton (loading)…
+   * ============================================================= */
+  if (cargando) {
+    return (
+      <div className="w-full bg-gray-700 rounded-2xl p-4 animate-pulse h-48" />
+    );
+  }
+
+  /* =============================================================
+   *  Tabla final
    * ============================================================= */
   return (
-    <div className="w-full bg-gray-700 rounded-2xl shadow pt-5">
-      <table className="w-full text-left border-separate border-spacing-0">
-        <thead>
-          <tr className="text-gray-300 text-sm">
+    <div className="w-full bg-gray-700 rounded-2xl shadow overflow-x-auto">
+      <table className="w-full text-left border-collapse">
+        <thead className="sticky top-0 bg-gray-800/60 backdrop-blur-sm z-10">
+          <tr className="text-gray-300 text-sm border-b border-gray-600/50">
             <th className="py-3 pl-4 font-semibold">Nombre</th>
             <th className="font-semibold">Última Modificación</th>
             <th className="font-semibold pr-4 text-right">Tamaño</th>
