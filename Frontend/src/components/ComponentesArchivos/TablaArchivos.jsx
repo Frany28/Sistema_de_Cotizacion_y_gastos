@@ -57,13 +57,16 @@ function TablaArchivos() {
   /* ----------------------------------------------------------------------- */
   /* Helpers                                                                 */
   /* ----------------------------------------------------------------------- */
-  const formatoFecha = (iso) => {
-    if (!iso) return "-";
-    const fecha = new Date(iso);
-    const horasDesde = (Date.now() - fecha) / 3_600_000;
+  const formatoFecha = (fecha) => {
+    if (!fecha) return "-";
+
+    const date = fecha instanceof Date ? fecha : new Date(fecha);
+    if (isNaN(date.getTime())) return "-";
+
+    const horasDesde = (Date.now() - date) / 3_600_000;
     return horasDesde < 48
-      ? formatDistanceToNowStrict(fecha, { locale: es, addSuffix: true })
-      : format(fecha, "LLL dd, yyyy", { locale: es });
+      ? formatDistanceToNowStrict(date, { locale: es, addSuffix: true })
+      : format(date, "LLL dd, yyyy", { locale: es });
   };
 
   const formatoTamano = (bytes) => {
@@ -128,20 +131,27 @@ function TablaArchivos() {
     if (!carpeta.hijos || !Array.isArray(carpeta.hijos)) return null;
 
     let ultimaFecha = new Date(carpeta.creadoEn);
+    // Si la fecha de la carpeta no es válida, empezamos con fecha mínima
+    if (isNaN(ultimaFecha.getTime())) ultimaFecha = new Date(0);
 
     carpeta.hijos.forEach((hijo) => {
-      const fechaHijo = new Date(hijo.creadoEn);
+      let fechaHijo;
+
       if (hijo.tipo === "carpeta") {
         const fechaSubcarpeta = obtenerUltimaModificacion(hijo);
-        if (fechaSubcarpeta && fechaSubcarpeta > ultimaFecha) {
-          ultimaFecha = fechaSubcarpeta;
+        if (fechaSubcarpeta && !isNaN(fechaSubcarpeta.getTime())) {
+          fechaHijo = fechaSubcarpeta;
         }
-      } else if (fechaHijo > ultimaFecha) {
+      } else {
+        fechaHijo = new Date(hijo.creadoEn);
+      }
+
+      if (fechaHijo && !isNaN(fechaHijo.getTime()) && fechaHijo > ultimaFecha) {
         ultimaFecha = fechaHijo;
       }
     });
 
-    return ultimaFecha;
+    return isNaN(ultimaFecha.getTime()) ? null : ultimaFecha;
   };
 
   /* ----------------------------------------------------------------------- */
@@ -224,9 +234,7 @@ function TablaArchivos() {
             </span>
           </td>
           <td className="text-sm text-gray-300 whitespace-nowrap">
-            {ultimaModificacion
-              ? formatoFecha(ultimaModificacion.toISOString())
-              : "-"}
+            {ultimaModificacion ? formatoFecha(ultimaModificacion) : "-"}
           </td>
           <td className="text-sm text-gray-300 pr-6 text-right">
             {tamanoCarpeta > 0 ? formatoTamano(tamanoCarpeta) : "-"}
