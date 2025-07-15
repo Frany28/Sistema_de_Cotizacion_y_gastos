@@ -14,15 +14,6 @@ import { format, formatDistanceToNowStrict } from "date-fns";
 import { es } from "date-fns/locale";
 import api from "../../api/index";
 
-/**
- * TablaArchivos (v3.3)
- * ---------------------------------------------------------------------------
- * ▸ Tabla explorador con búsqueda, orden y UI responsive mejorada.
- * ▸ Muestra tamaño total y última modificación para carpetas.
- * ▸ Diseño más amplio y mejorado con nueva paleta de colores.
- * ▸ Efectos visuales mejorados y filtrado optimizado.
- */
-
 function TablaArchivos() {
   /* ----------------------------------------------------------------------- */
   /* Estado                                                                  */
@@ -70,7 +61,7 @@ function TablaArchivos() {
   };
 
   const formatoTamano = (bytes) => {
-    if (bytes == null) return "-";
+    if (bytes == null || bytes === 0) return "-";
     const unidades = ["B", "KB", "MB", "GB", "TB"];
     let indice = 0;
     let valor = bytes;
@@ -114,7 +105,7 @@ function TablaArchivos() {
   /* ----------------------------------------------------------------------- */
   /* Cálculos para carpetas                                                  */
   /* ----------------------------------------------------------------------- */
-  const calcularTamanoCarpeta = (carpeta) => {
+  const calcularTamanoCarpeta = useCallback((carpeta) => {
     if (!carpeta.hijos || !Array.isArray(carpeta.hijos)) return 0;
 
     return carpeta.hijos.reduce((total, hijo) => {
@@ -125,13 +116,12 @@ function TablaArchivos() {
       }
       return total;
     }, 0);
-  };
+  }, []);
 
-  const obtenerUltimaModificacion = (carpeta) => {
+  const obtenerUltimaModificacion = useCallback((carpeta) => {
     if (!carpeta.hijos || !Array.isArray(carpeta.hijos)) return null;
 
     let ultimaFecha = new Date(carpeta.creadoEn);
-    // Si la fecha de la carpeta no es válida, empezamos con fecha mínima
     if (isNaN(ultimaFecha.getTime())) ultimaFecha = new Date(0);
 
     carpeta.hijos.forEach((hijo) => {
@@ -152,123 +142,138 @@ function TablaArchivos() {
     });
 
     return isNaN(ultimaFecha.getTime()) ? null : ultimaFecha;
-  };
+  }, []);
 
   /* ----------------------------------------------------------------------- */
   /* Ordenación                                                              */
   /* ----------------------------------------------------------------------- */
-  const ordenar = (a, b) => {
-    if (a.tipo !== b.tipo) return a.tipo === "carpeta" ? -1 : 1;
-    const factor = orden.asc ? 1 : -1;
-    switch (orden.campo) {
-      case "tamanoBytes":
-        const tamanoA =
-          a.tipo === "carpeta" ? calcularTamanoCarpeta(a) : a.tamanoBytes || 0;
-        const tamanoB =
-          b.tipo === "carpeta" ? calcularTamanoCarpeta(b) : b.tamanoBytes || 0;
-        return factor * (tamanoA - tamanoB);
-      case "creadoEn":
-        const fechaA =
-          a.tipo === "carpeta"
-            ? obtenerUltimaModificacion(a)
-            : new Date(a.creadoEn);
-        const fechaB =
-          b.tipo === "carpeta"
-            ? obtenerUltimaModificacion(b)
-            : new Date(b.creadoEn);
-        return factor * (fechaA - fechaB);
-      default:
-        return factor * a.nombre.localeCompare(b.nombre);
-    }
-  };
+  const ordenar = useCallback(
+    (a, b) => {
+      if (a.tipo !== b.tipo) return a.tipo === "carpeta" ? -1 : 1;
+      const factor = orden.asc ? 1 : -1;
+      switch (orden.campo) {
+        case "tamanoBytes":
+          const tamanoA =
+            a.tipo === "carpeta"
+              ? calcularTamanoCarpeta(a)
+              : a.tamanoBytes || 0;
+          const tamanoB =
+            b.tipo === "carpeta"
+              ? calcularTamanoCarpeta(b)
+              : b.tamanoBytes || 0;
+          return factor * (tamanoA - tamanoB);
+        case "creadoEn":
+          const fechaA =
+            a.tipo === "carpeta"
+              ? obtenerUltimaModificacion(a)
+              : new Date(a.creadoEn);
+          const fechaB =
+            b.tipo === "carpeta"
+              ? obtenerUltimaModificacion(b)
+              : new Date(b.creadoEn);
+          return factor * (fechaA - fechaB);
+        default:
+          return factor * a.nombre.localeCompare(b.nombre);
+      }
+    },
+    [orden, calcularTamanoCarpeta, obtenerUltimaModificacion]
+  );
 
   /* ----------------------------------------------------------------------- */
   /* Render recursivo                                                        */
   /* ----------------------------------------------------------------------- */
-  const renderizarNodo = (nodo, nivel = 0) => {
-    // Filtrado por búsqueda -------------------------------------------------
-    const tieneCoincidencia = coincideBusqueda(nodo.nombre);
+  const renderizarNodo = useCallback(
+    (nodo, nivel = 0) => {
+      // Filtrado por búsqueda
+      const tieneCoincidencia = coincideBusqueda(nodo.nombre);
 
-    if (terminoBusqueda && nodo.tipo === "archivo" && !tieneCoincidencia) {
-      return [];
-    }
-
-    const sangriaPx = 16 + nivel * 24;
-
-    if (nodo.tipo === "carpeta") {
-      // Renderizar hijos primero para determinar si hay coincidencias
-      const hijosFiltrados = (
-        Array.isArray(nodo.hijos) ? nodo.hijos : []
-      ).flatMap((h) => renderizarNodo(h, nivel + 1));
-
-      const tieneHijosCoincidentes = hijosFiltrados.length > 0;
-
-      if (terminoBusqueda && !tieneCoincidencia && !tieneHijosCoincidentes) {
+      if (terminoBusqueda && nodo.tipo === "archivo" && !tieneCoincidencia) {
         return [];
       }
 
-      const abierta = !!nodosExpandidos[nodo.ruta] || terminoBusqueda;
+      const sangriaPx = 16 + nivel * 24;
 
-      // Calcular tamaño y fecha para la carpeta
-      const tamanoCarpeta = calcularTamanoCarpeta(nodo);
-      const ultimaModificacion = obtenerUltimaModificacion(nodo);
+      if (nodo.tipo === "carpeta") {
+        // Renderizar hijos primero para determinar si hay coincidencias
+        const hijosFiltrados = (
+          Array.isArray(nodo.hijos) ? nodo.hijos : []
+        ).flatMap((h) => renderizarNodo(h, nivel + 1));
 
-      const filaCarpeta = (
+        const tieneHijosCoincidentes = hijosFiltrados.length > 0;
+
+        if (terminoBusqueda && !tieneCoincidencia && !tieneHijosCoincidentes) {
+          return [];
+        }
+
+        const abierta = !!nodosExpandidos[nodo.ruta] || terminoBusqueda;
+
+        // Calcular tamaño y fecha para la carpeta
+        const tamanoCarpeta = calcularTamanoCarpeta(nodo);
+        const ultimaModificacion = obtenerUltimaModificacion(nodo);
+
+        const filaCarpeta = (
+          <tr
+            key={nodo.ruta}
+            className="cursor-pointer hover:bg-gray-600/40 transition-colors duration-150 select-none"
+            onClick={() => alternarNodo(nodo.ruta)}
+          >
+            <td
+              className="py-3 flex items-center gap-2 font-medium text-gray-50"
+              style={{ paddingLeft: sangriaPx }}
+            >
+              {abierta ? (
+                <ChevronDown size={16} className="text-blue-300" />
+              ) : (
+                <ChevronRight size={16} className="text-gray-400" />
+              )}
+              <Folder size={18} className="text-blue-400" />
+              <span className="truncate max-w-[24rem]">
+                {nodo.nombre.replace(/_/g, " ")}
+              </span>
+            </td>
+            <td className="text-sm text-gray-300 whitespace-nowrap">
+              {ultimaModificacion ? formatoFecha(ultimaModificacion) : "-"}
+            </td>
+            <td className="text-sm text-gray-300 pr-6 text-right">
+              {formatoTamano(tamanoCarpeta)}
+            </td>
+          </tr>
+        );
+
+        if (!abierta) return [filaCarpeta];
+
+        return [filaCarpeta, ...hijosFiltrados];
+      }
+
+      // Archivo
+      return [
         <tr
           key={nodo.ruta}
-          className="cursor-pointer hover:bg-gray-600/40 transition-colors duration-150 select-none"
-          onClick={() => alternarNodo(nodo.ruta)}
+          className="hover:bg-gray-600/30 transition-colors duration-150"
         >
           <td
-            className="py-3 flex items-center gap-2 font-medium text-gray-50"
+            className="py-3 flex items-center gap-2 text-gray-100"
             style={{ paddingLeft: sangriaPx }}
           >
-            {abierta ? (
-              <ChevronDown size={16} className="text-blue-300" />
-            ) : (
-              <ChevronRight size={16} className="text-gray-400" />
-            )}
-            <Folder size={18} className="text-blue-400" />
-            <span className="truncate max-w-[24rem]">
-              {nodo.nombre.replace(/_/g, " ")}
-            </span>
+            {iconoPorExtension(nodo.extension)}
+            <span className="truncate max-w-[24rem]">{nodo.nombre}</span>
           </td>
           <td className="text-sm text-gray-300 whitespace-nowrap">
-            {ultimaModificacion ? formatoFecha(ultimaModificacion) : "-"}
+            {formatoFecha(nodo.creadoEn)}
           </td>
           <td className="text-sm text-gray-300 pr-6 text-right">
-            {tamanoCarpeta > 0 ? formatoTamano(tamanoCarpeta) : "-"}
+            {formatoTamano(nodo.tamanoBytes)}
           </td>
-        </tr>
-      );
-
-      if (!abierta) return [filaCarpeta];
-
-      return [filaCarpeta, ...hijosFiltrados];
-    }
-
-    // Archivo ---------------------------------------------------------------
-    return [
-      <tr
-        key={nodo.ruta}
-        className="hover:bg-gray-600/30 transition-colors duration-150"
-      >
-        <td
-          className="py-3 flex items-center gap-2 text-gray-100"
-          style={{ paddingLeft: sangriaPx }}
-        >
-          {iconoPorExtension(nodo.extension)}
-          <span className="truncate max-w-[24rem]">{nodo.nombre}</span>
-        </td>
-        <td className="text-sm text-gray-300 whitespace-nowrap">
-          {formatoFecha(nodo.creadoEn)}
-        </td>
-        <td className="text-sm text-gray-300 pr-6 text-right">
-          {formatoTamano(nodo.tamanoBytes)}
-        </td>
-      </tr>,
-    ];
-  };
+        </tr>,
+      ];
+    },
+    [
+      terminoBusqueda,
+      nodosExpandidos,
+      calcularTamanoCarpeta,
+      obtenerUltimaModificacion,
+    ]
+  );
 
   /* ----------------------------------------------------------------------- */
   /* Memo filas                                                              */
@@ -277,8 +282,14 @@ function TablaArchivos() {
     return Array.isArray(arbolArchivos)
       ? arbolArchivos.sort(ordenar).flatMap((n) => renderizarNodo(n))
       : [];
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [arbolArchivos, nodosExpandidos, terminoBusqueda, orden]);
+  }, [
+    arbolArchivos,
+    nodosExpandidos,
+    terminoBusqueda,
+    orden,
+    ordenar,
+    renderizarNodo,
+  ]);
 
   /* ----------------------------------------------------------------------- */
   /* Skeleton de carga                                                       */
