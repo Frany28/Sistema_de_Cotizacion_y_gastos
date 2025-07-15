@@ -4,6 +4,7 @@ import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
 import { verificarPermiso } from "../Middleware/verificarPermiso.js";
 import { uploadGeneric } from "../utils/s3.js";
 import {
+  obtenerArbolArchivos,
   descargarArchivo,
   listarArchivos,
   eliminarArchivo,
@@ -16,6 +17,13 @@ import {
 } from "../controllers/archivos.controller.js";
 
 const router = express.Router();
+
+router.get(
+  "/arbol",
+  autenticarUsuario,
+  verificarPermiso("listarArchivos"),
+  obtenerArbolArchivos
+);
 
 // Reemplazar (sustituir) un archivo existente
 router.put(

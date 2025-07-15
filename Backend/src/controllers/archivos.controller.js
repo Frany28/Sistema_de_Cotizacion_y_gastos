@@ -525,3 +525,64 @@ export const eliminarDefinitivamente = async (req, res) => {
       .json({ message: "Error interno al eliminar definitivamente." });
   }
 };
+
+export const obtenerArbolArchivos = async (req, res) => {
+  const usuarioId = req.user.id;
+  const rolId = req.user.rol_id;
+  const esVistaCompleta = [ROL_ADMIN, ROL_SUPERVISOR].includes(rolId);
+
+  try {
+    /* 1) Traer los archivos visibles para este usuario */
+    const [rows] = await db.query(
+      `SELECT id, nombreOriginal, extension, tamanioBytes,
+              rutaS3, creadoEn
+         FROM archivos
+        WHERE estado = 'activo'
+          ${esVistaCompleta ? "" : "AND subidoPor = ?"}
+     ORDER BY rutaS3`,
+      esVistaCompleta ? [] : [usuarioId]
+    );
+
+    /* 2) Construir árbol en memoria */
+    const raiz = [];
+
+    const buscarOCrearCarpeta = (nivel, nombre, rutaAbs) => {
+      let nodo = nivel.find((n) => n.tipo === "carpeta" && n.nombre === nombre);
+      if (!nodo) {
+        nodo = { nombre, ruta: rutaAbs, tipo: "carpeta", hijos: [] };
+        nivel.push(nodo);
+      }
+      return nodo.hijos;
+    };
+
+    for (const f of rows) {
+      const partes = f.rutaS3.split("/"); // ej. firmas/admin/a.pdf
+      let nivelActual = raiz;
+      let rutaAcum = "";
+
+      /* Crear/reutilizar cada carpeta del prefijo */
+      for (let i = 0; i < partes.length - 1; i++) {
+        rutaAcum = rutaAcum ? `${rutaAcum}/${partes[i]}` : partes[i];
+        nivelActual = buscarOCrearCarpeta(nivelActual, partes[i], rutaAcum);
+      }
+
+      /* Insertar el archivo como nodo hoja */
+      nivelActual.push({
+        id: f.id,
+        nombre: f.nombreOriginal,
+        ruta: f.rutaS3,
+        tipo: "archivo",
+        extension: f.extension,
+        tamanoBytes: f.tamanoBytes,
+        creadoEn: f.creadoEn,
+      });
+    }
+
+    return res.json(raiz);
+  } catch (error) {
+    console.error(error);
+    return res
+      .status(500)
+      .json({ message: "Error interno al obtener árbol de archivos." });
+  }
+};
