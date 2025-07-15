@@ -344,14 +344,14 @@ function TablaArchivos() {
 
       {/* Tabla */}
       <table className="min-w-full text-left border-collapse text-sm">
-        <thead className="sticky top-0 bg-gray-800/90 backdrop-blur-sm z-10">
+        <thead className="sticky top-0 bg-gray-600 backdrop-blur-sm z-10">
           <tr className="text-gray-300 font-semibold border-b border-gray-600/40">
             <th className="py-3.5 pl-6 text-base">Nombre</th>
             <th className="py-3.5 w-56 text-base">Última modificación</th>
             <th className="py-3.5 w-32 pr-6 text-right text-base">Tamaño</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-600/30">
+        <tbody className="divide-y divide-gray-800">
           {filas.length ? (
             filas
           ) : (
