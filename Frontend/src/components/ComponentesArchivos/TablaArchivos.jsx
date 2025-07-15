@@ -13,26 +13,15 @@ import {
 import { format, formatDistanceToNowStrict } from "date-fns";
 import { es } from "date-fns/locale";
 import axios from "axios";
-import clsx from "clsx";
 
 /**
- * TablaArchivos (v2 – diseño refinado)
- * ------------------------------------
- * ▸ Árbol de archivos con look minimalista dark, header fijo, líneas divisorias
- * ▸ Animación sutil al expandir carpetas, colores de hover + separación filas
- * ▸ Placeholder skeleton mientras carga la data
+ * TablaArchivos (v2.1 – corrige flatMap para entornos sin polyfill)
  */
 function TablaArchivos() {
-  /* =============================================================
-   *  Estado
-   * ============================================================= */
   const [arbol, setArbol] = useState([]);
   const [expandido, setExpandido] = useState({});
   const [cargando, setCargando] = useState(true);
 
-  /* =============================================================
-   *  Helpers
-   * ============================================================= */
   const fetchArbol = useCallback(async () => {
     try {
       const { data } = await axios.get("/archivos/arbol", {
@@ -50,8 +39,7 @@ function TablaArchivos() {
     fetchArbol();
   }, [fetchArbol]);
 
-  const toggle = (ruta) => setExpandido((p) => ({ ...p, [ruta]: !p[ruta] }));
-
+  /* Utilidades de formato */
   const fmtFecha = (iso) => {
     if (!iso) return "-";
     const d = new Date(iso);
@@ -60,7 +48,6 @@ function TablaArchivos() {
       ? formatDistanceToNowStrict(d, { locale: es, addSuffix: true })
       : format(d, "LLL dd, yyyy", { locale: es });
   };
-
   const fmtSize = (b) => {
     if (!b) return "-";
     const u = ["B", "KB", "MB", "GB", "TB"];
@@ -72,7 +59,6 @@ function TablaArchivos() {
     }
     return `${n.toFixed(i ? 1 : 0)} ${u[i]}`;
   };
-
   const icono = (ext) => {
     switch (ext?.toLowerCase()) {
       case "pdf":
@@ -96,87 +82,84 @@ function TablaArchivos() {
     }
   };
 
-  /* =============================================================
-   *  Render recursivo
-   * ============================================================= */
-  const renderNodo = (n, lvl = 0) => {
-    if (n.tipo === "carpeta") {
-      const open = !!expandido[n.ruta];
-      return (
-        <>
-          <tr
-            key={n.ruta}
-            className="group border-b border-gray-600/50 hover:bg-gray-600/30 cursor-pointer select-none"
-            onClick={() => toggle(n.ruta)}
+  const toggle = (ruta) => setExpandido((p) => ({ ...p, [ruta]: !p[ruta] }));
+
+  /* Render recursivo (sin flatMap) */
+  const renderNodo = (nodo, lvl = 0) => {
+    const indent = 16 + lvl * 16; // px para padding-left
+
+    if (nodo.tipo === "carpeta") {
+      const open = !!expandido[nodo.ruta];
+      const filaCarpeta = (
+        <tr
+          key={nodo.ruta}
+          className="group border-b border-gray-600/50 hover:bg-gray-600/30 cursor-pointer select-none"
+          onClick={() => toggle(nodo.ruta)}
+        >
+          <td
+            className="py-2 flex items-center gap-2 text-gray-100 font-medium"
+            style={{ paddingLeft: indent }}
           >
-            <td className="py-2 pl-4 flex items-center gap-2 text-gray-100 font-medium">
-              {open ? (
-                <ChevronDown
-                  size={16}
-                  className="text-gray-400 transition-transform group-hover:translate-x-0.5"
-                />
-              ) : (
-                <ChevronRight
-                  size={16}
-                  className="text-gray-400 transition-transform group-hover:translate-x-0.5"
-                />
-              )}
-              <Folder size={18} className="text-blue-400" />
-              <span>{n.nombre.replace(/_/g, " ")}</span>
-            </td>
-            <td className="text-sm text-gray-400">-</td>
-            <td className="text-sm text-gray-400 pr-4 text-right">-</td>
-          </tr>
-          {open &&
-            n.hijos
-              .sort((a, b) =>
-                a.tipo === b.tipo
-                  ? a.nombre.localeCompare(b.nombre)
-                  : a.tipo === "carpeta"
-                  ? -1
-                  : 1
-              )
-              .flatMap((h) => renderNodo(h, lvl + 1))}
-        </>
+            {open ? (
+              <ChevronDown size={16} className="text-gray-400" />
+            ) : (
+              <ChevronRight size={16} className="text-gray-400" />
+            )}
+            <Folder size={18} className="text-blue-400" />
+            <span>{nodo.nombre.replace(/_/g, " ")}</span>
+          </td>
+          <td className="text-sm text-gray-400">-</td>
+          <td className="text-sm text-gray-400 pr-4 text-right">-</td>
+        </tr>
       );
+
+      if (!open) return [filaCarpeta];
+
+      // si está abierto, concatenamos sus hijos renderizados
+      const hijosRenderizados = nodo.hijos
+        .sort((a, b) =>
+          a.tipo === b.tipo
+            ? a.nombre.localeCompare(b.nombre)
+            : a.tipo === "carpeta"
+            ? -1
+            : 1
+        )
+        .reduce((acc, h) => acc.concat(renderNodo(h, lvl + 1)), []);
+
+      return [filaCarpeta, ...hijosRenderizados];
     }
 
     // archivo
-    const padding = 4 + lvl * 4;
-    return (
+    return [
       <tr
-        key={n.ruta}
+        key={nodo.ruta}
         className="border-b border-gray-600/50 hover:bg-gray-600/30"
       >
         <td
-          className={clsx(
-            "py-2 flex items-center gap-2 text-gray-100",
-            `pl-${padding}`
-          )}
+          className="py-2 flex items-center gap-2 text-gray-100"
+          style={{ paddingLeft: indent }}
         >
-          {icono(n.extension)}
-          <span>{n.nombre}</span>
+          {icono(nodo.extension)}
+          <span>{nodo.nombre}</span>
         </td>
-        <td className="text-sm text-gray-400">{fmtFecha(n.creadoEn)}</td>
+        <td className="text-sm text-gray-400">{fmtFecha(nodo.creadoEn)}</td>
         <td className="text-sm text-gray-400 pr-4 text-right">
-          {fmtSize(n.tamanoBytes)}
+          {fmtSize(nodo.tamanoBytes)}
         </td>
-      </tr>
-    );
+      </tr>,
+    ];
   };
 
-  /* =============================================================
-   *  Skeleton (loading)…
-   * ============================================================= */
+  /* Skeleton */
   if (cargando) {
     return (
       <div className="w-full bg-gray-700 rounded-2xl p-4 animate-pulse h-48" />
     );
   }
 
-  /* =============================================================
-   *  Tabla final
-   * ============================================================= */
+  /* Tabla */
+  const filas = arbol.reduce((acc, n) => acc.concat(renderNodo(n)), []);
+
   return (
     <div className="w-full bg-gray-700 rounded-2xl shadow overflow-x-auto">
       <table className="w-full text-left border-collapse">
@@ -187,7 +170,7 @@ function TablaArchivos() {
             <th className="font-semibold pr-4 text-right">Tamaño</th>
           </tr>
         </thead>
-        <tbody>{arbol.flatMap((n) => renderNodo(n))}</tbody>
+        <tbody>{filas}</tbody>
       </table>
     </div>
   );
