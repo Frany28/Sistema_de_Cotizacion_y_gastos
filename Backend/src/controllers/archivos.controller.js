@@ -532,7 +532,6 @@ export const obtenerArbolArchivos = async (req, res) => {
   const esVistaCompleta = [ROL_ADMIN, ROL_SUPERVISOR].includes(rolId);
 
   try {
-    /* 1) Traer los archivos visibles para este usuario */
     const [rows] = await db.query(
       `SELECT id, nombreOriginal, extension, tamanioBytes,
               rutaS3, creadoEn
@@ -543,7 +542,6 @@ export const obtenerArbolArchivos = async (req, res) => {
       esVistaCompleta ? [] : [usuarioId]
     );
 
-    /* 2) Construir árbol en memoria */
     const raiz = [];
 
     const buscarOCrearCarpeta = (nivel, nombre, rutaAbs) => {
@@ -556,24 +554,22 @@ export const obtenerArbolArchivos = async (req, res) => {
     };
 
     for (const f of rows) {
-      const partes = f.rutaS3.split("/"); // ej. firmas/admin/a.pdf
+      const partes = f.rutaS3.split("/");
       let nivelActual = raiz;
       let rutaAcum = "";
 
-      /* Crear/reutilizar cada carpeta del prefijo */
       for (let i = 0; i < partes.length - 1; i++) {
         rutaAcum = rutaAcum ? `${rutaAcum}/${partes[i]}` : partes[i];
         nivelActual = buscarOCrearCarpeta(nivelActual, partes[i], rutaAcum);
       }
 
-      /* Insertar el archivo como nodo hoja */
       nivelActual.push({
         id: f.id,
         nombre: f.nombreOriginal,
         ruta: f.rutaS3,
         tipo: "archivo",
         extension: f.extension,
-        tamanoBytes: f.tamanoBytes,
+        tamanioBytes: f.tamanioBytes, // 👈 Este nombre es el correcto
         creadoEn: f.creadoEn,
       });
     }
