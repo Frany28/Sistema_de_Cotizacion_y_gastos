@@ -50,70 +50,109 @@ const DetalleArchivo = () => {
   };
 
   return (
-    <div className="p-6 text-white w-full">
+    <div className="p-6 w-full bg-gray-100 min-h-screen">
       <button
         onClick={() => navigate(-1)}
-        className="mb-4 flex items-center gap-2 text-gray-300 hover:text-white"
+        className="mb-6 flex items-center gap-2 text-gray-600 hover:text-gray-900"
       >
         <ArrowLeft className="w-5 h-5" />
         Volver
       </button>
 
       {cargando ? (
-        <p className="text-gray-400">Cargando detalles...</p>
+        <p className="text-gray-600">Cargando detalles...</p>
       ) : archivo ? (
-        <div className="bg-gray-800 p-6 rounded-xl w-full max-w-5xl mx-auto">
-          <h2 className="text-xl md:text-2xl font-semibold mb-2 text-white">
-            {archivo.nombreOriginal}
-          </h2>
-          <p className="text-sm text-gray-400 mb-5">
-            Última Versión: v{archivo.ultimaVersion}
-          </p>
+        <div className="bg-white p-6 rounded-lg shadow-md w-full max-w-4xl mx-auto border border-gray-200">
+          <div className="border-b border-gray-200 pb-4 mb-6">
+            <h2 className="text-2xl font-bold text-gray-800">
+              {archivo.nombreOriginal}
+            </h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Ultima Version: {archivo.ultimaVersion}v
+            </p>
+          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-gray-300">
-            <div className="flex items-center gap-3">
-              <FileText className="text-blue-400" size={18} />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="flex items-start gap-4">
+              <div className="p-2 bg-blue-50 rounded-full">
+                <FileText className="text-blue-600" size={18} />
+              </div>
               <div>
-                <p className="text-xs text-gray-400">Type</p>
-                <p>{archivo.extension.toUpperCase()} Document</p>
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Type
+                </p>
+                <p className="text-gray-800 font-medium">
+                  {archivo.extension.toUpperCase()} Document
+                </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <Database className="text-blue-400" size={18} />
+            <div className="flex items-start gap-4">
+              <div className="p-2 bg-blue-50 rounded-full">
+                <Database className="text-blue-600" size={18} />
+              </div>
               <div>
-                <p className="text-xs text-gray-400">Tamaño</p>
-                <p>{formatoTamano(archivo.tamanioBytes)}</p>
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Tamaño
+                </p>
+                <p className="text-gray-800 font-medium">
+                  {formatoTamano(archivo.tamanioBytes)}
+                </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <Calendar className="text-blue-400" size={18} />
+            <div className="flex items-start gap-4">
+              <div className="p-2 bg-blue-50 rounded-full">
+                <Calendar className="text-blue-600" size={18} />
+              </div>
               <div>
-                <p className="text-xs text-gray-400">Última Modificación</p>
-                <p>{formatoFecha(archivo.actualizadoEn)}</p>
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Última Modificación
+                </p>
+                <p className="text-gray-800 font-medium">
+                  {formatoFecha(archivo.actualizadoEn)}
+                </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <User className="text-blue-400" size={18} />
+            <div className="flex items-start gap-4">
+              <div className="p-2 bg-blue-50 rounded-full">
+                <User className="text-blue-600" size={18} />
+              </div>
               <div>
-                <p className="text-xs text-gray-400">Dueño</p>
-                <p>{archivo.nombreUsuario}</p>
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Dueño
+                </p>
+                <p className="text-gray-800 font-medium">
+                  {archivo.nombreUsuario}
+                </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-3 md:col-span-2">
-              <File className="text-blue-400" size={18} />
+            <div className="flex items-start gap-4 md:col-span-2">
+              <div className="p-2 bg-blue-50 rounded-full">
+                <File className="text-blue-600" size={18} />
+              </div>
               <div>
-                <p className="text-xs text-gray-400">Ubicación</p>
-                <p className="break-words">{archivo.rutaS3}</p>
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Ubicación
+                </p>
+                <p className="text-gray-800 font-medium break-words">
+                  {archivo.rutaS3}
+                </p>
               </div>
             </div>
           </div>
+
+          <div className="mt-8 pt-6 border-t border-gray-200">
+            <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-3">
+              Dashboard
+            </h3>
+            <p className="text-gray-800 font-medium">Projects/2024-initiat</p>
+          </div>
         </div>
       ) : (
-        <p className="text-red-400">No se pudo cargar el archivo.</p>
+        <p className="text-red-500">No se pudo cargar el archivo.</p>
       )}
     </div>
   );
