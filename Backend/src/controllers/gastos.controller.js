@@ -480,7 +480,7 @@ export const getGastoById = async (req, res) => {
 
     /* -------- 3. Preparar datos extra -------- */
     const urlFacturaFirmada = gasto.documento
-      ? generarUrlPrefirmadaLectura(gasto.documento) // TTL 5 min por defecto
+      ? await generarUrlPrefirmadaLectura(gasto.documento)
       : null;
 
     const [tiposGasto] = await db.query("SELECT id, nombre FROM tipos_gasto");
