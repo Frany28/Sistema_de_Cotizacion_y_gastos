@@ -62,7 +62,7 @@ const DetalleArchivo = () => {
       {cargando ? (
         <p className="text-gray-400">Cargando detalles...</p>
       ) : archivo ? (
-        <div className="bg-gray-800 p-6 rounded-xl w-full max-w-4xl mx-auto">
+        <div className="bg-gray-800 p-6 rounded-xl w-full max-w-5xl mx-auto">
           <h2 className="text-xl md:text-2xl font-semibold mb-2 text-white">
             {archivo.nombreOriginal}
           </h2>
