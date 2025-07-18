@@ -14,6 +14,7 @@ import {
   restaurarVersion,
   eliminarDefinitivamente,
   sustituirArchivo,
+  obtenerDetallesArchivo
 } from "../controllers/archivos.controller.js";
 
 const router = express.Router();
@@ -48,6 +49,15 @@ router.get(
   verificarPermiso("verArchivos"),
   listarArchivos
 );
+
+// Obtener detalle de un archivo específico
+router.get(
+  "/detalle/:id",
+  autenticarUsuario,
+  verificarPermiso("verArchivos"),
+  obtenerDetallesArchivo
+);
+
 
 // Eliminar archivo (soft delete)
 router.delete(

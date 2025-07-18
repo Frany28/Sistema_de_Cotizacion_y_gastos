@@ -569,7 +569,7 @@ export const obtenerArbolArchivos = async (req, res) => {
         ruta: f.rutaS3,
         tipo: "archivo",
         extension: f.extension,
-        tamanioBytes: f.tamanioBytes, // 👈 Este nombre es el correcto
+        tamanioBytes: f.tamanioBytes,
         creadoEn: f.creadoEn,
       });
     }
@@ -580,5 +580,64 @@ export const obtenerArbolArchivos = async (req, res) => {
     return res
       .status(500)
       .json({ message: "Error interno al obtener árbol de archivos." });
+  }
+};
+
+export const obtenerDetallesArchivo = async (req, res) => {
+  const archivoId = Number(req.params.id);
+  const usuarioId = req.user.id;
+  const rolId = req.user.rol_id;
+
+  try {
+    const [[archivo]] = await db.query(
+      `SELECT a.id,
+              a.nombreOriginal,
+              a.extension,
+              a.tamanioBytes,
+              a.rutaS3,
+              a.actualizadoEn,
+              a.descripcion,
+              u.nombre AS nombreUsuario
+         FROM archivos a
+    JOIN usuarios u ON u.id = a.subidoPor
+        WHERE a.id = ? AND a.estado = 'activo'`,
+      [archivoId]
+    );
+
+    if (!archivo) {
+      return res.status(404).json({ message: "Archivo no encontrado." });
+    }
+
+    // Si no es admin o supervisor, validar que el usuario sea dueño
+    if (
+      ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
+      archivo.subidoPor !== usuarioId
+    ) {
+      return res.status(403).json({ message: "Acceso denegado." });
+    }
+
+    const [[{ ultimaVersion }]] = await db.query(
+      `SELECT COALESCE(MAX(numeroVersion), 1) AS ultimaVersion
+         FROM versionesArchivo
+        WHERE archivoId = ?`,
+      [archivoId]
+    );
+
+    return res.json({
+      id: archivo.id,
+      nombreOriginal: archivo.nombreOriginal,
+      extension: archivo.extension,
+      tamanioBytes: archivo.tamanioBytes,
+      rutaS3: archivo.rutaS3,
+      actualizadoEn: archivo.actualizadoEn,
+      descripcion: archivo.descripcion || null,
+      nombreUsuario: archivo.nombreUsuario,
+      ultimaVersion,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      message: "Error interno al obtener los detalles del archivo.",
+    });
   }
 };
