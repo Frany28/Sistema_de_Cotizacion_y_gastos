@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../../../api";
+import CantidadVersionesArchivo from "./CantidadVersionesArchivos";
 import {
   FileText,
   User,
@@ -189,6 +190,9 @@ const DetalleArchivo = () => {
         ) : (
           <p className="text-red-400">No se pudo cargar el archivo.</p>
         )}
+        <div className="mt-6">
+          <CantidadVersionesArchivo />
+        </div>
       </div>
     </div>
   );
