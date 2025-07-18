@@ -41,7 +41,13 @@ const DetalleArchivo = () => {
 
   const formatoFecha = (fecha) => {
     if (!fecha) return "-";
-    return new Date(fecha).toLocaleString("es-VE");
+    return new Date(fecha).toLocaleDateString("es-VE", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
 
   const formatoTamano = (bytes) => {
@@ -59,140 +65,108 @@ const DetalleArchivo = () => {
   const obtenerIconoPorTipo = (extension) => {
     const tipo = extension.toLowerCase();
     if (["jpg", "jpeg", "png", "gif", "svg"].includes(tipo))
-      return <ImageIcon className="text-blue-400" size={20} />;
+      return <ImageIcon className="text-red-500" size={28} />;
     if (["mp4", "mov", "avi", "mkv"].includes(tipo))
-      return <Video className="text-blue-400" size={20} />;
+      return <Video className="text-red-500" size={28} />;
     if (["mp3", "wav", "ogg"].includes(tipo))
-      return <Music className="text-blue-400" size={20} />;
+      return <Music className="text-red-500" size={28} />;
     if (["zip", "rar", "7z"].includes(tipo))
-      return <Archive className="text-blue-400" size={20} />;
+      return <Archive className="text-red-500" size={28} />;
     if (["pdf"].includes(tipo))
-      return <BookOpen className="text-blue-400" size={20} />;
+      return <BookOpen className="text-red-500" size={28} />;
     if (["xls", "xlsx", "csv"].includes(tipo))
-      return <FileSpreadsheet className="text-blue-400" size={20} />;
+      return <FileSpreadsheet className="text-red-500" size={28} />;
     if (["js", "jsx", "ts", "html", "css", "py", "java"].includes(tipo))
-      return <Code className="text-blue-400" size={20} />;
-    return <FileText className="text-blue-400" size={20} />;
+      return <Code className="text-red-500" size={28} />;
+    return <FileText className="text-red-500" size={28} />;
   };
 
   return (
-    <div className="p-6 w-full bg-gray-900 min-h-screen">
-      <button
-        onClick={() => navigate(-1)}
-        className="mb-6 flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
-      >
-        <ArrowLeft className="w-5 h-5" />
-        Volver
-      </button>
+    <div className="p-6 w-full bg-gray-900 min-h-screen flex justify-center">
+      <div className="w-full max-w-[1024px]">
+        <button
+          onClick={() => navigate(-1)}
+          className="mb-6 flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+        >
+          <ArrowLeft className="w-5 h-5" />
+          Volver
+        </button>
 
-      {cargando ? (
-        <p className="text-gray-400">Cargando detalles...</p>
-      ) : archivo ? (
-        <div className="bg-gray-800 p-6 rounded-xl w-full max-w-4xl mx-auto shadow-lg border border-gray-700">
-          {/* Encabezado con icono */}
-          <div className="flex items-start gap-4 mb-6">
-            <div className="p-3 bg-gray-700 rounded-lg">
-              {obtenerIconoPorTipo(archivo.extension)}
-            </div>
-            <div>
-              <h2 className="text-2xl font-semibold text-white">
-                {archivo.nombreOriginal}
-              </h2>
-              <p className="text-sm text-gray-400 mt-1">
-                Ultima Version: {archivo.ultimaVersion}v
-              </p>
-            </div>
-          </div>
-
-          {/* Detalles del archivo */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Tipo de archivo */}
-            <div className="flex items-start gap-4">
-              <div className="p-2 bg-gray-700 rounded-lg">
+        {cargando ? (
+          <p className="text-gray-400">Cargando detalles...</p>
+        ) : archivo ? (
+          <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
+            {/* Encabezado */}
+            <div className="flex items-center gap-4 mb-6">
+              <div className="p-3 bg-gray-700 rounded-lg">
                 {obtenerIconoPorTipo(archivo.extension)}
               </div>
               <div>
-                <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  Type
-                </p>
-                <p className="text-white font-medium">
-                  {archivo.extension.toUpperCase()} Document
-                </p>
-              </div>
-            </div>
-
-            {/* Tamaño */}
-            <div className="flex items-start gap-4">
-              <div className="p-2 bg-gray-700 rounded-lg">
-                <Database className="text-blue-400" size={20} />
-              </div>
-              <div>
-                <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  Tamaño
-                </p>
-                <p className="text-white font-medium">
-                  {formatoTamano(archivo.tamanioBytes)}
+                <h2 className="text-white text-lg font-semibold leading-tight">
+                  {archivo.nombreOriginal}
+                </h2>
+                <p className="text-sm text-gray-400">
+                  Última Versión: {archivo.ultimaVersion}v
                 </p>
               </div>
             </div>
 
-            {/* Última modificación */}
-            <div className="flex items-start gap-4">
-              <div className="p-2 bg-gray-700 rounded-lg">
-                <Calendar className="text-blue-400" size={20} />
+            {/* Detalles */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 border-t border-gray-700 pt-4">
+              {/* Tipo */}
+              <div className="flex items-start gap-3">
+                <FileText className="text-blue-400 mt-1" size={20} />
+                <div>
+                  <p className="text-sm text-gray-400">Type</p>
+                  <p className="text-white">PDF Document</p>
+                </div>
               </div>
-              <div>
-                <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  Última Modificación
-                </p>
-                <p className="text-white font-medium">
-                  {formatoFecha(archivo.actualizadoEn)}
-                </p>
-              </div>
-            </div>
 
-            {/* Dueño */}
-            <div className="flex items-start gap-4">
-              <div className="p-2 bg-gray-700 rounded-lg">
-                <User className="text-blue-400" size={20} />
+              {/* Tamaño */}
+              <div className="flex items-start gap-3">
+                <Database className="text-blue-400 mt-1" size={20} />
+                <div>
+                  <p className="text-sm text-gray-400">Tamaño</p>
+                  <p className="text-white">
+                    {formatoTamano(archivo.tamanioBytes)}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  Dueño
-                </p>
-                <p className="text-white font-medium">
-                  {archivo.nombreUsuario}
-                </p>
-              </div>
-            </div>
 
-            {/* Ubicación */}
-            <div className="flex items-start gap-4 md:col-span-2">
-              <div className="p-2 bg-gray-700 rounded-lg">
-                <File className="text-blue-400" size={20} />
+              {/* Última Modificación */}
+              <div className="flex items-start gap-3">
+                <Calendar className="text-blue-400 mt-1" size={20} />
+                <div>
+                  <p className="text-sm text-gray-400">Última Modificación</p>
+                  <p className="text-white">
+                    {formatoFecha(archivo.actualizadoEn)}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  Ubicación
-                </p>
-                <p className="text-white font-medium break-words">
-                  {archivo.rutaS3}
-                </p>
+
+              {/* Dueño */}
+              <div className="flex items-start gap-3">
+                <User className="text-blue-400 mt-1" size={20} />
+                <div>
+                  <p className="text-sm text-gray-400">Dueño</p>
+                  <p className="text-white">{archivo.nombreUsuario}</p>
+                </div>
+              </div>
+
+              {/* Ubicación */}
+              <div className="flex items-start gap-3 col-span-full">
+                <File className="text-blue-400 mt-1" size={20} />
+                <div>
+                  <p className="text-sm text-gray-400">Location:</p>
+                  <p className="text-white break-words">{archivo.rutaS3}</p>
+                </div>
               </div>
             </div>
           </div>
-
-          {/* Sección Dashboard */}
-          <div className="mt-8 pt-6 border-t border-gray-700">
-            <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3">
-              Dashboard
-            </h3>
-            <p className="text-white font-medium">Projects/2024-initiat</p>
-          </div>
-        </div>
-      ) : (
-        <p className="text-red-400">No se pudo cargar el archivo.</p>
-      )}
+        ) : (
+          <p className="text-red-400">No se pudo cargar el archivo.</p>
+        )}
+      </div>
     </div>
   );
 };
