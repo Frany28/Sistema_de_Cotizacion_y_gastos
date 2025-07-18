@@ -110,7 +110,7 @@ function TablaArchivos() {
 
     return carpeta.hijos.reduce((total, hijo) => {
       if (hijo.tipo === "archivo") {
-        return total + (hijo.tamanioBytes || 0);
+        return total + (hijo.tamanoBytes || 0);
       } else if (hijo.tipo === "carpeta") {
         return total + calcularTamanoCarpeta(hijo);
       }
@@ -152,15 +152,15 @@ function TablaArchivos() {
       if (a.tipo !== b.tipo) return a.tipo === "carpeta" ? -1 : 1;
       const factor = orden.asc ? 1 : -1;
       switch (orden.campo) {
-        case "tamanioBytes":
+        case "tamanoBytes":
           const tamanoA =
             a.tipo === "carpeta"
               ? calcularTamanoCarpeta(a)
-              : a.tamanioBytes || 0;
+              : a.tamanoBytes || 0;
           const tamanoB =
             b.tipo === "carpeta"
               ? calcularTamanoCarpeta(b)
-              : b.tamanioBytes || 0;
+              : b.tamanoBytes || 0;
           return factor * (tamanoA - tamanoB);
         case "creadoEn":
           const fechaA =
@@ -262,7 +262,7 @@ function TablaArchivos() {
             {formatoFecha(nodo.creadoEn)}
           </td>
           <td className="text-sm text-gray-300 pr-6 text-right">
-            {formatoTamano(nodo.tamanioBytes)}
+            {formatoTamano(nodo.tamanoBytes)}
           </td>
         </tr>,
       ];
@@ -332,12 +332,12 @@ function TablaArchivos() {
             Fecha {orden.campo === "creadoEn" && (orden.asc ? "↑" : "↓")}
           </button>
           <button
-            onClick={() => setOrden({ campo: "tamanioBytes", asc: !orden.asc })}
+            onClick={() => setOrden({ campo: "tamanoBytes", asc: !orden.asc })}
             className={`px-3 py-1.5 rounded-lg hover:bg-gray-600/40 transition-colors ${
-              orden.campo === "tamanioBytes" ? "bg-gray-600/60" : ""
+              orden.campo === "tamanoBytes" ? "bg-gray-600/60" : ""
             }`}
           >
-            Tamaño {orden.campo === "tamanioBytes" && (orden.asc ? "↑" : "↓")}
+            Tamaño {orden.campo === "tamanoBytes" && (orden.asc ? "↑" : "↓")}
           </button>
         </div>
       </div>

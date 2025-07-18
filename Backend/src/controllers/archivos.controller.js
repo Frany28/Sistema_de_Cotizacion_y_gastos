@@ -534,7 +534,7 @@ export const obtenerArbolArchivos = async (req, res) => {
   try {
     /* 1) Traer los archivos visibles para este usuario */
     const [rows] = await db.query(
-      `SELECT id, nombreOriginal, extension, tamanoBytes,
+      `SELECT id, nombreOriginal, extension, tamanioBytes,
               rutaS3, creadoEn
          FROM archivos
         WHERE estado = 'activo'
