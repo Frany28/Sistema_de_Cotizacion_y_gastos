@@ -42,31 +42,31 @@ const DetalleArchivo = () => {
       ) : archivo ? (
         <div className="bg-gray-800 p-5 rounded-xl space-y-3 w-full max-w-lg">
           <p>
-            <strong>Nombre:</strong> {archivo.nombre}
+            <strong>Nombre:</strong> {archivo.nombreOriginal}
           </p>
           <p>
-            <strong>Tipo MIME:</strong> {archivo.tipoMime}
+            <strong>Extensión:</strong> {archivo.extension}
           </p>
           <p>
-            <strong>Tamaño:</strong> {archivo.tamanoKb} KB
+            <strong>Tamaño:</strong> {(archivo.tamanioBytes / 1024).toFixed(1)}{" "}
+            KB
           </p>
           <p>
-            <strong>Fecha subida:</strong>{" "}
-            {new Date(archivo.fechaSubida).toLocaleString("es-VE")}
+            <strong>Última modificación:</strong>{" "}
+            {new Date(archivo.actualizadoEn).toLocaleString("es-VE")}
           </p>
           <p>
-            <strong>Versión actual:</strong> {archivo.versionActual}
+            <strong>Versión actual:</strong> {archivo.ultimaVersion}
           </p>
           <p>
-            <strong>Usuario que subió:</strong> {archivo.usuarioSubida}
+            <strong>Subido por:</strong> {archivo.nombreUsuario}
           </p>
           <p>
-            <strong>Estado:</strong> {archivo.estado}
+            <strong>Descripción:</strong> {archivo.descripcion || "—"}
           </p>
           <p>
-            <strong>Ruta lógica:</strong> {archivo.rutaLogica}
+            <strong>Ruta S3:</strong> {archivo.rutaS3}
           </p>
-          {/* puedes agregar más campos según lo que devuelva el backend */}
         </div>
       ) : (
         <p className="text-red-400">No se pudo cargar el archivo.</p>
