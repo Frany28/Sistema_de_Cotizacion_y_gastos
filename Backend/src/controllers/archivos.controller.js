@@ -639,3 +639,42 @@ export const obtenerDetallesArchivo = async (req, res) => {
     });
   }
 };
+
+export const contarVersionesArchivo = async (req, res) => {
+  const archivoId = Number(req.params.id);
+  const usuarioId = req.user.id;
+  const rolId = req.user.rol_id;
+
+  try {
+    const [[archivo]] = await db.query(
+      "SELECT subidoPor FROM archivos WHERE id = ?",
+      [archivoId]
+    );
+
+    if (!archivo) {
+      return res.status(404).json({ message: "Archivo no encontrado." });
+    }
+
+    if (
+      ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
+      archivo.subidoPor !== usuarioId
+    ) {
+      return res.status(403).json({ message: "Acceso denegado." });
+    }
+
+    const [[{ totalVersiones }]] = await db.query(
+      `SELECT COUNT(*) AS totalVersiones
+       FROM versionesArchivo
+       WHERE archivoId = ?`,
+      [archivoId]
+    );
+
+    return res.json({ totalVersiones });
+  } catch (error) {
+    console.error(error);
+    return res
+      .status(500)
+      .json({ message: "Error al contar versiones del archivo." });
+  }
+};
+
