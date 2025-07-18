@@ -104,7 +104,7 @@ const DetalleArchivo = () => {
 
   return (
     <div className="p-6 w-full bg-gray-900 min-h-screen flex justify-center">
-      <div className="w-full max-w-[1024px]">
+      <div className="w-full">
         <button
           onClick={() => navigate(-1)}
           className="mb-6 flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
