@@ -64,21 +64,42 @@ const DetalleArchivo = () => {
 
   const obtenerIconoPorTipo = (extension) => {
     const tipo = extension.toLowerCase();
+
+    const colorImagen = "text-blue-400";
+    const colorGenerico = "text-red-500";
+
     if (["jpg", "jpeg", "png", "gif", "svg"].includes(tipo))
-      return <ImageIcon className="text-red-500" size={28} />;
+      return <ImageIcon className={colorImagen} size={28} />;
     if (["mp4", "mov", "avi", "mkv"].includes(tipo))
-      return <Video className="text-red-500" size={28} />;
+      return <Video className={colorGenerico} size={28} />;
     if (["mp3", "wav", "ogg"].includes(tipo))
-      return <Music className="text-red-500" size={28} />;
+      return <Music className={colorGenerico} size={28} />;
     if (["zip", "rar", "7z"].includes(tipo))
-      return <Archive className="text-red-500" size={28} />;
+      return <Archive className={colorGenerico} size={28} />;
     if (["pdf"].includes(tipo))
-      return <BookOpen className="text-red-500" size={28} />;
+      return <BookOpen className={colorGenerico} size={28} />;
     if (["xls", "xlsx", "csv"].includes(tipo))
-      return <FileSpreadsheet className="text-red-500" size={28} />;
+      return <FileSpreadsheet className={colorGenerico} size={28} />;
     if (["js", "jsx", "ts", "html", "css", "py", "java"].includes(tipo))
-      return <Code className="text-red-500" size={28} />;
-    return <FileText className="text-red-500" size={28} />;
+      return <Code className={colorGenerico} size={28} />;
+
+    return <FileText className={colorGenerico} size={28} />;
+  };
+
+  const obtenerDescripcionTipoArchivo = (extension) => {
+    const ext = extension.toLowerCase();
+    if (["png"].includes(ext)) return "PNG Image";
+    if (["jpg", "jpeg"].includes(ext)) return "JPEG Image";
+    if (["gif"].includes(ext)) return "GIF Image";
+    if (["svg"].includes(ext)) return "SVG Image";
+    if (["pdf"].includes(ext)) return "PDF Document";
+    if (["doc", "docx"].includes(ext)) return "Word Document";
+    if (["xls", "xlsx"].includes(ext)) return "Excel Spreadsheet";
+    if (["csv"].includes(ext)) return "CSV File";
+    if (["zip", "rar", "7z"].includes(ext)) return "Compressed Archive";
+    if (["mp3", "wav"].includes(ext)) return "Audio File";
+    if (["mp4", "avi", "mkv"].includes(ext)) return "Video File";
+    return `${ext.toUpperCase()} File`;
   };
 
   return (
@@ -118,7 +139,9 @@ const DetalleArchivo = () => {
                 <FileText className="text-blue-400 mt-1" size={20} />
                 <div>
                   <p className="text-sm text-gray-400">Type</p>
-                  <p className="text-white">PDF Document</p>
+                  <p className="text-white">
+                    {obtenerDescripcionTipoArchivo(archivo.extension)}
+                  </p>
                 </div>
               </div>
 
