@@ -25,5 +25,6 @@ export { default as CrearRegistro } from "./crearRegistro/CrearRegistro";
 
 //Archivos
 export { default as ArchivosPage } from "./Gestor de Archivos/ArchivosPage";
+export { default as VistaDetalleArchivo } from "./Gestor de Archivos/Archivo Especifico/VistaDetalleArchivo";
 // Reportes
 export { default as RelacionesGatos } from "./reportes/RelacionesGatos";

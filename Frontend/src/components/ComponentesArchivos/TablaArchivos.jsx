@@ -13,6 +13,7 @@ import {
 import { format, formatDistanceToNowStrict } from "date-fns";
 import { es } from "date-fns/locale";
 import api from "../../api/index";
+import { useNavigate } from "react-router-dom";
 
 function TablaArchivos() {
   /* ----------------------------------------------------------------------- */
@@ -40,6 +41,8 @@ function TablaArchivos() {
       setCargando(false);
     }
   }, []);
+
+  const navegar = useNavigate();
 
   useEffect(() => {
     obtenerArbolArchivos();
@@ -249,7 +252,8 @@ function TablaArchivos() {
       return [
         <tr
           key={nodo.ruta}
-          className="hover:bg-gray-600/30 transition-colors duration-150"
+          className="hover:bg-gray-600/30 transition-colors duration-150 cursor-pointer"
+          onClick={() => navegar(`/gestor-archivos/archivo/${nodo.id}`)}
         >
           <td
             className="py-3 flex items-center gap-2 text-gray-100"

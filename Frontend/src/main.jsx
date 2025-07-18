@@ -24,6 +24,7 @@ import {
   SucursalesPage,
   BancosPage,
   ArchivosPage,
+  VistaDetalleArchivo,
 } from "./pages/pages.js";
 
 createRoot(document.getElementById("root")).render(
@@ -72,6 +73,10 @@ createRoot(document.getElementById("root")).render(
           />
           <Route path="/crearRegistro" element={<CrearRegistro />} />
           <Route path="/archivos" element={<ArchivosPage />} />;
+          <Route
+            path="/gestor-archivos/archivo/:id"
+            element={<VistaDetalleArchivo />}
+          />
           <Route path="/reportes" element={<RelacionesGatos />} />
         </Route>
         {/* Ruta no encontrada */}
