@@ -664,10 +664,15 @@ export const contarVersionesArchivo = async (req, res) => {
 
     const [[{ totalVersiones }]] = await db.query(
       `SELECT COUNT(*) AS totalVersiones
-       FROM versionesArchivo
-       WHERE archivoId = ?`,
+   FROM versionesArchivo
+   WHERE archivoId = ?`,
       [archivoId]
     );
+
+    // La versión activa siempre cuenta como una
+    const totalConActual = totalVersiones + 1;
+
+    return res.json({ totalVersiones: totalConActual });
 
     return res.json({ totalVersiones });
   } catch (error) {
@@ -677,4 +682,3 @@ export const contarVersionesArchivo = async (req, res) => {
       .json({ message: "Error al contar versiones del archivo." });
   }
 };
-
