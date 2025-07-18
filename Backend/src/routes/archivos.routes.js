@@ -15,7 +15,7 @@ import {
   eliminarDefinitivamente,
   sustituirArchivo,
   obtenerDetallesArchivo,
-  obtenerTamanoTotalVersiones,
+  contarVersionesArchivo,
 } from "../controllers/archivos.controller.js";
 
 const router = express.Router();
@@ -75,6 +75,7 @@ router.post(
   restaurarArchivo
 );
 
+// Listar versiones de un archivo
 router.get("/:id/total-versiones", autenticarUsuario, contarVersionesArchivo);
 
 // Listar historial de versiones de un archivo
