@@ -1,6 +1,6 @@
 //ruta: /pages/Gestor de Archivos/Archivo Especifico/VistaDetalleArchivo.jsx
 import AsideArchivo from "../../../components/ComponentesArchivos/Componentes del aside/AsideArchivo";
-import DetalleArchivo from "../../../components/ComponentesArchivos/ArchivoEspecifico.jsx/DetalleArchivos";
+import DetalleArchivo from "../../../components/ComponentesArchivos/ArchivoEspecifico/DetalleArchivos";
 
 function VistaDetalleArchivo() {
   return (

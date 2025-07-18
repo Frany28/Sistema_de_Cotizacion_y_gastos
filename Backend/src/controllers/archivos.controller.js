@@ -591,13 +591,12 @@ export const obtenerDetallesArchivo = async (req, res) => {
   try {
     const [[archivo]] = await db.query(
       `SELECT a.id,
-              a.nombreOriginal,
-              a.extension,
-              a.tamanioBytes,
-              a.rutaS3,
-              a.actualizadoEn,
-              a.descripcion,
-              u.nombre AS nombreUsuario
+       a.nombreOriginal,
+       a.extension,
+       a.tamanioBytes,
+       a.rutaS3,
+       a.actualizadoEn,
+       u.nombre AS nombreUsuario
          FROM archivos a
     JOIN usuarios u ON u.id = a.subidoPor
         WHERE a.id = ? AND a.estado = 'activo'`,
@@ -630,7 +629,6 @@ export const obtenerDetallesArchivo = async (req, res) => {
       tamanioBytes: archivo.tamanioBytes,
       rutaS3: archivo.rutaS3,
       actualizadoEn: archivo.actualizadoEn,
-      descripcion: archivo.descripcion || null,
       nombreUsuario: archivo.nombreUsuario,
       ultimaVersion,
     });
