@@ -107,26 +107,27 @@ export const obtenerUrlComprobante = async (req, res) => {
 export const updateGasto = async (req, res) => {
   const { id } = req.params;
   let claveS3Nueva = null;
+  const conexion = await db.getConnection();
 
   try {
-    await db.beginTransaction();
+    await conexion.beginTransaction();
 
-    // 1. Verificar si existe el gasto
-    const [[gastoExistente]] = await db.query(
+    const [[gastoExistente]] = await conexion.query(
       "SELECT * FROM gastos WHERE id = ?",
       [id]
     );
     if (!gastoExistente) {
+      await conexion.rollback();
       return res.status(404).json({ message: "Gasto no encontrado" });
     }
 
     if (gastoExistente.estado === "aprobado") {
+      await conexion.rollback();
       return res
         .status(403)
         .json({ message: "No puedes editar un gasto aprobado." });
     }
 
-    // 2. Preparar nuevos valores
     const {
       proveedor_id,
       concepto_pago,
@@ -144,15 +145,7 @@ export const updateGasto = async (req, res) => {
     } = req.body;
 
     const subtotalNum = parseFloat(subtotal);
-    if (isNaN(subtotalNum)) {
-      return res.status(400).json({ message: "Subtotal inválido." });
-    }
-
     const ivaNum = parseFloat(porcentaje_iva);
-    if (isNaN(ivaNum)) {
-      return res.status(400).json({ message: "Porcentaje de IVA inválido." });
-    }
-
     const impuesto = parseFloat(((subtotalNum * ivaNum) / 100).toFixed(2));
     const total = parseFloat((subtotalNum + impuesto).toFixed(2));
 
@@ -163,51 +156,37 @@ export const updateGasto = async (req, res) => {
         : gastoExistente.estado;
     if (estado && estadosPermitidos.includes(estado)) nuevoEstado = estado;
 
-    let motivoRechazoFinal = motivo_rechazo;
+    let motivoRechazoFinal =
+      nuevoEstado === "rechazado" ? motivo_rechazo : null;
     if (
       nuevoEstado === "rechazado" &&
       (!motivo_rechazo || motivo_rechazo.trim() === "")
     ) {
+      await conexion.rollback();
       return res
         .status(400)
         .json({ message: "Debes indicar el motivo del rechazo." });
-    } else if (nuevoEstado !== "rechazado") {
-      motivoRechazoFinal = null;
     }
 
-    let tasaCambioFinal = tasa_cambio;
-    if (moneda === "VES" && (!tasa_cambio || isNaN(parseFloat(tasa_cambio)))) {
-      return res
-        .status(400)
-        .json({ message: "Tasa de cambio inválida para VES." });
-    } else if (moneda !== "VES") {
-      tasaCambioFinal = null;
-    }
+    let tasaCambioFinal =
+      moneda === "VES"
+        ? isNaN(parseFloat(tasa_cambio))
+          ? (await conexion.rollback(),
+            res
+              .status(400)
+              .json({ message: "Tasa de cambio inválida para VES." }))
+          : tasa_cambio
+        : null;
 
-    // Clave S3 del archivo nuevo (si existe)
     const documentoNuevo = req.file ? req.file.key : undefined;
 
-    // 3. Actualizar gasto
-    await db.query(
+    await conexion.query(
       `
       UPDATE gastos SET 
-        proveedor_id     = ?, 
-        concepto_pago    = ?, 
-        tipo_gasto_id    = ?, 
-        descripcion      = ?, 
-        subtotal         = ?, 
-        porcentaje_iva   = ?, 
-        impuesto         = ?, 
-        total            = ?, 
-        fecha            = ?, 
-        sucursal_id      = ?, 
-        cotizacion_id    = ?, 
-        moneda           = ?, 
-        tasa_cambio      = ?, 
-        estado           = ?, 
-        motivo_rechazo   = ?, 
-        ${documentoNuevo ? "documento = ?," : ""}
-        updated_at       = NOW()
+        proveedor_id = ?, concepto_pago = ?, tipo_gasto_id = ?, descripcion = ?, subtotal = ?, 
+        porcentaje_iva = ?, impuesto = ?, total = ?, fecha = ?, sucursal_id = ?, cotizacion_id = ?, 
+        moneda = ?, tasa_cambio = ?, estado = ?, motivo_rechazo = ?, 
+        ${documentoNuevo ? "documento = ?," : ""} updated_at = NOW()
       WHERE id = ?`,
       [
         proveedor_id,
@@ -230,29 +209,21 @@ export const updateGasto = async (req, res) => {
       ]
     );
 
-    // 4. Si subieron archivo nuevo → procesar versión y auditoría
     if (documentoNuevo) {
       claveS3Nueva = documentoNuevo;
 
-      // 4.1 Traer versión máxima anterior
-      const [[{ maxVersion }]] = await db.query(
-        `
-        SELECT MAX(numeroVersion) AS maxVersion
-          FROM archivos
-         WHERE registroTipo = ? AND registroId = ?
-        `,
+      const [[{ maxVersion }]] = await conexion.query(
+        "SELECT MAX(numeroVersion) AS maxVersion FROM archivos WHERE registroTipo = ? AND registroId = ?",
         ["facturasGastos", id]
       );
       const numeroVersion = (maxVersion || 0) + 1;
-
       const extension = req.file.originalname.split(".").pop().toLowerCase();
       const tamanioBytes = req.file.size;
 
-      const [resArchivo] = await db.query(
-        `INSERT INTO archivos
-          (registroTipo, registroId, nombreOriginal, extension, rutaS3,
-          tamanioBytes, numeroVersion, subidoPor, creadoEn, actualizadoEn)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+      const [resArchivo] = await conexion.query(
+        `INSERT INTO archivos (registroTipo, registroId, nombreOriginal, extension, rutaS3,
+        tamanioBytes, numeroVersion, subidoPor, creadoEn, actualizadoEn)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
         [
           "facturasGastos",
           id,
@@ -264,16 +235,15 @@ export const updateGasto = async (req, res) => {
           req.user?.id || null,
         ]
       );
-
       const archivoId = resArchivo.insertId;
 
-      await db.query(
+      await conexion.query(
         `INSERT INTO eventosArchivo
-           (archivoId, accion, usuarioId, fechaHora, ip, userAgent, detalles)
+          (archivoId, accion, usuarioId, fechaHora, ip, userAgent, detalles)
          VALUES (?, ?, ?, NOW(), ?, ?, ?)`,
         [
           archivoId,
-          "actualizacion",
+          "sustitucion",
           req.user?.id || null,
           req.ip || null,
           req.get("user-agent") || null,
@@ -285,7 +255,6 @@ export const updateGasto = async (req, res) => {
         ]
       );
 
-      // 4.2 Borrar archivo anterior en S3 (si existía)
       if (gastoExistente.documento) {
         await s3.send(
           new DeleteObjectCommand({
@@ -296,18 +265,17 @@ export const updateGasto = async (req, res) => {
       }
     }
 
-    await db.commit();
+    await conexion.commit();
 
     cacheMemoria.del(`gasto_${id}`);
     for (const k of cacheMemoria.keys()) {
       if (k.startsWith("gastos_")) cacheMemoria.del(k);
     }
 
-    const [[gastoActualizado]] = await db.query(
+    const [[gastoActualizado]] = await conexion.query(
       "SELECT * FROM gastos WHERE id = ?",
       [id]
     );
-
     const urlFacturaFirmada = gastoActualizado.documento
       ? await generarUrlPrefirmadaLectura(gastoActualizado.documento)
       : null;
@@ -321,10 +289,8 @@ export const updateGasto = async (req, res) => {
     });
   } catch (error) {
     console.error("Error al actualizar gasto:", error);
+    await conexion.rollback();
 
-    await db.rollback();
-
-    // Si subiste archivo nuevo y hubo error → eliminarlo de S3
     if (claveS3Nueva) {
       try {
         await s3.send(
@@ -341,6 +307,8 @@ export const updateGasto = async (req, res) => {
     return res
       .status(500)
       .json({ message: "Error interno al actualizar gasto." });
+  } finally {
+    conexion.release();
   }
 };
 
