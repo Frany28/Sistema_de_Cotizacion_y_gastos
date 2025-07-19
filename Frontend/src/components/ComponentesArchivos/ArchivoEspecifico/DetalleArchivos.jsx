@@ -4,6 +4,7 @@ import api from "../../../api";
 import CantidadVersionesArchivo from "./CantidadVersionesArchivos";
 import CantidadVersionesMes from "./CantidadVersionesMes";
 import AlmacenamientoTotalArchivo from "./AlmacenamientoTotalArchivo";
+import TablaHistorialVersiones from "./HistorialVersionesArchivo";
 import {
   FileText,
   User,
@@ -193,6 +194,9 @@ const DetalleArchivo = () => {
           <CantidadVersionesArchivo />
           <CantidadVersionesMes />
           <AlmacenamientoTotalArchivo />
+        </div>
+        <div className="mt-10">
+          <TablaHistorialVersiones idArchivo={id} />
         </div>
       </div>
     </div>

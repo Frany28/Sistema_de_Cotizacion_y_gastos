@@ -346,14 +346,30 @@ export const listarHistorialVersiones = async (req, res) => {
     }
 
     const [versiones] = await db.query(
-      `SELECT v.id, v.numeroVersion, v.subidoEn AS fecha, v.subidoPorId AS usuarioId,
-              u.nombre AS usuario, v.comentario, v.tamanoBytes, v.s3ObjectKey AS keyS3
-         FROM versionesArchivo v
-    JOIN usuarios u ON u.id = v.subidoPorId
-        WHERE v.archivoId = ?
-     ORDER BY v.numeroVersion DESC`,
+      `SELECT v.id,
+            v.numeroVersion,
+            v.subidoEn AS fecha,
+            v.subidoPorId AS usuarioId,
+            u.nombre AS usuario,
+            v.comentario,
+            v.tamanoBytes,
+            v.s3ObjectKey AS keyS3,
+            e.accion AS tipoAccion,
+            e.fechaHora AS fechaAccion
+      FROM versionesArchivo v
+  LEFT JOIN eventosArchivo e 
+        ON e.versionId = v.id
+        AND e.fechaHora = (
+          SELECT MIN(e2.fechaHora)
+            FROM eventosArchivo e2
+          WHERE e2.versionId = v.id
+        )
+  JOIN usuarios u ON u.id = v.subidoPorId
+  WHERE v.archivoId = ?
+  ORDER BY v.numeroVersion DESC`,
       [archivoId]
     );
+
 
     return res.json({ archivoId, versiones });
   } catch (error) {
