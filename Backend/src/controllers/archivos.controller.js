@@ -346,30 +346,48 @@ export const listarHistorialVersiones = async (req, res) => {
     }
 
     const [versiones] = await db.query(
-      `SELECT v.id,
-            v.numeroVersion,
-            v.subidoEn AS fecha,
-            v.subidoPorId AS usuarioId,
-            u.nombre AS usuario,
-            v.comentario,
-            v.tamanoBytes,
-            v.s3ObjectKey AS keyS3,
-            e.accion AS tipoAccion,
-            e.fechaHora AS fechaAccion
-      FROM versionesArchivo v
-  LEFT JOIN eventosArchivo e 
-        ON e.versionId = v.id
-        AND e.fechaHora = (
-          SELECT MIN(e2.fechaHora)
-            FROM eventosArchivo e2
-          WHERE e2.versionId = v.id
-        )
-  JOIN usuarios u ON u.id = v.subidoPorId
-  WHERE v.archivoId = ?
-  ORDER BY v.numeroVersion DESC`,
-      [archivoId]
+      `
+  (
+    SELECT 
+      a.id,
+      a.numeroVersion,
+      a.actualizadoEn AS fecha,
+      a.subidoPor AS usuarioId,
+      u.nombre AS usuario,
+      'Versión activa' AS comentario,
+      a.tamanoBytes,
+      a.rutaS3 AS keyS3,
+      e.accion AS tipoAccion,
+      e.fechaHora AS fechaAccion
+    FROM archivos a
+    JOIN usuarios u ON u.id = a.subidoPor
+    LEFT JOIN eventosArchivo e 
+      ON e.archivoId = a.id AND e.versionId IS NULL
+    WHERE a.id = ?
+  )
+  UNION ALL
+  (
+    SELECT 
+      v.id,
+      v.numeroVersion,
+      v.creadoEn AS fecha,
+      v.subidoPorId AS usuarioId,
+      u.nombre AS usuario,
+      v.comentario,
+      v.tamanoBytes,
+      v.s3ObjectKey AS keyS3,
+      e.accion AS tipoAccion,
+      e.fechaHora AS fechaAccion
+    FROM versionesArchivo v
+    JOIN usuarios u ON u.id = v.subidoPorId
+    LEFT JOIN eventosArchivo e 
+      ON e.versionId = v.id
+    WHERE v.archivoId = ?
+  )
+  ORDER BY numeroVersion DESC
+  `,
+      [archivoId, archivoId]
     );
-
 
     return res.json({ archivoId, versiones });
   } catch (error) {
