@@ -125,13 +125,15 @@ export const actualizarUsuario = async (req, res) => {
 
     // Si hay nueva firma:
     if (firmaKey) {
-      const [[{ maxVersion }]] = await conexion.query(
-        `SELECT MAX(numeroVersion) AS maxVersion
-         FROM archivos
-         WHERE registroTipo = 'firmas' AND registroId = ?`,
+      const [[{ totalVersiones }]] = await conexion.query(
+        `SELECT COUNT(*) AS totalVersiones
+     FROM archivos
+    WHERE registroTipo = 'firmas'
+      AND registroId = ?
+      AND estado != 'eliminado'`,
         [id]
       );
-      const numeroVersion = (maxVersion || 0) + 1;
+      const numeroVersion = totalVersiones + 1;
 
       // Insertar nuevo archivo
       const [aResult] = await conexion.query(
@@ -236,7 +238,6 @@ export const actualizarUsuario = async (req, res) => {
     conexion.release();
   }
 };
-
 
 // Obtener todos los usuarios (incluye código y rol)
 export const obtenerUsuarios = async (req, res) => {

@@ -253,12 +253,16 @@ export const updateGasto = async (req, res) => {
         }
       }
 
-      // 🆕 Insertar nuevo archivo como versión actual
-      const [[{ maxVersion }]] = await conexion.query(
-        "SELECT MAX(numeroVersion) AS maxVersion FROM archivos WHERE registroTipo = ? AND registroId = ?",
-        ["facturasGastos", id]
+      const [[{ totalVersiones }]] = await conexion.query(
+        `SELECT COUNT(*) AS totalVersiones
+   FROM archivos
+   WHERE registroTipo = 'facturasGastos'
+     AND registroId = ?
+     AND estado != 'eliminado'`,
+        [id]
       );
-      const numeroVersion = (maxVersion || 0) + 1;
+      const numeroVersion = totalVersiones + 1;
+
       const extension = req.file.originalname.split(".").pop().toLowerCase();
       const tamanioBytes = req.file.size;
 
