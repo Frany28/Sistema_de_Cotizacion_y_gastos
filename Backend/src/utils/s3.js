@@ -58,11 +58,28 @@ export async function moverArchivoAS3AlPapelera(
   registroTipo,
   registroId
 ) {
+  // Verificar si el archivo existe en S3 antes de moverlo
+  try {
+    await s3.send(
+      new HeadObjectCommand({
+        Bucket: process.env.S3_BUCKET,
+        Key: claveAntigua,
+      })
+    );
+  } catch (error) {
+    if (error.name === "NotFound" || error.Code === "NoSuchKey") {
+      console.warn(`⚠ Archivo no encontrado en S3: ${claveAntigua}`);
+      return null; // si no existe, no continuamos con la copia
+    }
+    throw error; // otros errores: los relanzamos
+  }
+
   const ahora = new Date();
   const timestampStr = ahora.toISOString().replace(/[:.]/g, "-");
   const nombreArchivo = claveAntigua.split("/").pop();
   const claveNueva = `papelera/${registroTipo}/${registroId}/${timestampStr}-${nombreArchivo}`;
 
+  // Copiar a la nueva ubicación (papelera)
   await s3.send(
     new CopyObjectCommand({
       Bucket: process.env.S3_BUCKET,
@@ -72,6 +89,7 @@ export async function moverArchivoAS3AlPapelera(
     })
   );
 
+  // Eliminar el original
   await s3.send(
     new DeleteObjectCommand({
       Bucket: process.env.S3_BUCKET,
