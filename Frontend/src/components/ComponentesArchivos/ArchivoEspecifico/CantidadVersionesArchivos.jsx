@@ -1,7 +1,8 @@
+// src/components/ComponentesArchivos/CantidadVersionesArchivos.jsx
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import api from "../../../api";
-import { FileText } from "lucide-react";
+import { Layers } from "lucide-react"; // Ícono que se parece al de la imagen
 
 const CantidadVersionesArchivo = () => {
   const { id } = useParams();
@@ -24,14 +25,18 @@ const CantidadVersionesArchivo = () => {
   }, [id]);
 
   return (
-    <div className="flex items-start gap-3">
-      <FileText className="text-blue-400 mt-1" size={20} />
-      <div>
-        <p className="text-sm text-gray-400">Cantidad de versiones</p>
-        <p className="text-white">
-          {cargando ? "Cargando..." : cantidadVersiones}
-        </p>
+    <div className="w-[260px] h-[115px] bg-[#1e293b] rounded-xl p-5 relative shadow-md">
+      <div className="absolute top-4 right-4">
+        <Layers className="text-blue-500" size={20} />
       </div>
+
+      <p className="text-sm text-gray-400">Total de Versiones</p>
+      <h1 className="text-white text-3xl font-bold mt-1">
+        {cargando ? "..." : cantidadVersiones}
+      </h1>
+      <p className="text-xs text-gray-500 mt-1">
+        A lo largo de toda la historia
+      </p>
     </div>
   );
 };

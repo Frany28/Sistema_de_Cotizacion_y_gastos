@@ -127,9 +127,6 @@ const DetalleArchivo = () => {
                 <h2 className="text-white text-lg font-semibold leading-tight">
                   {archivo.nombreOriginal}
                 </h2>
-                <p className="text-sm text-gray-400">
-                  Última Versión: {archivo.ultimaVersion}v
-                </p>
               </div>
             </div>
 
