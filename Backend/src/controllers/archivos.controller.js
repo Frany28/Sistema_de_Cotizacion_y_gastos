@@ -588,22 +588,26 @@ export const obtenerDetallesArchivo = async (req, res) => {
   const usuarioId = req.user.id;
   const rolId = req.user.rol_id;
 
+  const conexion = await db.getConnection();
+
   try {
-    const [[archivo]] = await db.query(
+    const [[archivo]] = await conexion.query(
       `SELECT a.id,
-       a.nombreOriginal,
-       a.extension,
-       a.tamanioBytes,
-       a.rutaS3,
-       a.actualizadoEn,
-       u.nombre AS nombreUsuario
+              a.nombreOriginal,
+              a.extension,
+              a.tamanioBytes,
+              a.rutaS3,
+              a.actualizadoEn,
+              a.subidoPor,
+              u.nombre AS nombreUsuario
          FROM archivos a
-    JOIN usuarios u ON u.id = a.subidoPor
+         JOIN usuarios u ON u.id = a.subidoPor
         WHERE a.id = ? AND a.estado = 'activo'`,
       [archivoId]
     );
 
     if (!archivo) {
+      await conexion.release();
       return res.status(404).json({ message: "Archivo no encontrado." });
     }
 
@@ -612,9 +616,11 @@ export const obtenerDetallesArchivo = async (req, res) => {
       ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
       archivo.subidoPor !== usuarioId
     ) {
+      await conexion.release();
       return res.status(403).json({ message: "Acceso denegado." });
     }
 
+    // Contar versiones históricas
     const [[{ totalVersiones }]] = await conexion.query(
       `SELECT COUNT(*) AS totalVersiones FROM versionesArchivo WHERE archivoId = ?`,
       [archivo.id]
@@ -622,6 +628,7 @@ export const obtenerDetallesArchivo = async (req, res) => {
 
     const ultimaVersion = totalVersiones + 1;
 
+    await conexion.release();
     return res.json({
       id: archivo.id,
       nombreOriginal: archivo.nombreOriginal,
@@ -633,7 +640,8 @@ export const obtenerDetallesArchivo = async (req, res) => {
       ultimaVersion,
     });
   } catch (error) {
-    console.error(error);
+    await conexion.release();
+    console.error("Error en obtenerDetallesArchivo:", error);
     return res.status(500).json({
       message: "Error interno al obtener los detalles del archivo.",
     });
@@ -646,15 +654,16 @@ export const contarVersionesArchivo = async (req, res) => {
   const rolId = req.user.rol_id;
 
   try {
+    // Verifica existencia y propietario
     const [[archivo]] = await db.query(
-      "SELECT subidoPor FROM archivos WHERE id = ?",
+      `SELECT subidoPor FROM archivos WHERE id = ? AND estado != 'eliminado'`,
       [archivoId]
     );
-
     if (!archivo) {
       return res.status(404).json({ message: "Archivo no encontrado." });
     }
 
+    // Control de acceso
     if (
       ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
       archivo.subidoPor !== usuarioId
@@ -662,19 +671,20 @@ export const contarVersionesArchivo = async (req, res) => {
       return res.status(403).json({ message: "Acceso denegado." });
     }
 
+    // Consulta versiones históricas
     const [[{ totalVersiones }]] = await db.query(
       `SELECT COUNT(*) AS totalVersiones FROM versionesArchivo WHERE archivoId = ?`,
       [archivoId]
     );
 
-    // La versión activa siempre cuenta como una
+    // Sumar la versión activa
     const totalConActual = totalVersiones + 1;
 
     return res.json({ totalVersiones: totalConActual });
   } catch (error) {
-    console.error(error);
-    return res
-      .status(500)
-      .json({ message: "Error al contar versiones del archivo." });
+    console.error("Error en contarVersionesArchivo:", error);
+    return res.status(500).json({
+      message: "Error al contar versiones del archivo.",
+    });
   }
 };
