@@ -345,8 +345,8 @@ export const listarHistorialVersiones = async (req, res) => {
       return res.status(403).json({ message: "Acceso denegado." });
     }
 
-    const [versiones] = await db.query(
-      `
+   const [versiones] = await db.query(
+     `
   (
     SELECT 
       a.id,
@@ -355,7 +355,7 @@ export const listarHistorialVersiones = async (req, res) => {
       a.subidoPor AS usuarioId,
       u.nombre AS usuario,
       'Versión activa' AS comentario,
-      a.pesoBytes AS tamanoBytes,
+      a.tamanioBytes,
       a.rutaS3 AS keyS3,
       e.accion AS tipoAccion,
       e.fechaHora AS fechaAccion
@@ -371,23 +371,24 @@ export const listarHistorialVersiones = async (req, res) => {
       v.id,
       v.numeroVersion,
       v.creadoEn AS fecha,
-      v.subidoPorId AS usuarioId,
+      v.subidoPor AS usuarioId,
       u.nombre AS usuario,
       v.comentario,
-      v.tamanoBytes,
-      v.s3ObjectKey AS keyS3,
+      v.tamanioBytes,
+      v.rutaS3 AS keyS3,
       e.accion AS tipoAccion,
       e.fechaHora AS fechaAccion
     FROM versionesArchivo v
-    JOIN usuarios u ON u.id = v.subidoPorId
+    JOIN usuarios u ON u.id = v.subidoPor
     LEFT JOIN eventosArchivo e 
       ON e.versionId = v.id
     WHERE v.archivoId = ?
   )
   ORDER BY numeroVersion DESC
   `,
-      [archivoId, archivoId]
-    );
+     [archivoId, archivoId]
+   );
+
 
     return res.json({ archivoId, versiones });
   } catch (error) {
