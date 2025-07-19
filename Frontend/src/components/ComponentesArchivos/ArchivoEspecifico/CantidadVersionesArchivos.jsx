@@ -24,21 +24,25 @@ const CantidadVersionesArchivo = () => {
     obtenerCantidad();
   }, [id]);
 
-  return (
-    <div className="w-[400px] h-[162px] bg-gray-800 rounded-xl p-5 relative shadow-md">
-      <div className="absolute top-4 right-4">
-        <Layers className="text-blue-500" size={20} />
-      </div>
+return (
+  <div className="w-[400px] h-[162px] bg-gray-800 rounded-xl p-5 relative shadow-md">
+    <div className="absolute top-4 right-4">
+      <Layers className="text-blue-500" size={20} />
+    </div>
 
+    {/* Contenido centrado */}
+    <div className="flex flex-col justify-center h-full">
       <p className="text-sm text-gray-400">Total de Versiones</p>
-      <h1 className="text-white text-3xl font-bold mt-1">
+      <h1 className="text-white text-4xl font-bold mt-1">
         {cargando ? "..." : cantidadVersiones}
       </h1>
       <p className="text-xs text-gray-500 mt-1">
         A lo largo de toda la historia
       </p>
     </div>
-  );
+  </div>
+);
+
 };
 
 export default CantidadVersionesArchivo;

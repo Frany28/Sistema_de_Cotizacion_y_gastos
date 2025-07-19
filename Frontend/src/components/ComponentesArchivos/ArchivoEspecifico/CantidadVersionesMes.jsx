@@ -30,11 +30,13 @@ const CantidadVersionesMes = () => {
         <Clock4 className="text-yellow-400" size={20} />
       </div>
 
-      <p className="text-sm text-gray-400">Versiones este mes</p>
-      <h1 className="text-white text-3xl font-bold mt-1">
-        {cargando ? "..." : versionesMes}
-      </h1>
-      <p className="text-xs text-gray-500 mt-1">Añadidas en julio</p>
+      <div className="flex flex-col justify-center h-full">
+        <p className="text-sm text-gray-400">Versiones este mes</p>
+        <h1 className="text-white text-4xl font-bold mt-1">
+          {cargando ? "..." : versionesMes}
+        </h1>
+        <p className="text-xs text-gray-500 mt-1">Añadidas en julio</p>
+      </div>
     </div>
   );
 };
