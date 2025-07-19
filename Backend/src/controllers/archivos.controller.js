@@ -615,12 +615,11 @@ export const obtenerDetallesArchivo = async (req, res) => {
       return res.status(403).json({ message: "Acceso denegado." });
     }
 
-    const [[{ ultimaVersion }]] = await db.query(
-      `SELECT COALESCE(MAX(numeroVersion), 1) AS ultimaVersion
-         FROM versionesArchivo
-        WHERE archivoId = ?`,
+    const [[{ totalVersiones }]] = await db.query(
+      `SELECT COUNT(*) AS totalVersiones FROM versionesArchivo WHERE archivoId = ?`,
       [archivoId]
     );
+    const ultimaVersion = totalVersiones + 1;
 
     return res.json({
       id: archivo.id,
@@ -663,9 +662,7 @@ export const contarVersionesArchivo = async (req, res) => {
     }
 
     const [[{ totalVersiones }]] = await db.query(
-      `SELECT COUNT(*) AS totalVersiones
-   FROM versionesArchivo
-   WHERE archivoId = ?`,
+      `SELECT COUNT(*) AS totalVersiones FROM versionesArchivo WHERE archivoId = ?`,
       [archivoId]
     );
 
@@ -674,7 +671,6 @@ export const contarVersionesArchivo = async (req, res) => {
 
     return res.json({ totalVersiones: totalConActual });
 
-    return res.json({ totalVersiones });
   } catch (error) {
     console.error(error);
     return res
