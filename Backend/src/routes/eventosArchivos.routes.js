@@ -3,6 +3,7 @@ import { Router } from "express";
 import {
   listarEventosArchivos,
   contarVersionesDelMes,
+  obtenerAlmacenamientoTotal,
 } from "../controllers/eventosArchivos.controller.js";
 import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
 import { verificarPermiso } from "../Middleware/verificarPermiso.js";
@@ -20,6 +21,13 @@ router.get(
   autenticarUsuario,
   verificarPermiso("verEventosArchivos"),
   contarVersionesDelMes
+);
+
+router.get(
+  "/:id/almacenamiento-total",
+  autenticarUsuario,
+  verificarPermiso("verEventosArchivos"),
+  obtenerAlmacenamientoTotal
 );
 
 export default router;

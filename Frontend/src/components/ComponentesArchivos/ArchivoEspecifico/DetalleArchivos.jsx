@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import api from "../../../api";
 import CantidadVersionesArchivo from "./CantidadVersionesArchivos";
 import CantidadVersionesMes from "./CantidadVersionesMes";
+import AlmacenamientoTotalArchivo from "./AlmacenamientoTotalArchivo";
 import {
   FileText,
   User,
@@ -191,6 +192,7 @@ const DetalleArchivo = () => {
         <div className="mt-6 flex flex-wrap gap-4">
           <CantidadVersionesArchivo />
           <CantidadVersionesMes />
+          <AlmacenamientoTotalArchivo />
         </div>
       </div>
     </div>

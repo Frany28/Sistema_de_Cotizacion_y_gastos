@@ -1,0 +1,58 @@
+// src/components/ComponentesArchivos/AlmacenamientoTotalArchivo.jsx
+import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
+import api from "../../../api";
+import { HardDrive } from "lucide-react";
+
+const AlmacenamientoTotalArchivo = () => {
+  const { id } = useParams();
+  const [almacenamiento, setAlmacenamiento] = useState(null);
+  const [cargando, setCargando] = useState(true);
+
+  useEffect(() => {
+    const obtenerAlmacenamiento = async () => {
+      try {
+        const res = await api.get(
+          `/archivos/eventos/${id}/almacenamiento-total`
+        );
+        setAlmacenamiento(res.data.totalBytes);
+      } catch (error) {
+        console.error("Error al obtener almacenamiento:", error);
+      } finally {
+        setCargando(false);
+      }
+    };
+
+    obtenerAlmacenamiento();
+  }, [id]);
+
+  const formatearTamanio = (bytes) => {
+    if (bytes == null || isNaN(bytes)) return "0 B";
+    const unidades = ["B", "KB", "MB", "GB", "TB"];
+    let i = 0;
+    let valor = bytes;
+    while (valor >= 1024 && i < unidades.length - 1) {
+      valor /= 1024;
+      i++;
+    }
+    return `${valor.toFixed(1)} ${unidades[i]}`;
+  };
+
+  return (
+    <div className="w-[260px] h-[115px] bg-gray-800 rounded-xl p-5 relative shadow-md">
+      <div className="absolute top-4 right-4">
+        <HardDrive className="text-blue-500" size={20} />
+      </div>
+
+      <p className="text-sm text-gray-400">Almacenamiento utilizado</p>
+      <h1 className="text-white text-3xl font-bold mt-1">
+        {cargando ? "..." : formatearTamanio(almacenamiento)}
+      </h1>
+      <p className="text-xs text-gray-500 mt-1">
+        Total por todas las versiones
+      </p>
+    </div>
+  );
+};
+
+export default AlmacenamientoTotalArchivo;

@@ -105,3 +105,39 @@ export const contarVersionesDelMes = async (req, res) => {
     res.status(500).json({ mensaje: "Error al contar versiones del mes" });
   }
 };
+
+
+export const obtenerAlmacenamientoTotal = async (req, res) => {
+  const archivoId = req.params.id;
+
+  try {
+    // 1. Obtener registroTipo y registroId del archivo base
+    const [resultado] = await db.query(
+      `SELECT registroTipo, registroId
+         FROM archivos
+        WHERE id = ?`,
+      [archivoId]
+    );
+
+    if (resultado.length === 0) {
+      return res.status(404).json({ mensaje: "Archivo no encontrado" });
+    }
+
+    const { registroTipo, registroId } = resultado[0];
+
+    // 2. Sumar tamaño de todas las versiones relacionadas
+    const [suma] = await db.query(
+      `SELECT SUM(tamanioBytes) AS totalBytes
+         FROM archivos
+        WHERE registroTipo = ? AND registroId = ?`,
+      [registroTipo, registroId]
+    );
+
+    const totalBytes = suma[0].totalBytes || 0;
+
+    res.json({ totalBytes });
+  } catch (error) {
+    console.error("Error al calcular almacenamiento total:", error);
+    res.status(500).json({ mensaje: "Error al calcular almacenamiento total" });
+  }
+};
