@@ -25,7 +25,7 @@ const CantidadVersionesMes = () => {
   }, [id]);
 
   return (
-    <div className="w-[260px] h-[115px] bg-gray-800 rounded-xl p-5 relative shadow-md">
+    <div className="w-[333px] h-[115px] bg-gray-800 rounded-xl p-5 relative shadow-md">
       <div className="absolute top-4 right-4">
         <Clock4 className="text-yellow-400" size={20} />
       </div>
