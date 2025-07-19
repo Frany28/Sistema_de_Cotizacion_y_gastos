@@ -25,7 +25,7 @@ const CantidadVersionesArchivo = () => {
   }, [id]);
 
 return (
-  <div className="w-[400px] h-[162px] bg-gray-800 rounded-xl p-5 relative shadow-md">
+  <div className="w-[400px] h-[162px] bg-gray-800 rounded-xl p-5 relative shadow-md border border-gray-700">
     <div className="absolute top-4 right-4">
       <Layers className="text-blue-500" size={20} />
     </div>

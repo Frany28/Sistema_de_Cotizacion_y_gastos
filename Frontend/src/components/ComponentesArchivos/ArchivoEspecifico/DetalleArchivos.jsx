@@ -189,7 +189,7 @@ const DetalleArchivo = () => {
         ) : (
           <p className="text-red-400">No se pudo cargar el archivo.</p>
         )}
-        <div className="mt-6 flex flex-wrap gap-4 justify-center">
+        <div className="mt-6 flex flex-wrap gap-10 justify-center">
           <CantidadVersionesArchivo />
           <CantidadVersionesMes />
           <AlmacenamientoTotalArchivo />
