@@ -4,7 +4,6 @@ import { format, formatDistanceToNowStrict } from "date-fns";
 import { es } from "date-fns/locale";
 import api from "../../../api";
 
-
 function RegistroDeActividades() {
   // Estado local ------------------------------------------------------
   const [eventos, setEventos] = useState([]);
@@ -85,7 +84,7 @@ function RegistroDeActividades() {
       {/* Footer link */}
       <button
         type="button"
-        onClick={() => window.location.assign("/actividad-reciente")}
+        onClick={() => window.location.assign("/gestor-archivos")}
         className="text-center text-sm font-medium text-[#1A56DB] hover:underline"
       >
         Ver Actividad Reciente

@@ -180,7 +180,7 @@ const DetalleArchivo = () => {
               <div className="flex items-start gap-3 col-span-full">
                 <File className="text-blue-400 mt-1" size={20} />
                 <div>
-                  <p className="text-sm text-gray-400">Location:</p>
+                  <p className="text-sm text-gray-400">Localización</p>
                   <p className="text-white break-words">{archivo.rutaS3}</p>
                 </div>
               </div>
