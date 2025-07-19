@@ -599,6 +599,7 @@ export const obtenerDetallesArchivo = async (req, res) => {
               a.rutaS3,
               a.actualizadoEn,
               a.subidoPor,
+              a.numeroVersion,
               u.nombre AS nombreUsuario
          FROM archivos a
          JOIN usuarios u ON u.id = a.subidoPor
@@ -620,14 +621,6 @@ export const obtenerDetallesArchivo = async (req, res) => {
       return res.status(403).json({ message: "Acceso denegado." });
     }
 
-    // Contar versiones históricas
-    const [[{ totalVersiones }]] = await conexion.query(
-      `SELECT COUNT(*) AS totalVersiones FROM versionesArchivo WHERE archivoId = ?`,
-      [archivo.id]
-    );
-
-    const ultimaVersion = totalVersiones + 1;
-
     await conexion.release();
     return res.json({
       id: archivo.id,
@@ -637,7 +630,7 @@ export const obtenerDetallesArchivo = async (req, res) => {
       rutaS3: archivo.rutaS3,
       actualizadoEn: archivo.actualizadoEn,
       nombreUsuario: archivo.nombreUsuario,
-      ultimaVersion,
+      ultimaVersion: archivo.numeroVersion,
     });
   } catch (error) {
     await conexion.release();
@@ -654,14 +647,19 @@ export const contarVersionesArchivo = async (req, res) => {
   const rolId = req.user.rol_id;
 
   try {
+    // Obtener datos del archivo
     const [[archivo]] = await db.query(
-      `SELECT subidoPor FROM archivos WHERE id = ? AND estado != 'eliminado'`,
+      `SELECT subidoPor, numeroVersion
+         FROM archivos
+        WHERE id = ? AND estado != 'eliminado'`,
       [archivoId]
     );
+
     if (!archivo) {
       return res.status(404).json({ message: "Archivo no encontrado." });
     }
 
+    // Control de acceso
     if (
       ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
       archivo.subidoPor !== usuarioId
@@ -669,14 +667,7 @@ export const contarVersionesArchivo = async (req, res) => {
       return res.status(403).json({ message: "Acceso denegado." });
     }
 
-    const [[{ totalVersiones }]] = await db.query(
-      `SELECT COUNT(*) AS totalVersiones FROM versionesArchivo WHERE archivoId = ?`,
-      [archivoId]
-    );
-
-    const totalConActual = Math.max(1, totalVersiones + 1);
-
-    return res.json({ totalVersiones: totalConActual });
+    return res.json({ totalVersiones: archivo.numeroVersion });
   } catch (error) {
     console.error("Error en contarVersionesArchivo:", error);
     return res.status(500).json({
