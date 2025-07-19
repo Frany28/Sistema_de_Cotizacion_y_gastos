@@ -63,3 +63,31 @@ export const listarEventosArchivos = async (req, res) => {
       .json({ message: "Error al listar eventos de archivos." });
   }
 };
+
+export const contarVersionesDelMes = async (req, res) => {
+  const archivoId = req.params.id;
+
+  const fechaInicio = new Date();
+  fechaInicio.setDate(1);
+  fechaInicio.setHours(0, 0, 0, 0);
+
+  const fechaFin = new Date(fechaInicio);
+  fechaFin.setMonth(fechaFin.getMonth() + 1);
+
+  try {
+    const [resultado] = await db.query(
+      `SELECT COUNT(*) AS totalDelMes
+         FROM versionesArchivo
+        WHERE archivoId = ?
+          AND creadoEn >= ? AND creadoEn < ?`,
+      [archivoId, fechaInicio, fechaFin]
+    );
+
+    return res.json({ totalDelMes: resultado[0].totalDelMes });
+  } catch (error) {
+    console.error("Error al contar versiones del mes:", error);
+    return res
+      .status(500)
+      .json({ mensaje: "Error al contar versiones del mes" });
+  }
+};
