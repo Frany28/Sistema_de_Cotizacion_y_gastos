@@ -39,7 +39,7 @@ const AlmacenamientoTotalArchivo = () => {
   };
 
   return (
-    <div className="w-[333px] h-[115px] bg-gray-800 rounded-xl p-5 relative shadow-md">
+    <div className="w-[400px] h-[162px] bg-gray-800 rounded-xl p-5 relative shadow-md">
       <div className="absolute top-4 right-4">
         <HardDrive className="text-blue-500" size={20} />
       </div>
