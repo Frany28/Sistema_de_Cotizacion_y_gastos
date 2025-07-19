@@ -75,19 +75,33 @@ export const contarVersionesDelMes = async (req, res) => {
   fechaFin.setMonth(fechaFin.getMonth() + 1);
 
   try {
-    const [resultado] = await db.query(
-      `SELECT COUNT(*) AS totalDelMes
-         FROM versionesArchivo
-        WHERE archivoId = ?
-          AND creadoEn >= ? AND creadoEn < ?`,
-      [archivoId, fechaInicio, fechaFin]
+    // 1. Obtener registroTipo y registroId del archivo base
+    const [archivos] = await db.query(
+      `SELECT registroTipo, registroId
+         FROM archivos
+        WHERE id = ?`,
+      [archivoId]
     );
 
-    return res.json({ totalDelMes: resultado[0].totalDelMes });
+    if (!archivos.length) {
+      return res.status(404).json({ mensaje: "Archivo no encontrado" });
+    }
+
+    const { registroTipo, registroId } = archivos[0];
+
+    // 2. Contar cuántas versiones hay para ese documento en el mes actual
+    const [conteo] = await db.query(
+      `SELECT COUNT(*) AS totalDelMes
+         FROM archivos
+        WHERE registroTipo = ?
+          AND registroId = ?
+          AND creadoEn >= ? AND creadoEn < ?`,
+      [registroTipo, registroId, fechaInicio, fechaFin]
+    );
+
+    res.json({ totalDelMes: conteo[0].totalDelMes });
   } catch (error) {
-    console.error("Error al contar versiones del mes:", error);
-    return res
-      .status(500)
-      .json({ mensaje: "Error al contar versiones del mes" });
+    console.error("Error al contar versiones del mes desde archivos:", error);
+    res.status(500).json({ mensaje: "Error al contar versiones del mes" });
   }
 };
