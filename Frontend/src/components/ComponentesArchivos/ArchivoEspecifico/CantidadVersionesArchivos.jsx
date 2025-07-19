@@ -33,7 +33,7 @@ return (
     {/* Contenido centrado */}
     <div className="flex flex-col justify-center h-full">
       <p className="text-sm text-gray-400">Total de Versiones</p>
-      <h1 className="text-white text-4xl font-bold mt-1">
+      <h1 className="text-white text-3xl font-bold mt-1">
         {cargando ? "..." : cantidadVersiones}
       </h1>
       <p className="text-xs text-gray-500 mt-1">
