@@ -355,7 +355,7 @@ export const listarHistorialVersiones = async (req, res) => {
       a.subidoPor AS usuarioId,
       u.nombre AS usuario,
       'Versión activa' AS comentario,
-      a.tamanoBytes,
+      a.pesoBytes AS tamanoBytes,
       a.rutaS3 AS keyS3,
       e.accion AS tipoAccion,
       e.fechaHora AS fechaAccion
