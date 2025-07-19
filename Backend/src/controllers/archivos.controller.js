@@ -654,7 +654,6 @@ export const contarVersionesArchivo = async (req, res) => {
   const rolId = req.user.rol_id;
 
   try {
-    // Verifica existencia y propietario
     const [[archivo]] = await db.query(
       `SELECT subidoPor FROM archivos WHERE id = ? AND estado != 'eliminado'`,
       [archivoId]
@@ -663,7 +662,6 @@ export const contarVersionesArchivo = async (req, res) => {
       return res.status(404).json({ message: "Archivo no encontrado." });
     }
 
-    // Control de acceso
     if (
       ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
       archivo.subidoPor !== usuarioId
@@ -671,14 +669,12 @@ export const contarVersionesArchivo = async (req, res) => {
       return res.status(403).json({ message: "Acceso denegado." });
     }
 
-    // Consulta versiones históricas
     const [[{ totalVersiones }]] = await db.query(
       `SELECT COUNT(*) AS totalVersiones FROM versionesArchivo WHERE archivoId = ?`,
       [archivoId]
     );
 
-    // Sumar la versión activa
-    const totalConActual = totalVersiones + 1;
+    const totalConActual = Math.max(1, totalVersiones + 1);
 
     return res.json({ totalVersiones: totalConActual });
   } catch (error) {
