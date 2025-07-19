@@ -212,6 +212,48 @@ export const updateGasto = async (req, res) => {
     if (documentoNuevo) {
       claveS3Nueva = documentoNuevo;
 
+      // 🔁 Mover archivo anterior a papelera si existía
+      if (gastoExistente.documento) {
+        const nuevaRutaPapelera = await moverArchivoAS3AlPapelera(
+          gastoExistente.documento,
+          "facturasGastos",
+          id
+        );
+
+        await conexion.query(
+          `UPDATE archivos
+              SET estado = 'reemplazado',
+                  rutaS3 = ?
+            WHERE registroTipo = ? AND registroId = ? AND estado = 'activo'`,
+          [nuevaRutaPapelera, "facturasGastos", id]
+        );
+
+        const [archivosAnteriores] = await conexion.query(
+          `SELECT id FROM archivos
+            WHERE registroTipo = ? AND registroId = ? AND estado = 'reemplazado'`,
+          ["facturasGastos", id]
+        );
+
+        if (archivosAnteriores.length > 0) {
+          await conexion.query(
+            `INSERT INTO eventosArchivo
+               (archivoId, accion, usuarioId, fechaHora, ip, userAgent, detalles)
+             VALUES (?, 'eliminacion', ?, NOW(), ?, ?, ?)`,
+            [
+              archivosAnteriores[0].id,
+              req.user?.id || null,
+              req.ip || null,
+              req.get("user-agent") || null,
+              JSON.stringify({
+                motivo: "Sustitución del archivo por edición de gasto",
+                nuevaRuta: nuevaRutaPapelera,
+              }),
+            ]
+          );
+        }
+      }
+
+      // 🆕 Insertar nuevo archivo como versión actual
       const [[{ maxVersion }]] = await conexion.query(
         "SELECT MAX(numeroVersion) AS maxVersion FROM archivos WHERE registroTipo = ? AND registroId = ?",
         ["facturasGastos", id]
@@ -254,15 +296,6 @@ export const updateGasto = async (req, res) => {
           }),
         ]
       );
-
-      if (gastoExistente.documento) {
-        await s3.send(
-          new DeleteObjectCommand({
-            Bucket: process.env.S3_BUCKET,
-            Key: gastoExistente.documento,
-          })
-        );
-      }
     }
 
     await conexion.commit();

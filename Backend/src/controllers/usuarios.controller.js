@@ -98,7 +98,7 @@ export const actualizarUsuario = async (req, res) => {
     const tamanioBytes = req.file?.size ?? null;
     const rutaS3 = firmaKey;
 
-    // 1) Preparar campos dinámicos
+    // Campos dinámicos
     const campos = [];
     const valores = [];
     if (nombre) campos.push("nombre = ?"), valores.push(nombre.trim());
@@ -116,33 +116,28 @@ export const actualizarUsuario = async (req, res) => {
     }
     valores.push(id);
 
-    // 2) Actualizar datos usuario
     if (campos.length > 0) {
       await conexion.query(
-        `UPDATE usuarios
-           SET ${campos.join(", ")}
-         WHERE id = ?`,
+        `UPDATE usuarios SET ${campos.join(", ")} WHERE id = ?`,
         valores
       );
     }
 
-    // 3) Si sube nueva firma → manejar versiones y auditoría
+    // Si hay nueva firma:
     if (firmaKey) {
-      // 3.1 Consultar versión máxima
       const [[{ maxVersion }]] = await conexion.query(
         `SELECT MAX(numeroVersion) AS maxVersion
-           FROM archivos
-          WHERE registroTipo = 'firmas'
-            AND registroId   = ?`,
+         FROM archivos
+         WHERE registroTipo = 'firmas' AND registroId = ?`,
         [id]
       );
       const numeroVersion = (maxVersion || 0) + 1;
 
-      // 3.2 Insertar archivo
+      // Insertar nuevo archivo
       const [aResult] = await conexion.query(
         `INSERT INTO archivos
-          (registroTipo, registroId, nombreOriginal, extension, tamanioBytes,
-           rutaS3, numeroVersion, estado, subidoPor, creadoEn, actualizadoEn)
+         (registroTipo, registroId, nombreOriginal, extension, tamanioBytes,
+         rutaS3, numeroVersion, estado, subidoPor, creadoEn, actualizadoEn)
          VALUES (?, ?, ?, ?, ?, ?, ?, 'activo', ?, NOW(), NOW())`,
         [
           "firmas",
@@ -157,7 +152,7 @@ export const actualizarUsuario = async (req, res) => {
       );
       const archivoId = aResult.insertId;
 
-      // 3.3 Registrar evento de auditoría
+      // Evento de auditoría (sustitución)
       const detalleEvento = JSON.stringify({
         ruta: firmaKey,
         nombre: nombreOriginal,
@@ -165,30 +160,54 @@ export const actualizarUsuario = async (req, res) => {
       });
       await conexion.query(
         `INSERT INTO eventosArchivo
-           (archivoId, versionId, accion, usuarioId, ip, userAgent, detalles)
-         VALUES (?, NULL, 'actualizacion', ?, ?, ?, ?)`,
+         (archivoId, versionId, accion, usuarioId, ip, userAgent, detalles)
+         VALUES (?, NULL, 'sustitucion', ?, ?, ?, ?)`,
         [archivoId, req.user.id, req.ip, req.get("User-Agent"), detalleEvento]
       );
 
-      // 3.4 Buscar firma anterior (si existe)
+      // Buscar firma anterior
       const [anterior] = await conexion.query(
-        `SELECT rutaS3
-           FROM archivos
-          WHERE registroTipo = 'firmas'
-            AND registroId   = ?
-            AND estado       = 'activo'
-          ORDER BY numeroVersion DESC
-          LIMIT 1 OFFSET 1`,
+        `SELECT id, rutaS3
+         FROM archivos
+         WHERE registroTipo = 'firmas'
+           AND registroId = ?
+           AND estado = 'activo'
+         ORDER BY numeroVersion DESC
+         LIMIT 1 OFFSET 1`,
         [id]
       );
 
       if (anterior.length > 0) {
-        const rutaS3Anterior = anterior[0].rutaS3;
-        await s3.send(
-          new DeleteObjectCommand({
-            Bucket: process.env.S3_BUCKET,
-            Key: rutaS3Anterior,
-          })
+        const archivoAnt = anterior[0];
+
+        // Mover a papelera
+        const nuevaRuta = await moverArchivoAS3AlPapelera(
+          archivoAnt.rutaS3,
+          "firmas",
+          id
+        );
+
+        // Marcar como reemplazado
+        await conexion.query(
+          `UPDATE archivos SET estado = 'reemplazado', rutaS3 = ? WHERE id = ?`,
+          [nuevaRuta, archivoAnt.id]
+        );
+
+        // Evento de eliminación (por sustitución)
+        await conexion.query(
+          `INSERT INTO eventosArchivo
+           (archivoId, versionId, accion, usuarioId, ip, userAgent, detalles)
+           VALUES (?, NULL, 'eliminacion', ?, ?, ?, ?)`,
+          [
+            archivoAnt.id,
+            req.user?.id || null,
+            req.ip || null,
+            req.get("user-agent") || null,
+            JSON.stringify({
+              motivo: "Sustitución de firma del usuario",
+              nuevaRuta,
+            }),
+          ]
         );
       }
     }
@@ -198,7 +217,6 @@ export const actualizarUsuario = async (req, res) => {
   } catch (err) {
     await conexion.rollback();
 
-    // Rollback: eliminar archivo subido si ocurrió error
     if (firmaKeyNueva) {
       try {
         await s3.send(
@@ -218,6 +236,7 @@ export const actualizarUsuario = async (req, res) => {
     conexion.release();
   }
 };
+
 
 // Obtener todos los usuarios (incluye código y rol)
 export const obtenerUsuarios = async (req, res) => {
