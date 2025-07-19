@@ -1,176 +1,236 @@
-import React, { useState } from "react";
-import ModalAñadirCliente from "../Modals/ModalAñadirCliente";
-import ModalExito from "../Modals/ModalExito";
+// src/components/ComponentesCXC/TablaCuentasPorCobrar.jsx
+
+import React, { useEffect, useState } from "react";
+import api from "../../api/index";
+import BotonIcono from "../general/BotonIcono";
+import ModalRegistrarAbono from "../Modals/ModalRegistrarAbono";
 import ModalError from "../Modals/ModalError";
 
-const ClienteSelector = ({
-  clientes,
-  onClienteSeleccionado,
-  mostrarError = false,
-  setClientes,
-  añadirCliente,
-}) => {
-  const [clienteId, setClienteId] = useState("");
-  const [datosCliente, setDatosCliente] = useState(null);
+const TablaCuentasPorCobrar = ({ clienteId, onRefreshTotals }) => {
+  const [cuentas, setCuentas] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [cuentaSeleccionada, setCuentaSeleccionada] = useState(null);
+  const [mostrarModalAbono, setMostrarModalAbono] = useState(false);
+  const [mostrarModalError, setMostrarModalError] = useState(false);
+  const [mensajeError, setMensajeError] = useState("");
 
-  const [mostrarModal, setMostrarModal] = useState(false);
-  const [modalExito, setModalExito] = useState(null);
-  const [modalError, setModalError] = useState(null);
-
-  const [busqueda, setBusqueda] = useState("");
-  const [mostrarOpciones, setMostrarOpciones] = useState(false);
-
-  const manejarSeleccionCliente = (cliente) => {
-    setClienteId(cliente.id);
-    setDatosCliente(cliente);
-    setBusqueda(
-      (cliente.codigo_referencia ? cliente.codigo_referencia + " - " : "") +
-        cliente.nombre
-    );
-    setMostrarOpciones(false);
-    if (typeof onClienteSeleccionado === "function") {
-      onClienteSeleccionado(cliente);
+  const fetchCuentas = async () => {
+    if (!clienteId) {
+      setCuentas([]);
+      setLoading(false);
+      return;
+    }
+    try {
+      setLoading(true);
+      const response = await api.get(`/cuentas?cliente_id=${clienteId}`);
+      setCuentas(response.data.cuentas);
+    } catch (error) {
+      console.error("Error al obtener cuentas por cobrar:", error);
+      setCuentas([]);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const filtrarClientes = () => {
-    if (!Array.isArray(clientes)) return [];
-    return clientes.filter((c) => {
-      return (
-        (c.codigo_referencia ?? "")
-          .toLowerCase()
-          .includes(busqueda.toLowerCase()) ||
-        (c.nombre ?? "").toLowerCase().includes(busqueda.toLowerCase())
-      );
-    });
-  };
+  useEffect(() => {
+    fetchCuentas();
+  }, [clienteId]);
 
   return (
-    <div className="mb-6 bg-gray-800 rounded-xl shadow-md p-4 md:p-6">
-      <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-2 gap-2 md:gap-0">
-        <label className="block text-sm font-medium text-white">
-          Cliente *
-        </label>
-        <button
-          onClick={() => setMostrarModal(true)}
-          className="text-blue-400 hover:text-blue-600 text-sm underline cursor-pointer text-left md:text-right"
-        >
-          + Añadir Cliente
-        </button>
+    <div className="mb-6 bg-gray-800 rounded-xl shadow-md border border-gray-700 overflow-hidden">
+      {/* Desktop/Tablet View */}
+      <div className="hidden md:block">
+        <table className="w-full text-sm text-left text-gray-400">
+          <thead className="text-xs bg-gray-700 text-gray-400">
+            <tr>
+              <th className="px-4 py-3">Código</th>
+              <th className="px-4 py-3">Monto</th>
+              <th className="px-4 py-3">Saldo Restante</th>
+              <th className="px-4 py-3">Estado</th>
+              <th className="px-4 py-3">Fecha Emisión</th>
+              <th className="px-4 py-3">Fecha Vencimiento</th>
+              <th className="px-4 py-3">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan="7" className="text-center py-6 text-white">
+                  Cargando cuentas por cobrar...
+                </td>
+              </tr>
+            ) : !clienteId ? (
+              <tr>
+                <td colSpan="7" className="text-center py-6 text-white">
+                  Por favor, seleccione un cliente para ver las cuentas por
+                  cobrar.
+                </td>
+              </tr>
+            ) : cuentas.length === 0 ? (
+              <tr>
+                <td colSpan="7" className="text-center py-6 text-white">
+                  No hay cuentas por cobrar para este cliente.
+                </td>
+              </tr>
+            ) : (
+              cuentas.map((cuenta) => (
+                <tr key={cuenta.id} className="border-b border-gray-700">
+                  <td className="px-4 py-3 font-medium text-white">
+                    {cuenta.codigo}
+                  </td>
+                  <td className="px-4 py-3 text-white">
+                    ${parseFloat(cuenta.monto).toFixed(2)}
+                  </td>
+                  <td className="px-4 py-3 text-white">
+                    ${parseFloat(cuenta.saldo_restante).toFixed(2)}
+                  </td>
+                  <td className="px-4 py-3 capitalize text-white">
+                    {cuenta.estado}
+                  </td>
+                  <td className="px-4 py-3 text-white">
+                    {new Date(cuenta.fecha_emision).toLocaleDateString("es-VE")}
+                  </td>
+                  <td className="px-4 py-3 text-white">
+                    {new Date(cuenta.fecha_vencimiento).toLocaleDateString(
+                      "es-VE"
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <BotonIcono
+                      tipo="abonar"
+                      titulo="Registrar Abono"
+                      onClick={() => {
+                        const estado = (cuenta.estado || "").toLowerCase();
+                        const pagada =
+                          ["pagado", "pagada"].includes(estado) ||
+                          Number(cuenta.saldo_restante) === 0;
+
+                        if (pagada) {
+                          setMensajeError(
+                            "Esta cuenta por cobrar ya está pagada."
+                          );
+                          setMostrarModalError(true);
+                        } else {
+                          setCuentaSeleccionada(cuenta);
+                          setMostrarModalAbono(true);
+                        }
+                      }}
+                    />
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
 
-      <div className="relative w-full">
-        <input
-          type="text"
-          placeholder="Buscar por código o nombre..."
-          className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600"
-          value={busqueda}
-          onChange={(e) => {
-            setBusqueda(e.target.value);
-            setMostrarOpciones(true);
-          }}
-          onFocus={() => setMostrarOpciones(true)}
-          onBlur={() => setTimeout(() => setMostrarOpciones(false), 200)}
-        />
+      {/* Mobile View */}
+      <div className="md:hidden">
+        {loading ? (
+          <div className="text-center py-6 text-white">
+            Cargando cuentas por cobrar...
+          </div>
+        ) : !clienteId ? (
+          <div className="text-center py-6 text-white">
+            Por favor, seleccione un cliente para ver las cuentas por cobrar.
+          </div>
+        ) : cuentas.length === 0 ? (
+          <div className="text-center py-6 text-white">
+            No hay cuentas por cobrar para este cliente.
+          </div>
+        ) : (
+          <div className="space-y-4 p-4">
+            {cuentas.map((cuenta) => (
+              <div key={cuenta.id} className="bg-gray-700 rounded-lg p-4">
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  <div>
+                    <p className="text-xs text-gray-400">Código</p>
+                    <p className="text-white font-medium">{cuenta.codigo}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400">Estado</p>
+                    <p className="text-white capitalize">{cuenta.estado}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400">Monto</p>
+                    <p className="text-white">
+                      ${parseFloat(cuenta.monto).toFixed(2)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400">Saldo</p>
+                    <p className="text-white">
+                      ${parseFloat(cuenta.saldo_restante).toFixed(2)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400">Emisión</p>
+                    <p className="text-white">
+                      {new Date(cuenta.fecha_emision).toLocaleDateString(
+                        "es-VE"
+                      )}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400">Vencimiento</p>
+                    <p className="text-white">
+                      {new Date(cuenta.fecha_vencimiento).toLocaleDateString(
+                        "es-VE"
+                      )}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <BotonIcono
+                    tipo="abonar"
+                    titulo="Registrar Abono"
+                    onClick={() => {
+                      const estado = (cuenta.estado || "").toLowerCase();
+                      const pagada =
+                        ["pagado", "pagada"].includes(estado) ||
+                        Number(cuenta.saldo_restante) === 0;
 
-        {mostrarOpciones && filtrarClientes().length > 0 && (
-          <ul className="absolute z-10 w-full bg-gray-700 border border-gray-600 mt-1 rounded shadow-lg max-h-48 overflow-y-auto">
-            {filtrarClientes().map((c) => (
-              <li
-                key={c.id}
-                className="px-4 py-2 hover:bg-gray-600 cursor-pointer text-white text-sm md:text-base"
-                onClick={() => manejarSeleccionCliente(c)}
-              >
-                {(c.codigo_referencia ? c.codigo_referencia + " - " : "") +
-                  c.nombre}
-              </li>
+                      if (pagada) {
+                        setMensajeError(
+                          "Esta cuenta por cobrar ya está pagada."
+                        );
+                        setMostrarModalError(true);
+                      } else {
+                        setCuentaSeleccionada(cuenta);
+                        setMostrarModalAbono(true);
+                      }
+                    }}
+                  />
+                </div>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
       </div>
 
-      {mostrarError && !clienteId && (
-        <div className="mt-2 p-2 bg-red-200 text-red-800 rounded text-sm">
-          Debe seleccionar un cliente
-        </div>
-      )}
-
-      {datosCliente && (
-        <div className="mt-4 p-4 md:p-6 bg-gray-700 rounded-xl shadow-md text-white grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
-          <div className="break-words">
-            <p className="font-bold mb-1 text-sm md:text-base">
-              Código de referencia
-            </p>
-            <p className="text-xs md:text-sm text-gray-400">
-              {datosCliente.codigo_referencia || "—"}
-            </p>
-          </div>
-          <div className="break-words">
-            <p className="font-bold mb-1 text-sm md:text-base">
-              Nombre del cliente
-            </p>
-            <p className="text-xs md:text-sm text-gray-400">
-              {datosCliente.nombre}
-            </p>
-          </div>
-          <div className="break-words">
-            <p className="font-bold mb-1 text-sm md:text-base">
-              Cédula / Pasaporte
-            </p>
-            <p className="text-xs md:text-sm text-gray-400">
-              {datosCliente.identificacion || "—"}
-            </p>
-          </div>
-          <div className="break-words">
-            <p className="font-bold mb-1 text-sm md:text-base">
-              Correo electrónico
-            </p>
-            <p className="text-xs md:text-sm text-gray-400">
-              {datosCliente.email || "—"}
-            </p>
-          </div>
-          <div className="break-words">
-            <p className="font-bold mb-1 text-sm md:text-base">Teléfono</p>
-            <p className="text-xs md:text-sm text-gray-400">
-              {datosCliente.telefono || "—"}
-            </p>
-          </div>
-          <div className="break-words sm:col-span-2">
-            <p className="font-bold mb-1 text-sm md:text-base">Dirección</p>
-            <p className="text-xs md:text-sm text-gray-400">
-              {datosCliente.direccion || "—"}
-            </p>
-          </div>
-          <div className="break-words">
-            <p className="font-bold mb-1 text-sm md:text-base">Sucursal</p>
-            <p className="text-xs md:text-sm text-gray-400">
-              {datosCliente.sucursal_nombre || "—"}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {mostrarModal && (
-        <ModalAñadirCliente
-          onCancel={() => setMostrarModal(false)}
-          onSubmit={añadirCliente}
-          onSuccess={setModalExito}
+      {mostrarModalAbono && cuentaSeleccionada && (
+        <ModalRegistrarAbono
+          cuentaId={cuentaSeleccionada.id}
+          usuarioId={1} // ajusta según tu contexto
+          onCancel={() => setMostrarModalAbono(false)}
+          onRefreshTotals={() => {
+            fetchCuentas(); // refresca la tabla
+            onRefreshTotals(); // refresca componentes TotalesCXC
+            setMostrarModalAbono(false); // cierra el modal
+          }}
         />
       )}
 
-      <ModalExito
-        visible={!!modalExito}
-        onClose={() => setModalExito(null)}
-        {...modalExito}
-      />
-
-      <ModalError
-        visible={!!modalError}
-        onClose={() => setModalError(null)}
-        {...modalError}
-      />
+      {mostrarModalError && (
+        <ModalError
+          visible={mostrarModalError}
+          titulo="Operación no permitida"
+          mensaje={mensajeError}
+          onClose={() => setMostrarModalError(false)}
+        />
+      )}
     </div>
   );
 };
 
-export default ClienteSelector;
+export default TablaCuentasPorCobrar;
