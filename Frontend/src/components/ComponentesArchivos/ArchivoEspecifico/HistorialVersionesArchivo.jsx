@@ -113,33 +113,48 @@ const TablaHistorialVersiones = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-700">
-            {versionesPaginadas.map((v) => (
-              <tr key={v.id} className="hover:bg-gray-700/40">
-                <td className="px-4 py-2 font-bold text-white text-center">
-                  {v.numeroVersion}
-                </td>
-                <td className="px-4 py-2">{formatearFecha(v.fecha)}</td>
-                <td className="px-4 py-2">{v.usuario}</td>
-                <td className="px-4 py-2 capitalize">
-                  {v.tipoAccion || "N/D"}
-                </td>
-                <td className="px-4 py-2">{formatearTamano(v.tamanoBytes)}</td>
-                <td className="px-4 py-2">{v.comentario || "-"}</td>
-                <td className="px-4 py-2 text-center">
-                  <BotonIcono
-                    tipo="descargar"
-                    onClick={() =>
-                      window.open(
-                        `${import.meta.env.VITE_API_URL}/archivos/versiones/${
-                          v.id
-                        }/descargar`,
-                        "_blank"
-                      )
-                    }
-                  />
-                </td>
-              </tr>
-            ))}
+            {versionesPaginadas.map((v) => {
+              const esActiva = v.comentario === "Versión activa";
+              return (
+                <tr
+                  key={v.id}
+                  className={`hover:bg-gray-700/40 ${
+                    esActiva ? "bg-blue-900/30 border-l-4 border-blue-500" : ""
+                  }`}
+                >
+                  <td className="px-4 py-2 font-bold text-white text-center">
+                    {v.numeroVersion}
+                    {esActiva && (
+                      <span className="ml-2 inline-block bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded-full">
+                        Activa
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2">{formatearFecha(v.fecha)}</td>
+                  <td className="px-4 py-2">{v.usuario}</td>
+                  <td className="px-4 py-2 capitalize">
+                    {v.tipoAccion || "N/D"}
+                  </td>
+                  <td className="px-4 py-2">
+                    {formatearTamano(v.tamanioBytes)}
+                  </td>
+                  <td className="px-4 py-2">{v.comentario || "-"}</td>
+                  <td className="px-4 py-2 text-center">
+                    <BotonIcono
+                      tipo="descargar"
+                      onClick={() =>
+                        window.open(
+                          `${import.meta.env.VITE_API_URL}/archivos/versiones/${
+                            v.id
+                          }/descargar`,
+                          "_blank"
+                        )
+                      }
+                    />
+                  </td>
+                </tr>
+              );
+            })}
             {versionesPaginadas.length === 0 && (
               <tr>
                 <td colSpan={7} className="text-center py-4 text-gray-500">

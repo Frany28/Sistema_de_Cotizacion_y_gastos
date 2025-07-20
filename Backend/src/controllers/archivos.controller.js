@@ -325,7 +325,6 @@ export const restaurarArchivo = async (req, res) => {
   }
 };
 
-// Controller: listar historial de versiones
 export const listarHistorialVersiones = async (req, res) => {
   const archivoId = Number(req.params.archivoId);
   const usuarioId = req.user.id;
@@ -338,6 +337,7 @@ export const listarHistorialVersiones = async (req, res) => {
     );
     if (!registro)
       return res.status(404).json({ message: "Archivo no encontrado." });
+
     if (
       ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
       registro.subidoPor !== usuarioId
@@ -345,50 +345,57 @@ export const listarHistorialVersiones = async (req, res) => {
       return res.status(403).json({ message: "Acceso denegado." });
     }
 
-   const [versiones] = await db.query(
-     `
-  (
-    SELECT 
-      a.id,
-      a.numeroVersion,
-      a.actualizadoEn AS fecha,
-      a.subidoPor AS usuarioId,
-      u.nombre AS usuario,
-      'Versión activa' AS comentario,
-      a.tamanioBytes,
-      a.rutaS3 AS keyS3,
-      e.accion AS tipoAccion,
-      e.fechaHora AS fechaAccion
-    FROM archivos a
-    JOIN usuarios u ON u.id = a.subidoPor
-    LEFT JOIN eventosArchivo e 
-      ON e.archivoId = a.id AND e.versionId IS NULL
-    WHERE a.id = ?
-  )
-  UNION ALL
-  (
-    SELECT 
-      v.id,
-      v.numeroVersion,
-      v.creadoEn AS fecha,
-      v.subidoPor AS usuarioId,
-      u.nombre AS usuario,
-      v.comentario,
-      v.tamanioBytes,
-      v.rutaS3 AS keyS3,
-      e.accion AS tipoAccion,
-      e.fechaHora AS fechaAccion
-    FROM versionesArchivo v
-    JOIN usuarios u ON u.id = v.subidoPor
-    LEFT JOIN eventosArchivo e 
-      ON e.versionId = v.id
-    WHERE v.archivoId = ?
-  )
-  ORDER BY numeroVersion DESC
-  `,
-     [archivoId, archivoId]
-   );
-
+    const [versiones] = await db.query(
+      `
+      (
+        SELECT 
+          a.id,
+          a.numeroVersion,
+          a.actualizadoEn AS fecha,
+          a.subidoPor AS usuarioId,
+          u.nombre AS usuario,
+          'Versión activa' AS comentario,
+          a.tamanioBytes,
+          a.rutaS3 AS keyS3,
+          (
+            SELECT e.accion
+            FROM eventosArchivo e
+            WHERE e.archivoId = a.id
+            ORDER BY e.fechaHora ASC
+            LIMIT 1
+          ) AS tipoAccion,
+          (
+            SELECT e.fechaHora
+            FROM eventosArchivo e
+            WHERE e.archivoId = a.id
+            ORDER BY e.fechaHora ASC
+            LIMIT 1
+          ) AS fechaAccion
+        FROM archivos a
+        JOIN usuarios u ON u.id = a.subidoPor
+        WHERE a.id = ?
+      )
+      UNION ALL
+      (
+        SELECT 
+          v.id,
+          v.numeroVersion,
+          v.creadoEn AS fecha,
+          v.subidoPor AS usuarioId,
+          u.nombre AS usuario,
+          v.comentario,
+          v.tamanioBytes,
+          v.rutaS3 AS keyS3,
+          NULL AS tipoAccion,
+          NULL AS fechaAccion
+        FROM versionesArchivo v
+        JOIN usuarios u ON u.id = v.subidoPor
+        WHERE v.archivoId = ?
+      )
+      ORDER BY numeroVersion DESC
+      `,
+      [archivoId, archivoId]
+    );
 
     return res.json({ archivoId, versiones });
   } catch (error) {
