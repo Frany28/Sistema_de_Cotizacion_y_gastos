@@ -26,7 +26,8 @@ import {
   ArchivosPage,
   VistaDetalleArchivo,
   GestorDeArchivos,
-  
+  Papelera,
+  GestorDeEventos,
 } from "./pages/pages.js";
 
 createRoot(document.getElementById("root")).render(
@@ -79,6 +80,8 @@ createRoot(document.getElementById("root")).render(
             path="/gestor-archivos/archivo/:id"
             element={<VistaDetalleArchivo />}
           />
+          <Route path="/gestor-eventos" element={<GestorDeEventos />} />
+          <Route path="/papelera" element={<Papelera />} />
           <Route path="/gestor-archivos" element={<GestorDeArchivos />} />
           <Route path="/reportes" element={<RelacionesGatos />} />
         </Route>

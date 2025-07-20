@@ -28,5 +28,6 @@ export { default as ArchivosPage } from "./Gestor de Archivos/ArchivosPage";
 export { default as VistaDetalleArchivo } from "./Gestor de Archivos/Archivo Especifico/VistaDetalleArchivo";
 export { default as GestorDeArchivos } from "./Gestor de Eventos/GestorDeEventos";
 export { default as GestorDeEventos } from "./Gestor de Eventos/GestorDeEventos";
+export { default as Papelera } from "./Papelera/Papelera";
 // Reportes
 export { default as RelacionesGatos } from "./reportes/RelacionesGatos";
