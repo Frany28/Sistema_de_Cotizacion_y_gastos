@@ -332,7 +332,7 @@ export const listarHistorialVersiones = async (req, res) => {
 
   try {
     const [[registro]] = await db.query(
-      "SELECT subidoPor FROM archivos WHERE id = ?",
+      "SELECT subidoPor, grupoArchivoId FROM archivos WHERE id = ?",
       [archivoId]
     );
     if (!registro)
@@ -388,11 +388,11 @@ export const listarHistorialVersiones = async (req, res) => {
           NULL AS fechaAccion
         FROM versionesArchivo v
         JOIN usuarios u ON u.id = v.subidoPor
-        WHERE v.archivoId = ?
+        WHERE v.grupoArchivoId = ?
       )
       ORDER BY numeroVersion DESC
       `,
-      [archivoId, archivoId]
+      [archivoId, registro.grupoArchivoId]
     );
 
     return res.json({ archivoId, versiones });
