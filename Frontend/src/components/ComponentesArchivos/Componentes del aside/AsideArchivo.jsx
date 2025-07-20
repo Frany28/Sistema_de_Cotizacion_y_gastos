@@ -4,7 +4,7 @@ import RegistroDeActividades from "./RegistroDeActividades";
 export default function AsideArchivo() {
   return (
     <>
-      <div className="left-0 w-[320px] h-full bg-gray-800">
+      <div className="left-0 w-[320px] min-h-screen bg-gray-800">
         <div className="grid justify-center items-center gap-4 p-5 h-full">
           <VistaPreviaAlmacenamiento />
           <RegistroDeActividades />
