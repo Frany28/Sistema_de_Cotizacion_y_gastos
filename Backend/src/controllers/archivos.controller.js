@@ -331,73 +331,58 @@ export const listarHistorialVersiones = async (req, res) => {
   const rolId = req.user.rol_id;
 
   try {
-    const [[registro]] = await db.query(
-      "SELECT subidoPor, grupoArchivoId FROM archivos WHERE id = ?",
+    // Obtener el archivo base
+    const [[archivoActual]] = await db.query(
+      "SELECT registroTipo, registroId, subidoPor FROM archivos WHERE id = ?",
       [archivoId]
     );
-    if (!registro)
+
+    if (!archivoActual)
       return res.status(404).json({ message: "Archivo no encontrado." });
 
     if (
       ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
-      registro.subidoPor !== usuarioId
+      archivoActual.subidoPor !== usuarioId
     ) {
       return res.status(403).json({ message: "Acceso denegado." });
     }
 
     const [versiones] = await db.query(
       `
-      (
-        SELECT 
-          a.id,
-          a.numeroVersion,
-          a.actualizadoEn AS fecha,
-          a.subidoPor AS usuarioId,
-          u.nombre AS usuario,
-          a.tamanioBytes,
-          a.rutaS3 AS keyS3,
-          (
-            SELECT e.accion
-            FROM eventosArchivo e
-            WHERE e.archivoId = a.id
-            ORDER BY e.fechaHora ASC
-            LIMIT 1
-          ) AS tipoAccion,
-          (
-            SELECT e.fechaHora
-            FROM eventosArchivo e
-            WHERE e.archivoId = a.id
-            ORDER BY e.fechaHora ASC
-            LIMIT 1
-          ) AS fechaAccion
-        FROM archivos a
-        JOIN usuarios u ON u.id = a.subidoPor
-        WHERE a.id = ?
-      )
-      UNION ALL
-      (
-        SELECT 
-          v.id,
-          v.numeroVersion,
-          v.creadoEn AS fecha,
-          v.subidoPor AS usuarioId,
-          u.nombre AS usuario,
-          v.tamanioBytes,
-          v.rutaS3 AS keyS3,
-          NULL AS tipoAccion,
-          NULL AS fechaAccion
-        FROM versionesArchivo v
-        JOIN usuarios u ON u.id = v.subidoPor
-        WHERE v.grupoArchivoId = ?
-      )
-      ORDER BY numeroVersion DESC
+      SELECT 
+        a.id,
+        a.numeroVersion,
+        a.actualizadoEn AS fecha,
+        a.subidoPor AS usuarioId,
+        u.nombre AS usuario,
+        a.tamanioBytes,
+        a.rutaS3 AS keyS3,
+        a.estado,
+        (
+          SELECT e.accion
+          FROM eventosArchivo e
+          WHERE e.archivoId = a.id
+          ORDER BY e.fechaHora ASC
+          LIMIT 1
+        ) AS tipoAccion,
+        (
+          SELECT e.fechaHora
+          FROM eventosArchivo e
+          WHERE e.archivoId = a.id
+          ORDER BY e.fechaHora ASC
+          LIMIT 1
+        ) AS fechaAccion
+      FROM archivos a
+      JOIN usuarios u ON u.id = a.subidoPor
+      WHERE a.registroTipo = ? AND a.registroId = ?
+      ORDER BY a.numeroVersion DESC
       `,
-      [archivoId, registro.grupoArchivoId]
+      [archivoActual.registroTipo, archivoActual.registroId]
     );
 
     return res.json({ archivoId, versiones });
   } catch (error) {
-    console.error(error);
+    console.error("Error al listar historial de versiones:", error);
     return res
       .status(500)
       .json({ message: "Error interno al listar historial de versiones." });
