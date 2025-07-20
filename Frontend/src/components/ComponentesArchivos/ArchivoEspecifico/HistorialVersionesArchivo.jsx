@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import api from "../../../api";
 import Paginacion from "../../general/Paginacion";
 import BotonIcono from "../../general/BotonIcono";
-import Loader from "../../general/Loader";
+
 import { useParams } from "react-router-dom";
 
 const TablaHistorialVersiones = () => {
@@ -60,10 +60,6 @@ const TablaHistorialVersiones = () => {
     }
     return `${valor.toFixed(1)} ${unidades[i]}`;
   };
-
-  if (cargando) {
-    return <Loader />;
-  }
 
   return (
     <div className="mt-10 w-full bg-gray-800 rounded-xl shadow-xl border border-gray-700 overflow-hidden">
