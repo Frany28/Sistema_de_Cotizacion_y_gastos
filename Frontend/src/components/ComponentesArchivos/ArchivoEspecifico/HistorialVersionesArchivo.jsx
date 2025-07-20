@@ -99,78 +99,97 @@ const TablaHistorialVersiones = () => {
         </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="min-w-full text-sm text-gray-400">
-          <thead className="bg-gray-700 text-xs uppercase text-gray-400">
-            <tr>
-              <th className="px-4 py-3 text-left">Versión</th>
-              <th className="px-4 py-3 text-left">Fecha</th>
-              <th className="px-4 py-3 text-left">Usuario</th>
-              <th className="px-4 py-3 text-left">Acción</th>
-              <th className="px-4 py-3 text-left">Tamaño</th>
-              <th className="px-4 py-3 text-left">Comentario</th>
-              <th className="px-4 py-3 text-left">Acción</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-700">
-            {versionesPaginadas.map((v) => {
-              const esActiva = v.comentario === "Versión activa";
-              return (
-                <tr
-                  key={v.id}
-                  className={`hover:bg-gray-700/40 ${
-                    esActiva ? "bg-blue-900/30 border-l-4 border-blue-500" : ""
-                  }`}
-                >
-                  <td className="px-4 py-2 font-bold text-white text-center">
-                    {v.numeroVersion}
-                    {esActiva && (
-                      <span className="ml-2 inline-block bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded-full">
-                        Activa
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-2">{formatearFecha(v.fecha)}</td>
-                  <td className="px-4 py-2">{v.usuario}</td>
-                  <td className="px-4 py-2 capitalize">
-                    {v.tipoAccion || "N/D"}
-                  </td>
-                  <td className="px-4 py-2">
-                    {formatearTamano(v.tamanioBytes)}
-                  </td>
-                  <td className="px-4 py-2">{v.comentario || "-"}</td>
-                  <td className="px-4 py-2 text-center">
-                    <BotonIcono
-                      tipo="descargar"
-                      onClick={() =>
-                        window.open(
-                          `${import.meta.env.VITE_API_URL}/archivos/versiones/${
-                            v.id
-                          }/descargar`,
-                          "_blank"
-                        )
-                      }
-                    />
-                  </td>
+      {cargando ? (
+        <div className="animate-pulse p-6 space-y-4">
+          {[...Array(5)].map((_, idx) => (
+            <div key={idx} className="flex space-x-4">
+              {[...Array(7)].map((__, i) => (
+                <div
+                  key={i}
+                  className="h-4 bg-gray-700 rounded w-full max-w-[150px]"
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm text-gray-400">
+              <thead className="bg-gray-700 text-xs uppercase text-gray-400">
+                <tr>
+                  <th className="px-4 py-3 text-left">Versión</th>
+                  <th className="px-4 py-3 text-left">Fecha</th>
+                  <th className="px-4 py-3 text-left">Usuario</th>
+                  <th className="px-4 py-3 text-left">Acción</th>
+                  <th className="px-4 py-3 text-left">Tamaño</th>
+                  <th className="px-4 py-3 text-left">Comentario</th>
+                  <th className="px-4 py-3 text-left">Acción</th>
                 </tr>
-              );
-            })}
-            {versionesPaginadas.length === 0 && (
-              <tr>
-                <td colSpan={7} className="text-center py-4 text-gray-500">
-                  No hay resultados.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+              </thead>
+              <tbody className="divide-y divide-gray-700">
+                {versionesPaginadas.map((v) => {
+                  const esActiva = v.estado === "activo";
+                  return (
+                    <tr
+                      key={v.id}
+                      className={`hover:bg-gray-700/40 ${
+                        esActiva
+                          ? "bg-blue-900/30 border-l-4 border-blue-500"
+                          : ""
+                      }`}
+                    >
+                      <td className="px-4 py-2 font-bold text-white text-center">
+                        {v.numeroVersion}
+                        {esActiva && (
+                          <span className="ml-2 inline-block bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded-full">
+                            Activa
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2">{formatearFecha(v.fecha)}</td>
+                      <td className="px-4 py-2">{v.usuario}</td>
+                      <td className="px-4 py-2 capitalize">
+                        {v.tipoAccion || "N/D"}
+                      </td>
+                      <td className="px-4 py-2">
+                        {formatearTamano(v.tamanioBytes)}
+                      </td>
+                      <td className="px-4 py-2">-</td>
+                      <td className="px-4 py-2 text-center">
+                        <BotonIcono
+                          tipo="descargar"
+                          onClick={() =>
+                            window.open(
+                              `${
+                                import.meta.env.VITE_API_URL
+                              }/archivos/versiones/${v.id}/descargar`,
+                              "_blank"
+                            )
+                          }
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+                {versionesPaginadas.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="text-center py-4 text-gray-500">
+                      No hay resultados.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
 
-      <Paginacion
-        paginaActual={pagina}
-        totalPaginas={totalPaginas}
-        onCambiarPagina={setPagina}
-      />
+          <Paginacion
+            paginaActual={pagina}
+            totalPaginas={totalPaginas}
+            onCambiarPagina={setPagina}
+          />
+        </>
+      )}
     </div>
   );
 };
