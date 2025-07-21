@@ -103,40 +103,52 @@ function ListaArchivosPapelera() {
   }
 
   return (
-    <div
-      key={a.id}
-      className="bg-gray-800 rounded-xl shadow-md p-4 border border-gray-700 flex flex-col justify-between h-56"
-    >
-      <div className="flex flex-col gap-2 text-gray-300">
-        <div className="flex items-center gap-2 text-white text-base font-semibold">
-          {iconoPorExtension(a.extension)}
-          <span className="truncate">{a.nombreOriginal}</span>
-        </div>
-        <p className="text-sm text-gray-400">
-          Eliminado: {formatoFecha(a.actualizadoEn)}
-        </p>
-        <p className="text-sm text-gray-400">
-          Tamaño: {formatoTamano(a.tamanioBytes)}
-        </p>
-        <p className="text-xs italic text-gray-500">
-          Ruta Original: {a.rutaOriginal || "-"}
-        </p>
-      </div>
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-5 p-5">
+      {archivosFiltrados.length > 0 ? (
+        archivosFiltrados.map((a) => (
+          <div
+            key={a.id}
+            className="bg-gray-800 rounded-xl shadow-md p-4 border border-gray-700 flex flex-col justify-between h-56"
+          >
+            <div className="flex flex-col gap-2 text-gray-300">
+              <div className="flex items-center gap-2 text-white text-base font-semibold">
+                {iconoPorExtension(a.extension)}
+                <span className="truncate">{a.nombreOriginal}</span>
+              </div>
+              <p className="text-sm text-gray-400">
+                Eliminado: {formatoFecha(a.actualizadoEn)}
+              </p>
+              <p className="text-sm text-gray-400">
+                Tamaño: {formatoTamano(a.tamanioBytes)}
+              </p>
+              <p className="text-xs italic text-gray-500">
+                Ruta Original: {a.rutaOriginal || "-"}
+              </p>
+            </div>
 
-      <div className="mt-4 flex justify-between gap-2">
-        <button
-          className="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-2 rounded-md w-1/2"
-          onClick={() => console.log("Eliminar", a.id)}
-        >
-          Eliminar
-        </button>
-        <button
-          className="bg-gray-700 hover:bg-gray-600 text-white text-sm px-4 py-2 rounded-md w-1/2"
-          onClick={() => console.log("Restaurar", a.id)}
-        >
-          Restaurar
-        </button>
-      </div>
+            <div className="mt-4 flex justify-between gap-2">
+              <button
+                className="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-2 rounded-md w-1/2"
+                onClick={() => console.log("Eliminar", a.id)}
+              >
+                Eliminar
+              </button>
+              <button
+                className="bg-gray-700 hover:bg-gray-600 text-white text-sm px-4 py-2 rounded-md w-1/2"
+                onClick={() => console.log("Restaurar", a.id)}
+              >
+                Restaurar
+              </button>
+            </div>
+          </div>
+        ))
+      ) : (
+        <div className="col-span-full text-center text-gray-400 py-10">
+          {busqueda
+            ? "No se encontraron resultados para tu búsqueda"
+            : "No hay archivos en papelera"}
+        </div>
+      )}
     </div>
   );
 }
