@@ -1,5 +1,5 @@
 import ListaArchivosPapelera from "../../components/ComponentePapelera/ListaArchivosPapelera";
-
+import { ArrowLeft } from "lucide-react";
 function Papelera() {
   return (
     <>
