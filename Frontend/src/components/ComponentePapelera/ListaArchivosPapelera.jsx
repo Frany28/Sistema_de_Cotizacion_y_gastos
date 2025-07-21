@@ -38,11 +38,7 @@ function ListaArchivosPapelera() {
   const formatoFecha = (fecha) => {
     const date = fecha instanceof Date ? fecha : new Date(fecha);
     if (isNaN(date.getTime())) return "-";
-
-    const horas = (Date.now() - date.getTime()) / 3_600_000;
-    return horas < 48
-      ? formatDistanceToNowStrict(date, { locale: es, addSuffix: true })
-      : format(date, "yyyy-MM-dd", { locale: es });
+    return format(date, "yyyy-MM-dd", { locale: es });
   };
 
   const formatoTamano = (bytes) => {
@@ -61,23 +57,23 @@ function ListaArchivosPapelera() {
     const e = ext?.toLowerCase();
     switch (e) {
       case "pdf":
-        return <FileText size={18} className="text-red-400" />;
+        return <FileText size={18} className="text-red-500" />;
       case "jpg":
       case "jpeg":
       case "png":
       case "gif":
-        return <IconoImagen size={18} className="text-cyan-400" />;
+        return <IconoImagen size={18} className="text-blue-500" />;
       case "zip":
       case "rar":
-        return <FileArchive size={18} className="text-amber-400" />;
+        return <FileArchive size={18} className="text-amber-500" />;
       case "mp3":
       case "wav":
-        return <FileAudio size={18} className="text-yellow-400" />;
+        return <FileAudio size={18} className="text-yellow-500" />;
       case "mp4":
       case "avi":
-        return <FileVideo size={18} className="text-violet-400" />;
+        return <FileVideo size={18} className="text-purple-500" />;
       default:
-        return <FileWarning size={18} className="text-gray-400" />;
+        return <FileWarning size={18} className="text-gray-500" />;
     }
   };
 
@@ -98,43 +94,42 @@ function ListaArchivosPapelera() {
 
   if (cargando) {
     return (
-      <div className="w-full bg-gray-800 rounded-xl p-4 animate-pulse h-64 shadow-lg" />
+      <div className="w-full bg-white rounded-lg p-4 animate-pulse h-64 shadow-sm" />
     );
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 p-5">
       {archivosFiltrados.length > 0 ? (
         archivosFiltrados.map((a) => (
           <div
             key={a.id}
-            className="bg-white rounded-lg shadow-sm p-4 border border-gray-200 flex flex-col"
+            className="bg-white rounded-lg shadow-sm p-4 border border-gray-200 flex flex-col h-48"
           >
-            <div className="flex flex-col gap-1 text-gray-700 mb-4">
-              <div className="flex items-center gap-2 text-gray-900 text-base font-medium">
+            <div className="flex flex-col gap-1 flex-grow">
+              <div className="flex items-center gap-2 text-gray-900 text-base font-medium mb-1">
                 {iconoPorExtension(a.extension)}
                 <span className="truncate">{a.nombreOriginal}</span>
               </div>
-              <p className="text-xs text-gray-500">
-                Eliminado: {formatoFecha(a.actualizadoEn)}
-              </p>
-              <p className="text-xs text-gray-500">
-                Tamaño: {formatoTamano(a.tamanioBytes)}
-              </p>
-              <p className="text-xs text-gray-500 truncate">
-                Ruta Original: {a.rutaOriginal || "-"}
-              </p>
+
+              <div className="text-xs text-gray-600 space-y-1">
+                <p>Eliminado: {formatoFecha(a.actualizadoEn)}</p>
+                <p>Tamaño: {formatoTamano(a.tamanioBytes)}</p>
+                <p className="truncate">
+                  Ruta Original: {a.rutaOriginal || "-"}
+                </p>
+              </div>
             </div>
 
-            <div className="mt-auto flex justify-between gap-2">
+            <div className="mt-4 flex justify-between gap-2">
               <button
-                className="bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1.5 rounded w-1/2"
+                className="bg-red-600 hover:bg-red-700 text-white text-sm px-3 py-2 rounded w-1/2"
                 onClick={() => console.log("Eliminar", a.id)}
               >
                 Eliminar
               </button>
               <button
-                className="bg-gray-200 hover:bg-gray-300 text-gray-800 text-xs px-3 py-1.5 rounded w-1/2"
+                className="bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm px-3 py-2 rounded w-1/2"
                 onClick={() => console.log("Restaurar", a.id)}
               >
                 Restaurar
