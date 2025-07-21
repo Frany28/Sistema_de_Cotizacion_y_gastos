@@ -1,6 +1,10 @@
-import ListaArchivosPapelera from "../../components/ComponentePapelera/ListaArchivosPapelera";
+import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
+import ListaArchivosPapelera from "../../components/ComponentePapelera/ListaArchivosPapelera";
+
 function Papelera() {
+  const navigate = useNavigate();
+
   return (
     <>
       <button
