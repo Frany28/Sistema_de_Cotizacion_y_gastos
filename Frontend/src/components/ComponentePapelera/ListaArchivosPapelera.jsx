@@ -42,7 +42,7 @@ function ListaArchivosPapelera() {
     const horas = (Date.now() - date.getTime()) / 3_600_000;
     return horas < 48
       ? formatDistanceToNowStrict(date, { locale: es, addSuffix: true })
-      : format(date, "PPP", { locale: es });
+      : format(date, "yyyy-MM-dd", { locale: es });
   };
 
   const formatoTamano = (bytes) => {
@@ -103,38 +103,38 @@ function ListaArchivosPapelera() {
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-5 p-5">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-4">
       {archivosFiltrados.length > 0 ? (
         archivosFiltrados.map((a) => (
           <div
             key={a.id}
-            className="bg-gray-800 rounded-xl shadow-md p-4 border border-gray-700 flex flex-col justify-between h-56"
+            className="bg-white rounded-lg shadow-sm p-4 border border-gray-200 flex flex-col"
           >
-            <div className="flex flex-col gap-2 text-gray-300">
-              <div className="flex items-center gap-2 text-white text-base font-semibold">
+            <div className="flex flex-col gap-1 text-gray-700 mb-4">
+              <div className="flex items-center gap-2 text-gray-900 text-base font-medium">
                 {iconoPorExtension(a.extension)}
                 <span className="truncate">{a.nombreOriginal}</span>
               </div>
-              <p className="text-sm text-gray-400">
+              <p className="text-xs text-gray-500">
                 Eliminado: {formatoFecha(a.actualizadoEn)}
               </p>
-              <p className="text-sm text-gray-400">
+              <p className="text-xs text-gray-500">
                 Tamaño: {formatoTamano(a.tamanioBytes)}
               </p>
-              <p className="text-xs italic text-gray-500">
+              <p className="text-xs text-gray-500 truncate">
                 Ruta Original: {a.rutaOriginal || "-"}
               </p>
             </div>
 
-            <div className="mt-4 flex justify-between gap-2">
+            <div className="mt-auto flex justify-between gap-2">
               <button
-                className="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-2 rounded-md w-1/2"
+                className="bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1.5 rounded w-1/2"
                 onClick={() => console.log("Eliminar", a.id)}
               >
                 Eliminar
               </button>
               <button
-                className="bg-gray-700 hover:bg-gray-600 text-white text-sm px-4 py-2 rounded-md w-1/2"
+                className="bg-gray-200 hover:bg-gray-300 text-gray-800 text-xs px-3 py-1.5 rounded w-1/2"
                 onClick={() => console.log("Restaurar", a.id)}
               >
                 Restaurar
@@ -143,7 +143,7 @@ function ListaArchivosPapelera() {
           </div>
         ))
       ) : (
-        <div className="col-span-full text-center text-gray-400 py-10">
+        <div className="col-span-full text-center text-gray-500 py-10 text-sm">
           {busqueda
             ? "No se encontraron resultados para tu búsqueda"
             : "No hay archivos en papelera"}
