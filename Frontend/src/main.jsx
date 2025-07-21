@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Layout from "./components/layout.jsx";
 import RutaPrivada from "./components/RutaPrivada.jsx";
+import AsideArchivo from "./components/ComponentesArchivos/Componentes del aside/AsideArchivo.jsx";
 import "./Styles/styles.css";
 import {
   Dashboard,
@@ -75,14 +76,16 @@ createRoot(document.getElementById("root")).render(
             element={<SolicitudesPage />}
           />
           <Route path="/crearRegistro" element={<CrearRegistro />} />
+          <AsideArchivo>
+            <Route path="/gestor-eventos" element={<GestorDeEventos />} />
+            <Route path="/papelera" element={<Papelera />} />
+            <Route path="/gestor-archivos" element={<GestorDeArchivos />} />
+          </AsideArchivo>
           <Route path="/archivos" element={<ArchivosPage />} />;
           <Route
             path="/gestor-archivos/archivo/:id"
             element={<VistaDetalleArchivo />}
           />
-          <Route path="/gestor-eventos" element={<GestorDeEventos />} />
-          <Route path="/papelera" element={<Papelera />} />
-          <Route path="/gestor-archivos" element={<GestorDeArchivos />} />
           <Route path="/reportes" element={<RelacionesGatos />} />
         </Route>
         {/* Ruta no encontrada */}

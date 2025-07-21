@@ -9,7 +9,6 @@ function PapeleraButton() {
       >
         <div className="flex flex-col items-center justify-center h-full gap-2 hover:bg-gray-400 hover:cursor-pointer transition-colors duration-300 rounded-2xl">
           <Trash2 size={40} color="#1A56DBFF" />
-          onClick={() => (window.location.href = "/papelera")}
           <p className="text-white font-semibold">Papelera</p>
         </div>
       </div>
