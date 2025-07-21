@@ -700,3 +700,40 @@ export const contarVersionesArchivo = async (req, res) => {
     });
   }
 };
+
+export const listarArchivosEliminados = async (req, res) => {
+  const usuarioId = req.user.id; // quien solicita
+  const rolId = req.user.rol_id;
+
+  try {
+    let queryBase = `
+      SELECT a.id, a.nombreOriginal, a.extension, a.tamanioBytes, a.rutaS3,
+             a.actualizadoEn, a.subidoPor, u.nombre AS nombreUsuario
+        FROM archivos a
+        JOIN usuarios u ON u.id = a.subidoPor
+       WHERE a.estado = 'eliminado'
+    `;
+
+    // Usuarios normales solo ven sus archivos eliminados
+    const params = [];
+    if (![1, 2].includes(rolId)) {
+      queryBase += " AND a.subidoPor = ?";
+      params.push(usuarioId);
+    }
+
+    const [archivos] = await db.query(queryBase, params);
+
+    // Generar URL firmada por cada archivo
+    const archivosConUrl = await Promise.all(
+      archivos.map(async (archivo) => {
+        const urlTemporal = await generarUrlPrefirmadaLectura(archivo.rutaS3);
+        return { ...archivo, urlTemporal };
+      })
+    );
+
+    res.json(archivosConUrl);
+  } catch (error) {
+    console.error("Error al listar archivos eliminados:", error);
+    res.status(500).json({ message: "Error al obtener archivos en papelera." });
+  }
+};

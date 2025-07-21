@@ -16,6 +16,7 @@ import {
   sustituirArchivo,
   obtenerDetallesArchivo,
   contarVersionesArchivo,
+  listarArchivosEliminados,
 } from "../controllers/archivos.controller.js";
 
 const router = express.Router();
@@ -42,6 +43,9 @@ router.get(
   verificarPermiso("verArchivos"),
   descargarArchivo
 );
+
+// Listar archivos eliminados (papelera)
+router.get("/papelera", autenticarUsuario, listarArchivosEliminados);
 
 // Listar archivos activos
 router.get(
