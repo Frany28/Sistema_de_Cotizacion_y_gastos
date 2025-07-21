@@ -103,114 +103,52 @@ function ListaArchivosPapelera() {
   }
 
   return (
-    <div className="w-full bg-gray-800 rounded-xl shadow-xl overflow-hidden border border-gray-700">
-      {/* Barra de búsqueda y orden */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-5 pb-3 bg-gray-800 border-b border-gray-700">
-        <input
-          type="text"
-          placeholder="Buscar en papelera..."
-          value={busqueda}
-          onChange={(e) => setBusqueda(e.target.value)}
-          className="w-full sm:w-80 bg-gray-700 border border-gray-600 rounded-lg px-4 py-2.5 text-sm text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 shadow-inner"
-        />
-        <div className="flex gap-2 text-sm text-gray-300">
-          <button
-            onClick={() =>
-              setOrden((o) => ({
-                campo: "nombreOriginal",
-                asc: o.campo === "nombreOriginal" ? !o.asc : true,
-              }))
-            }
-            className={`px-3 py-2 rounded-lg flex items-center gap-1 transition-colors duration-200 ${
-              orden.campo === "nombreOriginal"
-                ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
-                : "hover:bg-gray-700/50 border border-gray-600"
-            }`}
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-5 p-5">
+      {archivosFiltrados.length > 0 ? (
+        archivosFiltrados.map((a) => (
+          <div
+            key={a.id}
+            className="bg-gray-800 rounded-xl shadow-md p-4 border border-gray-700 flex flex-col justify-between"
           >
-            Nombre {orden.campo === "nombreOriginal" && (orden.asc ? "↑" : "↓")}
-          </button>
-          <button
-            onClick={() =>
-              setOrden((o) => ({
-                campo: "actualizadoEn",
-                asc: o.campo === "actualizadoEn" ? !o.asc : false,
-              }))
-            }
-            className={`px-3 py-2 rounded-lg flex items-center gap-1 transition-colors duration-200 ${
-              orden.campo === "actualizadoEn"
-                ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
-                : "hover:bg-gray-700/50 border border-gray-600"
-            }`}
-          >
-            Fecha {orden.campo === "actualizadoEn" && (orden.asc ? "↑" : "↓")}
-          </button>
-          <button
-            onClick={() =>
-              setOrden((o) => ({
-                campo: "tamanioBytes",
-                asc: o.campo === "tamanioBytes" ? !o.asc : false,
-              }))
-            }
-            className={`px-3 py-2 rounded-lg flex items-center gap-1 transition-colors duration-200 ${
-              orden.campo === "tamanioBytes"
-                ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
-                : "hover:bg-gray-700/50 border border-gray-600"
-            }`}
-          >
-            Tamaño {orden.campo === "tamanioBytes" && (orden.asc ? "↑" : "↓")}
-          </button>
-        </div>
-      </div>
+            <div className="flex flex-col gap-2 text-gray-300">
+              <div className="flex items-center gap-2 text-white text-base font-semibold">
+                {iconoPorExtension(a.extension)}
+                <span className="truncate">{a.nombreOriginal}</span>
+              </div>
+              <p className="text-sm text-gray-400">
+                Eliminado: {formatoFecha(a.actualizadoEn)}
+              </p>
+              <p className="text-sm text-gray-400">
+                Tamaño: {formatoTamano(a.tamanioBytes)}
+              </p>
+              <p className="text-xs text-gray-500 italic">
+                Ruta Original: {a.rutaOriginal || "-"}
+              </p>
+            </div>
 
-      {/* Tabla de resultados */}
-      <div className="overflow-x-auto max-h-[calc(100vh-200px)]">
-        <table className="min-w-full text-left border-collapse text-sm">
-          <thead className="sticky top-0 bg-gray-700 backdrop-blur-sm z-10 border-b border-gray-600">
-            <tr className="text-gray-300 font-medium">
-              <th className="py-3.5 pl-6 text-base font-semibold text-gray-200">
-                Nombre
-              </th>
-              <th className="py-3.5 w-56 text-base font-semibold text-gray-200">
-                Eliminado
-              </th>
-              <th className="py-3.5 w-32 pr-6 text-right text-base font-semibold text-gray-200">
-                Tamaño
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-700/50">
-            {archivosFiltrados.length > 0 ? (
-              archivosFiltrados.map((a) => (
-                <tr
-                  key={a.id}
-                  className="hover:bg-gray-700/40 transition-colors duration-200 cursor-pointer group"
-                >
-                  <td className="py-3 flex items-center gap-2 text-gray-100 group-hover:text-white pl-6">
-                    {iconoPorExtension(a.extension)}
-                    <span className="truncate max-w-[24rem]">
-                      {a.nombreOriginal}
-                    </span>
-                  </td>
-                  <td className="text-sm text-gray-300 whitespace-nowrap group-hover:text-gray-100">
-                    {formatoFecha(a.actualizadoEn)}
-                  </td>
-                  <td className="text-sm text-gray-300 pr-6 text-right group-hover:text-gray-100">
-                    {formatoTamano(a.tamanioBytes)}
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={3} className="py-12 text-center text-gray-400">
-                  {busqueda
-                    ? "No se encontraron resultados para tu búsqueda"
-                    : "No hay archivos en papelera"}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+            <div className="mt-4 flex justify-between gap-2">
+              <button
+                className="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-2 rounded-md transition-colors w-1/2"
+                onClick={() => console.log("Eliminar", a.id)}
+              >
+                Eliminar
+              </button>
+              <button
+                className="bg-gray-700 hover:bg-gray-600 text-white text-sm px-4 py-2 rounded-md transition-colors w-1/2"
+                onClick={() => console.log("Restaurar", a.id)}
+              >
+                Restaurar
+              </button>
+            </div>
+          </div>
+        ))
+      ) : (
+        <div className="col-span-full text-center text-gray-400 py-10">
+          {busqueda
+            ? "No se encontraron resultados para tu búsqueda"
+            : "No hay archivos en papelera"}
+        </div>
+      )}
     </div>
   );
 }
