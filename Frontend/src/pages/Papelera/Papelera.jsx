@@ -3,7 +3,14 @@ import ListaArchivosPapelera from "../../components/ComponentePapelera/ListaArch
 function Papelera() {
   return (
     <>
-      <ListaArchivosPapelera/>
+      <button
+        onClick={() => navigate(-1)}
+        className="mb-6 flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+      >
+        <ArrowLeft className="w-5 h-5" />
+        Volver
+      </button>
+      <ListaArchivosPapelera />
     </>
   );
 }

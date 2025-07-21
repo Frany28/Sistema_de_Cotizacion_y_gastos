@@ -102,8 +102,11 @@ function Navbar() {
     },
     {
       label: "Archivos",
-      path: "/archivos",
-      type: "link",
+      type: "dropdown",
+      items: [
+        { path: "/archivos", label: "Administrador de Archivos" },
+        { path: "/gestor-eventos", label: "Gestor de Eventos" },
+      ],
     },
     {
       label: "Reportes",
