@@ -373,7 +373,8 @@ export const listarHistorialVersiones = async (req, res) => {
     // 3. Obtener todas las versiones del grupo, ordenadas
     const [versiones] = await conexion.query(
       `SELECT a.id, a.numeroVersion, a.estado, a.nombreOriginal, a.extension,
-              a.tamanioBytes, a.rutaS3, a.subidoEn, a.subidoPor, u.nombre AS nombreUsuario
+         a.tamanioBytes, a.rutaS3, a.creadoEn AS subidoEn
+        , a.subidoPor, u.nombre AS nombreUsuario
          FROM archivos a
          JOIN usuarios u ON u.id = a.subidoPor
         WHERE a.grupoArchivoId = ?
