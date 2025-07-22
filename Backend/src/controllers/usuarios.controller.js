@@ -1,3 +1,4 @@
+// controllers/usuarios.controller.js
 import db from "../config/database.js";
 import bcrypt from "bcrypt";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
@@ -6,7 +7,7 @@ import {
   generarUrlPrefirmadaLectura,
   moverArchivoAS3AlPapelera,
 } from "../utils/s3.js";
-import { obtenerOcrearGrupoFirma } from "../utils/gruposArchivos.js"; // ✅ único helper
+import { obtenerOcrearGrupoFirma } from "../utils/gruposArchivos.js";
 
 // Crear usuario (incluye registro de firma en S3, tabla archivos y eventosArchivo)
 export const crearUsuario = async (req, res) => {
