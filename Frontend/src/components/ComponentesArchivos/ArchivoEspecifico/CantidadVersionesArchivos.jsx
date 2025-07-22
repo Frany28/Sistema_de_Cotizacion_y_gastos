@@ -1,27 +1,28 @@
+// src/components/ComponentesArchivos/CantidadVersionesArchivos.jsx
 import { useEffect, useState } from "react";
-import { Layers } from "lucide-react";
+import { useParams } from "react-router-dom";
 import api from "../../../api";
+import { Layers } from "lucide-react"; // Ícono que se parece al de la imagen
 
-const CantidadVersionesArchivo = ({ grupoArchivoId }) => {
+const CantidadVersionesArchivo = () => {
+  const { id } = useParams();
   const [cantidadVersiones, setCantidadVersiones] = useState(null);
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
     const obtenerCantidad = async () => {
       try {
-        const res = await api.get(
-          `/archivos/grupo/${grupoArchivoId}/versiones`
-        );
-        setCantidadVersiones(res.data.length);
+        const res = await api.get(`/archivos/${id}/total-versiones`);
+        setCantidadVersiones(res.data.totalVersiones);
       } catch (error) {
-        console.error("Error al obtener versiones:", error);
+        console.error("Error al obtener cantidad de versiones:", error);
       } finally {
         setCargando(false);
       }
     };
 
-    if (grupoArchivoId) obtenerCantidad();
-  }, [grupoArchivoId]);
+    obtenerCantidad();
+  }, [id]);
 
   return (
     <div className="w-[400px] h-[162px] bg-gray-800 rounded-xl p-5 relative shadow-md border border-gray-700">
@@ -29,6 +30,7 @@ const CantidadVersionesArchivo = ({ grupoArchivoId }) => {
         <Layers className="text-blue-500" size={20} />
       </div>
 
+      {/* Contenido centrado */}
       <div className="flex flex-col justify-center h-full">
         <p className="text-sm text-gray-400">Total de Versiones</p>
         <h1 className="text-white text-3xl font-bold mt-1">
