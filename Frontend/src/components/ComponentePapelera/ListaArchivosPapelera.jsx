@@ -88,60 +88,58 @@ function ListaArchivosPapelera() {
     );
   }
 
-return (
-  <div className="p-6">
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
-      {archivosFiltrados.length > 0 ? (
-        archivosFiltrados.map((archivo) => (
-          <div
-            key={archivo.id}
-            className="bg-[#1C2434] rounded-xl w-[236px] h-[251px] shadow border border-[#2F374C] flex flex-col justify-between px-4 py-3 text-white"
-          >
-            <div className="flex flex-col items-center text-center">
-              <div className="mb-2">{iconoPorExtension(archivo.extension)}</div>
+  return (
+    <div className="p-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
+        {archivosFiltrados.length > 0 ? (
+          archivosFiltrados.map((archivo) => (
+            <div
+              key={archivo.id}
+              className="bg-[#1C2434] rounded-xl w-[236px] h-[251px] shadow border border-[#2F374C] flex flex-col justify-between px-4 py-3 text-white"
+            >
+              <div className="flex flex-col items-center text-center">
+                <div className="mb-2">
+                  {iconoPorExtension(archivo.extension)}
+                </div>
 
-              <p className="font-semibold text-[13px] text-center mb-2 break-words leading-tight line-clamp-2 max-h-[32px] overflow-hidden">
-                {archivo.nombreOriginal}
-              </p>
+                <p className="font-semibold text-[13px] text-center mb-2 break-words leading-tight line-clamp-2 max-h-[32px] overflow-hidden">
+                  {archivo.nombreOriginal}
+                </p>
 
-              <p className="text-[11px] text-gray-400 mb-1">
-                Eliminado: {formatoFecha(archivo.actualizadoEn)}
-              </p>
-              <p className="text-[11px] text-gray-400 mb-1">
-                Tamaño: {formatoTamano(archivo.tamanioBytes)}
-              </p>
-              <p className="text-[11px] text-gray-400 truncate">
-                Ruta Original: {archivo.rutaOriginal || "-"}
-              </p>
+                <p className="text-[21px] text-gray-400 mb-1">
+                  Eliminado: {formatoFecha(archivo.actualizadoEn)}
+                </p>
+                <p className="text-[21px] text-gray-400 mb-1">
+                  Tamaño: {formatoTamano(archivo.tamanioBytes)}
+                </p>
+              </div>
+
+              <div className="flex justify-between gap-2 mt-4">
+                <button
+                  className="bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded px-3 py-1.5 w-1/2"
+                  onClick={() => console.log("Eliminar", archivo.id)}
+                >
+                  Eliminar
+                </button>
+                <button
+                  className="bg-[#2F374C] hover:bg-[#3c465f] text-white text-xs font-medium rounded px-3 py-1.5 w-1/2"
+                  onClick={() => console.log("Restaurar", archivo.id)}
+                >
+                  Restaurar
+                </button>
+              </div>
             </div>
-
-            <div className="flex justify-between gap-2 mt-4">
-              <button
-                className="bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded px-3 py-1.5 w-1/2"
-                onClick={() => console.log("Eliminar", archivo.id)}
-              >
-                Eliminar
-              </button>
-              <button
-                className="bg-[#2F374C] hover:bg-[#3c465f] text-white text-xs font-medium rounded px-3 py-1.5 w-1/2"
-                onClick={() => console.log("Restaurar", archivo.id)}
-              >
-                Restaurar
-              </button>
-            </div>
+          ))
+        ) : (
+          <div className="col-span-full text-center text-gray-500 py-10 text-sm">
+            {busqueda
+              ? "No se encontraron resultados para tu búsqueda"
+              : "No hay archivos en papelera"}
           </div>
-        ))
-      ) : (
-        <div className="col-span-full text-center text-gray-500 py-10 text-sm">
-          {busqueda
-            ? "No se encontraron resultados para tu búsqueda"
-            : "No hay archivos en papelera"}
-        </div>
-      )}
+        )}
+      </div>
     </div>
-  </div>
-);
-
+  );
 }
 
 export default ListaArchivosPapelera;
