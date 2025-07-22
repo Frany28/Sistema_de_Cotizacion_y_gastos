@@ -17,6 +17,7 @@ import {
   obtenerDetallesArchivo,
   contarVersionesArchivo,
   listarArchivosEliminados,
+  listarVersionesPorGrupo,
 } from "../controllers/archivos.controller.js";
 
 const router = express.Router();
@@ -55,6 +56,13 @@ router.get(
   listarArchivos
 );
 
+router.get(
+  "/grupo/:grupoArchivoId/versiones",
+  autenticarUsuario,
+  verificarPermiso("verArchivos"),
+  listarVersionesPorGrupo
+);
+
 // Obtener detalle de un archivo específico
 router.get(
   "/detalle/:id",
@@ -84,7 +92,7 @@ router.get("/:id/total-versiones", autenticarUsuario, contarVersionesArchivo);
 
 // Listar historial de versiones de un archivo
 router.get(
-  "/:archivoId/versiones",
+  "/:id/versiones",
   autenticarUsuario,
   verificarPermiso("verArchivos"),
   listarHistorialVersiones
@@ -100,7 +108,7 @@ router.get(
 
 // Restaurar una versión específica
 router.post(
-  "/versiones/restaurar",
+  "/version/:versionId/restaurar",
   autenticarUsuario,
   verificarPermiso("editarArchivos"),
   restaurarVersion

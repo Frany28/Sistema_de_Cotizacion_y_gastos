@@ -10,107 +10,122 @@ import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 const ROL_ADMIN = 1;
 const ROL_SUPERVISOR = 2;
 
-// Controller: sustituir (reemplazar) un archivo existente
 export const sustituirArchivo = async (req, res) => {
   const conexion = await db.getConnection();
   const usuarioId = req.user.id;
   const rolId = req.user.rol_id;
 
   try {
-    // 1) Datos del nuevo archivo (Multer)
+    // 1. Datos del nuevo archivo recibido (vía Multer)
     const { key: nuevaKey, originalname, size: tamanoBytes } = req.file;
     const extension = originalname.split(".").pop();
 
-    // 2) Leer registro activo y permiso de acceso
+    // 2. Buscar archivo activo del registro (registroTipo + registroId)
     const [[archivo]] = await conexion.query(
-      `SELECT id, rutaS3 AS keyS3, subidoPor, tamanoBytes
+      `SELECT id, grupoArchivoId, rutaS3 AS keyS3, subidoPor, tamanoBytes
          FROM archivos
-        WHERE registroTipo = ?
-          AND registroId = ?
-          AND estado = 'activo'`,
+        WHERE registroTipo = ? AND registroId = ? AND estado = 'activo'`,
       [req.params.registroTipo, req.params.registroId]
     );
-    if (!archivo)
+
+    if (!archivo) {
       return res
         .status(404)
         .json({ message: "No hay archivo activo para sustituir." });
+    }
+
+    // 3. Verificar permiso de sustitución
     if (
       ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
       archivo.subidoPor !== usuarioId
     ) {
-      return res.status(403).json({
-        message: "Acceso denegado: no puedes sustituir este archivo.",
-      });
+      return res
+        .status(403)
+        .json({ message: "No tienes permiso para sustituir este archivo." });
     }
 
-    // 3) Validar cuota de almacenamiento (50 MB)
+    // 4. Validar cuota de almacenamiento (50MB)
     const [[usuario]] = await conexion.query(
       "SELECT cuotaMb, usoStorageBytes FROM usuarios WHERE id = ?",
       [usuarioId]
     );
     const cuotaBytes = usuario.cuotaMb * 1024 * 1024;
-    const usoActual = usuario.usoStorageBytes;
-    const tamanoAntiguo = archivo.tamanoBytes;
-    const nuevoUso = usoActual - tamanoAntiguo + tamanoBytes;
+    const nuevoUso =
+      usuario.usoStorageBytes - archivo.tamanoBytes + tamanoBytes;
+
     if (nuevoUso > cuotaBytes) {
       return res
         .status(400)
-        .json({ message: "Superas la cuota de almacenamiento (50 MB)." });
+        .json({ message: "Superas tu cuota de almacenamiento (50MB)." });
     }
 
     await conexion.beginTransaction();
 
-    // 4) Mover archivo antiguo a carpeta papelera en S3
+    // 5. Mover archivo viejo a papelera en S3
     await moverArchivoAS3AlPapelera(
       archivo.keyS3,
       req.params.registroTipo,
       req.params.registroId
     );
 
-    // 5) Registrar versión anterior en versionesArchivo
-    const [[{ maxVersion }]] = await conexion.query(
-      "SELECT COALESCE(MAX(numeroVersion), 0) AS maxVersion FROM versionesArchivo WHERE archivoId = ?",
+    // 6. Marcar el archivo anterior como reemplazado
+    await conexion.query(
+      `UPDATE archivos SET estado = 'reemplazado', actualizadoEn = NOW() WHERE id = ?`,
       [archivo.id]
     );
-    const numeroVersion = maxVersion + 1;
-    await conexion.query(
-      `INSERT INTO versionesArchivo
-         (archivoId, numeroVersion, subidoEn, subidoPorId, comentario, tamanoBytes, s3ObjectKey)
-       VALUES (?, ?, NOW(), ?, ?, ?, ?)`,
+
+    // 7. Obtener la próxima versión dentro del grupo
+    const [[{ maxVersion }]] = await conexion.query(
+      `SELECT COALESCE(MAX(numeroVersion), 0) AS maxVersion FROM archivos WHERE grupoArchivoId = ?`,
+      [archivo.grupoArchivoId]
+    );
+    const siguienteVersion = maxVersion + 1;
+
+    // 8. Insertar nuevo archivo como nueva versión
+    const [resultado] = await conexion.query(
+      `INSERT INTO archivos (
+         grupoArchivoId, numeroVersion, registroTipo, registroId,
+         nombreOriginal, extension, tamanioBytes, rutaS3,
+         subidoPor, subidoEn, estado
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'activo')`,
       [
-        archivo.id,
-        numeroVersion,
+        archivo.grupoArchivoId,
+        siguienteVersion,
+        req.params.registroTipo,
+        req.params.registroId,
+        originalname,
+        extension,
+        tamanoBytes,
+        nuevaKey,
         usuarioId,
-        "Reemplazo de archivo",
-        archivo.tamanoBytes,
-        archivo.keyS3,
       ]
     );
+    const nuevoArchivoId = resultado.insertId;
 
-    // 6) Actualizar registro principal en archivos
-    await conexion.query(
-      "UPDATE archivos SET rutaS3 = ?, nombreOriginal = ?, extension = ?, tamanoBytes = ?, actualizadoEn = NOW() WHERE id = ?",
-      [nuevaKey, originalname, extension, tamanoBytes, archivo.id]
-    );
-
-    // 7) Ajustar usoStorageBytes en usuarios
+    // 9. Actualizar uso de almacenamiento del usuario
     await conexion.query(
       "UPDATE usuarios SET usoStorageBytes = ? WHERE id = ?",
       [nuevoUso, usuarioId]
     );
 
-    // 8) Registrar evento de sustitución
+    // 10. Registrar evento de sustitución
     await conexion.query(
       `INSERT INTO eventosArchivo
          (archivoId, versionId, accion, usuarioId, ip, userAgent, detalles)
        VALUES (?, ?, 'sustitucion', ?, ?, ?, ?)`,
       [
+        nuevoArchivoId,
         archivo.id,
-        numeroVersion,
         usuarioId,
         req.ip,
         req.get("User-Agent"),
-        JSON.stringify({ nuevaKey, extension, originalname, numeroVersion }),
+        JSON.stringify({
+          anteriorId: archivo.id,
+          nuevaKey,
+          extension,
+          originalname,
+          numeroVersion: siguienteVersion,
+        }),
       ]
     );
 
@@ -326,66 +341,62 @@ export const restaurarArchivo = async (req, res) => {
 };
 
 export const listarHistorialVersiones = async (req, res) => {
-  const archivoId = Number(req.params.archivoId);
+  const archivoId = Number(req.params.id);
   const usuarioId = req.user.id;
   const rolId = req.user.rol_id;
 
+  const conexion = await db.getConnection();
+
   try {
-    // Obtener el archivo base
-    const [[archivoActual]] = await db.query(
-      "SELECT registroTipo, registroId, subidoPor FROM archivos WHERE id = ?",
+    // 1. Obtener el grupo del archivo y verificar existencia
+    const [[archivo]] = await conexion.query(
+      `SELECT grupoArchivoId, subidoPor
+         FROM archivos
+        WHERE id = ?`,
       [archivoId]
     );
 
-    if (!archivoActual)
+    if (!archivo) {
       return res.status(404).json({ message: "Archivo no encontrado." });
-
-    if (
-      ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
-      archivoActual.subidoPor !== usuarioId
-    ) {
-      return res.status(403).json({ message: "Acceso denegado." });
     }
 
-    const [versiones] = await db.query(
-      `
-      SELECT 
-        a.id,
-        a.numeroVersion,
-        a.actualizadoEn AS fecha,
-        a.subidoPor AS usuarioId,
-        u.nombre AS usuario,
-        a.tamanioBytes,
-        a.rutaS3 AS keyS3,
-        a.estado,
-        (
-          SELECT e.accion
-          FROM eventosArchivo e
-          WHERE e.archivoId = a.id
-          ORDER BY e.fechaHora ASC
-          LIMIT 1
-        ) AS tipoAccion,
-        (
-          SELECT e.fechaHora
-          FROM eventosArchivo e
-          WHERE e.archivoId = a.id
-          ORDER BY e.fechaHora ASC
-          LIMIT 1
-        ) AS fechaAccion
-      FROM archivos a
-      JOIN usuarios u ON u.id = a.subidoPor
-      WHERE a.registroTipo = ? AND a.registroId = ?
-      ORDER BY a.numeroVersion DESC
-      `,
-      [archivoActual.registroTipo, archivoActual.registroId]
+    // 2. Verificar permisos de acceso
+    if (
+      ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
+      archivo.subidoPor !== usuarioId
+    ) {
+      return res.status(403).json({
+        message: "No tienes permiso para ver el historial de este archivo.",
+      });
+    }
+
+    // 3. Obtener todas las versiones del grupo, ordenadas
+    const [versiones] = await conexion.query(
+      `SELECT a.id, a.numeroVersion, a.estado, a.nombreOriginal, a.extension,
+              a.tamanioBytes, a.rutaS3, a.subidoEn, a.subidoPor, u.nombre AS nombreUsuario
+         FROM archivos a
+         JOIN usuarios u ON u.id = a.subidoPor
+        WHERE a.grupoArchivoId = ?
+        ORDER BY a.numeroVersion DESC`,
+      [archivo.grupoArchivoId]
     );
 
-    return res.json({ archivoId, versiones });
+    // 4. Agregar URL temporal para cada versión (lectura desde S3)
+    const versionesConUrl = await Promise.all(
+      versiones.map(async (v) => {
+        const urlTemporal = await generarUrlPrefirmadaLectura(v.rutaS3);
+        return { ...v, urlTemporal };
+      })
+    );
+
+    res.json(versionesConUrl);
   } catch (error) {
     console.error("Error al listar historial de versiones:", error);
-    return res
+    res
       .status(500)
-      .json({ message: "Error interno al listar historial de versiones." });
+      .json({ message: "Error al obtener historial de versiones." });
+  } finally {
+    conexion.release();
   }
 };
 
@@ -435,63 +446,124 @@ export const descargarVersion = async (req, res) => {
   }
 };
 
-// Controller: restaurar versión específica como activa
 export const restaurarVersion = async (req, res) => {
-  const versionId = Number(req.body.versionId);
+  const conexion = await db.getConnection();
   const usuarioId = req.user.id;
   const rolId = req.user.rol_id;
 
-  if (!versionId) {
-    return res.status(400).json({ message: "versionId es obligatorio." });
-  }
-
   try {
-    const [[version]] = await db.query(
-      `SELECT v.archivoId, v.numeroVersion, v.s3ObjectKey AS keyS3, v.tamanoBytes, a.subidoPor
-         FROM versionesArchivo v
-    JOIN archivos a ON a.id = v.archivoId
-        WHERE v.id = ?`,
+    const versionId = Number(req.params.versionId);
+
+    // 1. Obtener la versión a restaurar
+    const [[version]] = await conexion.query(
+      `SELECT id, grupoArchivoId, nombreOriginal, extension, tamanioBytes,
+              rutaS3 AS keyS3, subidoPor, registroTipo, registroId
+         FROM archivos
+        WHERE id = ?`,
       [versionId]
     );
-    if (!version)
+
+    if (!version) {
       return res.status(404).json({ message: "Versión no encontrada." });
+    }
+
+    // 2. Validar permisos: solo quien subió o supervisores pueden restaurar
     if (
       ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
       version.subidoPor !== usuarioId
     ) {
-      return res.status(403).json({ message: "Acceso denegado." });
+      return res
+        .status(403)
+        .json({ message: "No tienes permiso para restaurar esta versión." });
     }
 
-    await db.execute(
-      `UPDATE archivos
-         SET rutaS3 = ?, tamanoBytes = ?, actualizadoEn = NOW()
-       WHERE id = ?`,
-      [version.keyS3, version.tamanoBytes, version.archivoId]
+    // 3. Validar cuota de almacenamiento
+    const [[usuario]] = await conexion.query(
+      "SELECT cuotaMb, usoStorageBytes FROM usuarios WHERE id = ?",
+      [usuarioId]
     );
-    await db.execute(
-      `INSERT INTO eventosArchivo (archivoId, versionId, accion, usuarioId, ip, userAgent, detalles)
+    const cuotaBytes = usuario.cuotaMb * 1024 * 1024;
+    const nuevoUso = usuario.usoStorageBytes + version.tamanioBytes;
+
+    if (nuevoUso > cuotaBytes) {
+      return res
+        .status(400)
+        .json({ message: "Superas la cuota de almacenamiento al restaurar." });
+    }
+
+    await conexion.beginTransaction();
+
+    // 4. Marcar como reemplazada la versión activa actual del grupo
+    await conexion.query(
+      `UPDATE archivos
+          SET estado = 'reemplazado', actualizadoEn = NOW()
+        WHERE grupoArchivoId = ? AND estado = 'activo'`,
+      [version.grupoArchivoId]
+    );
+
+    // 5. Obtener siguiente numeroVersion en el grupo
+    const [[{ maxVersion }]] = await conexion.query(
+      `SELECT MAX(numeroVersion) AS maxVersion FROM archivos WHERE grupoArchivoId = ?`,
+      [version.grupoArchivoId]
+    );
+    const siguienteVersion = maxVersion + 1;
+
+    // 6. Insertar nueva versión activa basada en la restaurada
+    const [resultado] = await conexion.query(
+      `INSERT INTO archivos (
+         grupoArchivoId, numeroVersion, registroTipo, registroId,
+         nombreOriginal, extension, tamanioBytes, rutaS3,
+         subidoPor, subidoEn, estado
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'activo')`,
+      [
+        version.grupoArchivoId,
+        siguienteVersion,
+        version.registroTipo,
+        version.registroId,
+        version.nombreOriginal,
+        version.extension,
+        version.tamanioBytes,
+        version.keyS3,
+        usuarioId,
+      ]
+    );
+    const nuevoArchivoId = resultado.insertId;
+
+    // 7. Actualizar almacenamiento del usuario
+    await conexion.query(
+      `UPDATE usuarios SET usoStorageBytes = ? WHERE id = ?`,
+      [nuevoUso, usuarioId]
+    );
+
+    // 8. Registrar evento de restauración
+    await conexion.query(
+      `INSERT INTO eventosArchivo
+         (archivoId, versionId, accion, usuarioId, ip, userAgent, detalles)
        VALUES (?, ?, 'restauracion', ?, ?, ?, ?)`,
       [
-        version.archivoId,
+        nuevoArchivoId,
         versionId,
         usuarioId,
         req.ip,
         req.get("User-Agent"),
         JSON.stringify({
-          versionRestaurada: version.numeroVersion,
-          key: version.keyS3,
+          grupoArchivoId: version.grupoArchivoId,
+          restauradoDesde: version.numeroVersion,
+          nuevaVersion: siguienteVersion,
         }),
       ]
     );
 
-    return res.json({
-      message: `Versión ${version.numeroVersion} restaurada correctamente.`,
-    });
+    await conexion.commit();
+    return res.json({ message: "Versión restaurada correctamente." });
   } catch (error) {
-    console.error(error);
+    await conexion.rollback();
+    console.error("Error al restaurar versión:", error);
     return res
       .status(500)
-      .json({ message: "Error interno al restaurar versión." });
+      .json({ message: "Error al restaurar versión del archivo." });
+  } finally {
+    conexion.release();
   }
 };
 
@@ -734,5 +806,60 @@ export const listarArchivosEliminados = async (req, res) => {
   } catch (error) {
     console.error("Error al listar archivos eliminados:", error);
     res.status(500).json({ message: "Error al obtener archivos en papelera." });
+  }
+};
+
+export const listarVersionesPorGrupo = async (req, res) => {
+  const grupoArchivoId = Number(req.params.grupoArchivoId);
+  const usuarioId = req.user.id;
+  const rolId = req.user.rol_id;
+
+  const conexion = await db.getConnection();
+
+  try {
+    // Validar que el grupo exista y permisos si lo deseas
+    const [[grupo]] = await conexion.query(
+      `SELECT creadoPor FROM archivoGrupos WHERE id = ?`,
+      [grupoArchivoId]
+    );
+
+    if (!grupo) {
+      return res
+        .status(404)
+        .json({ message: "Grupo de archivo no encontrado." });
+    }
+
+    if (
+      ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
+      grupo.creadoPor !== usuarioId
+    ) {
+      return res
+        .status(403)
+        .json({ message: "Acceso denegado al grupo de archivos." });
+    }
+
+    const [versiones] = await conexion.query(
+      `SELECT a.id, a.numeroVersion, a.estado, a.nombreOriginal, a.extension,
+              a.tamanioBytes, a.rutaS3, a.subidoEn, a.subidoPor, u.nombre AS nombreUsuario
+         FROM archivos a
+         JOIN usuarios u ON u.id = a.subidoPor
+        WHERE a.grupoArchivoId = ?
+        ORDER BY a.numeroVersion DESC`,
+      [grupoArchivoId]
+    );
+
+    const versionesConUrl = await Promise.all(
+      versiones.map(async (v) => {
+        const urlTemporal = await generarUrlPrefirmadaLectura(v.rutaS3);
+        return { ...v, urlTemporal };
+      })
+    );
+
+    res.json(versionesConUrl);
+  } catch (error) {
+    console.error("Error al listar versiones por grupo:", error);
+    res.status(500).json({ message: "Error al obtener historial por grupo." });
+  } finally {
+    conexion.release();
   }
 };
