@@ -348,11 +348,9 @@ export const listarHistorialVersiones = async (req, res) => {
   const conexion = await db.getConnection();
 
   try {
-    // 1. Obtener el grupo del archivo y verificar existencia
+    // 1. Obtener grupo del archivo actual
     const [[archivo]] = await conexion.query(
-      `SELECT grupoArchivoId, subidoPor
-         FROM archivos
-        WHERE id = ?`,
+      `SELECT grupoArchivoId, subidoPor FROM archivos WHERE id = ?`,
       [archivoId]
     );
 
@@ -360,21 +358,21 @@ export const listarHistorialVersiones = async (req, res) => {
       return res.status(404).json({ message: "Archivo no encontrado." });
     }
 
-    // 2. Verificar permisos de acceso
+    // 2. Validar acceso
     if (
       ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
       archivo.subidoPor !== usuarioId
     ) {
       return res.status(403).json({
-        message: "No tienes permiso para ver el historial de este archivo.",
+        message: "No tienes permiso para ver este historial.",
       });
     }
 
-    // 3. Obtener todas las versiones del grupo, ordenadas
+    // 3. Consultar todas las versiones del grupo (sin filtrar por estado)
     const [versiones] = await conexion.query(
       `SELECT a.id, a.numeroVersion, a.estado, a.nombreOriginal, a.extension,
-         a.tamanioBytes, a.rutaS3, a.creadoEn AS subidoEn
-        , a.subidoPor, u.nombre AS nombreUsuario
+              a.tamanioBytes, a.rutaS3, a.creadoEn AS subidoEn,
+              a.subidoPor, u.nombre AS nombreUsuario
          FROM archivos a
          JOIN usuarios u ON u.id = a.subidoPor
         WHERE a.grupoArchivoId = ?
@@ -382,7 +380,7 @@ export const listarHistorialVersiones = async (req, res) => {
       [archivo.grupoArchivoId]
     );
 
-    // 4. Agregar URL temporal para cada versión (lectura desde S3)
+    // 4. Agregar URLs prefirmadas
     const versionesConUrl = await Promise.all(
       versiones.map(async (v) => {
         const urlTemporal = await generarUrlPrefirmadaLectura(v.rutaS3);
@@ -390,16 +388,17 @@ export const listarHistorialVersiones = async (req, res) => {
       })
     );
 
-    res.json(versionesConUrl);
+    return res.json(versionesConUrl);
   } catch (error) {
     console.error("Error al listar historial de versiones:", error);
-    res
+    return res
       .status(500)
       .json({ message: "Error al obtener historial de versiones." });
   } finally {
     conexion.release();
   }
 };
+
 
 // Controller: descargar una versión específica
 export const descargarVersion = async (req, res) => {
