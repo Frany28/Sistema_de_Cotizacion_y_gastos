@@ -38,17 +38,25 @@ export const crearUsuario = async (req, res) => {
       [codigo, usuarioId]
     );
 
-    // 4) Si hay firma, registrar en archivos y en eventosArchivo
+    // 4) Si hay firma, registrar TODO el circuito de archivos
     if (firmaKey) {
-      // 4.1) Insertar metadatos en archivos
-      const [aResult] = await conexion.query(
+      const grupoId = await obtenerOcrearGrupoFirma(
+        conexion,
+        usuarioId,
+        req.user.id
+      );
+
+      /* 4.1) tabla archivos */
+      const [aRes] = await conexion.query(
         `INSERT INTO archivos
-      (registroTipo, registroId, nombreOriginal, extension, tamanioBytes,
-      rutaS3, estado, subidoPor, creadoEn, actualizadoEn)
-      VALUES (?, ?, ?, ?, ?, ?, 'activo', ?, NOW(), NOW())`,
+       (registroTipo, registroId, grupoArchivoId,
+        nombreOriginal, extension, tamanioBytes,
+        rutaS3, numeroVersion, estado,
+        subidoPor, creadoEn, actualizadoEn)
+     VALUES ('firmas', ?, ?, ?, ?, ?, ?, 1, 'activo', ?, NOW(), NOW())`,
         [
-          "firmas",
           usuarioId,
+          grupoId,
           nombreOriginal,
           extension,
           tamanioBytes,
@@ -56,19 +64,46 @@ export const crearUsuario = async (req, res) => {
           req.user.id,
         ]
       );
-      const archivoId = aResult.insertId;
+      const archivoId = aRes.insertId;
 
-      // 4.2) Registrar evento de auditoría
-      const detalleEvento = JSON.stringify({
-        ruta: firmaKey,
-        nombre: nombreOriginal,
-        extension,
-      });
+      /* 4.2) tabla versionesArchivo (versión 1) */
+      const [vRes] = await conexion.query(
+        `INSERT INTO versionesArchivo
+       (archivoId, numeroVersion, nombreOriginal, extension,
+        tamanioBytes, rutaS3, subidoPor)
+     VALUES (?, 1, ?, ?, ?, ?, ?)`,
+        [
+          archivoId,
+          nombreOriginal,
+          extension,
+          tamanioBytes,
+          rutaS3,
+          req.user.id,
+        ]
+      );
+      const versionId = vRes.insertId;
+
+      /* 4.3) auditoría */
       await conexion.query(
         `INSERT INTO eventosArchivo
-           (archivoId, versionId, accion, usuarioId, ip, userAgent, detalles)
-         VALUES (?, NULL, 'subida', ?, ?, ?, ?)`,
-        [archivoId, req.user.id, req.ip, req.get("User-Agent"), detalleEvento]
+       (archivoId, versionId, accion, usuarioId, ip, userAgent, detalles)
+     VALUES (?, ?, 'subida', ?, ?, ?, ?)`,
+        [
+          archivoId,
+          versionId,
+          req.user.id,
+          req.ip,
+          req.get("user-agent"),
+          JSON.stringify({ ruta: rutaS3, nombre: nombreOriginal, extension }),
+        ]
+      );
+
+      /* 4.4) cuota del dueño */
+      await conexion.query(
+        `UPDATE usuarios
+        SET usoStorageBytes = usoStorageBytes + ?
+      WHERE id = ?`,
+        [tamanioBytes, usuarioId]
       );
     }
 
@@ -81,6 +116,27 @@ export const crearUsuario = async (req, res) => {
   } finally {
     conexion.release();
   }
+};
+
+export const obtenerOcrearGrupoFirma = async (
+  conexion,
+  registroId,
+  creadoPor
+) => {
+  const [[grupo]] = await conexion.query(
+    `SELECT id FROM archivoGrupos
+      WHERE registroTipo = 'firmas' AND registroId = ?`,
+    [registroId]
+  );
+  if (grupo) return grupo.id;
+
+  const [gRes] = await conexion.query(
+    `INSERT INTO archivoGrupos
+       (registroTipo, registroId, creadoPor, nombreReferencia)
+     VALUES ('firmas', ?, ?, ?)`,
+    [registroId, creadoPor, `Firmas usuario ${registroId}`]
+  );
+  return gRes.insertId;
 };
 
 // Actualizar usuario (puede cambiar datos básicos y subir nueva firma)
@@ -125,25 +181,29 @@ export const actualizarUsuario = async (req, res) => {
 
     // Si hay nueva firma:
     if (firmaKey) {
-      const [[{ totalVersiones }]] = await conexion.query(
-        `SELECT COUNT(*) AS totalVersiones
-     FROM archivos
-    WHERE registroTipo = 'firmas'
-      AND registroId = ?
-      AND estado != 'eliminado'`,
+      /* 3.1) grupo (si no existía, lo crea) */
+      const grupoId = await obtenerOcrearGrupoFirma(conexion, id, req.user.id);
+
+      /* 3.2) versión nueva */
+      const [[{ maxVer }]] = await conexion.query(
+        `SELECT IFNULL(MAX(numeroVersion),0) AS maxVer
+       FROM archivos
+      WHERE registroTipo='firmas' AND registroId = ?`,
         [id]
       );
-      const numeroVersion = totalVersiones + 1;
+      const numeroVersion = maxVer + 1;
 
-      // Insertar nuevo archivo
-      const [aResult] = await conexion.query(
+      /* 3.3) nuevo registro en archivos */
+      const [aRes] = await conexion.query(
         `INSERT INTO archivos
-         (registroTipo, registroId, nombreOriginal, extension, tamanioBytes,
-         rutaS3, numeroVersion, estado, subidoPor, creadoEn, actualizadoEn)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'activo', ?, NOW(), NOW())`,
+       (registroTipo, registroId, grupoArchivoId,
+        nombreOriginal, extension, tamanioBytes,
+        rutaS3, numeroVersion, estado,
+        subidoPor, creadoEn, actualizadoEn)
+     VALUES ('firmas', ?, ?, ?, ?, ?, ?, ?, 'activo', ?, NOW(), NOW())`,
         [
-          "firmas",
           id,
+          grupoId,
           nombreOriginal,
           extension,
           tamanioBytes,
@@ -152,66 +212,84 @@ export const actualizarUsuario = async (req, res) => {
           req.user.id,
         ]
       );
-      const archivoId = aResult.insertId;
+      const archivoId = aRes.insertId;
 
-      // Evento de auditoría (sustitución)
-      const detalleEvento = JSON.stringify({
-        ruta: firmaKey,
-        nombre: nombreOriginal,
-        extension,
-      });
+      /* 3.4) snapshot versión */
+      const [vRes] = await conexion.query(
+        `INSERT INTO versionesArchivo
+       (archivoId, numeroVersion, nombreOriginal, extension,
+        tamanioBytes, rutaS3, subidoPor)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          archivoId,
+          numeroVersion,
+          nombreOriginal,
+          extension,
+          tamanioBytes,
+          rutaS3,
+          req.user.id,
+        ]
+      );
+      const versionId = vRes.insertId;
+
+      /* 3.5) evento de sustitución */
       await conexion.query(
         `INSERT INTO eventosArchivo
-         (archivoId, versionId, accion, usuarioId, ip, userAgent, detalles)
-         VALUES (?, NULL, 'sustitucion', ?, ?, ?, ?)`,
-        [archivoId, req.user.id, req.ip, req.get("User-Agent"), detalleEvento]
+       (archivoId, versionId, accion, usuarioId, ip, userAgent, detalles)
+     VALUES (?, ?, 'sustitucion', ?, ?, ?, ?)`,
+        [
+          archivoId,
+          versionId,
+          req.user.id,
+          req.ip,
+          req.get("user-agent"),
+          JSON.stringify({ ruta: rutaS3, nombre: nombreOriginal, extension }),
+        ]
       );
 
-      // Buscar firma anterior
-      const [anterior] = await conexion.query(
+      /* 3.6) marcar la versión anterior como reemplazada (si existe) */
+      const [ant] = await conexion.query(
         `SELECT id, rutaS3
-         FROM archivos
-         WHERE registroTipo = 'firmas'
-           AND registroId = ?
-           AND estado = 'activo'
-         ORDER BY numeroVersion DESC
-         LIMIT 1 OFFSET 1`,
-        [id]
+       FROM archivos
+      WHERE registroTipo='firmas' AND registroId = ?
+        AND id <> ? AND estado='activo'
+      ORDER BY numeroVersion DESC
+      LIMIT 1`,
+        [id, archivoId]
       );
-
-      if (anterior.length > 0) {
-        const archivoAnt = anterior[0];
-
-        // Mover a papelera
+      if (ant.length) {
+        const antId = ant[0].id;
         const nuevaRuta = await moverArchivoAS3AlPapelera(
-          archivoAnt.rutaS3,
+          ant[0].rutaS3,
           "firmas",
           id
         );
-
-        // Marcar como reemplazado
         await conexion.query(
-          `UPDATE archivos SET estado = 'reemplazado', rutaS3 = ? WHERE id = ?`,
-          [nuevaRuta, archivoAnt.id]
+          `UPDATE archivos SET estado='reemplazado', rutaS3=? WHERE id=?`,
+          [nuevaRuta, antId]
         );
-
-        // Evento de eliminación (por sustitución)
+        /*  Evento eliminación lógica */
         await conexion.query(
           `INSERT INTO eventosArchivo
-           (archivoId, versionId, accion, usuarioId, ip, userAgent, detalles)
-           VALUES (?, NULL, 'eliminacion', ?, ?, ?, ?)`,
+         (archivoId, accion, usuarioId, ip, userAgent, detalles)
+       VALUES (?, 'eliminacion', ?, ?, ?, ?)`,
           [
-            archivoAnt.id,
-            req.user?.id || null,
-            req.ip || null,
-            req.get("user-agent") || null,
-            JSON.stringify({
-              motivo: "Sustitución de firma del usuario",
-              nuevaRuta,
-            }),
+            antId,
+            req.user.id,
+            req.ip,
+            req.get("user-agent"),
+            JSON.stringify({ motivo: "Sustitución de firma", nuevaRuta }),
           ]
         );
       }
+
+      /* 3.7) cuota (+ nuevo tamaño) */
+      await conexion.query(
+        `UPDATE usuarios
+        SET usoStorageBytes = usoStorageBytes + ?
+      WHERE id = ?`,
+        [tamanioBytes, id]
+      );
     }
 
     await conexion.commit();
