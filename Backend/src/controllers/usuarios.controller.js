@@ -1,9 +1,12 @@
-// controllers/usuarios.controller.js
 import db from "../config/database.js";
-import { generarUrlPrefirmadaLectura } from "../utils/s3.js";
 import bcrypt from "bcrypt";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
-import { s3, moverArchivoAS3AlPapelera } from "../utils/s3.js";
+import {
+  s3,
+  generarUrlPrefirmadaLectura,
+  moverArchivoAS3AlPapelera,
+} from "../utils/s3.js";
+import { obtenerOcrearGrupoFirma } from "../utils/gruposArchivos.js"; // ✅ único helper
 
 // Crear usuario (incluye registro de firma en S3, tabla archivos y eventosArchivo)
 export const crearUsuario = async (req, res) => {
@@ -118,27 +121,6 @@ export const crearUsuario = async (req, res) => {
   }
 };
 
-export const obtenerOcrearGrupoFirma = async (
-  conexion,
-  registroId,
-  creadoPor
-) => {
-  const [[grupo]] = await conexion.query(
-    `SELECT id FROM archivoGrupos
-      WHERE registroTipo = 'firmas' AND registroId = ?`,
-    [registroId]
-  );
-  if (grupo) return grupo.id;
-
-  const [gRes] = await conexion.query(
-    `INSERT INTO archivoGrupos
-       (registroTipo, registroId, creadoPor, nombreReferencia)
-     VALUES ('firmas', ?, ?, ?)`,
-    [registroId, creadoPor, `Firmas usuario ${registroId}`]
-  );
-  return gRes.insertId;
-};
-
 // Actualizar usuario (puede cambiar datos básicos y subir nueva firma)
 export const actualizarUsuario = async (req, res) => {
   const conexion = await db.getConnection();
@@ -236,7 +218,7 @@ export const actualizarUsuario = async (req, res) => {
       await conexion.query(
         `INSERT INTO eventosArchivo
        (archivoId, versionId, accion, usuarioId, ip, userAgent, detalles)
-     VALUES (?, ?, 'sustitucion', ?, ?, ?, ?)`,
+     VALUES (?, ?, 'sustituido', ?, ?, ?, ?)`,
         [
           archivoId,
           versionId,
@@ -417,7 +399,7 @@ export const eliminarUsuario = async (req, res) => {
       await conexion.query(
         `INSERT INTO eventosArchivo
              (archivoId, versionId, accion, usuarioId, ip, userAgent, detalles)
-           VALUES (?, NULL, 'borrado', ?, ?, ?, ?)`,
+           VALUES (?, NULL,'eliminacion' , ?, ?, ?, ?)`,
         [
           archivo.id,
           req.user?.id || null,

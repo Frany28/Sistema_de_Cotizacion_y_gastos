@@ -124,37 +124,82 @@ export const registrarAbono = async (req, res) => {
     );
     const abonoId = abonoRes.insertId;
 
-    /* ───────── 7. Registrar archivo en “archivos” + evento ───────── */
+    /* ───────── 7. Registrar archivo + versión + evento ───────── */
     if (rutaComprobante) {
-      const [archivoRes] = await conn.execute(
+      // 7.1 Grupo
+      const grupoId = await obtenerOcrearGrupoAbono(conn, abonoId, usuarioId);
+
+      // 7.2 Nº de versión (si ya había algún comprobante)
+      const [[{ maxVer }]] = await conn.query(
+        `SELECT IFNULL(MAX(numeroVersion),0) AS maxVer
+       FROM archivos
+      WHERE registroTipo = 'abonosCXC' AND registroId = ?`,
+        [abonoId]
+      );
+      const numeroVersion = maxVer + 1;
+
+      // 7.3 Tabla archivos
+      const [aRes] = await conn.query(
         `INSERT INTO archivos
-           (registroTipo, registroId,
-            nombreOriginal, extension, rutaS3, tamanioBytes,
-            subidoPor, creadoEn, actualizadoEn)
-         VALUES ('abonosCXC', ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+       (registroTipo, registroId, grupoArchivoId,
+        nombreOriginal, extension, tamanioBytes,
+        rutaS3, numeroVersion, estado,
+        subidoPor, creadoEn, actualizadoEn)
+     VALUES ('abonosCXC', ?, ?, ?, ?, ?, ?, ?, 'activo',
+             ?, NOW(), NOW())`,
         [
           abonoId,
+          grupoId,
           nombreOriginal,
           extension,
-          rutaComprobante,
           tamanioBytes,
+          rutaComprobante,
+          numeroVersion,
           usuarioId,
         ]
       );
-      const archivoId = archivoRes.insertId;
+      const archivoId = aRes.insertId;
 
-      await conn.execute(
-        `INSERT INTO eventosArchivo
-           (archivoId, accion, usuarioId,
-            fechaHora, ip, userAgent, detalles)
-         VALUES (?, 'subida', ?, NOW(), ?, ?, ?)`,
+      // 7.4 Snapshot versionesArchivo
+      const [vRes] = await conn.query(
+        `INSERT INTO versionesArchivo
+       (archivoId, numeroVersion, nombreOriginal, extension,
+        tamanioBytes, rutaS3, subidoPor)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [
           archivoId,
+          numeroVersion,
+          nombreOriginal,
+          extension,
+          tamanioBytes,
+          rutaComprobante,
+          usuarioId,
+        ]
+      );
+      const versionId = vRes.insertId;
+
+      // 7.5 Evento auditoría
+      await conn.query(
+        `INSERT INTO eventosArchivo
+       (archivoId, versionId, accion, usuarioId,
+        ip, userAgent, detalles)
+     VALUES (?, ?, 'subida', ?, ?, ?, ?)`,
+        [
+          archivoId,
+          versionId,
           usuarioId,
           req.ip || null,
           req.get("user-agent") || null,
           JSON.stringify({ nombreOriginal, extension, rutaComprobante }),
         ]
+      );
+
+      // 7.6 Cuota del usuario dueño
+      await conn.query(
+        `UPDATE usuarios
+        SET usoStorageBytes = usoStorageBytes + ?
+      WHERE id = ?`,
+        [tamanioBytes, usuarioId]
       );
     }
 
@@ -215,6 +260,23 @@ export const registrarAbono = async (req, res) => {
   } finally {
     conn.release();
   }
+};
+
+export const obtenerOcrearGrupoAbono = async (conn, abonoId, userId) => {
+  const [[g]] = await conn.query(
+    `SELECT id FROM archivoGrupos
+      WHERE registroTipo = 'abonosCXC' AND registroId = ?`,
+    [abonoId]
+  );
+  if (g) return g.id;
+
+  const [res] = await conn.query(
+    `INSERT INTO archivoGrupos
+       (registroTipo, registroId, creadoPor, nombreReferencia)
+     VALUES ('abonosCXC', ?, ?, ?)`,
+    [abonoId, userId, `Comprobantes abono ${abonoId}`]
+  );
+  return res.insertId;
 };
 
 // LISTAR CUENTAS POR COBRAR DE UN CLIENTE

@@ -1,7 +1,8 @@
 // controllers/solicitudesPago.controller.js
 import db from "../config/database.js";
 import { generarUrlPrefirmadaLectura } from "../utils/s3.js";
-import { s3 } from "../utils/s3.js";
+import { obtenerOcrearGrupoComprobante } from "../utils/gruposArchivos.js";
+import { generarUrlPrefirmadaLectura } from "../utils/s3.js";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import puppeteer from "puppeteer-core";
 import chromium from "@sparticuz/chromium";
@@ -471,33 +472,86 @@ export const pagarSolicitudPago = async (req, res) => {
     );
 
     /* ---------- 6. ARCHIVO (solo si hay) ---------- */
+    /* ---------- 6. ARCHIVO (solo si hay) ---------- */
     if (rutaComprobante) {
-      const [resArchivo] = await db.query(
+      /* 6.1. Grupo */
+      const grupoId = await obtenerOcrearGrupoComprobante(
+        db,
+        id,
+        usuarioApruebaId
+      );
+
+      /* 6.2. Calcular Nº de versión */
+      const [[{ maxVer }]] = await db.query(
+        `SELECT IFNULL(MAX(numeroVersion),0) AS maxVer
+       FROM archivos
+      WHERE registroTipo = 'comprobantesPagos' AND registroId = ?`,
+        [id]
+      );
+      const numeroVersion = maxVer + 1;
+
+      /* 6.3. Tabla archivos */
+      const [aRes] = await db.query(
         `INSERT INTO archivos
-           (registroTipo, registroId, nombreOriginal, extension, rutaS3, tamanioBytes, subidoPor, creadoEn, actualizadoEn)
-         VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+       (registroTipo, registroId, grupoArchivoId,
+        nombreOriginal, extension, tamanioBytes,
+        rutaS3, numeroVersion, estado,
+        subidoPor, creadoEn, actualizadoEn)
+     VALUES ('comprobantesPagos', ?, ?, ?, ?, ?, ?, ?, 'activo',
+             ?, NOW(), NOW())`,
         [
-          "comprobantesPagos",
           id,
+          grupoId,
           nombreOriginal,
           extension,
-          rutaComprobante,
           tamanioBytes,
+          rutaComprobante,
+          numeroVersion,
           usuarioApruebaId,
         ]
       );
+      const archivoId = aRes.insertId;
 
+      /* 6.4. versionesArchivo */
+      const [vRes] = await db.query(
+        `INSERT INTO versionesArchivo
+       (archivoId, numeroVersion, nombreOriginal, extension,
+        tamanioBytes, rutaS3, subidoPor)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          archivoId,
+          numeroVersion,
+          nombreOriginal,
+          extension,
+          tamanioBytes,
+          rutaComprobante,
+          usuarioApruebaId,
+        ]
+      );
+      const versionId = vRes.insertId;
+
+      /* 6.5. eventosArchivo */
       await db.query(
         `INSERT INTO eventosArchivo
-           (archivoId, accion, usuarioId, fechaHora, ip, userAgent, detalles)
-         VALUES (?, 'subida', ?, NOW(), ?, ?, ?)`,
+       (archivoId, versionId, accion, usuarioId,
+        ip, userAgent, detalles)
+     VALUES (?, ?, 'subida', ?, ?, ?, ?)`,
         [
-          resArchivo.insertId,
+          archivoId,
+          versionId,
           usuarioApruebaId,
           req.ip || null,
           req.get("user-agent") || null,
           JSON.stringify({ nombreOriginal, extension, ruta: rutaComprobante }),
         ]
+      );
+
+      /* 6.6. cuota de almacenamiento del aprobador */
+      await db.query(
+        `UPDATE usuarios
+        SET usoStorageBytes = usoStorageBytes + ?
+      WHERE id = ?`,
+        [tamanioBytes, usuarioApruebaId]
       );
     }
 
