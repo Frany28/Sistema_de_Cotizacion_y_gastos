@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import api from "../../../api";
 import Paginacion from "../../general/Paginacion";
 import BotonIcono from "../../general/BotonIcono";
-
 import { useParams } from "react-router-dom";
 
 const TablaHistorialVersiones = () => {
@@ -17,7 +16,7 @@ const TablaHistorialVersiones = () => {
     const obtenerVersiones = async () => {
       try {
         const res = await api.get(`/archivos/${id}/versiones`);
-        setVersiones(res.data.versiones || []);
+        setVersiones(res.data || []);
       } catch (error) {
         console.error("Error al cargar historial de versiones:", error);
       } finally {
@@ -28,7 +27,7 @@ const TablaHistorialVersiones = () => {
   }, [id]);
 
   const versionesFiltradas = versiones.filter((v) =>
-    [v.usuario, v.tipoAccion, v.comentario]
+    [v.nombreUsuario, v.nombreOriginal, v.estado]
       .join(" ")
       .toLowerCase()
       .includes(busqueda.toLowerCase())
@@ -117,9 +116,9 @@ const TablaHistorialVersiones = () => {
                   <th className="px-4 py-3 text-left">Versión</th>
                   <th className="px-4 py-3 text-left">Fecha</th>
                   <th className="px-4 py-3 text-left">Usuario</th>
-                  <th className="px-4 py-3 text-left">Acción</th>
+                  <th className="px-4 py-3 text-left">Estado</th>
                   <th className="px-4 py-3 text-left">Tamaño</th>
-                  <th className="px-4 py-3 text-left">Comentario</th>
+                  <th className="px-4 py-3 text-left">Archivo</th>
                   <th className="px-4 py-3 text-left">Acción</th>
                 </tr>
               </thead>
@@ -143,26 +142,19 @@ const TablaHistorialVersiones = () => {
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-2">{formatearFecha(v.fecha)}</td>
-                      <td className="px-4 py-2">{v.usuario}</td>
-                      <td className="px-4 py-2 capitalize">
-                        {v.tipoAccion || "N/D"}
+                      <td className="px-4 py-2">
+                        {formatearFecha(v.subidoEn)}
                       </td>
+                      <td className="px-4 py-2">{v.nombreUsuario}</td>
+                      <td className="px-4 py-2 capitalize">{v.estado}</td>
                       <td className="px-4 py-2">
                         {formatearTamano(v.tamanioBytes)}
                       </td>
-                      <td className="px-4 py-2">-</td>
+                      <td className="px-4 py-2">{v.nombreOriginal}</td>
                       <td className="px-4 py-2 text-center">
                         <BotonIcono
                           tipo="descargar"
-                          onClick={() =>
-                            window.open(
-                              `${
-                                import.meta.env.VITE_API_URL
-                              }/archivos/versiones/${v.id}/descargar`,
-                              "_blank"
-                            )
-                          }
+                          onClick={() => window.open(v.urlTemporal, "_blank")}
                         />
                       </td>
                     </tr>
