@@ -56,23 +56,23 @@ function ListaArchivosPapelera() {
     const e = ext?.toLowerCase();
     switch (e) {
       case "pdf":
-        return <FileText size={28} className="text-gray-300 mx-auto" />;
+        return <FileText size={30} className="text-gray-300 mx-auto" />;
       case "jpg":
       case "jpeg":
       case "png":
       case "gif":
-        return <IconoImagen size={28} className="text-blue-400 mx-auto" />;
+        return <IconoImagen size={30} className="text-blue-400 mx-auto" />;
       case "zip":
       case "rar":
-        return <FileArchive size={28} className="text-yellow-500 mx-auto" />;
+        return <FileArchive size={30} className="text-yellow-500 mx-auto" />;
       case "mp3":
       case "wav":
-        return <FileAudio size={28} className="text-yellow-300 mx-auto" />;
+        return <FileAudio size={30} className="text-yellow-300 mx-auto" />;
       case "mp4":
       case "avi":
-        return <FileVideo size={28} className="text-purple-400 mx-auto" />;
+        return <FileVideo size={30} className="text-purple-400 mx-auto" />;
       default:
-        return <FileWarning size={28} className="text-gray-400 mx-auto" />;
+        return <FileWarning size={30} className="text-gray-400 mx-auto" />;
     }
   };
 
@@ -98,7 +98,7 @@ function ListaArchivosPapelera() {
               className="bg-[#1C2434] rounded-xl w-[236px] h-[251px] shadow border border-[#2F374C] flex flex-col justify-between px-4 py-3 text-white text-[16px]"
             >
               <div className="flex flex-col items-center text-center">
-                <div className="mb-2 w-32 h-32">
+                <div className="mb-2">
                   {iconoPorExtension(archivo.extension)}
                 </div>
 
