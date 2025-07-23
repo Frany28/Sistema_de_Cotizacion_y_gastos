@@ -61,10 +61,17 @@ export async function moverArchivoAS3AlPapelera(
 ) {
   // Verificar si el archivo existe en S3 antes de moverlo
   try {
+    const copySource = encodeURI(
+      // ← ✅ codifica ñ, espacios, paréntesis…
+      `${process.env.S3_BUCKET}/${claveAntigua}`
+    );
+
     await s3.send(
-      new HeadObjectCommand({
+      new CopyObjectCommand({
         Bucket: process.env.S3_BUCKET,
-        Key: claveAntigua,
+        CopySource: copySource, // ← usa la versión codificada
+        Key: claveNueva,
+        ACL: "private",
       })
     );
   } catch (error) {
