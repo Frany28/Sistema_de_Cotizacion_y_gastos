@@ -138,47 +138,52 @@ function ListaArchivosPapelera() {
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
       {/* ──────────────── Header ──────────────── */}
-      <div className="flex flex-col space-y-4">
-        <h1 className="text-2xl font-bold text-white">Papelera de reciclaje</h1>
-        <p className="text-gray-400 text-sm">
-          {archivos.length} archivos en la papelera • Los archivos se eliminarán
-          permanentemente después de 30 días
-        </p>
+      <div className="flex flex-col space-y-2">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+              <Trash2 size={24} className="text-red-400" />
+              Papelera de reciclaje
+            </h1>
+            <p className="text-gray-400 text-sm mt-1">
+              {archivos.length} archivos • Eliminados después de 30 días
+            </p>
+          </div>
+          <button
+            className="flex items-center gap-2 bg-red-700 hover:bg-red-800 text-white text-sm font-medium rounded-lg px-4 py-2.5 disabled:opacity-60 transition-colors whitespace-nowrap shadow-lg hover:shadow-red-800/30"
+            disabled={archivos.length === 0}
+            onClick={() => console.log("Vaciar papelera")}
+          >
+            <Trash2 size={16} />
+            Vaciar papelera
+          </button>
+        </div>
       </div>
 
       {/* ──────────────── Barra de herramientas ──────────────── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[#1C2434] p-4 rounded-lg border border-[#2F374C]">
-        {/* Barra de búsqueda */}
-        <div className="relative flex-1 max-w-lg">
+      <div className="flex flex-col md:flex-row gap-4 bg-[#1C2434] p-4 rounded-xl border border-[#2F374C] shadow-inner">
+        {/* Barra de búsqueda con efecto glass */}
+        <div className="relative flex-1">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <Search className="text-gray-400" size={18} />
           </div>
           <input
             type="text"
-            placeholder="Buscar archivo en la papelera..."
+            placeholder="Buscar en la papelera..."
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            className="w-full bg-[#2F374C] border border-[#3c465f] text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block pl-10 pr-4 py-2.5 placeholder-gray-400"
+            className="w-full bg-[#2F374C]/70 backdrop-blur-sm border border-[#3c465f] text-white text-sm rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block pl-10 pr-4 py-2.5 placeholder-gray-400 transition-all duration-200"
           />
         </div>
 
-        {/* Controles */}
+        {/* Controles de filtro y orden */}
         <div className="flex flex-col sm:flex-row gap-3">
-          {/* Vaciar papelera */}
-          <button
-            className="flex items-center gap-2 bg-red-700 hover:bg-red-800 text-white text-sm font-medium rounded-lg px-4 py-2.5 disabled:opacity-60 transition-colors whitespace-nowrap"
-            disabled={archivos.length === 0}
-            onClick={() => console.log("Vaciar papelera (por implementar)")}
-          >
-            <Trash2 size={16} /> Vaciar papelera
-          </button>
-
           {/* Filtro por tipo */}
-          <div className="relative min-w-[180px]">
+          <div className="relative group min-w-[160px]">
             <select
               value={filtroTipo}
               onChange={(e) => setFiltroTipo(e.target.value)}
-              className="appearance-none bg-[#2F374C] border border-[#3c465f] text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-3 pr-8 py-2.5 hover:bg-[#3c465f] transition-colors cursor-pointer"
+              className="appearance-none bg-[#2F374C]/70 backdrop-blur-sm border border-[#3c465f] text-white text-sm rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block w-full pl-3 pr-8 py-2.5 hover:bg-[#3c465f]/70 transition-all cursor-pointer shadow-sm"
             >
               <option value="todos">Todos los tipos</option>
               <option value="doc">Documentos</option>
@@ -189,16 +194,19 @@ function ListaArchivosPapelera() {
               <option value="otros">Otros</option>
             </select>
             <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-              <ChevronDown className="text-gray-400" size={16} />
+              <ChevronDown
+                className="text-gray-400 group-hover:text-white transition-colors"
+                size={16}
+              />
             </div>
           </div>
 
           {/* Ordenar por */}
-          <div className="relative min-w-[180px]">
+          <div className="relative group min-w-[160px]">
             <select
               value={criterioOrden}
               onChange={(e) => setCriterioOrden(e.target.value)}
-              className="appearance-none bg-[#2F374C] border border-[#3c465f] text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-3 pr-8 py-2.5 hover:bg-[#3c465f] transition-colors cursor-pointer"
+              className="appearance-none bg-[#2F374C]/70 backdrop-blur-sm border border-[#3c465f] text-white text-sm rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block w-full pl-3 pr-8 py-2.5 hover:bg-[#3c465f]/70 transition-all cursor-pointer shadow-sm"
             >
               <option value="fechaDesc">Más recientes</option>
               <option value="nombreAsc">Nombre (A-Z)</option>
@@ -207,7 +215,10 @@ function ListaArchivosPapelera() {
               <option value="tamanoAsc">Tamaño (↑)</option>
             </select>
             <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-              <ChevronDown className="text-gray-400" size={16} />
+              <ChevronDown
+                className="text-gray-400 group-hover:text-white transition-colors"
+                size={16}
+              />
             </div>
           </div>
         </div>
