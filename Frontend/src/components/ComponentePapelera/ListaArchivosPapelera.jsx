@@ -119,7 +119,7 @@ function ListaArchivosPapelera() {
           archivosFiltrados.map((archivo) => (
             <div
               key={archivo.id}
-              className="bg-[#1C2434] rounded-2xl h-[308px] w-[236px] border border-[#2F374C] shadow flex flex-col justify-between px-5 py-4 text-white transition-transform hover:-translate-y-1 hover:shadow-lg"
+              className="bg-[#1C2434] rounded-2xl h-[320px] w-[236px] border border-[#2F374C] shadow flex flex-col justify-between px-5 py-4 text-white transition-transform hover:-translate-y-1 hover:shadow-lg"
             >
               {/* Icono y títulos */}
               <div className="flex flex-col items-center text-center gap-2">
