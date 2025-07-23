@@ -89,8 +89,8 @@ function ListaArchivosPapelera() {
   }
 
   return (
-    <div className="p-6">
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
+    <div className="p-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-5 justify-center items-center">
         {archivosFiltrados.length > 0 ? (
           archivosFiltrados.map((archivo) => (
             <div
@@ -102,27 +102,27 @@ function ListaArchivosPapelera() {
                   {iconoPorExtension(archivo.extension)}
                 </div>
 
-                <p className="font-semibold text-[13px] text-center mb-2 break-words leading-tight line-clamp-2 max-h-[32px] overflow-hidden">
+                <p className="font-semibold text-[18px] text-center mb-2 break-words leading-tight line-clamp-2 max-h-[32px] overflow-hidden">
                   {archivo.nombreOriginal}
                 </p>
 
-                <p className="text-[12px] text-gray-400 mb-1">
+                <p className="text-[15px] text-gray-400 mb-1">
                   Eliminado: {formatoFecha(archivo.actualizadoEn)}
                 </p>
-                <p className="text-[12px] text-gray-400 mb-1">
+                <p className="text-[15px] text-gray-400 mb-1">
                   Tamaño: {formatoTamano(archivo.tamanioBytes)}
                 </p>
               </div>
 
               <div className="flex justify-between gap-1 mt-3">
                 <button
-                  className="bg-red-600 hover:bg-red-700 text-white text-2xl font-medium rounded px-3 py-1.5 w-[90px] h-[38px]"
+                  className="bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded px-3 py-1.5 w-[90px] h-[38px]"
                   onClick={() => console.log("Eliminar", archivo.id)}
                 >
                   Eliminar
                 </button>
                 <button
-                  className="bg-[#2F374C] hover:bg-[#3c465f] text-white text-2xl font-medium rounded px-3 py-1.5 w-[82px] h-[32px]"
+                  className="bg-[#2F374C] hover:bg-[#3c465f] text-white text-xs font-medium rounded px-3 py-1.5 w-[82px] h-[32px]"
                   onClick={() => console.log("Restaurar", archivo.id)}
                 >
                   Restaurar
