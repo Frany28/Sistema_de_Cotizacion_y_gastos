@@ -95,7 +95,7 @@ function ListaArchivosPapelera() {
           archivosFiltrados.map((archivo) => (
             <div
               key={archivo.id}
-              className="bg-[#1C2434] rounded-xl w-[236px] h-[251px] shadow border border-[#2F374C] flex flex-col justify-between px-4 py-3 text-white"
+              className="bg-[#1C2434] rounded-xl w-[400px] h-[251px] shadow border border-[#2F374C] flex flex-col justify-between px-4 py-3 text-white text-[16px]"
             >
               <div className="flex flex-col items-center text-center">
                 <div className="mb-2">
@@ -106,10 +106,10 @@ function ListaArchivosPapelera() {
                   {archivo.nombreOriginal}
                 </p>
 
-                <p className="text-[21px] text-gray-400 mb-1">
+                <p className="text-[12px] text-gray-400 mb-1">
                   Eliminado: {formatoFecha(archivo.actualizadoEn)}
                 </p>
-                <p className="text-[21px] text-gray-400 mb-1">
+                <p className="text-[12px] text-gray-400 mb-1">
                   Tamaño: {formatoTamano(archivo.tamanioBytes)}
                 </p>
               </div>
