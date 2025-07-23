@@ -11,6 +11,7 @@ import {
   Trash2,
   Filter,
   ListFilter,
+  ChevronDown,
 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -144,58 +145,70 @@ function ListaArchivosPapelera() {
       {/* ──────────────── Barra de herramientas ──────────────── */}
       <div className="flex flex-col md:flex-row md:items-center gap-4">
         {/* Barra de búsqueda */}
-        <div className="relative flex-1 max-w-sm">
-          <Search
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-            size={18}
-          />
+        <div className="relative flex-1 max-w-lg">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search className="text-gray-400" size={18} />
+          </div>
           <input
             type="text"
-            placeholder="Buscar archivo..."
+            placeholder="Buscar archivo en la papelera..."
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            className="w-full bg-[#2F374C] placeholder-gray-400 text-sm text-white rounded-md pl-10 pr-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full bg-[#2F374C] border border-[#3c465f] text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block pl-10 pr-4 py-2.5 placeholder-gray-400"
           />
         </div>
 
         {/* Botones de acción */}
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {/* Vaciar papelera */}
           <button
-            className="flex items-center gap-2 bg-red-700 hover:bg-red-800 text-white text-sm font-medium rounded-md px-3 py-2 disabled:opacity-60"
+            className="flex items-center gap-2 bg-red-700 hover:bg-red-800 text-white text-sm font-medium rounded-lg px-4 py-2.5 disabled:opacity-60 transition-colors"
             disabled={archivos.length === 0}
             onClick={() => console.log("Vaciar papelera (por implementar)")}
           >
-            <Trash2 size={16} /> Vaciar
+            <Trash2 size={16} /> Vaciar papelera
           </button>
 
-          {/* Filtro */}
-          <select
-            value={filtroTipo}
-            onChange={(e) => setFiltroTipo(e.target.value)}
-            className="bg-[#2F374C] text-sm text-white rounded-md px-3 py-2 outline-none hover:bg-[#3c465f]"
-          >
-            <option value="todos">Filtrar: Todos</option>
-            <option value="doc">Documentos</option>
-            <option value="img">Imágenes</option>
-            <option value="audio">Audios</option>
-            <option value="video">Videos</option>
-            <option value="zip">Comprimidos</option>
-            <option value="otros">Otros</option>
-          </select>
+          {/* Contenedor de filtros */}
+          <div className="flex gap-2">
+            {/* Filtro por tipo */}
+            <div className="relative">
+              <select
+                value={filtroTipo}
+                onChange={(e) => setFiltroTipo(e.target.value)}
+                className="appearance-none bg-[#2F374C] border border-[#3c465f] text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-3 pr-8 py-2.5 hover:bg-[#3c465f] transition-colors cursor-pointer"
+              >
+                <option value="todos">Todos los tipos</option>
+                <option value="doc">Documentos</option>
+                <option value="img">Imágenes</option>
+                <option value="audio">Audios</option>
+                <option value="video">Videos</option>
+                <option value="zip">Comprimidos</option>
+                <option value="otros">Otros</option>
+              </select>
+              <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                <ChevronDown className="text-gray-400" size={16} />
+              </div>
+            </div>
 
-          {/* Clasificar */}
-          <select
-            value={criterioOrden}
-            onChange={(e) => setCriterioOrden(e.target.value)}
-            className="bg-[#2F374C] text-sm text-white rounded-md px-3 py-2 outline-none hover:bg-[#3c465f]"
-          >
-            <option value="fechaDesc">Clasificar: Más recientes</option>
-            <option value="nombreAsc">Nombre (A-Z)</option>
-            <option value="nombreDesc">Nombre (Z-A)</option>
-            <option value="tamanoDesc">Tamaño (↓)</option>
-            <option value="tamanoAsc">Tamaño (↑)</option>
-          </select>
+            {/* Ordenar por */}
+            <div className="relative">
+              <select
+                value={criterioOrden}
+                onChange={(e) => setCriterioOrden(e.target.value)}
+                className="appearance-none bg-[#2F374C] border border-[#3c465f] text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-3 pr-8 py-2.5 hover:bg-[#3c465f] transition-colors cursor-pointer"
+              >
+                <option value="fechaDesc">Más recientes</option>
+                <option value="nombreAsc">Nombre (A-Z)</option>
+                <option value="nombreDesc">Nombre (Z-A)</option>
+                <option value="tamanoDesc">Tamaño (↓)</option>
+                <option value="tamanoAsc">Tamaño (↑)</option>
+              </select>
+              <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                <ChevronDown className="text-gray-400" size={16} />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
