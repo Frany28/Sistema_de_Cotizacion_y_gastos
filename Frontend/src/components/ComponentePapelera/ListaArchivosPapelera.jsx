@@ -9,8 +9,6 @@ import {
   FileWarning,
   Search,
   Trash2,
-  Filter,
-  ListFilter,
   ChevronDown,
 } from "lucide-react";
 import { format } from "date-fns";
@@ -47,7 +45,7 @@ function ListaArchivosPapelera() {
     const date = new Date(fecha);
     return isNaN(date.getTime())
       ? "-"
-      : format(date, "dd MMM yyyy", { locale: es });
+      : format(date, "yyyy-MM-dd", { locale: es });
   };
 
   const formatoTamano = (bytes) => {
@@ -133,7 +131,7 @@ function ListaArchivosPapelera() {
   /*─────────────────── Render principal ───────────────────*/
   if (cargando) {
     return (
-      <div className="w-full bg-[#1C2434] rounded-xl p-4 animate-pulse h-64 shadow-lg" />
+      <div className="w-full bg-[#1C2434] rounded-2xl p-4 animate-pulse h-64 shadow" />
     );
   }
 
@@ -141,15 +139,15 @@ function ListaArchivosPapelera() {
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
       {/* ──────────────── Header ──────────────── */}
       <div className="flex flex-col space-y-4">
-        <h1 className="text-2xl font-bold text-white">Papelera</h1>
+        <h1 className="text-2xl font-bold text-white">Papelera de reciclaje</h1>
         <p className="text-gray-400 text-sm">
-          {archivos.length} archivos en la papelera · Los archivos se eliminarán
+          {archivos.length} archivos en la papelera • Los archivos se eliminarán
           permanentemente después de 30 días
         </p>
       </div>
 
       {/* ──────────────── Barra de herramientas ──────────────── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 bg-[#1C2434] rounded-xl shadow">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[#1C2434] p-4 rounded-lg border border-[#2F374C]">
         {/* Barra de búsqueda */}
         <div className="relative flex-1 max-w-lg">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -157,24 +155,30 @@ function ListaArchivosPapelera() {
           </div>
           <input
             type="text"
-            placeholder="Buscar en la papelera..."
+            placeholder="Buscar archivo en la papelera..."
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            className="w-full bg-[#2F374C] border border-[#3c465f] text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block pl-10 pr-4 py-2.5 placeholder-gray-400 transition-all duration-200"
+            className="w-full bg-[#2F374C] border border-[#3c465f] text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block pl-10 pr-4 py-2.5 placeholder-gray-400"
           />
         </div>
 
         {/* Controles */}
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-col sm:flex-row gap-3">
+          {/* Vaciar papelera */}
+          <button
+            className="flex items-center gap-2 bg-red-700 hover:bg-red-800 text-white text-sm font-medium rounded-lg px-4 py-2.5 disabled:opacity-60 transition-colors whitespace-nowrap"
+            disabled={archivos.length === 0}
+            onClick={() => console.log("Vaciar papelera (por implementar)")}
+          >
+            <Trash2 size={16} /> Vaciar papelera
+          </button>
+
           {/* Filtro por tipo */}
           <div className="relative min-w-[180px]">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Filter className="text-gray-400" size={16} />
-            </div>
             <select
               value={filtroTipo}
               onChange={(e) => setFiltroTipo(e.target.value)}
-              className="appearance-none bg-[#2F374C] border border-[#3c465f] text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-8 py-2.5 hover:bg-[#3c465f] transition-colors cursor-pointer"
+              className="appearance-none bg-[#2F374C] border border-[#3c465f] text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-3 pr-8 py-2.5 hover:bg-[#3c465f] transition-colors cursor-pointer"
             >
               <option value="todos">Todos los tipos</option>
               <option value="doc">Documentos</option>
@@ -191,13 +195,10 @@ function ListaArchivosPapelera() {
 
           {/* Ordenar por */}
           <div className="relative min-w-[180px]">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <ListFilter className="text-gray-400" size={16} />
-            </div>
             <select
               value={criterioOrden}
               onChange={(e) => setCriterioOrden(e.target.value)}
-              className="appearance-none bg-[#2F374C] border border-[#3c465f] text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-8 py-2.5 hover:bg-[#3c465f] transition-colors cursor-pointer"
+              className="appearance-none bg-[#2F374C] border border-[#3c465f] text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-3 pr-8 py-2.5 hover:bg-[#3c465f] transition-colors cursor-pointer"
             >
               <option value="fechaDesc">Más recientes</option>
               <option value="nombreAsc">Nombre (A-Z)</option>
@@ -209,60 +210,38 @@ function ListaArchivosPapelera() {
               <ChevronDown className="text-gray-400" size={16} />
             </div>
           </div>
-
-          {/* Vaciar papelera */}
-          <button
-            className="flex items-center gap-2 bg-red-700 hover:bg-red-800 text-white text-sm font-medium rounded-lg px-4 py-2.5 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-            disabled={archivos.length === 0}
-            onClick={() => console.log("Vaciar papelera (por implementar)")}
-          >
-            <Trash2 size={16} /> Vaciar papelera
-          </button>
         </div>
       </div>
 
       {/* ──────────────── Grilla de archivos ──────────────── */}
-      {archivosProcesados.length > 0 ? (
+      {archivosProcesados.length ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {archivosProcesados.map((archivo) => (
             <div
               key={archivo.id}
-              className="bg-[#1C2434] rounded-xl border border-[#2F374C] shadow-lg flex flex-col justify-between px-4 py-4 text-white transition-all hover:shadow-xl hover:border-[#3c465f] hover:translate-y-[-2px] group"
+              className="bg-[#1C2434] rounded-xl border border-[#2F374C] shadow hover:shadow-lg transition-all hover:border-blue-500/30 flex flex-col"
             >
-              {/* Icono + metadatos */}
-              <div className="flex flex-col items-center text-center gap-3">
-                <div className="relative">
-                  {iconoPorExtension(archivo.extension)}
-                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 rounded-full transition-all" />
-                </div>
-                <p className="font-semibold text-base leading-tight line-clamp-2 break-words">
-                  {archivo.nombreOriginal}
-                </p>
-                <div className="w-full space-y-1">
-                  <p className="text-xs text-gray-400">
-                    <span className="font-medium">Eliminado:</span>{" "}
-                    {formatoFecha(archivo.actualizadoEn)}
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    <span className="font-medium">Tamaño:</span>{" "}
-                    {formatoTamano(archivo.tamanioBytes)}
-                  </p>
-                  {archivo.rutaOriginal && (
-                    <p
-                      className="text-xs text-gray-500 mt-1 truncate"
-                      title={archivo.rutaOriginal || archivo.rutaS3}
-                    >
-                      <span className="font-medium">Ubicación original:</span>{" "}
-                      {archivo.rutaOriginal.split("/").pop()}
+              {/* Contenido de la tarjeta */}
+              <div className="p-4 flex flex-col items-center text-center gap-3 flex-grow">
+                {iconoPorExtension(archivo.extension)}
+                <div className="w-full">
+                  <h3 className="font-semibold text-base leading-tight line-clamp-2 break-words">
+                    {archivo.nombreOriginal}
+                  </h3>
+                  <div className="mt-2 space-y-1 text-xs text-gray-400">
+                    <p>Eliminado: {formatoFecha(archivo.actualizadoEn)}</p>
+                    <p>Tamaño: {formatoTamano(archivo.tamanioBytes)}</p>
+                    <p className="text-gray-500 truncate">
+                      {archivo.rutaOriginal || archivo.rutaS3 || "-"}
                     </p>
-                  )}
+                  </div>
                 </div>
               </div>
 
               {/* Botones */}
-              <div className="flex justify-between gap-2 mt-4">
+              <div className="p-3 bg-[#2F374C] rounded-b-xl flex justify-between gap-2">
                 <button
-                  className="bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-md px-3 py-2 flex-1 transition-colors"
+                  className="bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded px-3 py-2 flex-1 transition-colors"
                   onClick={() =>
                     console.log("Eliminar definitivamente", archivo.id)
                   }
@@ -270,7 +249,7 @@ function ListaArchivosPapelera() {
                   Eliminar
                 </button>
                 <button
-                  className="bg-[#2F374C] hover:bg-[#3c465f] text-white text-sm font-medium rounded-md px-3 py-2 flex-1 transition-colors"
+                  className="bg-[#3c465f] hover:bg-[#4a5568] text-white text-xs font-medium rounded px-3 py-2 flex-1 transition-colors"
                   onClick={() => console.log("Restaurar", archivo.id)}
                 >
                   Restaurar
@@ -280,17 +259,11 @@ function ListaArchivosPapelera() {
           ))}
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center py-16 bg-[#1C2434] rounded-xl shadow">
-          <Trash2 size={48} className="text-gray-600 mb-4" />
-          <h3 className="text-lg font-medium text-gray-400 mb-2">
+        <div className="bg-[#1C2434] rounded-xl border border-[#2F374C] p-8 text-center">
+          <p className="text-gray-400 text-sm">
             {busqueda || filtroTipo !== "todos"
-              ? "No se encontraron archivos"
+              ? "No se encontraron archivos que coincidan con tu búsqueda"
               : "La papelera está vacía"}
-          </h3>
-          <p className="text-sm text-gray-600 text-center max-w-md">
-            {busqueda || filtroTipo !== "todos"
-              ? "No hay archivos que coincidan con tu búsqueda o filtros."
-              : "Los archivos que elimines aparecerán aquí y se borrarán permanentemente después de 30 días."}
           </p>
         </div>
       )}
