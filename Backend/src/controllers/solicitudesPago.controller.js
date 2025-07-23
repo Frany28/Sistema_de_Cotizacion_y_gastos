@@ -1,6 +1,6 @@
 // controllers/solicitudesPago.controller.js
 import db from "../config/database.js";
-import { generarUrlPrefirmadaLectura } from "../utils/s3.js";
+import { s3, generarUrlPrefirmadaLectura } from "../utils/s3.js";
 import { obtenerOcrearGrupoComprobante } from "../utils/gruposArchivos.js";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import puppeteer from "puppeteer-core";
