@@ -5,6 +5,7 @@ import {
   s3,
   moverArchivoAS3AlPapelera,
 } from "../utils/s3.js";
+import { obtenerOcrearGrupoFactura } from "../utils/gruposArchivos.js";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 import cacheMemoria from "../utils/cacheMemoria.js";
 
@@ -212,84 +213,127 @@ export const updateGasto = async (req, res) => {
     if (documentoNuevo) {
       claveS3Nueva = documentoNuevo;
 
-      // 🔁 Mover archivo anterior a papelera si existía
+      /* ---------- 1. Mover (y registrar) el archivo anterior ---------- */
       if (gastoExistente.documento) {
-        const nuevaRutaPapelera = await moverArchivoAS3AlPapelera(
+        const rutaPapelera = await moverArchivoAS3AlPapelera(
           gastoExistente.documento,
           "facturasGastos",
           id
         );
 
+        /* 1.1  Marcar archivo activo → reemplazado y cambiar su ruta */
         await conexion.query(
           `UPDATE archivos
-              SET estado = 'reemplazado',
-                  rutaS3 = ?
-            WHERE registroTipo = ? AND registroId = ? AND estado = 'activo'`,
-          [nuevaRutaPapelera, "facturasGastos", id]
+          SET estado = 'reemplazado',
+              rutaS3 = ?
+        WHERE registroTipo = 'facturasGastos'
+          AND registroId   = ?
+          AND estado       = 'activo'`,
+          [rutaPapelera, id]
         );
 
-        const [archivosAnteriores] = await conexion.query(
-          `SELECT id FROM archivos
-            WHERE registroTipo = ? AND registroId = ? AND estado = 'reemplazado'`,
-          ["facturasGastos", id]
+        /* 1.2  Evento de eliminación (para ese archivo anterior) */
+        const [antArchivo] = await conexion.query(
+          `SELECT id
+         FROM archivos
+        WHERE registroTipo = 'facturasGastos'
+          AND registroId   = ?
+          AND estado       = 'reemplazado'
+        ORDER BY id DESC
+        LIMIT 1`,
+          [id]
         );
 
-        if (archivosAnteriores.length > 0) {
+        if (antArchivo.length) {
           await conexion.query(
             `INSERT INTO eventosArchivo
-               (archivoId, accion, usuarioId, fechaHora, ip, userAgent, detalles)
-             VALUES (?, 'eliminacion', ?, NOW(), ?, ?, ?)`,
+             (archivoId, accion, usuarioId,
+              fechaHora, ip, userAgent, detalles)
+         VALUES (?, 'eliminacion', ?, NOW(), ?, ?, ?)`,
             [
-              archivosAnteriores[0].id,
+              antArchivo[0].id,
               req.user?.id || null,
               req.ip || null,
               req.get("user-agent") || null,
               JSON.stringify({
-                motivo: "Sustitución del archivo por edición de gasto",
-                nuevaRuta: nuevaRutaPapelera,
+                motivo: "Sustitución de la factura al editar gasto",
+                nuevaRuta: rutaPapelera,
               }),
             ]
           );
         }
       }
 
-      const [[{ totalVersiones }]] = await conexion.query(
-        `SELECT COUNT(*) AS totalVersiones
-   FROM archivos
-   WHERE registroTipo = 'facturasGastos'
-     AND registroId = ?
-     AND estado != 'eliminado'`,
+      /* ---------- 2. Alta del nuevo archivo (con versión) ---------- */
+
+      /* 2.1  Grupo */
+      const grupoId = await obtenerOcrearGrupoFactura(
+        conexion,
+        id,
+        req.user?.id || null
+      );
+
+      /* 2.2  Nº de versión = versiones existentes + 1 */
+      const [[{ maxVer }]] = await conexion.query(
+        `SELECT IFNULL(MAX(numeroVersion),0) AS maxVer
+       FROM archivos
+      WHERE registroTipo = 'facturasGastos'
+        AND registroId   = ?`,
         [id]
       );
-      const numeroVersion = totalVersiones + 1;
+      const numeroVersion = maxVer + 1;
 
+      /* 2.3  Datos básicos del nuevo archivo */
       const extension = req.file.originalname.split(".").pop().toLowerCase();
       const tamanioBytes = req.file.size;
 
+      /* 2.4  Tabla archivos (grupo + versión + activo) */
       const [resArchivo] = await conexion.query(
-        `INSERT INTO archivos (registroTipo, registroId, nombreOriginal, extension, rutaS3,
-        tamanioBytes, numeroVersion, subidoPor, creadoEn, actualizadoEn)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+        `INSERT INTO archivos
+       (registroTipo, registroId, grupoArchivoId,
+        nombreOriginal, extension, tamanioBytes,
+        rutaS3, numeroVersion, estado,
+        subidoPor, creadoEn, actualizadoEn)
+     VALUES ('facturasGastos', ?, ?, ?, ?, ?, ?, ?, 'activo',
+             ?, NOW(), NOW())`,
         [
-          "facturasGastos",
           id,
+          grupoId,
           req.file.originalname,
           extension,
-          claveS3Nueva,
           tamanioBytes,
+          claveS3Nueva,
           numeroVersion,
           req.user?.id || null,
         ]
       );
       const archivoId = resArchivo.insertId;
 
+      /* 2.5  versionesArchivo */
       await conexion.query(
-        `INSERT INTO eventosArchivo
-          (archivoId, accion, usuarioId, fechaHora, ip, userAgent, detalles)
-         VALUES (?, ?, ?, NOW(), ?, ?, ?)`,
+        `INSERT INTO versionesArchivo
+       (archivoId, numeroVersion, nombreOriginal, extension,
+        tamanioBytes, rutaS3, subidoPor, creadoEn)
+     VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
         [
           archivoId,
-          "sustitucion",
+          numeroVersion,
+          req.file.originalname,
+          extension,
+          tamanioBytes,
+          claveS3Nueva,
+          req.user?.id || null,
+        ]
+      );
+
+      /* 2.6  Evento de sustitución */
+      await conexion.query(
+        `INSERT INTO eventosArchivo
+       (archivoId, accion, usuarioId,
+        fechaHora, ip, userAgent, detalles)
+     VALUES (?, 'sustitucion', ?, NOW(), ?, ?, ?)`,
+        [
+          archivoId,
           req.user?.id || null,
           req.ip || null,
           req.get("user-agent") || null,
@@ -299,6 +343,14 @@ export const updateGasto = async (req, res) => {
             ruta: claveS3Nueva,
           }),
         ]
+      );
+
+      /* 2.7  Actualizar cuota de almacenamiento del usuario */
+      await conexion.query(
+        `UPDATE usuarios
+        SET usoStorageBytes = usoStorageBytes + ?
+      WHERE id = ?`,
+        [tamanioBytes, req.user?.id || null]
       );
     }
 
