@@ -13,10 +13,12 @@ import { es } from "date-fns/locale";
 import api from "../../api";
 
 function ListaArchivosPapelera() {
+  // ──────────────── Estado ────────────────
   const [archivos, setArchivos] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [busqueda, setBusqueda] = useState("");
 
+  // ──────────────── Cargar datos ────────────────
   useEffect(() => {
     const obtenerArchivos = async () => {
       try {
@@ -34,10 +36,12 @@ function ListaArchivosPapelera() {
     obtenerArchivos();
   }, []);
 
+  // ──────────────── Utilidades de formato ────────────────
   const formatoFecha = (fecha) => {
     const date = fecha instanceof Date ? fecha : new Date(fecha);
-    if (isNaN(date.getTime())) return "-";
-    return format(date, "yyyy-MM-dd", { locale: es });
+    return isNaN(date.getTime())
+      ? "-"
+      : format(date, "yyyy-MM-dd", { locale: es });
   };
 
   const formatoTamano = (bytes) => {
@@ -56,73 +60,104 @@ function ListaArchivosPapelera() {
     const e = ext?.toLowerCase();
     switch (e) {
       case "pdf":
-        return <FileText size={30} className="text-gray-300 mx-auto" />;
+      case "doc":
+      case "docx":
+      case "txt":
+        return <FileText size={34} className="text-gray-300 mx-auto" />;
       case "jpg":
       case "jpeg":
       case "png":
       case "gif":
-        return <IconoImagen size={30} className="text-blue-400 mx-auto" />;
+        return <IconoImagen size={34} className="text-blue-400 mx-auto" />;
       case "zip":
       case "rar":
-        return <FileArchive size={30} className="text-yellow-500 mx-auto" />;
+        return <FileArchive size={34} className="text-yellow-500 mx-auto" />;
       case "mp3":
       case "wav":
-        return <FileAudio size={30} className="text-yellow-300 mx-auto" />;
+        return <FileAudio size={34} className="text-yellow-300 mx-auto" />;
       case "mp4":
       case "avi":
-        return <FileVideo size={30} className="text-purple-400 mx-auto" />;
+        return <FileVideo size={34} className="text-purple-400 mx-auto" />;
       default:
-        return <FileWarning size={30} className="text-gray-400 mx-auto" />;
+        return <FileWarning size={34} className="text-gray-400 mx-auto" />;
     }
   };
 
-  const archivosFiltrados = useMemo(() => {
-    return archivos.filter((a) =>
-      a.nombreOriginal.toLowerCase().includes(busqueda.toLowerCase())
-    );
-  }, [archivos, busqueda]);
+  // ──────────────── Filtro por búsqueda ────────────────
+  const archivosFiltrados = useMemo(
+    () =>
+      archivos.filter((a) =>
+        a.nombreOriginal.toLowerCase().includes(busqueda.toLowerCase())
+      ),
+    [archivos, busqueda]
+  );
 
+  // ──────────────── Loader ────────────────
   if (cargando) {
     return (
-      <div className="w-full bg-white rounded-lg p-4 animate-pulse h-64 shadow-sm" />
+      <div className="w-full bg-[#1C2434] rounded-2xl p-4 animate-pulse h-64 shadow" />
     );
   }
 
+  // ──────────────── Render ────────────────
   return (
-    <div className="p-5">
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-5 justify-center items-center">
-        {archivosFiltrados.length > 0 ? (
+    <div className="p-6">
+      {/* ── Buscador opcional ── */}
+      <div className="mb-6 max-w-xs">
+        <input
+          type="text"
+          placeholder="Buscar archivo..."
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+          className="w-full bg-[#2F374C] placeholder-gray-400 text-sm text-white rounded-md px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
+
+      {/* ── Grilla ── */}
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(236px,1fr))] gap-6 justify-center">
+        {archivosFiltrados.length ? (
           archivosFiltrados.map((archivo) => (
             <div
               key={archivo.id}
-              className="bg-[#1C2434] rounded-xl w-[236px] h-[251px] shadow border border-[#2F374C] flex flex-col justify-between px-4 py-3 text-white text-[16px]"
+              className="bg-[#1C2434] rounded-2xl h-[308px] w-[236px] border border-[#2F374C] shadow flex flex-col justify-between px-5 py-4 text-white transition-transform hover:-translate-y-1 hover:shadow-lg"
             >
+              {/* Icono y títulos */}
               <div className="flex flex-col items-center text-center gap-2">
-                <div className="mb-2">
-                  {iconoPorExtension(archivo.extension)}
-                </div>
+                {iconoPorExtension(archivo.extension)}
 
-                <p className="font-semibold text-[18px] text-center mb-2 break-words leading-tight line-clamp-2 max-h-[32px] overflow-hidden">
+                <p className="font-semibold text-lg leading-tight line-clamp-2 break-words">
                   {archivo.nombreOriginal}
                 </p>
 
-                <p className="text-[15px] text-gray-400 mb-1">
+                <p className="text-sm text-gray-400">
                   Eliminado: {formatoFecha(archivo.actualizadoEn)}
                 </p>
-                <p className="text-[15px] text-gray-400 mb-1">
+
+                <p className="text-sm text-gray-400">
                   Tamaño: {formatoTamano(archivo.tamanioBytes)}
+                </p>
+
+                {/* Ruta original */}
+                <p className="text-xs text-gray-500 mt-1 break-all">
+                  Ruta Original:
+                  <br />
+                  {archivo.rutaOriginal || archivo.rutaS3 || "-"}
                 </p>
               </div>
 
-              <div className="flex justify-between gap-1 mt-3">
+              {/* Botones */}
+              <div className="flex justify-between gap-2 mt-4">
                 <button
-                  className="bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded px-3 py-1.5 w-[90px] h-[38px]"
-                  onClick={() => console.log("Eliminar", archivo.id)}
+                  className="bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-md px-4 py-2 w-[100px]"
+                  onClick={() =>
+                    console.log("Eliminar definitivamente", archivo.id)
+                  }
                 >
                   Eliminar
                 </button>
+
                 <button
-                  className="bg-[#2F374C] hover:bg-[#3c465f] text-white text-xs font-medium rounded px-3 py-1.5 w-[82px] h-[32px]"
+                  className="bg-[#2F374C] hover:bg-[#3c465f] text-white text-sm font-medium rounded-md px-4 py-2 w-[100px]"
                   onClick={() => console.log("Restaurar", archivo.id)}
                 >
                   Restaurar
@@ -131,10 +166,10 @@ function ListaArchivosPapelera() {
             </div>
           ))
         ) : (
-          <div className="col-span-full text-center text-gray-500 py-10 text-sm">
+          <div className="col-span-full text-center text-gray-500 py-16 text-sm">
             {busqueda
               ? "No se encontraron resultados para tu búsqueda"
-              : "No hay archivos en papelera"}
+              : "No hay archivos en la papelera"}
           </div>
         )}
       </div>
