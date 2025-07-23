@@ -9,10 +9,9 @@ import {
   FileWarning,
   Search,
   Trash2,
-  Filter,
-  ListFilter,
   ChevronDown,
 } from "lucide-react";
+import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import api from "../../api";
@@ -53,13 +52,13 @@ function ListaArchivosPapelera() {
   const formatoTamano = (bytes) => {
     if (!bytes) return "-";
     const unidades = ["B", "KB", "MB", "GB"];
-    let i = 0;
+    let indice = 0;
     let valor = bytes;
-    while (valor >= 1024 && i < unidades.length - 1) {
+    while (valor >= 1024 && indice < unidades.length - 1) {
       valor /= 1024;
-      i++;
+      indice += 1;
     }
-    return `${valor.toFixed(i ? 1 : 0)} ${unidades[i]}`;
+    return `${valor.toFixed(indice ? 1 : 0)} ${unidades[indice]}`;
   };
 
   const iconoPorExtension = (ext) => {
@@ -69,23 +68,23 @@ function ListaArchivosPapelera() {
       case "doc":
       case "docx":
       case "txt":
-        return <FileText size={40} className="text-blue-400 mx-auto" />;
+        return <FileText size={42} className="text-blue-400 mx-auto" />;
       case "jpg":
       case "jpeg":
       case "png":
       case "gif":
-        return <IconoImagen size={40} className="text-purple-400 mx-auto" />;
+        return <IconoImagen size={42} className="text-purple-400 mx-auto" />;
       case "zip":
       case "rar":
-        return <FileArchive size={40} className="text-yellow-500 mx-auto" />;
+        return <FileArchive size={42} className="text-yellow-500 mx-auto" />;
       case "mp3":
       case "wav":
-        return <FileAudio size={40} className="text-green-400 mx-auto" />;
+        return <FileAudio size={42} className="text-green-400 mx-auto" />;
       case "mp4":
       case "avi":
-        return <FileVideo size={40} className="text-red-400 mx-auto" />;
+        return <FileVideo size={42} className="text-red-400 mx-auto" />;
       default:
-        return <FileWarning size={40} className="text-gray-400 mx-auto" />;
+        return <FileWarning size={42} className="text-gray-400 mx-auto" />;
     }
   };
 
@@ -101,13 +100,13 @@ function ListaArchivosPapelera() {
 
   /*─────────────────── Búsqueda + Filtro + Orden ───────────────────*/
   const archivosProcesados = useMemo(() => {
-    let resultado = archivos.filter((a) =>
-      a.nombreOriginal.toLowerCase().includes(busqueda.toLowerCase())
+    let resultado = archivos.filter((archivo) =>
+      archivo.nombreOriginal.toLowerCase().includes(busqueda.toLowerCase())
     );
 
     if (filtroTipo !== "todos") {
       resultado = resultado.filter(
-        (a) => categoriaPorExtension(a.extension) === filtroTipo
+        (archivo) => categoriaPorExtension(archivo.extension) === filtroTipo
       );
     }
 
@@ -130,17 +129,32 @@ function ListaArchivosPapelera() {
     return resultado;
   }, [archivos, busqueda, filtroTipo, criterioOrden]);
 
+  /*─────────────────── Variantes de animación ───────────────────*/
+  const varianteTarjeta = {
+    oculto: { opacity: 0, y: 20 },
+    visible: (indice) => ({
+      opacity: 1,
+      y: 0,
+      transition: { delay: indice * 0.04 },
+    }),
+  };
+
   /*─────────────────── Render principal ───────────────────*/
   if (cargando) {
     return (
-      <div className="w-full bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 animate-pulse h-64 shadow-lg" />
+      <div className="w-full bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-6 animate-pulse h-80 shadow-2xl" />
     );
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <section className="p-6 space-y-6 max-w-7xl mx-auto">
       {/* ──────────────── Barra de herramientas ──────────────── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-gray-800 to-gray-900 p-4 rounded-xl shadow-lg">
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-gray-800 to-gray-900/90 backdrop-blur rounded-2xl shadow-xl ring-1 ring-gray-700/50 px-6 py-4"
+      >
         {/* Barra de búsqueda */}
         <div className="relative flex-1 max-w-lg">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -151,7 +165,7 @@ function ListaArchivosPapelera() {
             placeholder="Buscar archivo en la papelera..."
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            className="w-full bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block pl-10 pr-4 py-2.5 placeholder-gray-400 transition-all duration-200 hover:bg-gray-600 focus:bg-gray-600"
+            className="w-full bg-gray-700/60 border border-gray-600 text-white text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block pl-10 pr-4 py-2.5 placeholder-gray-400 transition-all duration-200 hover:bg-gray-600/60 focus:bg-gray-600/70"
           />
         </div>
 
@@ -164,7 +178,7 @@ function ListaArchivosPapelera() {
               <select
                 value={filtroTipo}
                 onChange={(e) => setFiltroTipo(e.target.value)}
-                className="appearance-none bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-3 pr-8 py-2.5 hover:bg-gray-600 transition-all cursor-pointer"
+                className="appearance-none bg-gray-700/60 border border-gray-600 text-white text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-3 pr-8 py-2.5 hover:bg-gray-600/60 transition-all cursor-pointer backdrop-blur"
               >
                 <option value="todos">Todos los tipos</option>
                 <option value="doc">Documentos</option>
@@ -187,7 +201,7 @@ function ListaArchivosPapelera() {
               <select
                 value={criterioOrden}
                 onChange={(e) => setCriterioOrden(e.target.value)}
-                className="appearance-none bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-3 pr-8 py-2.5 hover:bg-gray-600 transition-all cursor-pointer"
+                className="appearance-none bg-gray-700/60 border border-gray-600 text-white text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-3 pr-8 py-2.5 hover:bg-gray-600/60 transition-all cursor-pointer backdrop-blur"
               >
                 <option value="fechaDesc">Más recientes</option>
                 <option value="nombreAsc">Nombre (A-Z)</option>
@@ -206,56 +220,60 @@ function ListaArchivosPapelera() {
 
           {/* Vaciar papelera */}
           <button
-            className="flex items-center gap-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white text-sm font-medium rounded-lg px-4 py-2.5 disabled:opacity-60 transition-all shadow hover:shadow-lg disabled:cursor-not-allowed"
+            className="flex items-center gap-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 active:scale-95 text-white text-sm font-semibold rounded-lg px-4 py-2.5 disabled:opacity-50 transition-transform shadow hover:shadow-xl disabled:cursor-not-allowed"
             disabled={archivos.length === 0}
             onClick={() => console.log("Vaciar papelera (por implementar)")}
           >
             <Trash2 size={16} /> Vaciar papelera
           </button>
         </div>
-      </div>
+      </motion.div>
 
       {/* ──────────────── Grilla de archivos ──────────────── */}
       {archivosProcesados.length ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-          {archivosProcesados.map((archivo) => (
-            <div
+          {archivosProcesados.map((archivo, indice) => (
+            <motion.article
               key={archivo.id}
-              className="bg-gradient-to-b from-gray-800 to-gray-900 rounded-xl h-full w-full border border-gray-700 shadow-lg flex flex-col justify-between px-5 py-4 text-white transition-all duration-200 hover:-translate-y-1 hover:shadow-xl hover:border-gray-600"
+              custom={indice}
+              variants={varianteTarjeta}
+              initial="oculto"
+              animate="visible"
+              className="group bg-gradient-to-b from-gray-800/90 via-gray-850 to-gray-900/90 backdrop-blur-lg border border-gray-700/60 rounded-2xl shadow-xl flex flex-col justify-between px-6 py-5 text-white transition-transform duration-200 hover:-translate-y-1 hover:shadow-2xl hover:border-gray-600/80"
             >
               {/* Icono + metadatos */}
               <div className="flex flex-col items-center text-center gap-3">
-                <div className="p-3 bg-gray-700 rounded-full mb-2">
+                <div className="p-3 bg-gray-700/60 rounded-full ring-1 ring-gray-600/40 group-hover:ring-indigo-500/50 transition-all">
                   {iconoPorExtension(archivo.extension)}
                 </div>
-                <p className="font-semibold text-lg leading-tight line-clamp-2 break-words">
+                <h3 className="font-semibold text-lg leading-tight line-clamp-2 break-words group-hover:text-indigo-400 transition-colors">
                   {archivo.nombreOriginal}
-                </p>
-                <div className="w-full space-y-1 mt-2">
-                  <p className="text-sm text-gray-400 flex justify-between">
-                    <span className="font-medium">Eliminado:</span>
+                </h3>
+                <div className="w-full space-y-1 mt-2 text-sm text-gray-300">
+                  <p className="flex items-center justify-between">
+                    <span className="font-medium text-gray-400">
+                      Eliminado:
+                    </span>
                     <span>{formatoFecha(archivo.actualizadoEn)}</span>
                   </p>
-                  <p className="text-sm text-gray-400 flex justify-between">
-                    <span className="font-medium">Tamaño:</span>
+                  <p className="flex items-center justify-between">
+                    <span className="font-medium text-gray-400">Tamaño:</span>
                     <span>{formatoTamano(archivo.tamanioBytes)}</span>
                   </p>
                 </div>
-                <div className="w-full mt-2">
-                  <p
-                    className="text-xs text-gray-500 text-left truncate"
-                    title={archivo.rutaOriginal || archivo.rutaS3 || "-"}
-                  >
-                    <span className="font-medium">Ruta:</span>{" "}
-                    {archivo.rutaOriginal || archivo.rutaS3 || "-"}
-                  </p>
-                </div>
+                <p
+                  className="w-full text-xs text-left text-gray-500 truncate mt-2"
+                  title={archivo.rutaOriginal || archivo.rutaS3 || "-"}
+                >
+                  <span className="font-medium">Ruta:</span>{" "}
+                  {archivo.rutaOriginal || archivo.rutaS3 || "-"}
+                </p>
               </div>
 
               {/* Botones */}
-              <div className="flex justify-between gap-3 mt-5">
+              <div className="flex justify-between gap-4 mt-6">
                 <button
-                  className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white text-sm font-medium rounded-lg px-3 py-2 flex-1 transition-all shadow hover:shadow-md"
+                  className="flex-1 rounded-lg bg-gradient-to-r from-red-600 via-red-700 to-red-800 hover:brightness-110 active:scale-95 text-sm font-semibold py-2 shadow-sm hover:shadow-md transition-all"
                   onClick={() =>
                     console.log("Eliminar definitivamente", archivo.id)
                   }
@@ -263,30 +281,34 @@ function ListaArchivosPapelera() {
                   Eliminar
                 </button>
                 <button
-                  className="bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white text-sm font-medium rounded-lg px-3 py-2 flex-1 transition-all shadow hover:shadow-md"
+                  className="flex-1 rounded-lg bg-gradient-to-r from-gray-600 via-gray-650 to-gray-700 hover:brightness-110 active:scale-95 text-sm font-semibold py-2 shadow-sm hover:shadow-md transition-all"
                   onClick={() => console.log("Restaurar", archivo.id)}
                 >
                   Restaurar
                 </button>
               </div>
-            </div>
+            </motion.article>
           ))}
         </div>
       ) : (
-        <div className="col-span-full text-center py-16 rounded-xl bg-gradient-to-br from-gray-800 to-gray-900 shadow-lg">
-          <div className="text-gray-400 text-lg font-medium">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="col-span-full text-center py-20 rounded-2xl bg-gradient-to-br from-gray-800/90 to-gray-900/90 ring-1 ring-gray-700/50 shadow-xl"
+        >
+          <h4 className="text-gray-400 text-xl font-semibold">
             {busqueda || filtroTipo !== "todos"
               ? "No se encontraron archivos que coincidan"
               : "La papelera está vacía"}
-          </div>
-          <p className="text-gray-500 text-sm mt-2">
+          </h4>
+          <p className="text-gray-500 text-sm mt-3">
             {busqueda || filtroTipo !== "todos"
               ? "Prueba con otros términos de búsqueda o filtros"
               : "Los archivos eliminados aparecerán aquí"}
           </p>
-        </div>
+        </motion.div>
       )}
-    </div>
+    </section>
   );
 }
 
