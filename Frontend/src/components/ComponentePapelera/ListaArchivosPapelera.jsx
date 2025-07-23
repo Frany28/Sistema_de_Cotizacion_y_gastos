@@ -97,7 +97,7 @@ function ListaArchivosPapelera() {
               key={archivo.id}
               className="bg-[#1C2434] rounded-xl w-[236px] h-[251px] shadow border border-[#2F374C] flex flex-col justify-between px-4 py-3 text-white text-[16px]"
             >
-              <div className="flex flex-col items-center text-center">
+              <div className="flex flex-col items-center text-center gap-2">
                 <div className="mb-2">
                   {iconoPorExtension(archivo.extension)}
                 </div>
@@ -114,15 +114,15 @@ function ListaArchivosPapelera() {
                 </p>
               </div>
 
-              <div className="flex justify-between gap-2 mt-4">
+              <div className="flex justify-between gap-1 mt-3">
                 <button
-                  className="bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded px-3 py-1.5 w-[82px] h-[32px]"
+                  className="bg-red-600 hover:bg-red-700 text-white text-2xl font-medium rounded px-3 py-1.5 w-[90px] h-[38px]"
                   onClick={() => console.log("Eliminar", archivo.id)}
                 >
                   Eliminar
                 </button>
                 <button
-                  className="bg-[#2F374C] hover:bg-[#3c465f] text-white text-xs font-medium rounded px-3 py-1.5 w-[82px] h-[32px]"
+                  className="bg-[#2F374C] hover:bg-[#3c465f] text-white text-2xl font-medium rounded px-3 py-1.5 w-[82px] h-[32px]"
                   onClick={() => console.log("Restaurar", archivo.id)}
                 >
                   Restaurar
