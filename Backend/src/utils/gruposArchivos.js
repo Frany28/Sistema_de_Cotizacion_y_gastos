@@ -55,3 +55,13 @@ export const obtenerOcrearGrupoComprobante = (
     usuarioIdCreador,
     `Comprobantes pago ${solicitudId}`
   );
+
+/* Facturas de Gastos */
+export const obtenerOcrearGrupoFactura = (conn, gastoId, usuarioIdCreador) =>
+  obtenerOcrearGrupoArchivo(
+    conn,
+    "facturasGastos",
+    gastoId,
+    usuarioIdCreador,
+    `Facturas gasto ${gastoId}`
+  );

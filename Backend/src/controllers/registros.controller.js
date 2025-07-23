@@ -5,6 +5,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import db from "../config/database.js";
 import { s3 } from "../utils/s3.js";
+import { obtenerOcrearGrupoFactura } from "../utils/gruposArchivos.js";
 import { PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import cacheMemoria from "../utils/cacheMemoria.js";
 
@@ -53,7 +54,6 @@ export const getDatosRegistro = async (req, res) => {
 };
 
 export const createRegistro = async (req, res) => {
-
   if (!req.combinedData) {
     return res.status(400).json({
       message: "No se recibieron los datos del registro.",
@@ -117,33 +117,53 @@ export const createRegistro = async (req, res) => {
         const extension = path.extname(req.file.originalname).substring(1);
         const tamanioBytes = req.file.size;
 
-        const [resArchivo] = await conexion.query(
+        /* 4.1 Grupo */
+        const grupoId = await obtenerOcrearGrupoFactura(
+          conexion,
+          registroId,
+          datos.usuario_id
+        );
+
+        /* 4.2 Nº de versión */
+        const [[{ maxVer }]] = await conexion.query(
+          `SELECT IFNULL(MAX(numeroVersion),0) AS maxVer
+           FROM archivos
+           WHERE registroTipo = 'facturasGastos' AND registroId = ?`,
+          [registroId]
+        );
+        const numeroVersion = maxVer + 1;
+
+        /* 4.3 Tabla archivos */
+        const [aRes] = await conexion.query(
           `INSERT INTO archivos
-              (registroTipo, registroId, nombreOriginal, extension, rutaS3,
-               tamanioBytes, estado, subidoPor, creadoEn, actualizadoEn)
-           VALUES (?, ?, ?, ?, ?, ?, 'activo', ?, NOW(), NOW())`,
+        (registroTipo, registroId, grupoArchivoId,
+      nombreOriginal, extension, tamanioBytes,
+      rutaS3, numeroVersion, estado,
+      subidoPor, creadoEn, actualizadoEn)
+      VALUES ('facturasGastos', ?, ?, ?, ?, ?, ?, ?, 'activo',
+        ?, NOW(), NOW())`,
           [
-            "facturasGastos",
             registroId,
+            grupoId,
             req.file.originalname,
             extension,
-            claveS3,
             tamanioBytes,
+            claveS3,
+            numeroVersion,
             datos.usuario_id,
           ]
         );
+        const archivoId = aRes.insertId;
 
-        const archivoId = resArchivo.insertId;
-
-        // 5. Insertar en versionesArchivo
-        await conexion.query(
+        /* 4.4 versionesArchivo */
+        const [vRes] = await conexion.query(
           `INSERT INTO versionesArchivo
-             (archivoId, numeroVersion, nombreOriginal, extension,
-              tamanioBytes, rutaS3, subidoPor, creadoEn)
-           VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
+           (archivoId, numeroVersion, nombreOriginal, extension,
+          tamanioBytes, rutaS3, subidoPor)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
           [
             archivoId,
-            1,
+            numeroVersion,
             req.file.originalname,
             extension,
             tamanioBytes,
@@ -151,24 +171,34 @@ export const createRegistro = async (req, res) => {
             datos.usuario_id,
           ]
         );
+        const versionId = vRes.insertId;
 
-        // 6. Evento de auditoría
+        /* 4.5 eventosArchivo */
         await conexion.query(
           `INSERT INTO eventosArchivo
-             (archivoId, accion, usuarioId, fechaHora, ip, userAgent, detalles)
-           VALUES (?, ?, ?, NOW(), ?, ?, ?)`,
+         (archivoId, versionId, accion, usuarioId,
+        ip, userAgent, detalles)
+          VALUES (?, ?, 'subida', ?, ?, ?, ?)`,
           [
             archivoId,
-            "subida",
+            versionId,
             datos.usuario_id,
             req.ip || null,
             req.get("user-agent") || null,
             JSON.stringify({
-              nombre: req.file.originalname,
+              nombreOriginal: req.file.originalname,
               extension,
               ruta: claveS3,
             }),
           ]
+        );
+
+        /* 4.6 cuota del usuario */
+        await conexion.query(
+          `UPDATE usuarios
+           SET usoStorageBytes = usoStorageBytes + ?
+           WHERE id = ?`,
+          [tamanioBytes, datos.usuario_id]
         );
       }
 
@@ -210,7 +240,7 @@ export const createRegistro = async (req, res) => {
 };
 
 // Crear gasto
-const crearGasto = async (datos) => {
+const crearGasto = async (datos, conn) => {
   const {
     proveedor_id,
     concepto_pago,
@@ -233,7 +263,7 @@ const crearGasto = async (datos) => {
   const total = subtotal + impuesto;
 
   // Consultar tipo de gasto para determinar si requiere proveedor o cotización
-  const [[tipoGasto]] = await db.query(
+  const [[tipoGasto]] = await conn.query(
     "SELECT rentable, nombre FROM tipos_gasto WHERE id = ?",
     [tipo_gasto_id]
   );
@@ -254,7 +284,7 @@ const crearGasto = async (datos) => {
   const conceptoFinal = concepto_pago || "N/A";
 
   // Insertar el gasto
-  const [result] = await db.query(
+  const [result] = await conn.query(
     `INSERT INTO gastos (
       proveedor_id, concepto_pago, tipo_gasto_id,
       descripcion, subtotal, porcentaje_iva, impuesto, total,
@@ -289,7 +319,7 @@ const crearGasto = async (datos) => {
   const codigoGenerado = `G-${String(gastoId).padStart(6, "0")}`;
 
   // Asignar código único
-  await db.query(`UPDATE gastos SET codigo = ? WHERE id = ?`, [
+  await conn.query(`UPDATE gastos SET codigo = ? WHERE id = ?`, [
     codigoGenerado,
     gastoId,
   ]);
