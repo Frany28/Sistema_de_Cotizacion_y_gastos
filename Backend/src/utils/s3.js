@@ -6,13 +6,12 @@ import {
   CopyObjectCommand,
   DeleteObjectCommand,
   PutObjectCommand,
-  HeadObjectCommand,
-} from "@aws-sdk/client-s3";
+} from "@aws-sdk/client-s3"; // HeadObjectCommand eliminado porque ya no se usa
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import multer from "multer";
 import multerS3 from "multer-s3";
 import dotenv from "dotenv";
-import db from "../config/database.js"; // para obtener el código del gasto
+import db from "../config/database.js"; // para consultas auxiliares
 
 dotenv.config();
 
@@ -33,9 +32,10 @@ const slugify = (str) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
 
+/*──────────────── Carga rápida en memoria ───────────*/
 export const uploadComprobanteMemoria = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 8 * 1024 * 1024 }, // 8 MB
+  limits: { fileSize: 8 * 1024 * 1024 }, // 8 MB
   fileFilter: (req, file, cb) => {
     const esPdf = file.mimetype === "application/pdf";
     const esImagen = file.mimetype.startsWith("image/");
@@ -44,7 +44,7 @@ export const uploadComprobanteMemoria = multer({
   },
 }).single("documento");
 
-/*───────────────── URL pre-firmada para GET ─────────*/
+/*─────────────── URL pre‑firmada (GET) ─────────────*/
 export async function generarUrlPrefirmadaLectura(key, expiresInSeconds = 300) {
   const command = new GetObjectCommand({
     Bucket: process.env.S3_BUCKET,
@@ -53,23 +53,27 @@ export async function generarUrlPrefirmadaLectura(key, expiresInSeconds = 300) {
   return getSignedUrl(s3, command, { expiresIn: expiresInSeconds });
 }
 
-/*─────────────────── Mover archivo a papelera ─────────*/
+/*─────────────── Mover archivo a /papelera/ ─────────*/
 export async function moverArchivoAS3AlPapelera(
   claveAntigua,
   registroTipo,
   registroId
 ) {
-  // Verificar si el archivo existe en S3 antes de moverlo
-  try {
-    const copySource = encodeURI(
-      // ← ✅ codifica ñ, espacios, paréntesis…
-      `${process.env.S3_BUCKET}/${claveAntigua}`
-    );
+  const bucket = process.env.S3_BUCKET;
 
+  // 1. Nueva clave en la papelera
+  const timestampStr = new Date().toISOString().replace(/[:.]/g, "-");
+  const nombreArchivo = claveAntigua.split("/").pop();
+  const claveNueva = `papelera/${registroTipo}/${registroId}/${timestampStr}-${nombreArchivo}`;
+
+  // 2. Copiar el objeto
+  const copySource = encodeURI(`${bucket}/${claveAntigua}`);
+
+  try {
     await s3.send(
       new CopyObjectCommand({
-        Bucket: process.env.S3_BUCKET,
-        CopySource: copySource, // ← usa la versión codificada
+        Bucket: bucket,
+        CopySource: copySource,
         Key: claveNueva,
         ACL: "private",
       })
@@ -77,38 +81,24 @@ export async function moverArchivoAS3AlPapelera(
   } catch (error) {
     if (error.name === "NotFound" || error.Code === "NoSuchKey") {
       console.warn(`⚠ Archivo no encontrado en S3: ${claveAntigua}`);
-      return null; // si no existe, no continuamos con la copia
+      return null;
     }
-    throw error; // otros errores: los relanzamos
+    throw error;
   }
 
-  const ahora = new Date();
-  const timestampStr = ahora.toISOString().replace(/[:.]/g, "-");
-  const nombreArchivo = claveAntigua.split("/").pop();
-  const claveNueva = `papelera/${registroTipo}/${registroId}/${timestampStr}-${nombreArchivo}`;
-
-  // Copiar a la nueva ubicación (papelera)
-  await s3.send(
-    new CopyObjectCommand({
-      Bucket: process.env.S3_BUCKET,
-      CopySource: `${process.env.S3_BUCKET}/${claveAntigua}`,
-      Key: claveNueva,
-      ACL: "private",
-    })
-  );
-
-  // Eliminar el original
+  // 3. Borrar el original
   await s3.send(
     new DeleteObjectCommand({
-      Bucket: process.env.S3_BUCKET,
+      Bucket: bucket,
       Key: claveAntigua,
     })
   );
 
+  // 4. Devolver la nueva ruta
   return claveNueva;
 }
 
-/*─────────────────── makeUploader genérico ───────────*/
+/*─────────────── Creador de upload genérico ────────*/
 export function makeUploader({ folder, maxSizeMb = 5, allowPdf = false }) {
   return multer({
     storage: multerS3({
@@ -137,7 +127,7 @@ export function makeUploader({ folder, maxSizeMb = 5, allowPdf = false }) {
   });
 }
 
-/*────────────────── Upload de firmas ────────────────*/
+/*────────────────── Upload de firmas ───────────────*/
 export const uploadFirma = multer({
   storage: multerS3({
     s3,
@@ -145,19 +135,16 @@ export const uploadFirma = multer({
     acl: "private",
     metadata: (req, file, cb) => cb(null, { fieldName: file.fieldname }),
     key: (req, file, cb) => {
-      const usuario = req.body.nombre
-        ? req.body.nombre.trim().replace(/\s+/g, "_")
-        : `usuario_${Date.now()}`;
       const extension = file.originalname.split(".").pop();
 
-      /* 1) Intentamos tomar el nombre del body (crearUsuario) */
+      // 1) nombre desde body (crearUsuario)
       if (req.body.nombre) {
         const slug = slugify(req.body.nombre);
         const clave = `firmas/${slug}/firma.${extension}`;
         return cb(null, clave);
       }
 
-      /* 2) Si venimos de actualizarUsuario, usamos el id para buscar el nombre */
+      // 2) nombre desde BD (actualizarUsuario)
       if (req.params.id) {
         db.query("SELECT nombre FROM usuarios WHERE id = ?", [req.params.id])
           .then(([rows]) => {
@@ -168,10 +155,10 @@ export const uploadFirma = multer({
             cb(null, clave);
           })
           .catch((err) => cb(err));
-        return; // salimos: el callback se hará en la promesa
+        return; // callback dentro de la promesa
       }
 
-      /* 3) Fallback: timestamp anónimo (no debería ocurrir) */
+      // 3) fallback
       const clave = `firmas/usuario-desconocido/firma.${extension}`;
       cb(null, clave);
     },
@@ -189,7 +176,7 @@ export const uploadFirma = multer({
   },
 });
 
-/*────────────────── Upload de facturas de gastos ───*/
+/*────────────── Upload de facturas de gastos ───────*/
 export const uploadComprobante = multer({
   storage: multerS3({
     s3,
@@ -215,10 +202,10 @@ export const uploadComprobante = multer({
       const anio = ahora.getFullYear();
       const mesPalabra = meses[ahora.getMonth()];
       const idGasto = req.params.id;
-      // Obtener el código único del gasto desde la BD
+
       db.query("SELECT codigo FROM gastos WHERE id = ?", [idGasto])
         .then(([rows]) => {
-          const codigoGasto = rows[0]?.codigo ?? "sin-codigo";
+          const codigoGasto = rows[0]?.codigo ?? `G-${idGasto}`;
           const nombreSeguro = file.originalname.replace(/\s+/g, "_");
           const timestamp = Date.now();
           const clave = `facturas_gastos/${anio}/${mesPalabra}/${codigoGasto}/${timestamp}-${nombreSeguro}`;
