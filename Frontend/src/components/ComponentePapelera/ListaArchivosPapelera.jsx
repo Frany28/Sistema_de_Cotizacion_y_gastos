@@ -1,3 +1,11 @@
+/*───────────────────────────────────────────────────────────
+ │  Componente: ListaArchivosPapelera.jsx
+ │  Descripción: Muestra la papelera y permite navegar al
+ │               detalle del archivo (/gestor-archivos/archivo/:id)
+ │  Autor: Equipo Sistema de Cotización y Gastos
+ │  Última revisión: 2025‑07‑23
+ └──────────────────────────────────────────────────────────*/
+
 import { useEffect, useState, useMemo } from "react";
 import {
   FileText,
