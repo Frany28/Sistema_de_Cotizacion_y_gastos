@@ -127,14 +127,21 @@ const DetalleArchivo = () => {
                 {obtenerIconoPorTipo(archivo.extension)}
               </div>
 
-              {/* ─── Nombre + etiqueta de estado ─── */}
+              {/* ─── Nombre + badges ─── */}
               <h2 className="text-white text-lg font-semibold leading-tight flex items-center">
                 {archivo.nombreOriginal}
+
+                {/* Estado “en papelera” */}
                 {archivo.estado !== "activo" && (
                   <span className="ml-2 px-2 py-0.5 text-xs rounded bg-yellow-600/30 text-yellow-300">
                     En papelera
                   </span>
                 )}
+
+                {/* Nº de versión */}
+                <span className="ml-2 px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300">
+                  v{archivo.ultimaVersion}
+                </span>
               </h2>
             </div>
 
