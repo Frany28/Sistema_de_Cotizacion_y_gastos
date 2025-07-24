@@ -1,11 +1,3 @@
-/*───────────────────────────────────────────────────────────
- │  Componente: ListaArchivosPapelera.jsx
- │  Descripción: Muestra la papelera y permite navegar al
- │               detalle del archivo (/gestor-archivos/archivo/:id)
- │  Autor: Equipo Sistema de Cotización y Gastos
- │  Última revisión: 2025‑07‑23
- └──────────────────────────────────────────────────────────*/
-
 import { useEffect, useState, useMemo } from "react";
 import {
   FileText,
@@ -22,7 +14,7 @@ import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { useNavigate } from "react-router-dom"; // ← navegación al detalle
-import api from "././api";
+import api from "../../api/index";
 
 function ListaArchivosPapelera() {
   /*─────────────────── Estados ───────────────────*/
