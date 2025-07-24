@@ -1,3 +1,4 @@
+// src/pages/Drive/ListaArchivosPapelera.jsx
 import { useEffect, useState, useMemo } from "react";
 import {
   FileText,
@@ -13,8 +14,8 @@ import {
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { useNavigate } from "react-router-dom"; // ← navegación al detalle
-import api from "../../api/index";
+import { useNavigate } from "react-router-dom";
+import api from "../../api";
 
 function ListaArchivosPapelera() {
   /*─────────────────── Estados ───────────────────*/
@@ -24,9 +25,8 @@ function ListaArchivosPapelera() {
   const [filtroTipo, setFiltroTipo] = useState("todos");
   const [criterioOrden, setCriterioOrden] = useState("fechaDesc");
 
-  /*─────────────────── Navegación ───────────────────*/
+  /*─────────────────── Hooks ───────────────────*/
   const navigate = useNavigate();
-  const irAlDetalle = (id) => navigate(`/gestor-archivos/archivo/${id}`);
 
   /*─────────────────── Cargar archivos ───────────────────*/
   useEffect(() => {
@@ -143,6 +143,11 @@ function ListaArchivosPapelera() {
     }),
   };
 
+  /*─────────────────── Navegación al detalle ───────────────────*/
+  const irADetalle = (id) => {
+    navigate(`/gestor-archivos/archivo/${id}`);
+  };
+
   /*─────────────────── Render principal ───────────────────*/
   if (cargando) {
     return (
@@ -160,6 +165,87 @@ function ListaArchivosPapelera() {
         restaurarlos o eliminarlos definitivamente.
       </p>
       <section className="p-6 space-y-6 max-w-7xl mx-auto">
+        {/* ──────────────── Barra de herramientas ──────────────── */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-gray-800 to-gray-900/90 backdrop-blur rounded-2xl shadow-xl ring-1 ring-gray-700/50 px-6 py-4"
+        >
+          {/* Barra de búsqueda */}
+          <div className="relative flex-1 max-w-lg">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="text-gray-400" size={18} />
+            </div>
+            <input
+              type="text"
+              placeholder="Buscar archivo en la papelera..."
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              className="w-full bg-gray-700/60 border border-gray-600 text-white text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block pl-10 pr-4 py-2.5 placeholder-gray-400 transition-all duration-200 hover:bg-gray-600/60 focus:bg-gray-600/70"
+            />
+          </div>
+
+          {/* Botones de acción */}
+          <div className="flex gap-3 flex-wrap justify-end">
+            {/* Contenedor de filtros */}
+            <div className="flex gap-3">
+              {/* Filtro por tipo */}
+              <div className="relative group">
+                <select
+                  value={filtroTipo}
+                  onChange={(e) => setFiltroTipo(e.target.value)}
+                  className="appearance-none bg-gray-700/60 border border-gray-600 text-white text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-3 pr-8 py-2.5 hover:bg-gray-600/60 transition-all cursor-pointer backdrop-blur"
+                >
+                  <option value="todos">Todos los tipos</option>
+                  <option value="doc">Documentos</option>
+                  <option value="img">Imágenes</option>
+                  <option value="audio">Audios</option>
+                  <option value="video">Videos</option>
+                  <option value="zip">Comprimidos</option>
+                  <option value="otros">Otros</option>
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                  <ChevronDown
+                    className="text-gray-400 group-hover:text-white transition-colors"
+                    size={16}
+                  />
+                </div>
+              </div>
+
+              {/* Ordenar por */}
+              <div className="relative group">
+                <select
+                  value={criterioOrden}
+                  onChange={(e) => setCriterioOrden(e.target.value)}
+                  className="appearance-none bg-gray-700/60 border border-gray-600 text-white text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-3 pr-8 py-2.5 hover:bg-gray-600/60 transition-all cursor-pointer backdrop-blur"
+                >
+                  <option value="fechaDesc">Más recientes</option>
+                  <option value="nombreAsc">Nombre (A-Z)</option>
+                  <option value="nombreDesc">Nombre (Z-A)</option>
+                  <option value="tamanoDesc">Tamaño (↓)</option>
+                  <option value="tamanoAsc">Tamaño (↑)</option>
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                  <ChevronDown
+                    className="text-gray-400 group-hover:text-white transition-colors"
+                    size={16}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Vaciar papelera */}
+            <button
+              className="flex items-center gap-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 active:scale-95 text-white text-sm font-semibold rounded-lg px-4 py-2.5 disabled:opacity-50 transition-transform shadow hover:shadow-xl disabled:cursor-not-allowed"
+              disabled={archivos.length === 0}
+              onClick={() => console.log("Vaciar papelera (por implementar)")}
+            >
+              <Trash2 size={16} /> Vaciar papelera
+            </button>
+          </div>
+        </motion.div>
+
         {/* ──────────────── Grilla de archivos ──────────────── */}
         {archivosProcesados.length ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
@@ -170,8 +256,14 @@ function ListaArchivosPapelera() {
                 variants={varianteTarjeta}
                 initial="oculto"
                 animate="visible"
-                onClick={() => irAlDetalle(archivo.id)} // ← click navega
-                className="cursor-pointer group bg-gradient-to-b from-gray-800/90 via-gray-850 to-gray-900/90 backdrop-blur-lg border border-gray-700/60 rounded-2xl shadow-xl flex flex-col justify-between px-6 py-5 text-white transition-transform duration-200 hover:-translate-y-1 hover:shadow-2xl hover:border-gray-600/80"
+                role="button"
+                tabIndex={0}
+                onClick={() => irADetalle(archivo.id)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ")
+                    irADetalle(archivo.id);
+                }}
+                className="group bg-gradient-to-b from-gray-800/90 via-gray-850 to-gray-900/90 backdrop-blur-lg border border-gray-700/60 rounded-2xl shadow-xl flex flex-col justify-between px-6 py-5 text-white transition-transform duration-200 hover:-translate-y-1 hover:shadow-2xl hover:border-gray-600/80 cursor-pointer focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               >
                 {/* Icono + metadatos */}
                 <div className="flex flex-col items-center text-center gap-3">
@@ -207,7 +299,7 @@ function ListaArchivosPapelera() {
                   <button
                     className="flex-1 rounded-lg bg-gradient-to-r from-red-600 via-red-700 to-red-800 hover:brightness-110 active:scale-95 text-sm font-semibold py-2 shadow-sm hover:shadow-md transition-all"
                     onClick={(e) => {
-                      e.stopPropagation(); // ← evita navegar
+                      e.stopPropagation();
                       console.log("Eliminar definitivamente", archivo.id);
                     }}
                   >
@@ -244,7 +336,7 @@ function ListaArchivosPapelera() {
             </p>
           </motion.div>
         )}
-      </section>
+      </section>{" "}
     </>
   );
 }
