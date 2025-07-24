@@ -805,7 +805,7 @@ export const obtenerDetallesArchivo = async (req, res) => {
               u.nombre AS nombreUsuario
          FROM archivos a
          JOIN usuarios u ON u.id = a.subidoPor
-        WHERE a.id = ? AND a.estado = 'activo'`,
+        WHERE a.id = ? AND a.estado IN ('activo', 'eliminado', 'reemplazado')`,
       [archivoId]
     );
 
