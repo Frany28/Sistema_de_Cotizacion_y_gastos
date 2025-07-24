@@ -10,6 +10,28 @@ import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 const ROL_ADMIN = 1;
 const ROL_SUPERVISOR = 2;
 
+export async function moverObjetoEnS3({ origen, destino }) {
+  const bucket = process.env.S3_BUCKET;
+  const copySource = encodeURI(`${bucket}/${origen}`);
+
+  // 1) Copiar
+  await s3.send(
+    new CopyObjectCommand({
+      Bucket: bucket,
+      CopySource: copySource,
+      Key: destino,
+      ACL: "private",
+    })
+  );
+  // 2) Borrar original
+  await s3.send(
+    new DeleteObjectCommand({
+      Bucket: bucket,
+      Key: origen,
+    })
+  );
+}
+
 export const sustituirArchivo = async (req, res) => {
   const conexion = await db.getConnection();
   const usuarioId = req.user.id;
@@ -294,49 +316,133 @@ export const eliminarArchivo = async (req, res) => {
   }
 };
 
-// Controller: restaurar archivo desde papelera
+//────────────────── Restaurar archivo ────────────────
 export const restaurarArchivo = async (req, res) => {
   const archivoId = Number(req.params.id);
   const usuarioId = req.user.id;
-  const rolId = req.user.rol_id;
+  const conexion = await db.getConnection();
 
   try {
-    const [[archivo]] = await db.query(
-      "SELECT estado, subidoPor FROM archivos WHERE id = ?",
+    await conexion.beginTransaction();
+
+    /* 1. Obtener el archivo a restaurar (bloqueo FOR UPDATE) */
+    const [[archivo]] = await conexion.query(
+      `SELECT * FROM archivos WHERE id = ? FOR UPDATE`,
       [archivoId]
     );
+
     if (!archivo)
-      return res.status(404).json({ message: "Archivo no encontrado." });
-    if (archivo.estado !== "eliminado") {
+      return res.status(404).json({ mensaje: "Archivo no encontrado." });
+
+    if (archivo.estado !== "eliminado")
       return res
         .status(400)
-        .json({ message: "El archivo no está en la papelera." });
-    }
-    if (
-      ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
-      archivo.subidoPor !== usuarioId
-    ) {
-      return res.status(403).json({
-        message: "Acceso denegado: no puedes restaurar este archivo.",
+        .json({ mensaje: "El archivo ya está activo o reemplazado." });
+
+    /* 2. Comprobar que el gasto asociado aún existe */
+    const [[gastoExiste]] = await conexion.query(
+      `SELECT 1 FROM gastos WHERE id = ? LIMIT 1`,
+      [archivo.registroId]
+    );
+
+    if (!gastoExiste)
+      return res.status(409).json({
+        mensaje:
+          "El gasto asociado fue eliminado definitivamente; no es posible restaurar el archivo.",
       });
+
+    /* 3. Localizar la versión que está actualmente activa en el grupo */
+    const [[activoActual]] = await conexion.query(
+      `SELECT id, rutaS3, numeroVersion
+         FROM archivos
+        WHERE grupoArchivoId = ? AND estado = 'activo' FOR UPDATE`,
+      [archivo.grupoArchivoId]
+    );
+
+    /* 3A. Si hay versión activa ⇒ enviarla a papelera en S3 y marcarla 'reemplazado' */
+    if (activoActual) {
+      const clavePapelera = `papelera/${activoActual.rutaS3}`;
+
+      // mover físicamente en S3
+      await moverObjetoEnS3({
+        origen: activoActual.rutaS3,
+        destino: clavePapelera,
+      });
+
+      // actualizar BD
+      await conexion.query(
+        `UPDATE archivos
+            SET estado = 'reemplazado',
+                rutaS3 = ?,
+                fechaReemplazo = NOW(),
+                actualizadoEn = NOW()
+          WHERE id = ?`,
+        [clavePapelera, activoActual.id]
+      );
+
+      // evento
+      await conexion.query(
+        `INSERT INTO eventosArchivo (archivoId, accion, usuarioId, detalles, ip, userAgent)
+         VALUES (?, 'versionReemplazada', ?, ?, ?, ?)`,
+        [
+          activoActual.id,
+          usuarioId,
+          JSON.stringify({ nuevaRuta: clavePapelera }),
+          req.ip,
+          req.get("User-Agent"),
+        ]
+      );
     }
 
-    await db.execute(
-      "UPDATE archivos SET estado = 'activo', eliminadoEn = NULL, actualizadoEn = NOW() WHERE id = ?",
-      [archivoId]
+    /* 4. Mover archivo eliminado DESDE papelera a su ruta original */
+    const rutaOriginal = archivo.rutaS3.replace(/^papelera\//, "");
+    await moverObjetoEnS3({ origen: archivo.rutaS3, destino: rutaOriginal });
+
+    /* 5. Calcular nueva versión */
+    const [[{ maxVersion }]] = await conexion.query(
+      `SELECT COALESCE(MAX(numeroVersion), 0) AS maxVersion
+         FROM archivos
+        WHERE grupoArchivoId = ?`,
+      [archivo.grupoArchivoId]
     );
-    await db.execute(
-      `INSERT INTO eventosArchivo (archivoId, accion, usuarioId, ip, userAgent)
-       VALUES (?, 'restauracion', ?, ?, ?)`,
-      [archivoId, usuarioId, req.ip, req.get("User-Agent")]
+    const nuevaVersion = maxVersion + 1;
+
+    /* 6. Reactivar archivo restaurado */
+    await conexion.query(
+      `UPDATE archivos
+          SET estado = 'activo',
+              numeroVersion = ?,
+              rutaS3 = ?,
+              actualizadoEn = NOW(),
+              eliminadoEn = NULL,
+              fechaRestauracion = NOW()
+        WHERE id = ?`,
+      [nuevaVersion, rutaOriginal, archivoId]
     );
 
-    return res.json({ message: "Archivo restaurado correctamente." });
+    /* 7. Evento de restauración */
+    await conexion.query(
+      `INSERT INTO eventosArchivo (archivoId, accion, usuarioId, detalles, ip, userAgent)
+       VALUES (?, 'restauracion', ?, ?, ?, ?)`,
+      [
+        archivoId,
+        usuarioId,
+        JSON.stringify({ rutaOriginal, nuevaVersion }),
+        req.ip,
+        req.get("User-Agent"),
+      ]
+    );
+
+    await conexion.commit();
+    return res.json({ mensaje: "Archivo restaurado correctamente." });
   } catch (error) {
-    console.error(error);
+    await conexion.rollback();
+    console.error("Error en restaurarArchivo:", error);
     return res
       .status(500)
-      .json({ message: "Error interno al restaurar archivo." });
+      .json({ mensaje: "Error interno al restaurar archivo." });
+  } finally {
+    conexion.release();
   }
 };
 
@@ -398,7 +504,6 @@ export const listarHistorialVersiones = async (req, res) => {
     conexion.release();
   }
 };
-
 
 // Controller: descargar una versión específica
 export const descargarVersion = async (req, res) => {
