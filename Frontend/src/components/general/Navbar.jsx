@@ -96,11 +96,6 @@ function Navbar() {
       ],
     },
     {
-      label: "Crear Registro",
-      path: "/crearRegistro",
-      type: "link",
-    },
-    {
       label: "Archivos",
       type: "dropdown",
       items: [
@@ -117,6 +112,11 @@ function Navbar() {
         { path: "/pagos-realizados", label: "Pagos Realizados" },
         { path: "/ingresos-cxc", label: "Ingresos / Cuentas por Cobrar" },
       ],
+    },
+    {
+      label: "Crear Registro",
+      path: "/crearRegistro",
+      type: "link",
     },
   ];
 
