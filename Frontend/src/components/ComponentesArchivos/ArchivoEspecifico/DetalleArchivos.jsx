@@ -207,9 +207,11 @@ const DetalleArchivo = () => {
           <CantidadVersionesMes />
           <AlmacenamientoTotalArchivo />
         </div>
-        <div className="mt-10">
-          <TablaHistorialVersiones grupoId={archivo.grupoArchivoId} />
-        </div>
+        {archivo?.grupoArchivoId && (
+          <div className="mt-10">
+            <TablaHistorialVersiones grupoId={archivo.grupoArchivoId} />
+          </div>
+        )}
       </div>
     </div>
   );
