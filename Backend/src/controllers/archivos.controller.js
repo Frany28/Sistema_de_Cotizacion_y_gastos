@@ -798,11 +798,11 @@ export const obtenerDetallesArchivo = async (req, res) => {
               a.nombreOriginal,
               a.extension,
               a.tamanioBytes,
+               a.numeroVersion,
               a.rutaS3,
               a.estado,
               a.actualizadoEn,
               a.subidoPor,
-              a.numeroVersion,
               u.nombre AS nombreUsuario
          FROM archivos a
          JOIN usuarios u ON u.id = a.subidoPor
@@ -830,11 +830,11 @@ export const obtenerDetallesArchivo = async (req, res) => {
       nombreOriginal: archivo.nombreOriginal,
       extension: archivo.extension,
       tamanioBytes: archivo.tamanioBytes,
+      ultimaVersion: archivo.numeroVersion,
       rutaS3: archivo.rutaS3,
+      estado: archivo.estado,
       actualizadoEn: archivo.actualizadoEn,
       nombreUsuario: archivo.nombreUsuario,
-      ultimaVersion: archivo.numeroVersion,
-      estado: archivo.estado,
     });
   } catch (error) {
     await conexion.release();
