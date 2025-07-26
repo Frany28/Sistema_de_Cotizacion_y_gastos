@@ -2,10 +2,8 @@ import { useEffect, useState } from "react";
 import api from "../../../api";
 import Paginacion from "../../general/Paginacion";
 import BotonIcono from "../../general/BotonIcono";
-import { useParams } from "react-router-dom";
 
-const TablaHistorialVersiones = () => {
-  const { id } = useParams();
+const TablaHistorialVersiones = ({ grupoId }) => {
   const [versiones, setVersiones] = useState([]);
   const [busqueda, setBusqueda] = useState("");
   const [pagina, setPagina] = useState(1);
@@ -15,7 +13,7 @@ const TablaHistorialVersiones = () => {
   useEffect(() => {
     const obtenerVersiones = async () => {
       try {
-        const res = await api.get(`/archivos/${id}/versiones`);
+        const res = await api.get(`/archivos/grupo/${grupoId}/versiones`);
         setVersiones(res.data || []);
       } catch (error) {
         console.error("Error al cargar historial de versiones:", error);
@@ -23,8 +21,8 @@ const TablaHistorialVersiones = () => {
         setCargando(false);
       }
     };
-    obtenerVersiones();
-  }, [id]);
+    if (grupoId) obtenerVersiones();
+  }, [grupoId]);
 
   const versionesFiltradas = versiones.filter((v) =>
     [v.nombreUsuario, v.nombreOriginal, v.estado]

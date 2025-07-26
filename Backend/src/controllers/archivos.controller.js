@@ -795,18 +795,19 @@ export const obtenerDetallesArchivo = async (req, res) => {
   try {
     const [[archivo]] = await conexion.query(
       `SELECT a.id,
-              a.nombreOriginal,
-              a.extension,
-              a.tamanioBytes,
-               a.numeroVersion,
-              a.rutaS3,
-              a.estado,
-              a.actualizadoEn,
-              a.subidoPor,
-              u.nombre AS nombreUsuario
-         FROM archivos a
-         JOIN usuarios u ON u.id = a.subidoPor
-        WHERE a.id = ? AND a.estado IN ('activo', 'eliminado', 'reemplazado')`,
+          a.nombreOriginal,
+          a.extension,
+          a.tamanioBytes,
+          a.numeroVersion,
+          a.rutaS3,
+          a.estado,
+          a.actualizadoEn,
+          a.subidoPor,
+          a.grupoArchivoId,
+          u.nombre AS nombreUsuario
+     FROM archivos a
+     JOIN usuarios u ON u.id = a.subidoPor
+    WHERE a.id = ? AND a.estado IN ('activo', 'eliminado', 'reemplazado')`,
       [archivoId]
     );
 
@@ -835,6 +836,7 @@ export const obtenerDetallesArchivo = async (req, res) => {
       estado: archivo.estado,
       actualizadoEn: archivo.actualizadoEn,
       nombreUsuario: archivo.nombreUsuario,
+      grupoArchivoId: archivo.grupoArchivoId,
     });
   } catch (error) {
     await conexion.release();
