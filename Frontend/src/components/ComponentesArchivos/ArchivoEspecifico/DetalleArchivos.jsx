@@ -208,7 +208,7 @@ const DetalleArchivo = () => {
           <AlmacenamientoTotalArchivo />
         </div>
         <div className="mt-10">
-          <TablaHistorialVersiones idArchivo={id} />
+          <TablaHistorialVersiones grupoId={archivo.grupoArchivoId} />
         </div>
       </div>
     </div>
