@@ -799,6 +799,7 @@ export const obtenerDetallesArchivo = async (req, res) => {
               a.extension,
               a.tamanioBytes,
               a.rutaS3,
+              a.estado,
               a.actualizadoEn,
               a.subidoPor,
               a.numeroVersion,
