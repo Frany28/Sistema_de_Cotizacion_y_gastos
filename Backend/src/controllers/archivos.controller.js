@@ -833,6 +833,7 @@ export const obtenerDetallesArchivo = async (req, res) => {
       actualizadoEn: archivo.actualizadoEn,
       nombreUsuario: archivo.nombreUsuario,
       ultimaVersion: archivo.numeroVersion,
+      estado: archivo.estado,
     });
   } catch (error) {
     await conexion.release();
