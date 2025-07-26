@@ -949,11 +949,11 @@ export const listarVersionesPorGrupo = async (req, res) => {
 
     const [versiones] = await conexion.query(
       `SELECT a.id, a.numeroVersion, a.estado, a.nombreOriginal, a.extension,
-              a.tamanioBytes, a.rutaS3, a.subidoEn, a.subidoPor, u.nombre AS nombreUsuario
-         FROM archivos a
-         JOIN usuarios u ON u.id = a.subidoPor
-        WHERE a.grupoArchivoId = ?
-        ORDER BY a.numeroVersion DESC`,
+          a.tamanioBytes, a.rutaS3, a.creadoEn AS subidoEn, a.subidoPor, u.nombre AS nombreUsuario
+     FROM archivos a
+     JOIN usuarios u ON u.id = a.subidoPor
+    WHERE a.grupoArchivoId = ?
+    ORDER BY a.numeroVersion DESC`,
       [grupoArchivoId]
     );
 
