@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import api from "../../../api";
 import Paginacion from "../../general/Paginacion";
 import BotonIcono from "../../general/BotonIcono";
+import { useNavigate } from "react-router-dom";
 
 const TablaHistorialVersiones = ({ grupoId }) => {
   const [versiones, setVersiones] = useState([]);
@@ -9,6 +10,7 @@ const TablaHistorialVersiones = ({ grupoId }) => {
   const [pagina, setPagina] = useState(1);
   const [limite, setLimite] = useState(5);
   const [cargando, setCargando] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const obtenerVersiones = async () => {
@@ -148,7 +150,16 @@ const TablaHistorialVersiones = ({ grupoId }) => {
                       <td className="px-4 py-2">
                         {formatearTamano(v.tamanioBytes)}
                       </td>
-                      <td className="px-4 py-2">{v.nombreOriginal}</td>
+                      <td className="px-4 py-2">
+                        <button
+                          onClick={() => navigate(`/archivos/detalle/${v.id}`)}
+                          className="text-blue-400 hover:underline"
+                          title="Ver detalle del archivo"
+                        >
+                          {v.nombreOriginal}
+                        </button>
+                      </td>
+
                       <td className="px-4 py-2 text-center">
                         <BotonIcono
                           tipo="descargar"
