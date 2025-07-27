@@ -77,7 +77,7 @@ function ListaArchivosPapelera() {
       case "jpeg":
       case "png":
       case "gif":
-        return <IconoImagen size={42} className="text-purple-400 mx-auto" />;
+        return <IconoImagen size={42} className="text-blue-600 mx-auto" />;
       case "zip":
       case "rar":
         return <FileArchive size={42} className="text-yellow-500 mx-auto" />;
