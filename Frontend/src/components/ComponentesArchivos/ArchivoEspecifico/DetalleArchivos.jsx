@@ -5,7 +5,6 @@ import CantidadVersionesArchivo from "./CantidadVersionesArchivos";
 import CantidadVersionesMes from "./CantidadVersionesMes";
 import AlmacenamientoTotalArchivo from "./AlmacenamientoTotalArchivo";
 import TablaHistorialVersiones from "./HistorialVersionesArchivo";
-import Loader from "../../general/Loader";
 import {
   FileText,
   User,
@@ -122,9 +121,9 @@ const DetalleArchivo = () => {
         </button>
 
         {cargando ? (
-          <div className="flex justify-center items-center h-64">
-            <Loader />
-          </div>
+          <p className="text-gray-400 transition-opacity duration-300">
+            Cargando detalles...
+          </p>
         ) : archivo ? (
           <div
             className={`bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700 transition-opacity duration-300 ${
@@ -137,7 +136,6 @@ const DetalleArchivo = () => {
                 {obtenerIconoPorTipo(archivo.extension)}
               </div>
 
-              {/* ─── Nombre + badges ─── */}
               <h2 className="text-white text-lg font-semibold leading-tight flex items-center">
                 {archivo.nombreOriginal}
 
