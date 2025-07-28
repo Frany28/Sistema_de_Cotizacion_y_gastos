@@ -5,6 +5,7 @@ import {
   PlusCircle,
   RefreshCw,
   DollarSign,
+  Download,
 } from "lucide-react";
 
 export default function BotonIcono({ tipo, onClick, titulo = "" }) {
@@ -17,7 +18,8 @@ export default function BotonIcono({ tipo, onClick, titulo = "" }) {
     ver: <Eye size={18} />,
     agregar: <PlusCircle size={18} />,
     estado: <RefreshCw size={18} />,
-    abonar: <DollarSign size={18} />, // ← NUEVO icono
+    abonar: <DollarSign size={18} />,
+    descargar: <Download size={18} />, 
   };
 
   const colores = {
@@ -26,7 +28,8 @@ export default function BotonIcono({ tipo, onClick, titulo = "" }) {
     ver: "bg-green-600 hover:bg-green-700",
     agregar: "bg-indigo-600 hover:bg-indigo-700",
     estado: "bg-yellow-500 hover:bg-yellow-600",
-    abonar: "bg-emerald-600 hover:bg-emerald-700", // ← NUEVO color
+    abonar: "bg-emerald-600 hover:bg-emerald-700",
+    descargar: "bg-gray-600 hover:bg-gray-700", 
   };
 
   return (
