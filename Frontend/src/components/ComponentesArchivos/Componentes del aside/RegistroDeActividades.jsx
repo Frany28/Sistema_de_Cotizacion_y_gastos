@@ -51,11 +51,13 @@ function RegistroDeActividades() {
 
   // Render ------------------------------------------------------------
   return (
-    <div className="w-69 bg-gray-700 rounded-2xl shadow p-4 flex flex-col gap-3">
+    <div className="w-full sm:max-w-xs bg-gray-700 rounded-2xl shadow p-4 flex flex-col gap-3">
       {/* Encabezado */}
       <div className="flex items-center gap-2">
         <Bell size={20} color="#1A56DB" />
-        <p className="text-white font-semibold">Actividad Reciente</p>
+        <p className="text-white font-semibold text-base sm:text-lg">
+          Actividad Reciente
+        </p>
       </div>
 
       {/* Lista de eventos */}
@@ -67,9 +69,8 @@ function RegistroDeActividades() {
         {eventos.map(({ nombreArchivo, fechaEvento, tipoEvento }, idx) => (
           <div key={idx} className="flex gap-2 items-start">
             <File size={18} color="#D1D5DB" className="mt-0.5 flex-shrink-0" />
-
             <div className="grid grid-cols-1">
-              <p className="text-white text-sm">
+              <p className="text-white text-sm break-words leading-snug">
                 <span className="font-medium">{nombreArchivo}</span>{" "}
                 {obtenerDescripcionAccion(tipoEvento)}.
               </p>
