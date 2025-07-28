@@ -96,17 +96,34 @@ const TablaHistorialVersiones = ({ grupoId }) => {
       </div>
 
       {cargando ? (
-        <div className="animate-pulse p-6 space-y-4">
-          {[...Array(5)].map((_, idx) => (
-            <div key={idx} className="flex space-x-4">
-              {[...Array(7)].map((__, i) => (
-                <div
-                  key={i}
-                  className="h-4 bg-gray-700 rounded w-full max-w-[150px]"
-                />
-              ))}
-            </div>
-          ))}
+        <div className="p-4 animate-pulse bg-gray-900">
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="bg-gray-800">
+                <tr>
+                  {[...Array(7)].map((_, i) => (
+                    <th
+                      key={i}
+                      className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase"
+                    >
+                      <div className="h-3 bg-gray-700/50 rounded w-3/4" />
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {[...Array(5)].map((_, row) => (
+                  <tr key={row} className="border-t border-gray-800">
+                    {[...Array(7)].map((_, col) => (
+                      <td key={col} className="px-4 py-3">
+                        <div className="h-4 bg-gray-700/50 rounded w-full" />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : (
         <>

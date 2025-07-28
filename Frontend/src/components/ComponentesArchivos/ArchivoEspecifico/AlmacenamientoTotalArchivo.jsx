@@ -46,9 +46,14 @@ const AlmacenamientoTotalArchivo = () => {
 
       <div className="flex flex-col justify-center h-full">
         <p className="text-sm text-gray-400">Almacenamiento utilizado</p>
-        <h1 className="text-white text-3xl font-bold mt-1">
-          {cargando ? "..." : formatearTamanio(almacenamiento)}
-        </h1>
+        {cargando ? (
+          <div className="h-8 bg-gray-700/50 rounded w-1/2 animate-pulse" />
+        ) : (
+          <h1 className="text-white text-3xl font-bold mt-1">
+            {cantidadVersiones}
+          </h1>
+        )}
+
         <p className="text-xs text-gray-500 mt-1">
           Total por todas las versiones
         </p>

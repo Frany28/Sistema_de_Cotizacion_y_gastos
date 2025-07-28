@@ -33,9 +33,14 @@ const CantidadVersionesArchivo = () => {
       {/* Contenido centrado */}
       <div className="flex flex-col justify-center h-full">
         <p className="text-sm text-gray-400">Total de Versiones</p>
-        <h1 className="text-white text-3xl font-bold mt-1">
-          {cargando ? "..." : cantidadVersiones}
-        </h1>
+        {cargando ? (
+          <div className="h-8 bg-gray-700/50 rounded w-1/2 animate-pulse" />
+        ) : (
+          <h1 className="text-white text-3xl font-bold mt-1">
+            {cantidadVersiones}
+          </h1>
+        )}
+
         <p className="text-xs text-gray-500 mt-1">
           A lo largo de toda la historia
         </p>
