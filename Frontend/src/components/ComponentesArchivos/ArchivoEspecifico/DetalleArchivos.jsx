@@ -121,9 +121,21 @@ const DetalleArchivo = () => {
         </button>
 
         {cargando ? (
-          <p className="text-gray-400 transition-opacity duration-300">
-            Cargando detalles...
-          </p>
+          <div className="animate-pulse space-y-6 bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-gray-700/50 rounded-lg" />
+              <div className="h-5 bg-gray-700/50 rounded w-1/2" />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 border-t border-gray-700 pt-4">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="space-y-2">
+                  <div className="h-4 w-24 bg-gray-700/50 rounded" />
+                  <div className="h-5 w-3/4 bg-gray-700/50 rounded" />
+                </div>
+              ))}
+            </div>
+          </div>
         ) : archivo ? (
           <div
             className={`bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700 transition-opacity duration-300 ${
