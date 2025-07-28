@@ -167,7 +167,7 @@ const TablaHistorialVersiones = ({ grupoId }) => {
                             tipo="ver"
                             titulo="Ver detalle"
                             onClick={() => {
-                              setMostrarLoader(true);
+                              localStorage.setItem("loaderActivo", "1");
                               navigate(`/gestor-archivos/archivo/${v.id}`);
                             }}
                           />

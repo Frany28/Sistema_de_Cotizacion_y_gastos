@@ -32,6 +32,16 @@ const DetalleArchivo = () => {
   }, []);
 
   useEffect(() => {
+    // Si se navegó desde la tabla, apaga el loader global
+    if (localStorage.getItem("loaderActivo") === "1") {
+      localStorage.removeItem("loaderActivo");
+      const overlay = document.querySelector("#loader-overlay");
+      if (overlay) overlay.remove();
+      document.body.classList.remove("bloqueo-loader");
+    }
+  }, []);
+
+  useEffect(() => {
     // Reiniciar el loader global al cargar esta pantalla
     const loaderActivo = document.querySelector(".bloqueo-loader");
     if (loaderActivo) {
