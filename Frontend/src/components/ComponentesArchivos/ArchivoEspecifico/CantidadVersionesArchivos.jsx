@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import api from "../../../api";
-import { Layers } from "lucide-react"; // Ícono que se parece al de la imagen
+import { Layers } from "lucide-react";
 
 const CantidadVersionesArchivo = () => {
   const { id } = useParams();

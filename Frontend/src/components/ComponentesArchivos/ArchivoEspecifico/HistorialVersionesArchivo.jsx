@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import api from "../../../api";
 import Paginacion from "../../general/Paginacion";
 import BotonIcono from "../../general/BotonIcono";
+import ModalError from "../../Modals/ModalError";
 
 const TablaHistorialVersiones = ({ grupoId }) => {
   const [versiones, setVersiones] = useState([]);
@@ -10,6 +11,7 @@ const TablaHistorialVersiones = ({ grupoId }) => {
   const [pagina, setPagina] = useState(1);
   const [limite, setLimite] = useState(5);
   const [cargando, setCargando] = useState(true);
+  const [mostrarError, setMostrarError] = useState(false);
 
   const navigate = useNavigate();
 
@@ -174,14 +176,26 @@ const TablaHistorialVersiones = ({ grupoId }) => {
                           <BotonIcono
                             tipo="ver"
                             titulo="Ver detalle"
-                            onClick={() =>
-                              navigate(`/gestor-archivos/archivo/${v.id}`)
-                            }
+                            onClick={() => {
+                              if (v.estado === "activo") {
+                                setMostrarError(true);
+                              } else {
+                                navigate(`/gestor-archivos/archivo/${v.id}`);
+                              }
+                            }}
                           />
                           <BotonIcono
                             tipo="descargar"
                             titulo="Descargar"
-                            onClick={() => window.open(v.urlTemporal, "_blank")}
+                            onClick={() => {
+                              if (v.urlTemporal) {
+                                window.open(v.urlTemporal, "_blank");
+                              } else {
+                                alert(
+                                  "No se pudo obtener el enlace de descarga."
+                                );
+                              }
+                            }}
                           />
                         </div>
                       </td>
@@ -198,6 +212,13 @@ const TablaHistorialVersiones = ({ grupoId }) => {
               </tbody>
             </table>
           </div>
+          <ModalError
+            visible={mostrarError}
+            onClose={() => setMostrarError(false)}
+            titulo="Ya estás viendo esta versión"
+            mensaje="Actualmente estás visualizando esta versión activa del archivo."
+            textoBoton="Entendido"
+          />
 
           <Paginacion
             paginaActual={pagina}
