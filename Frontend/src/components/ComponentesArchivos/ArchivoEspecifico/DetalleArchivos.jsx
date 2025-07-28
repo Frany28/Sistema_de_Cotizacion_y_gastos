@@ -32,6 +32,16 @@ const DetalleArchivo = () => {
   }, []);
 
   useEffect(() => {
+    // Reiniciar el loader global al cargar esta pantalla
+    const loaderActivo = document.querySelector(".bloqueo-loader");
+    if (loaderActivo) {
+      document.body.classList.remove("bloqueo-loader");
+      const overlay = document.querySelector("#loader-overlay");
+      if (overlay) overlay.remove();
+    }
+  }, []);
+
+  useEffect(() => {
     const obtenerArchivo = async () => {
       try {
         const res = await api.get(`/archivos/detalle/${id}`);
