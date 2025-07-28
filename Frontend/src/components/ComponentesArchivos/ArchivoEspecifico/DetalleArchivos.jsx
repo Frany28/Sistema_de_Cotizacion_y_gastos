@@ -28,6 +28,10 @@ const DetalleArchivo = () => {
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
+    document.body.classList.remove("bloqueo-loader");
+  }, []);
+
+  useEffect(() => {
     const obtenerArchivo = async () => {
       try {
         const res = await api.get(`/archivos/detalle/${id}`);

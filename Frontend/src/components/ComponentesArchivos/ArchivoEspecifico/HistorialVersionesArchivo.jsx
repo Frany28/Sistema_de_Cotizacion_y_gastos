@@ -14,6 +14,13 @@ const TablaHistorialVersiones = ({ grupoId }) => {
   const [mostrarLoader, setMostrarLoader] = useState(false);
 
   const navigate = useNavigate();
+  useEffect(() => {
+    if (mostrarLoader) {
+      document.body.classList.add("bloqueo-loader");
+    } else {
+      document.body.classList.remove("bloqueo-loader");
+    }
+  }, [mostrarLoader]);
 
   useEffect(() => {
     const obtenerVersiones = async () => {
