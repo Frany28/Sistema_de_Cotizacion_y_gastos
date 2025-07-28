@@ -252,7 +252,7 @@ const TablaHistorialVersiones = ({ grupoId }) => {
                       </p>
                       <p>
                         {formatearFecha(v.subidoEn)} -{" "}
-                        {formatearTamanio(v.tamanioBytes)}
+                        {formatearTamano(v.tamanioBytes)}
                       </p>
                       <p>
                         Por:{" "}
