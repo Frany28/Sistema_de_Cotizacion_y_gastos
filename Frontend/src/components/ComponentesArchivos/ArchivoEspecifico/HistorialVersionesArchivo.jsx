@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import api from "../../../api";
 import Paginacion from "../../general/Paginacion";
 import BotonIcono from "../../general/BotonIcono";
-import Loader from "../../general/Loader";
 
 const TablaHistorialVersiones = ({ grupoId }) => {
   const [versiones, setVersiones] = useState([]);
@@ -11,8 +10,7 @@ const TablaHistorialVersiones = ({ grupoId }) => {
   const [pagina, setPagina] = useState(1);
   const [limite, setLimite] = useState(5);
   const [cargando, setCargando] = useState(true);
-  const [cargandoArchivoId, setCargandoArchivoId] = useState(null);
-  const [viendoDetalleId, setViendoDetalleId] = useState(null);
+  const [mostrarLoader, setMostrarLoader] = useState(false);
 
   const navigate = useNavigate();
 
@@ -157,40 +155,28 @@ const TablaHistorialVersiones = ({ grupoId }) => {
                       <td className="px-4 py-2">{v.nombreOriginal}</td>
                       <td className="px-4 py-2 text-center">
                         <div className="flex gap-2 justify-center">
-                          {viendoDetalleId === v.id ? (
-                            <div className="scale-75">
-                              <Loader />
-                            </div>
-                          ) : (
-                            <BotonIcono 
-                              tipo="ver"
-                              titulo="Ver detalle"
-                              onClick={() => {
-                                setViendoDetalleId(v.id);
-                                setTimeout(() => {
-                                  navigate(`/gestor-archivos/archivo/${v.id}`);
-                                }, 800);
-                              }}
-                            />
-                          )}
+                          <BotonIcono
+                            tipo="ver"
+                            titulo="Ver detalle"
+                            onClick={() => {
+                              setMostrarLoader(true);
+                              setTimeout(() => {
+                                navigate(`/gestor-archivos/archivo/${v.id}`);
+                              }, 800);
+                            }}
+                          />
 
-                          {cargandoArchivoId === v.id ? (
-                            <div className="scale-75">
-                              <Loader />
-                            </div>
-                          ) : (
-                            <BotonIcono
-                              tipo="descargar"
-                              titulo="Descargar"
-                              onClick={() => {
-                                setCargandoArchivoId(v.id);
-                                setTimeout(() => {
-                                  window.open(v.urlTemporal, "_blank");
-                                  setCargandoArchivoId(null);
-                                }, 1000); // puedes ajustar el tiempo si quieres más realismo
-                              }}
-                            />
-                          )}
+                          <BotonIcono
+                            tipo="descargar"
+                            titulo="Descargar"
+                            onClick={() => {
+                              setMostrarLoader(true);
+                              setTimeout(() => {
+                                window.open(v.urlTemporal, "_blank");
+                                setMostrarLoader(false);
+                              }, 1000);
+                            }}
+                          />
                         </div>
                       </td>
                     </tr>
@@ -216,6 +202,13 @@ const TablaHistorialVersiones = ({ grupoId }) => {
       )}
     </div>
   );
+  {
+    mostrarLoader && (
+      <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center">
+        <Loader />
+      </div>
+    );
+  }
 };
 
 export default TablaHistorialVersiones;
