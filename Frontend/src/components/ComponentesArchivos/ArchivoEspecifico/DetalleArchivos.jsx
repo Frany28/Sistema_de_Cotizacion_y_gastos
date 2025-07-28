@@ -5,6 +5,7 @@ import CantidadVersionesArchivo from "./CantidadVersionesArchivos";
 import CantidadVersionesMes from "./CantidadVersionesMes";
 import AlmacenamientoTotalArchivo from "./AlmacenamientoTotalArchivo";
 import TablaHistorialVersiones from "./HistorialVersionesArchivo";
+import Loader from "../../general/Loader";
 import {
   FileText,
   User,
@@ -28,31 +29,10 @@ const DetalleArchivo = () => {
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
-    document.body.classList.remove("bloqueo-loader");
-  }, []);
-
-  useEffect(() => {
-    // Si se navegó desde la tabla, apaga el loader global
-    if (localStorage.getItem("loaderActivo") === "1") {
-      localStorage.removeItem("loaderActivo");
-      const overlay = document.querySelector("#loader-overlay");
-      if (overlay) overlay.remove();
-      document.body.classList.remove("bloqueo-loader");
-    }
-  }, []);
-
-  useEffect(() => {
-    // Reiniciar el loader global al cargar esta pantalla
-    const loaderActivo = document.querySelector(".bloqueo-loader");
-    if (loaderActivo) {
-      document.body.classList.remove("bloqueo-loader");
-      const overlay = document.querySelector("#loader-overlay");
-      if (overlay) overlay.remove();
-    }
-  }, []);
-
-  useEffect(() => {
     const obtenerArchivo = async () => {
+      setCargando(true);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+
       try {
         const res = await api.get(`/archivos/detalle/${id}`);
         setArchivo(res.data);
@@ -142,7 +122,9 @@ const DetalleArchivo = () => {
         </button>
 
         {cargando ? (
-          <p className="text-gray-400">Cargando detalles...</p>
+          <div className="flex justify-center items-center h-64">
+            <Loader />
+          </div>
         ) : archivo ? (
           <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
             {/* Encabezado */}
@@ -151,7 +133,7 @@ const DetalleArchivo = () => {
                 {obtenerIconoPorTipo(archivo.extension)}
               </div>
 
-              {/* ─── Nombre + badges ─── */}
+              {/* ─── Nombre badges ─── */}
               <h2 className="text-white text-lg font-semibold leading-tight flex items-center">
                 {archivo.nombreOriginal}
 

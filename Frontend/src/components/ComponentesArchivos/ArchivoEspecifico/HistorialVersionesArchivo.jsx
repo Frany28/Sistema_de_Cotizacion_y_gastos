@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import api from "../../../api";
 import Paginacion from "../../general/Paginacion";
 import BotonIcono from "../../general/BotonIcono";
-import Loader from "../../general/Loader";
 
 const TablaHistorialVersiones = ({ grupoId }) => {
   const [versiones, setVersiones] = useState([]);
@@ -11,16 +10,8 @@ const TablaHistorialVersiones = ({ grupoId }) => {
   const [pagina, setPagina] = useState(1);
   const [limite, setLimite] = useState(5);
   const [cargando, setCargando] = useState(true);
-  const [mostrarLoader, setMostrarLoader] = useState(false);
 
   const navigate = useNavigate();
-  useEffect(() => {
-    if (mostrarLoader) {
-      document.body.classList.add("bloqueo-loader");
-    } else {
-      document.body.classList.remove("bloqueo-loader");
-    }
-  }, [mostrarLoader]);
 
   useEffect(() => {
     const obtenerVersiones = async () => {
@@ -166,22 +157,14 @@ const TablaHistorialVersiones = ({ grupoId }) => {
                           <BotonIcono
                             tipo="ver"
                             titulo="Ver detalle"
-                            onClick={() => {
-                              localStorage.setItem("loaderActivo", "1");
-                              navigate(`/gestor-archivos/archivo/${v.id}`);
-                            }}
+                            onClick={() =>
+                              navigate(`/gestor-archivos/archivo/${v.id}`)
+                            }
                           />
-
                           <BotonIcono
                             tipo="descargar"
                             titulo="Descargar"
-                            onClick={() => {
-                              setMostrarLoader(true);
-                              setTimeout(() => {
-                                window.open(v.urlTemporal, "_blank");
-                                setMostrarLoader(false);
-                              }, 1000);
-                            }}
+                            onClick={() => window.open(v.urlTemporal, "_blank")}
                           />
                         </div>
                       </td>
@@ -205,15 +188,6 @@ const TablaHistorialVersiones = ({ grupoId }) => {
             onCambiarPagina={setPagina}
           />
         </>
-      )}
-
-      {mostrarLoader && (
-        <div
-          id="loader-overlay"
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center bloqueo-loader"
-        >
-          <Loader />
-        </div>
       )}
     </div>
   );
