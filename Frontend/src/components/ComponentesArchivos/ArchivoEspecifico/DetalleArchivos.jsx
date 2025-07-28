@@ -126,25 +126,26 @@ const DetalleArchivo = () => {
             <Loader />
           </div>
         ) : archivo ? (
-          <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
+          <div
+            className={`bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700 transition-opacity duration-300 ${
+              cargando ? "opacity-0" : "opacity-100"
+            }`}
+          >
             {/* Encabezado */}
             <div className="flex items-center gap-4 mb-6">
               <div className="p-3 bg-gray-700 rounded-lg">
                 {obtenerIconoPorTipo(archivo.extension)}
               </div>
 
-              {/* ─── Nombre badges ─── */}
+              {/* ─── Nombre + badges ─── */}
               <h2 className="text-white text-lg font-semibold leading-tight flex items-center">
                 {archivo.nombreOriginal}
 
-                {/* Estado “en papelera” */}
                 {archivo.estado !== "activo" && (
                   <span className="ml-2 px-2 py-0.5 text-xs rounded bg-yellow-600/30 text-yellow-300">
                     En papelera
                   </span>
                 )}
-
-                {/* Nº de versión */}
                 <span className="ml-2 px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300">
                   v{archivo.ultimaVersion}
                 </span>
@@ -153,7 +154,6 @@ const DetalleArchivo = () => {
 
             {/* Detalles */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 border-t border-gray-700 pt-4">
-              {/* Tipo */}
               <div className="flex items-start gap-3">
                 <FileText className="text-blue-400 mt-1" size={20} />
                 <div>
@@ -164,7 +164,6 @@ const DetalleArchivo = () => {
                 </div>
               </div>
 
-              {/* Tamaño */}
               <div className="flex items-start gap-3">
                 <Database className="text-blue-400 mt-1" size={20} />
                 <div>
@@ -175,7 +174,6 @@ const DetalleArchivo = () => {
                 </div>
               </div>
 
-              {/* Última Modificación */}
               <div className="flex items-start gap-3">
                 <Calendar className="text-blue-400 mt-1" size={20} />
                 <div>
@@ -186,7 +184,6 @@ const DetalleArchivo = () => {
                 </div>
               </div>
 
-              {/* Dueño */}
               <div className="flex items-start gap-3">
                 <User className="text-blue-400 mt-1" size={20} />
                 <div>
@@ -195,7 +192,6 @@ const DetalleArchivo = () => {
                 </div>
               </div>
 
-              {/* Ubicación */}
               <div className="flex items-start gap-3 col-span-full">
                 <File className="text-blue-400 mt-1" size={20} />
                 <div>
@@ -208,11 +204,13 @@ const DetalleArchivo = () => {
         ) : (
           <p className="text-red-400">No se pudo cargar el archivo.</p>
         )}
+
         <div className="mt-6 flex flex-wrap gap-10 justify-center">
           <CantidadVersionesArchivo />
           <CantidadVersionesMes />
           <AlmacenamientoTotalArchivo />
         </div>
+
         {archivo?.grupoArchivoId && (
           <div className="mt-10">
             <TablaHistorialVersiones grupoId={archivo.grupoArchivoId} />
