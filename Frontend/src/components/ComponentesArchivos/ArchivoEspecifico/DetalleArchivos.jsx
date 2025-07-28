@@ -167,8 +167,10 @@ const DetalleArchivo = () => {
               <div className="flex items-start gap-3">
                 <FileText className="text-blue-400 mt-1" size={20} />
                 <div>
-                  <p className="text-sm text-gray-400">Type</p>
-                  <p className="text-white">
+                  <p className="break-words text-sm sm:text-base text-gray-400">
+                    Type
+                  </p>
+                  <p className="text-white break-words text-sm sm:text-base">
                     {obtenerDescripcionTipoArchivo(archivo.extension)}
                   </p>
                 </div>
@@ -177,8 +179,10 @@ const DetalleArchivo = () => {
               <div className="flex items-start gap-3">
                 <Database className="text-blue-400 mt-1" size={20} />
                 <div>
-                  <p className="text-sm text-gray-400">Tamaño</p>
-                  <p className="text-white">
+                  <p className=" text-gray-400 break-words text-sm sm:text-base">
+                    Tamaño
+                  </p>
+                  <p className="text-white break-words text-sm sm:text-base">
                     {formatoTamano(archivo.tamanioBytes)}
                   </p>
                 </div>
@@ -187,8 +191,10 @@ const DetalleArchivo = () => {
               <div className="flex items-start gap-3">
                 <Calendar className="text-blue-400 mt-1" size={20} />
                 <div>
-                  <p className="text-sm text-gray-400">Última Modificación</p>
-                  <p className="text-white">
+                  <p className=" text-gray-400 break-words text-sm sm:text-base">
+                    Última Modificación
+                  </p>
+                  <p className="text-white break-words text-sm sm:text-base">
                     {formatoFecha(archivo.actualizadoEn)}
                   </p>
                 </div>
@@ -197,16 +203,24 @@ const DetalleArchivo = () => {
               <div className="flex items-start gap-3">
                 <User className="text-blue-400 mt-1" size={20} />
                 <div>
-                  <p className="text-sm text-gray-400">Dueño</p>
-                  <p className="text-white">{archivo.nombreUsuario}</p>
+                  <p className=" text-gray-400 break-words text-sm sm:text-base">
+                    Dueño
+                  </p>
+                  <p className="text-white break-words text-sm sm:text-base">
+                    {archivo.nombreUsuario}
+                  </p>
                 </div>
               </div>
 
               <div className="flex items-start gap-3 col-span-full">
                 <File className="text-blue-400 mt-1" size={20} />
                 <div>
-                  <p className="text-sm text-gray-400">Localización</p>
-                  <p className="text-white break-words">{archivo.rutaS3}</p>
+                  <p className=" text-gray-400 break-words text-sm sm:text-base">
+                    Localización
+                  </p>
+                  <p className="text-white break-words text-sm sm:text-base">
+                    {archivo.rutaS3}
+                  </p>
                 </div>
               </div>
             </div>
@@ -215,7 +229,7 @@ const DetalleArchivo = () => {
           <p className="text-red-400">No se pudo cargar el archivo.</p>
         )}
 
-        <div className="mt-6 flex flex-wrap gap-10 justify-center">
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:flex gap-6 justify-center">
           <CantidadVersionesArchivo />
           <CantidadVersionesMes />
           <AlmacenamientoTotalArchivo />
