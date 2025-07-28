@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import api from "../../../api";
 import Paginacion from "../../general/Paginacion";
 import BotonIcono from "../../general/BotonIcono";
-import Loader  from "../../general/Loader";
+import Loader from "../../general/Loader";
 
 const TablaHistorialVersiones = ({ grupoId }) => {
   const [versiones, setVersiones] = useState([]);
@@ -193,7 +193,7 @@ const TablaHistorialVersiones = ({ grupoId }) => {
               </tbody>
             </table>
           </div>
-  
+
           <Paginacion
             paginaActual={pagina}
             totalPaginas={totalPaginas}
@@ -201,15 +201,14 @@ const TablaHistorialVersiones = ({ grupoId }) => {
           />
         </>
       )}
+
+      {mostrarLoader && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center">
+          <Loader />
+        </div>
+      )}
     </div>
   );
-  {
-    mostrarLoader && (
-      <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center">
-        <Loader />
-      </div>
-    );
-  }
 };
 
 export default TablaHistorialVersiones;
