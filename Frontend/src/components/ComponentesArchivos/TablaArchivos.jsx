@@ -359,8 +359,9 @@ function TablaArchivos() {
       </div>
 
       {/* Tabla */}
-      <div className="overflow-x-auto max-h-[calc(100vh-200px)]">
-        <table className="min-w-full text-left border-collapse text-sm">
+      {/* Tabla */}
+      <div className="overflow-auto max-h-[calc(100vh-200px)]">
+        <table className="min-w-[600px] w-full text-left border-collapse text-sm table-fixed">
           <thead className="sticky top-0 bg-gray-700 backdrop-blur-sm z-10 border-b border-gray-600">
             <tr className="text-gray-300 font-medium">
               <th className="py-3.5 pl-6 text-base font-semibold text-gray-200">
