@@ -99,8 +99,12 @@ function TablaArchivos() {
     }
   };
 
-  const alternarNodo = (ruta) =>
-    setNodosExpandidos((prev) => ({ ...prev, [ruta]: !prev[ruta] }));
+  const alternarNodo = (ruta) => {
+    setNodosExpandidos((prev) => ({
+      ...prev,
+      [ruta]: !prev[ruta],
+    }));
+  };
 
   const coincideBusqueda = (cadena) =>
     cadena.toLowerCase().includes(terminoBusqueda.trim().toLowerCase());
@@ -208,7 +212,8 @@ function TablaArchivos() {
           return [];
         }
 
-        const abierta = !!nodosExpandidos[nodo.ruta] || terminoBusqueda;
+        const rutaUnica = `${nivel}-${nodo.ruta || nodo.nombre}`;
+        const abierta = !!nodosExpandidos[nodo.ruta];
 
         // Calcular tamaño y fecha para la carpeta
         const tamanoCarpeta = calcularTamanoCarpeta(nodo);
