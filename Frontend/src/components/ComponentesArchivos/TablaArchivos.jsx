@@ -233,14 +233,14 @@ function TablaArchivos() {
                 />
               )}
               <Folder size={18} className="text-blue-400 flex-shrink-0" />
-              <span className="truncate max-w-[24rem]">
+              <span className="truncate max-w-[12rem] sm:max-w-[24rem]">
                 {nodo.nombre.replace(/_/g, " ")}
               </span>
             </td>
-            <td className="text-sm text-gray-300 whitespace-nowrap group-hover:text-gray-100">
+            <td className="text-sm text-gray-300 whitespace-nowrap group-hover:text-gray-100 hidden sm:table-cell">
               {ultimaModificacion ? formatoFecha(ultimaModificacion) : "-"}
             </td>
-            <td className="text-sm text-gray-300 pr-6 text-right group-hover:text-gray-100">
+            <td className="text-sm text-gray-300 pr-6 text-right group-hover:text-gray-100 hidden sm:table-cell">
               {formatoTamano(tamanoCarpeta)}
             </td>
           </tr>
@@ -263,12 +263,14 @@ function TablaArchivos() {
             style={{ paddingLeft: sangriaPx }}
           >
             {iconoPorExtension(nodo.extension)}
-            <span className="truncate max-w-[24rem]">{nodo.nombre}</span>
+            <span className="truncate max-w-[12rem] sm:max-w-[24rem]">
+              {nodo.nombre}
+            </span>
           </td>
-          <td className="text-sm text-gray-300 whitespace-nowrap group-hover:text-gray-100">
+          <td className="text-sm text-gray-300 whitespace-nowrap group-hover:text-gray-100 hidden sm:table-cell">
             {formatoFecha(nodo.creadoEn)}
           </td>
-          <td className="text-sm text-gray-300 pr-6 text-right group-hover:text-gray-100">
+          <td className="text-sm text-gray-300 pr-6 text-right group-hover:text-gray-100 hidden sm:table-cell">
             {formatoTamano(nodo.tamanioBytes)}
           </td>
         </tr>,
@@ -313,7 +315,7 @@ function TablaArchivos() {
   return (
     <div className="w-full bg-gray-800 rounded-xl shadow-xl overflow-hidden border border-gray-700">
       {/* Barra de herramientas */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-5 pb-3 bg-gray-800 border-b border-gray-700">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 sm:p-5 sm:pb-3 bg-gray-800 border-b border-gray-700">
         <input
           type="text"
           placeholder="Buscar archivos o carpetas..."
@@ -321,10 +323,10 @@ function TablaArchivos() {
           onChange={(e) => setTerminoBusqueda(e.target.value)}
           className="w-full sm:w-80 bg-gray-700 border border-gray-600 rounded-lg px-4 py-2.5 text-sm text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 shadow-inner"
         />
-        <div className="flex gap-2 text-sm text-gray-300">
+        <div className="flex gap-2 text-sm text-gray-300 overflow-x-auto pb-2 sm:pb-0">
           <button
             onClick={() => setOrden({ campo: "nombre", asc: !orden.asc })}
-            className={`px-3 py-2 rounded-lg transition-colors duration-200 flex items-center gap-1 ${
+            className={`px-3 py-2 rounded-lg transition-colors duration-200 flex items-center gap-1 flex-shrink-0 ${
               orden.campo === "nombre"
                 ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
                 : "hover:bg-gray-700/50 border border-gray-600"
@@ -335,7 +337,7 @@ function TablaArchivos() {
           </button>
           <button
             onClick={() => setOrden({ campo: "creadoEn", asc: !orden.asc })}
-            className={`px-3 py-2 rounded-lg transition-colors duration-200 flex items-center gap-1 ${
+            className={`px-3 py-2 rounded-lg transition-colors duration-200 flex items-center gap-1 flex-shrink-0 ${
               orden.campo === "creadoEn"
                 ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
                 : "hover:bg-gray-700/50 border border-gray-600"
@@ -346,7 +348,7 @@ function TablaArchivos() {
           </button>
           <button
             onClick={() => setOrden({ campo: "tamanioBytes", asc: !orden.asc })}
-            className={`px-3 py-2 rounded-lg transition-colors duration-200 flex items-center gap-1 ${
+            className={`px-3 py-2 rounded-lg transition-colors duration-200 flex items-center gap-1 flex-shrink-0 ${
               orden.campo === "tamanioBytes"
                 ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
                 : "hover:bg-gray-700/50 border border-gray-600"
@@ -359,18 +361,17 @@ function TablaArchivos() {
       </div>
 
       {/* Tabla */}
-      {/* Tabla */}
       <div className="overflow-auto max-h-[calc(100vh-200px)]">
-        <table className="min-w-[600px] w-full text-left border-collapse text-sm table-fixed">
+        <table className="min-w-full w-full text-left border-collapse text-sm table-fixed">
           <thead className="sticky top-0 bg-gray-700 backdrop-blur-sm z-10 border-b border-gray-600">
             <tr className="text-gray-300 font-medium">
-              <th className="py-3.5 pl-6 text-base font-semibold text-gray-200">
+              <th className="py-3 pl-4 sm:pl-6 text-base font-semibold text-gray-200">
                 Nombre
               </th>
-              <th className="py-3.5 w-56 text-base font-semibold text-gray-200">
+              <th className="py-3 w-56 text-base font-semibold text-gray-200 hidden sm:table-cell">
                 Última modificación
               </th>
-              <th className="py-3.5 w-32 pr-6 text-right text-base font-semibold text-gray-200">
+              <th className="py-3 w-32 pr-4 sm:pr-6 text-right text-base font-semibold text-gray-200 hidden sm:table-cell">
                 Tamaño
               </th>
             </tr>
@@ -380,7 +381,10 @@ function TablaArchivos() {
               filas
             ) : (
               <tr>
-                <td colSpan={3} className="py-12 text-center text-gray-400">
+                <td
+                  colSpan={3}
+                  className="py-12 text-center text-gray-400 px-4"
+                >
                   {terminoBusqueda
                     ? "No se encontraron resultados para tu búsqueda"
                     : "No hay archivos que mostrar"}
