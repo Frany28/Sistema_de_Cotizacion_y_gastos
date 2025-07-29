@@ -217,8 +217,8 @@ function TablaArchivos() {
         const filaCarpeta = (
           <tr
             key={nodo.ruta}
-            className="cursor-pointer hover:bg-gray-700/50 transition-colors duration-200 select-none group"
-            onClick={() => alternarNodo(nodo.ruta)}
+            className="bg-gray-800 rounded-lg p-4 shadow mb-2"
+            onClick={() => navegar(`/gestor-archivos/archivo/${nodo.id}`)}
           >
             <td
               className="py-3 flex items-center gap-2 font-medium text-gray-50 group-hover:text-white"
@@ -253,25 +253,28 @@ function TablaArchivos() {
 
       // Archivo
       return [
-        <tr
+        <div
           key={nodo.ruta}
-          className="hover:bg-gray-700/40 transition-colors duration-200 cursor-pointer group"
+          className="bg-gray-800 rounded-xl shadow hover:bg-gray-700/60 transition cursor-pointer p-3 space-y-2"
           onClick={() => navegar(`/gestor-archivos/archivo/${nodo.id}`)}
         >
-          <td
-            className="py-3 flex items-center gap-2 text-gray-100 group-hover:text-white"
-            style={{ paddingLeft: sangriaPx }}
-          >
+          <div className="flex items-center gap-2">
             {iconoPorExtension(nodo.extension)}
-            <span className="truncate max-w-[24rem]">{nodo.nombre}</span>
-          </td>
-          <td className="text-sm text-gray-300 whitespace-nowrap group-hover:text-gray-100">
-            {formatoFecha(nodo.creadoEn)}
-          </td>
-          <td className="text-sm text-gray-300 pr-6 text-right group-hover:text-gray-100">
-            {formatoTamano(nodo.tamanioBytes)}
-          </td>
-        </tr>,
+            <span className="text-gray-100 font-medium truncate">
+              {nodo.nombre}
+            </span>
+          </div>
+          <div className="flex justify-between text-xs text-gray-400 pl-7">
+            <div>
+              <span className="font-medium">Modificado: </span>
+              {formatoFecha(nodo.creadoEn)}
+            </div>
+            <div>
+              <span className="font-medium">Tamaño: </span>
+              {formatoTamano(nodo.tamanioBytes)}
+            </div>
+          </div>
+        </div>,
       ];
     },
     [
@@ -333,7 +336,7 @@ function TablaArchivos() {
         const filaCarpeta = (
           <div
             key={nodo.ruta}
-            className="bg-gray-800 rounded-lg p-4 shadow mb-2"
+            className="bg-gray-800 rounded-xl shadow hover:bg-gray-700/60 transition cursor-pointer p-3 space-y-2"
             onClick={() => alternarNodo(nodo.ruta)}
           >
             <div className="flex items-center gap-2">
@@ -343,26 +346,29 @@ function TablaArchivos() {
                 <ChevronRight size={16} className="text-gray-400" />
               )}
               <Folder size={18} className="text-blue-400" />
-              <span className="font-medium text-gray-50">
+              <span className="font-medium text-gray-50 truncate">
                 {nodo.nombre.replace(/_/g, " ")}
               </span>
             </div>
 
             {abierta && (
-              <div className="mt-2 pl-8 space-y-2">
-                <div className="text-sm text-gray-400">
-                  <span className="font-medium">Última modificación: </span>
-                  {ultimaModificacion ? formatoFecha(ultimaModificacion) : "-"}
+              <>
+                <div className="flex justify-between text-xs text-gray-400 pl-7">
+                  <div>
+                    <span className="font-medium">Modificado: </span>
+                    {ultimaModificacion
+                      ? formatoFecha(ultimaModificacion)
+                      : "-"}
+                  </div>
+                  <div>
+                    <span className="font-medium">Tamaño: </span>
+                    {formatoTamano(tamanoCarpeta)}
+                  </div>
                 </div>
-                <div className="text-sm text-gray-400">
-                  <span className="font-medium">Tamaño: </span>
-                  {formatoTamano(tamanoCarpeta)}
-                </div>
-              </div>
-            )}
-
-            {abierta && hijosFiltrados.length > 0 && (
-              <div className="mt-2 pl-4 space-y-2">{hijosFiltrados}</div>
+                {hijosFiltrados.length > 0 && (
+                  <div className="mt-2 pl-4 space-y-2">{hijosFiltrados}</div>
+                )}
+              </>
             )}
           </div>
         );
