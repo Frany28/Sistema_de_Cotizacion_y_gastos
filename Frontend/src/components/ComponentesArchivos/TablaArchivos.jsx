@@ -99,12 +99,8 @@ function TablaArchivos() {
     }
   };
 
-  const alternarNodo = (ruta) => {
-    setNodosExpandidos((prev) => ({
-      ...prev,
-      [ruta]: !prev[ruta],
-    }));
-  };
+  const alternarNodo = (ruta) =>
+    setNodosExpandidos((prev) => ({ ...prev, [ruta]: !prev[ruta] }));
 
   const coincideBusqueda = (cadena) =>
     cadena.toLowerCase().includes(terminoBusqueda.trim().toLowerCase());
@@ -212,8 +208,7 @@ function TablaArchivos() {
           return [];
         }
 
-        const rutaUnica = `${nivel}-${nodo.ruta || nodo.nombre}`;
-        const abierta = !!nodosExpandidos[nodo.ruta];
+        const abierta = !!nodosExpandidos[nodo.ruta] || terminoBusqueda;
 
         // Calcular tamaño y fecha para la carpeta
         const tamanoCarpeta = calcularTamanoCarpeta(nodo);
@@ -222,8 +217,8 @@ function TablaArchivos() {
         const filaCarpeta = (
           <tr
             key={nodo.ruta}
-            className="bg-gray-800 rounded-lg p-4 shadow mb-2"
-            onClick={() => navegar(`/gestor-archivos/archivo/${nodo.id}`)}
+            className="cursor-pointer hover:bg-gray-700/50 transition-colors duration-200 select-none group"
+            onClick={() => alternarNodo(nodo.ruta)}
           >
             <td
               className="py-3 flex items-center gap-2 font-medium text-gray-50 group-hover:text-white"
@@ -258,28 +253,25 @@ function TablaArchivos() {
 
       // Archivo
       return [
-        <div
+        <tr
           key={nodo.ruta}
-          className="bg-gray-800 rounded-xl shadow hover:bg-gray-700/60 transition cursor-pointer p-3 space-y-2"
+          className="hover:bg-gray-700/40 transition-colors duration-200 cursor-pointer group"
           onClick={() => navegar(`/gestor-archivos/archivo/${nodo.id}`)}
         >
-          <div className="flex items-center gap-2">
+          <td
+            className="py-3 flex items-center gap-2 text-gray-100 group-hover:text-white"
+            style={{ paddingLeft: sangriaPx }}
+          >
             {iconoPorExtension(nodo.extension)}
-            <span className="text-gray-100 font-medium truncate">
-              {nodo.nombre}
-            </span>
-          </div>
-          <div className="flex justify-between text-xs text-gray-400 pl-7">
-            <div>
-              <span className="font-medium">Modificado: </span>
-              {formatoFecha(nodo.creadoEn)}
-            </div>
-            <div>
-              <span className="font-medium">Tamaño: </span>
-              {formatoTamano(nodo.tamanioBytes)}
-            </div>
-          </div>
-        </div>,
+            <span className="truncate max-w-[24rem]">{nodo.nombre}</span>
+          </td>
+          <td className="text-sm text-gray-300 whitespace-nowrap group-hover:text-gray-100">
+            {formatoFecha(nodo.creadoEn)}
+          </td>
+          <td className="text-sm text-gray-300 pr-6 text-right group-hover:text-gray-100">
+            {formatoTamano(nodo.tamanioBytes)}
+          </td>
+        </tr>,
       ];
     },
     [
@@ -304,126 +296,6 @@ function TablaArchivos() {
     orden,
     ordenar,
     renderizarNodo,
-  ]);
-
-  /* ----------------------------------------------------------------------- */
-  /* Render para móviles                                                     */
-  /* ----------------------------------------------------------------------- */
-  const renderizarNodoMovil = useCallback(
-    (nodo, nivel = 0) => {
-      // Filtrado por búsqueda
-      const tieneCoincidencia = coincideBusqueda(nodo.nombre);
-
-      if (terminoBusqueda && nodo.tipo === "archivo" && !tieneCoincidencia) {
-        return [];
-      }
-
-      const sangriaPx = 16 + nivel * 24;
-
-      if (nodo.tipo === "carpeta") {
-        // Renderizar hijos primero para determinar si hay coincidencias
-        const hijosFiltrados = (
-          Array.isArray(nodo.hijos) ? nodo.hijos : []
-        ).flatMap((h) => renderizarNodoMovil(h, nivel + 1));
-
-        const tieneHijosCoincidentes = hijosFiltrados.length > 0;
-
-        if (terminoBusqueda && !tieneCoincidencia && !tieneHijosCoincidentes) {
-          return [];
-        }
-
-        const abierta = !!nodosExpandidos[nodo.ruta] || terminoBusqueda;
-
-        // Calcular tamaño y fecha para la carpeta
-        const tamanoCarpeta = calcularTamanoCarpeta(nodo);
-        const ultimaModificacion = obtenerUltimaModificacion(nodo);
-
-        const filaCarpeta = (
-          <div
-            key={nodo.ruta}
-            className="bg-gray-800 rounded-xl shadow hover:bg-gray-700/60 transition cursor-pointer p-3 space-y-2"
-            onClick={() => alternarNodo(nodo.ruta)}
-          >
-            <div className="flex items-center gap-2">
-              {abierta ? (
-                <ChevronDown size={16} className="text-blue-400" />
-              ) : (
-                <ChevronRight size={16} className="text-gray-400" />
-              )}
-              <Folder size={18} className="text-blue-400" />
-              <span className="font-medium text-gray-50 truncate">
-                {nodo.nombre.replace(/_/g, " ")}
-              </span>
-            </div>
-
-            {abierta && (
-              <>
-                <div className="flex justify-between text-xs text-gray-400 pl-7">
-                  <div>
-                    <span className="font-medium">Modificado: </span>
-                    {ultimaModificacion
-                      ? formatoFecha(ultimaModificacion)
-                      : "-"}
-                  </div>
-                  <div>
-                    <span className="font-medium">Tamaño: </span>
-                    {formatoTamano(tamanoCarpeta)}
-                  </div>
-                </div>
-                {hijosFiltrados.length > 0 && (
-                  <div className="mt-2 pl-4 space-y-2">{hijosFiltrados}</div>
-                )}
-              </>
-            )}
-          </div>
-        );
-
-        return [filaCarpeta];
-      }
-
-      // Archivo
-      return [
-        <div
-          key={nodo.ruta}
-          className="bg-gray-800 rounded-lg p-4 shadow mb-2"
-          onClick={() => navegar(`/gestor-archivos/archivo/${nodo.id}`)}
-        >
-          <div className="flex items-center gap-2">
-            {iconoPorExtension(nodo.extension)}
-            <span className="text-gray-100">{nodo.nombre}</span>
-          </div>
-          <div className="mt-2 pl-8 space-y-1">
-            <div className="text-sm text-gray-400">
-              <span className="font-medium">Modificado: </span>
-              {formatoFecha(nodo.creadoEn)}
-            </div>
-            <div className="text-sm text-gray-400">
-              <span className="font-medium">Tamaño: </span>
-              {formatoTamano(nodo.tamanioBytes)}
-            </div>
-          </div>
-        </div>,
-      ];
-    },
-    [
-      terminoBusqueda,
-      nodosExpandidos,
-      calcularTamanoCarpeta,
-      obtenerUltimaModificacion,
-    ]
-  );
-
-  const filasMoviles = useMemo(() => {
-    return Array.isArray(arbolArchivos)
-      ? arbolArchivos.sort(ordenar).flatMap((n) => renderizarNodoMovil(n))
-      : [];
-  }, [
-    arbolArchivos,
-    nodosExpandidos,
-    terminoBusqueda,
-    orden,
-    ordenar,
-    renderizarNodoMovil,
   ]);
 
   /* ----------------------------------------------------------------------- */
@@ -486,51 +358,36 @@ function TablaArchivos() {
         </div>
       </div>
 
-      {/* Vista de tabla para pantallas grandes */}
-      <div className="hidden md:block">
-        <div className="overflow-x-auto max-h-[calc(100vh-200px)]">
-          <table className="min-w-full text-left border-collapse text-sm">
-            <thead className="sticky top-0 bg-gray-700 backdrop-blur-sm z-10 border-b border-gray-600">
-              <tr className="text-gray-300 font-medium">
-                <th className="py-3.5 pl-6 text-base font-semibold text-gray-200">
-                  Nombre
-                </th>
-                <th className="py-3.5 w-56 text-base font-semibold text-gray-200">
-                  Última modificación
-                </th>
-                <th className="py-3.5 w-32 pr-6 text-right text-base font-semibold text-gray-200">
-                  Tamaño
-                </th>
+      {/* Tabla */}
+      <div className="overflow-x-auto max-h-[calc(100vh-200px)]">
+        <table className="min-w-full text-left border-collapse text-sm">
+          <thead className="sticky top-0 bg-gray-700 backdrop-blur-sm z-10 border-b border-gray-600">
+            <tr className="text-gray-300 font-medium">
+              <th className="py-3.5 pl-6 text-base font-semibold text-gray-200">
+                Nombre
+              </th>
+              <th className="py-3.5 w-56 text-base font-semibold text-gray-200">
+                Última modificación
+              </th>
+              <th className="py-3.5 w-32 pr-6 text-right text-base font-semibold text-gray-200">
+                Tamaño
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-700/50">
+            {filas.length ? (
+              filas
+            ) : (
+              <tr>
+                <td colSpan={3} className="py-12 text-center text-gray-400">
+                  {terminoBusqueda
+                    ? "No se encontraron resultados para tu búsqueda"
+                    : "No hay archivos que mostrar"}
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-700/50">
-              {filas.length ? (
-                filas
-              ) : (
-                <tr>
-                  <td colSpan={3} className="py-12 text-center text-gray-400">
-                    {terminoBusqueda
-                      ? "No se encontraron resultados para tu búsqueda"
-                      : "No hay archivos que mostrar"}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Vista de tarjetas para móviles */}
-      <div className="md:hidden p-4 space-y-3">
-        {filasMoviles.length ? (
-          filasMoviles
-        ) : (
-          <div className="py-12 text-center text-gray-400">
-            {terminoBusqueda
-              ? "No se encontraron resultados para tu búsqueda"
-              : "No hay archivos que mostrar"}
-          </div>
-        )}
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );
