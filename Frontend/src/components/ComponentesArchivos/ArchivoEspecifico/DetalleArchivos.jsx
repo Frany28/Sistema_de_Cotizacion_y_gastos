@@ -20,7 +20,7 @@ import {
   BookOpen,
   FileSpreadsheet,
 } from "lucide-react";
-
+ 
 const DetalleArchivo = () => {
   const { id } = useParams();
   const navigate = useNavigate();
