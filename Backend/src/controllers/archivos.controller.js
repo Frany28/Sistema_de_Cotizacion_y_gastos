@@ -334,10 +334,12 @@ export const restaurarArchivo = async (req, res) => {
     if (!archivo)
       return res.status(404).json({ mensaje: "Archivo no encontrado." });
 
-    if (archivo.estado !== "eliminado")
-      return res
-        .status(400)
-        .json({ mensaje: "El archivo ya está activo o reemplazado." });
+    // 1. Validar que sea una versión reemplazada
+    if (archivo.estado !== "reemplazado") {
+      return res.status(400).json({
+        mensaje: "Solo puedes restaurar archivos con estado 'reemplazado'.",
+      });
+    }
 
     // 2. Verificar si el registro asociado aún existe
     const [[registroExiste]] = await conexion.query(
