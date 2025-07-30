@@ -1,5 +1,9 @@
 // src/pages/Drive/ListaArchivosPapelera.jsx
 import { useEffect, useState, useMemo } from "react";
+import ModalConfirmacion from "../../components/Modals/ModalConfirmacion";
+import ModalExito from "../../components/Modals/ModalExito";
+import ModalError from "../../components/Modals/ModalError";
+
 import {
   FileText,
   FileArchive,
@@ -24,9 +28,47 @@ function ListaArchivosPapelera() {
   const [busqueda, setBusqueda] = useState("");
   const [filtroTipo, setFiltroTipo] = useState("todos");
   const [criterioOrden, setCriterioOrden] = useState("fechaDesc");
+  const [archivoSeleccionado, setArchivoSeleccionado] = useState(null);
+  const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false);
+  const [mostrarExito, setMostrarExito] = useState(false);
+  const [mensajeExito, setMensajeExito] = useState("");
+  const [mostrarError, setMostrarError] = useState(false);
+  const [mensajeError, setMensajeError] = useState("");
 
   /*─────────────────── Hooks ───────────────────*/
   const navigate = useNavigate();
+
+  const confirmarRestauracion = (archivo) => {
+    setArchivoSeleccionado(archivo);
+    setMostrarConfirmacion(true);
+  };
+
+  const ejecutarRestauracion = async () => {
+    try {
+      const { data } = await api.post(
+        `/archivos/${archivoSeleccionado.id}/restaurar`,
+        {},
+        { withCredentials: true }
+      );
+      setMensajeExito(data.mensaje || "Archivo restaurado correctamente.");
+      setMostrarExito(true);
+
+      // Quitar archivo restaurado de la lista
+      setArchivos((prev) =>
+        prev.filter((a) => a.id !== archivoSeleccionado.id)
+      );
+    } catch (error) {
+      console.error("Error al restaurar:", error);
+      setMensajeError(
+        error?.response?.data?.mensaje ||
+          "No se pudo restaurar el archivo. Intenta más tarde."
+      );
+      setMostrarError(true);
+    } finally {
+      setMostrarConfirmacion(false);
+      setArchivoSeleccionado(null);
+    }
+  };
 
   /*─────────────────── Cargar archivos ───────────────────*/
   useEffect(() => {
@@ -309,7 +351,7 @@ function ListaArchivosPapelera() {
                     className="flex-1 rounded-lg bg-gradient-to-r from-gray-600 via-gray-650 to-gray-700 hover:brightness-110 active:scale-95 text-sm font-semibold py-2 shadow-sm hover:shadow-md transition-all"
                     onClick={(e) => {
                       e.stopPropagation();
-                      console.log("Restaurar", archivo.id);
+                      confirmarRestauracion(archivo);
                     }}
                   >
                     Restaurar
@@ -337,8 +379,27 @@ function ListaArchivosPapelera() {
           </motion.div>
         )}
       </section>{" "}
+      <ModalConfirmacion
+        visible={mostrarConfirmacion}
+        onClose={() => setMostrarConfirmacion(false)}
+        onConfirmar={ejecutarRestauracion}
+        titulo="¿Restaurar archivo?"
+        mensaje={`¿Estás seguro de restaurar "${archivoSeleccionado?.nombreOriginal}"?`}
+        textoConfirmar="Sí, restaurar"
+      />
+      <ModalExito
+        visible={mostrarExito}
+        onClose={() => setMostrarExito(false)}
+        mensaje={mensajeExito}
+      />
+      <ModalError
+        visible={mostrarError}
+        onClose={() => setMostrarError(false)}
+        mensaje={mensajeError}
+      />
     </>
   );
+  
 }
 
 export default ListaArchivosPapelera;
