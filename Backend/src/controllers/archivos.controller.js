@@ -329,21 +329,19 @@ export const restaurarArchivo = async (req, res) => {
       WHERE id = ? AND estado = 'reemplazado'`,
     [archivoId]
   );
-  if (!archivo) {
+  if (!archivo)
     return res.status(404).json({
       mensaje: "Archivo no encontrado o su estado no es 'reemplazado'.",
     });
-  }
 
   /* 2️⃣  Permisos */
   if (
     ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
     archivo.subidoPor !== usuarioId
-  ) {
+  )
     return res
       .status(403)
       .json({ mensaje: "No posees permiso para restaurar este archivo." });
-  }
 
   /* 3️⃣  Resolver tabla real según registroTipo */
   const tablasPorTipo = {
@@ -356,22 +354,20 @@ export const restaurarArchivo = async (req, res) => {
     solicitudPago: "solicitudes_pago",
   };
   const tablaDestino = tablasPorTipo[archivo.registroTipo];
-  if (!tablaDestino) {
+  if (!tablaDestino)
     return res
       .status(400)
       .json({ mensaje: `registroTipo inválido: ${archivo.registroTipo}` });
-  }
 
   /* 3.1  Verificar que el registro asociado exista */
   const [[registroVivo]] = await db.query(
     `SELECT 1 FROM \`${tablaDestino}\` WHERE id = ? LIMIT 1`,
     [archivo.registroId]
   );
-  if (!registroVivo) {
+  if (!registroVivo)
     return res
       .status(410)
       .json({ mensaje: "El registro asociado ya no existe." });
-  }
 
   /* 4️⃣  Iniciar transacción */
   const cx = await db.getConnection();
@@ -387,32 +383,26 @@ export const restaurarArchivo = async (req, res) => {
     );
 
     if (activoActual) {
-      const nuevaRutaPapelera = `papelera/${activoActual.rutaS3}`;
+      const rutaPapelera = `papelera/${activoActual.rutaS3}`;
 
-      // mover a papelera en S3
       await moverObjetoEnS3({
         origen: activoActual.rutaS3,
-        destino: nuevaRutaPapelera,
+        destino: rutaPapelera,
       });
 
-      // marcar como reemplazado y refrescar actualizadoEn
       await cx.query(
         `UPDATE archivos
             SET estado = 'reemplazado',
                 rutaS3  = ?,
                 actualizadoEn = NOW()
           WHERE id = ?`,
-        [nuevaRutaPapelera, activoActual.id]
+        [rutaPapelera, activoActual.id]
       );
     }
 
     /* 4.2  Restaurar objeto desde papelera a su ruta original */
     const rutaDestino = archivo.rutaS3.replace(/^papelera\//, "");
-
-    await moverObjetoEnS3({
-      origen: archivo.rutaS3,
-      destino: rutaDestino,
-    });
+    await moverObjetoEnS3({ origen: archivo.rutaS3, destino: rutaDestino });
 
     /* 4.3  Calcular siguiente versión */
     const [[{ maxVersion }]] = await cx.query(
@@ -423,13 +413,13 @@ export const restaurarArchivo = async (req, res) => {
     );
     const siguienteVersion = maxVersion + 1;
 
-    /* 4.4  Insertar nueva versión activa */
+    /* 4.4  Insertar nueva versión activa (sin columnas inexistentes) */
     const [resultado] = await cx.query(
       `INSERT INTO archivos (
          grupoArchivoId, numeroVersion, registroTipo, registroId,
          nombreOriginal, extension, tamanioBytes, rutaS3,
-         subidoPor, subidoEn, actualizadoEn, estado
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), 'activo')`,
+         subidoPor, estado
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'activo')`,
       [
         archivo.grupoArchivoId,
         siguienteVersion,
