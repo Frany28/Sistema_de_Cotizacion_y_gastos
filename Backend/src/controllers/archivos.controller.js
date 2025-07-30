@@ -568,7 +568,7 @@ export const restaurarVersion = async (req, res) => {
       return res.status(404).json({ message: "Versión no encontrada." });
     }
 
-    // 2. Validar permisos: solo quien subió o supervisores pueden restaurar
+    // 2. Validar permisos
     if (
       ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
       version.subidoPor !== usuarioId
@@ -578,7 +578,7 @@ export const restaurarVersion = async (req, res) => {
         .json({ message: "No tienes permiso para restaurar esta versión." });
     }
 
-    // 3. Validar cuota de almacenamiento
+    // 3. Validar cuota
     const [[usuario]] = await conexion.query(
       "SELECT cuotaMb, usoStorageBytes FROM usuarios WHERE id = ?",
       [usuarioId]
@@ -594,22 +594,64 @@ export const restaurarVersion = async (req, res) => {
 
     await conexion.beginTransaction();
 
-    // 4. Marcar como reemplazada la versión activa actual del grupo
-    await conexion.query(
-      `UPDATE archivos
-          SET estado = 'reemplazado', actualizadoEn = NOW()
+    // 4. Buscar versión activa actual del grupo
+    const [[activoActual]] = await conexion.query(
+      `SELECT id, rutaS3 FROM archivos
         WHERE grupoArchivoId = ? AND estado = 'activo'`,
       [version.grupoArchivoId]
     );
 
-    // 5. Obtener siguiente numeroVersion en el grupo
+    if (activoActual) {
+      // Mover activo a papelera en S3
+      const nuevaRutaPapelera = `papelera/${activoActual.rutaS3}`;
+      await moverObjetoEnS3({
+        origen: activoActual.rutaS3,
+        destino: nuevaRutaPapelera,
+      });
+
+      // Actualizar archivo activo
+      await conexion.query(
+        `UPDATE archivos
+           SET estado = 'reemplazado',
+               rutaS3 = ?,
+               fechaReemplazo = NOW(),
+               actualizadoEn = NOW()
+         WHERE id = ?`,
+        [nuevaRutaPapelera, activoActual.id]
+      );
+
+      // Evento
+      await conexion.query(
+        `INSERT INTO eventosArchivo
+           (archivoId, accion, usuarioId, detalles, ip, userAgent)
+         VALUES (?, 'versionReemplazada', ?, ?, ?, ?)`,
+        [
+          activoActual.id,
+          usuarioId,
+          JSON.stringify({ nuevaRuta: nuevaRutaPapelera }),
+          req.ip,
+          req.get("User-Agent"),
+        ]
+      );
+    }
+
+    // 5. Clonar archivo en S3 con nueva clave (ruta única)
+    const nuevaRuta = `restaurados/${Date.now()}_${version.keyS3
+      .split("/")
+      .pop()}`;
+    await moverObjetoEnS3({
+      origen: version.keyS3,
+      destino: nuevaRuta,
+    });
+
+    // 6. Obtener nuevo número de versión
     const [[{ maxVersion }]] = await conexion.query(
       `SELECT MAX(numeroVersion) AS maxVersion FROM archivos WHERE grupoArchivoId = ?`,
       [version.grupoArchivoId]
     );
     const siguienteVersion = maxVersion + 1;
 
-    // 6. Insertar nueva versión activa basada en la restaurada
+    // 7. Insertar nueva versión activa
     const [resultado] = await conexion.query(
       `INSERT INTO archivos (
          grupoArchivoId, numeroVersion, registroTipo, registroId,
@@ -624,19 +666,19 @@ export const restaurarVersion = async (req, res) => {
         version.nombreOriginal,
         version.extension,
         version.tamanioBytes,
-        version.keyS3,
+        nuevaRuta,
         usuarioId,
       ]
     );
     const nuevoArchivoId = resultado.insertId;
 
-    // 7. Actualizar almacenamiento del usuario
+    // 8. Actualizar almacenamiento
     await conexion.query(
       `UPDATE usuarios SET usoStorageBytes = ? WHERE id = ?`,
       [nuevoUso, usuarioId]
     );
 
-    // 8. Registrar evento de restauración
+    // 9. Registrar evento
     await conexion.query(
       `INSERT INTO eventosArchivo
          (archivoId, versionId, accion, usuarioId, ip, userAgent, detalles)
@@ -651,6 +693,7 @@ export const restaurarVersion = async (req, res) => {
           grupoArchivoId: version.grupoArchivoId,
           restauradoDesde: version.numeroVersion,
           nuevaVersion: siguienteVersion,
+          nuevaRuta,
         }),
       ]
     );
