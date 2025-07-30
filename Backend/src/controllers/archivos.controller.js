@@ -325,9 +325,9 @@ export const restaurarArchivo = async (req, res) => {
   try {
     await conexion.beginTransaction();
 
-    /* 1. Obtener el archivo a restaurar (bloqueo FOR UPDATE) */
+    // 1. Buscar archivo a restaurar
     const [[archivo]] = await conexion.query(
-      `SELECT * FROM archivos WHERE id = ? FOR UPDATE`,
+      `SELECT * FROM archivos WHERE id = ?`,
       [archivoId]
     );
 
@@ -339,37 +339,34 @@ export const restaurarArchivo = async (req, res) => {
         .status(400)
         .json({ mensaje: "El archivo ya está activo o reemplazado." });
 
-    /* 2. Comprobar que el gasto asociado aún existe */
-    const [[gastoExiste]] = await conexion.query(
-      `SELECT 1 FROM gastos WHERE id = ? LIMIT 1`,
+    // 2. Verificar si el registro asociado aún existe
+    const [[registroExiste]] = await conexion.query(
+      `SELECT 1 FROM ${archivo.registroTipo} WHERE id = ? LIMIT 1`,
       [archivo.registroId]
     );
 
-    if (!gastoExiste)
+    if (!registroExiste)
       return res.status(409).json({
-        mensaje:
-          "El gasto asociado fue eliminado definitivamente; no es posible restaurar el archivo.",
+        mensaje: `El registro asociado (${archivo.registroTipo}) fue eliminado.`,
       });
 
-    /* 3. Localizar la versión que está actualmente activa en el grupo */
+    // 3. Buscar versión activa actual (sin FOR UPDATE)
     const [[activoActual]] = await conexion.query(
       `SELECT id, rutaS3, numeroVersion
          FROM archivos
-        WHERE grupoArchivoId = ? AND estado = 'activo' FOR UPDATE`,
+        WHERE grupoArchivoId = ? AND estado = 'activo'`,
       [archivo.grupoArchivoId]
     );
 
-    /* 3A. Si hay versión activa ⇒ enviarla a papelera en S3 y marcarla 'reemplazado' */
+    // 3A. Si existe una activa, moverla a papelera
     if (activoActual) {
       const clavePapelera = `papelera/${activoActual.rutaS3}`;
 
-      // mover físicamente en S3
       await moverObjetoEnS3({
         origen: activoActual.rutaS3,
         destino: clavePapelera,
       });
 
-      // actualizar BD
       await conexion.query(
         `UPDATE archivos
             SET estado = 'reemplazado',
@@ -380,7 +377,6 @@ export const restaurarArchivo = async (req, res) => {
         [clavePapelera, activoActual.id]
       );
 
-      // evento
       await conexion.query(
         `INSERT INTO eventosArchivo (archivoId, accion, usuarioId, detalles, ip, userAgent)
          VALUES (?, 'versionReemplazada', ?, ?, ?, ?)`,
@@ -394,11 +390,11 @@ export const restaurarArchivo = async (req, res) => {
       );
     }
 
-    /* 4. Mover archivo eliminado DESDE papelera a su ruta original */
+    // 4. Restaurar archivo: mover desde papelera a ruta original
     const rutaOriginal = archivo.rutaS3.replace(/^papelera\//, "");
     await moverObjetoEnS3({ origen: archivo.rutaS3, destino: rutaOriginal });
 
-    /* 5. Calcular nueva versión */
+    // 5. Obtener nuevo número de versión
     const [[{ maxVersion }]] = await conexion.query(
       `SELECT COALESCE(MAX(numeroVersion), 0) AS maxVersion
          FROM archivos
@@ -407,7 +403,7 @@ export const restaurarArchivo = async (req, res) => {
     );
     const nuevaVersion = maxVersion + 1;
 
-    /* 6. Reactivar archivo restaurado */
+    // 6. Actualizar el archivo restaurado
     await conexion.query(
       `UPDATE archivos
           SET estado = 'activo',
@@ -420,7 +416,7 @@ export const restaurarArchivo = async (req, res) => {
       [nuevaVersion, rutaOriginal, archivoId]
     );
 
-    /* 7. Evento de restauración */
+    // 7. Registrar evento
     await conexion.query(
       `INSERT INTO eventosArchivo (archivoId, accion, usuarioId, detalles, ip, userAgent)
        VALUES (?, 'restauracion', ?, ?, ?, ?)`,
