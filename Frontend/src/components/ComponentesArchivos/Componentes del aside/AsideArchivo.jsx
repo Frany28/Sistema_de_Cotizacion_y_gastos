@@ -45,7 +45,7 @@ export default function AsideArchivo() {
       <aside
         className={`${
           isMobile
-            ? "fixed top-0 h-screen"
+            ? "fixed top-16 h-[calc(100vh-64px)]"
             : "lg:sticky top-16 h-[calc(100vh-64px)]"
         } left-0 z-40 w-72 lg:w-80 bg-gray-800 transition-all duration-300 ease-in-out 
         ${isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
