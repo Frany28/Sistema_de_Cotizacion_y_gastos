@@ -4,7 +4,7 @@ import {
   generarUrlPrefirmadaLectura,
   moverArchivoAS3AlPapelera,
 } from "../utils/s3.js";
-import { DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { CopyObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 
 // Roles autorizados
 const ROL_ADMIN = 1;
