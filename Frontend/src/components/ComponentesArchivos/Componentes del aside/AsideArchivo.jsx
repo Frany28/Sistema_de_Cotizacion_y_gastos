@@ -16,7 +16,6 @@ export default function AsideArchivo() {
     };
 
     handleResize(); // ejecuta en primer render
-
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
@@ -34,25 +33,24 @@ export default function AsideArchivo() {
         <FiChevronRight className="w-6 h-6" />
       </button>
 
-      {/* Overlay para móviles - más transparente */}
+      {/* Overlay para móviles */}
       {isOpen && isMobile && (
         <div
-          className="fixed inset-0 z-30 bg-blue-950/40 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-30 bg-gray-950/40 backdrop-blur-sm lg:hidden"
           onClick={() => setIsOpen(false)}
         />
       )}
 
-      {/* Aside - con margen superior para no solaparse con navbar */}
+      {/* Aside adaptado para desktop y móvil */}
       <aside
-        className={`fixed ${
-          isMobile ? "top-0 h-screen" : "top-16 h-[calc(100vh-64px)]"
-        } 
-              left-0 z-40 w-72 lg:w-80 bg-gray-800 transition-all duration-300 ease-in-out 
-              ${
-                isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-              }`}
+        className={`${
+          isMobile
+            ? "fixed top-0 h-screen"
+            : "lg:sticky top-16 h-[calc(100vh-64px)]"
+        } left-0 z-40 w-72 lg:w-80 bg-gray-800 transition-all duration-300 ease-in-out 
+        ${isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
       >
-        {/* Botón de cerrar en móviles - más destacado */}
+        {/* Botón cerrar en móviles */}
         {isMobile && (
           <button
             className="absolute top-2 right-2 p-2 bg-gray-700 rounded-full text-white hover:bg-gray-600 lg:hidden"

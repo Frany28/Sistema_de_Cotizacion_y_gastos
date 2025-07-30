@@ -5,7 +5,7 @@ export default function LayoutConAside() {
   return (
     <div className="flex w-full min-h-screen">
       <AsideArchivo />
-      <div className="flex-1 p-4 bg-gray-900 overflow-auto">
+      <div className="flex-1 bg-gray-900 overflow-auto mt-16 ml-0 lg:ml-80 p-4">
         <Outlet />
       </div>
     </div>
