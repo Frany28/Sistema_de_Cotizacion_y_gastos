@@ -635,10 +635,9 @@ export const restaurarVersion = async (req, res) => {
       // Actualizar archivo activo
       await conexion.query(
         `UPDATE archivos
-           SET estado = 'reemplazado',
-               rutaS3 = ?,
-               fechaReemplazo = NOW(),
-               actualizadoEn = NOW()
+          SET estado = 'reemplazado',
+        rutaS3 = ?,
+        actualizadoEn = NOW()
          WHERE id = ?`,
         [nuevaRutaPapelera, activoActual.id]
       );
