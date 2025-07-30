@@ -37,7 +37,7 @@ export default function AsideArchivo() {
       {/* Overlay para móviles - más transparente */}
       {isOpen && isMobile && (
         <div
-          className="fixed inset-0 z-30 bg-black bg-opacity-30 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-30 bg-blue-950/40 backdrop-blur-sm lg:hidden"
           onClick={() => setIsOpen(false)}
         />
       )}
