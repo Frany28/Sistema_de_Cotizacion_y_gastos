@@ -322,37 +322,51 @@ export const restaurarArchivo = async (req, res) => {
   const usuarioId = req.user.id;
   const conexion = await db.getConnection();
 
+  /* Mapa que traduce registroTipo → nombre real de la tabla */
+  const tablasPorRegistro = {
+    facturasGastos: "gastos",
+    comprobantesPagos: "solicitudes_pago",
+    abonosCXC: "abonos_cuentas",
+    firmas: "usuarios", // ajusta si tienes una tabla distinta
+  };
+
   try {
     await conexion.beginTransaction();
 
-    // 1. Buscar archivo a restaurar
+    /* 1️⃣  Buscar el archivo que se quiere restaurar */
     const [[archivo]] = await conexion.query(
-      `SELECT * FROM archivos WHERE id = ?`,
+      "SELECT * FROM archivos WHERE id = ?",
       [archivoId]
     );
 
     if (!archivo)
       return res.status(404).json({ mensaje: "Archivo no encontrado." });
 
-    // 1. Validar que sea una versión reemplazada
+    /* 2️⃣  Validar estado → solo 'reemplazado' es restaurable */
     if (archivo.estado !== "reemplazado") {
       return res.status(400).json({
-        mensaje: "Solo puedes restaurar archivos con estado 'reemplazado'.",
+        mensaje: "Solo se pueden restaurar archivos con estado 'reemplazado'.",
       });
     }
 
-    // 2. Verificar si el registro asociado aún existe
+    /* 3️⃣  Comprobar que el registro asociado todavía existe */
+    const tablaDestino = tablasPorRegistro[archivo.registroTipo];
+    if (!tablaDestino) {
+      throw new Error(`Tipo de registro desconocido: ${archivo.registroTipo}`);
+    }
+
     const [[registroExiste]] = await conexion.query(
-      `SELECT 1 FROM ${archivo.registroTipo} WHERE id = ? LIMIT 1`,
+      `SELECT 1 FROM ${tablaDestino} WHERE id = ? LIMIT 1`,
       [archivo.registroId]
     );
 
-    if (!registroExiste)
+    if (!registroExiste) {
       return res.status(409).json({
-        mensaje: `El registro asociado (${archivo.registroTipo}) fue eliminado.`,
+        mensaje: `El registro asociado (${tablaDestino}) fue eliminado.`,
       });
+    }
 
-    // 3. Buscar versión activa actual (sin FOR UPDATE)
+    /* 4️⃣  Mover la versión activa actual (si existe) a papelera */
     const [[activoActual]] = await conexion.query(
       `SELECT id, rutaS3, numeroVersion
          FROM archivos
@@ -360,13 +374,12 @@ export const restaurarArchivo = async (req, res) => {
       [archivo.grupoArchivoId]
     );
 
-    // 3A. Si existe una activa, moverla a papelera
     if (activoActual) {
-      const clavePapelera = `papelera/${activoActual.rutaS3}`;
+      const rutaPapelera = `papelera/${activoActual.rutaS3}`;
 
       await moverObjetoEnS3({
         origen: activoActual.rutaS3,
-        destino: clavePapelera,
+        destino: rutaPapelera,
       });
 
       await conexion.query(
@@ -376,27 +389,32 @@ export const restaurarArchivo = async (req, res) => {
                 fechaReemplazo = NOW(),
                 actualizadoEn = NOW()
           WHERE id = ?`,
-        [clavePapelera, activoActual.id]
+        [rutaPapelera, activoActual.id]
       );
 
       await conexion.query(
-        `INSERT INTO eventosArchivo (archivoId, accion, usuarioId, detalles, ip, userAgent)
+        `INSERT INTO eventosArchivo
+           (archivoId, accion, usuarioId, detalles, ip, userAgent)
          VALUES (?, 'versionReemplazada', ?, ?, ?, ?)`,
         [
           activoActual.id,
           usuarioId,
-          JSON.stringify({ nuevaRuta: clavePapelera }),
+          JSON.stringify({ nuevaRuta: rutaPapelera }),
           req.ip,
           req.get("User-Agent"),
         ]
       );
     }
 
-    // 4. Restaurar archivo: mover desde papelera a ruta original
+    /* 5️⃣  Restaurar el archivo elegido: moverlo de papelera a su ruta original */
     const rutaOriginal = archivo.rutaS3.replace(/^papelera\//, "");
-    await moverObjetoEnS3({ origen: archivo.rutaS3, destino: rutaOriginal });
 
-    // 5. Obtener nuevo número de versión
+    await moverObjetoEnS3({
+      origen: archivo.rutaS3,
+      destino: rutaOriginal,
+    });
+
+    /* 6️⃣  Calcular el nuevo número de versión */
     const [[{ maxVersion }]] = await conexion.query(
       `SELECT COALESCE(MAX(numeroVersion), 0) AS maxVersion
          FROM archivos
@@ -405,7 +423,7 @@ export const restaurarArchivo = async (req, res) => {
     );
     const nuevaVersion = maxVersion + 1;
 
-    // 6. Actualizar el archivo restaurado
+    /* 7️⃣  Marcar el archivo restaurado como activo */
     await conexion.query(
       `UPDATE archivos
           SET estado = 'activo',
@@ -418,9 +436,10 @@ export const restaurarArchivo = async (req, res) => {
       [nuevaVersion, rutaOriginal, archivoId]
     );
 
-    // 7. Registrar evento
+    /* 8️⃣  Registrar evento de restauración */
     await conexion.query(
-      `INSERT INTO eventosArchivo (archivoId, accion, usuarioId, detalles, ip, userAgent)
+      `INSERT INTO eventosArchivo
+         (archivoId, accion, usuarioId, detalles, ip, userAgent)
        VALUES (?, 'restauracion', ?, ?, ?, ?)`,
       [
         archivoId,
