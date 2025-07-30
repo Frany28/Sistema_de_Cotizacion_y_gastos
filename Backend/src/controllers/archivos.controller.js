@@ -320,67 +320,69 @@ export const eliminarArchivo = async (req, res) => {
 export const restaurarArchivo = async (req, res) => {
   const archivoId = Number(req.params.id);
   const usuarioId = req.user.id;
-  const conexion = await db.getConnection();
+  const rolId = req.user.rol_id;
 
-  /* Mapa que traduce registroTipo → nombre real de la tabla */
-  const tablasPorRegistro = {
-    facturasGastos: "gastos",
-    comprobantesPagos: "solicitudes_pago",
-    abonosCXC: "abonos_cuentas",
-    firmas: "usuarios", // ajusta si tienes una tabla distinta
+  // 1️⃣ Recuperar metadatos del archivo a restaurar
+  const [[archivo]] = await db.query(
+    `SELECT *
+       FROM archivos
+      WHERE id = ? AND estado = 'reemplazado'`,
+    [archivoId]
+  );
+  if (!archivo)
+    return res.status(404).json({
+      message: "Archivo no encontrado o no está en estado 'reemplazado'.",
+    });
+
+  // 2️⃣ Permisos
+  if (
+    ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
+    archivo.subidoPor !== usuarioId
+  )
+    return res
+      .status(403)
+      .json({ message: "No tienes permiso para restaurar este archivo." });
+
+  // 3️⃣ Validar que el registro dueño exista (según tipo)
+  const tablasPorTipo = {
+    cotizacion: "cotizaciones",
+    gasto: "gastos",
+    facturaGasto: "facturas_gastos",
+    solicitudPago: "solicitudes_pago",
   };
+  const tabla = tablasPorTipo[archivo.registroTipo];
+  if (!tabla)
+    return res
+      .status(400)
+      .json({ message: `registroTipo inválido: ${archivo.registroTipo}` });
 
+  const [[registroVivo]] = await db.query(
+    `SELECT 1 FROM \`${tabla}\` WHERE id = ? LIMIT 1`,
+    [archivo.registroId]
+  );
+  if (!registroVivo)
+    return res
+      .status(410)
+      .json({ message: "El registro asociado ya no existe." });
+
+  /* ─── Operaciones críticas ───────────────────────────── */
+  const conexion = await db.getConnection();
   try {
     await conexion.beginTransaction();
 
-    /* 1️⃣  Buscar el archivo que se quiere restaurar */
-    const [[archivo]] = await conexion.query(
-      "SELECT * FROM archivos WHERE id = ?",
-      [archivoId]
-    );
-
-    if (!archivo)
-      return res.status(404).json({ mensaje: "Archivo no encontrado." });
-
-    /* 2️⃣  Validar estado → solo 'reemplazado' es restaurable */
-    if (archivo.estado !== "reemplazado") {
-      return res.status(400).json({
-        mensaje: "Solo se pueden restaurar archivos con estado 'reemplazado'.",
-      });
-    }
-
-    /* 3️⃣  Comprobar que el registro asociado todavía existe */
-    const tablaDestino = tablasPorRegistro[archivo.registroTipo];
-    if (!tablaDestino) {
-      throw new Error(`Tipo de registro desconocido: ${archivo.registroTipo}`);
-    }
-
-    const [[registroExiste]] = await conexion.query(
-      `SELECT 1 FROM ${tablaDestino} WHERE id = ? LIMIT 1`,
-      [archivo.registroId]
-    );
-
-    if (!registroExiste) {
-      return res.status(409).json({
-        mensaje: `El registro asociado (${tablaDestino}) fue eliminado.`,
-      });
-    }
-
-    /* 4️⃣  Mover la versión activa actual (si existe) a papelera */
+    // 4️⃣ Si existe un archivo activo del mismo grupo → enviarlo a papelera
     const [[activoActual]] = await conexion.query(
-      `SELECT id, rutaS3, numeroVersion
+      `SELECT id, rutaS3
          FROM archivos
         WHERE grupoArchivoId = ? AND estado = 'activo'`,
       [archivo.grupoArchivoId]
     );
-
     if (activoActual) {
-      const rutaPapelera = `papelera/${activoActual.rutaS3}`;
-
-      await moverObjetoEnS3({
-        origen: activoActual.rutaS3,
-        destino: rutaPapelera,
-      });
+      const nuevaRutaPapelera = await moverArchivoAS3AlPapelera(
+        activoActual.rutaS3,
+        archivo.registroTipo,
+        archivo.registroId
+      ); // :contentReference[oaicite:2]{index=2}
 
       await conexion.query(
         `UPDATE archivos
@@ -389,75 +391,88 @@ export const restaurarArchivo = async (req, res) => {
                 fechaReemplazo = NOW(),
                 actualizadoEn = NOW()
           WHERE id = ?`,
-        [rutaPapelera, activoActual.id]
-      );
-
-      await conexion.query(
-        `INSERT INTO eventosArchivo
-           (archivoId, accion, usuarioId, detalles, ip, userAgent)
-         VALUES (?, 'versionReemplazada', ?, ?, ?, ?)`,
-        [
-          activoActual.id,
-          usuarioId,
-          JSON.stringify({ nuevaRuta: rutaPapelera }),
-          req.ip,
-          req.get("User-Agent"),
-        ]
+        [nuevaRutaPapelera, activoActual.id]
       );
     }
 
-    /* 5️⃣  Restaurar el archivo elegido: moverlo de papelera a su ruta original */
-    const rutaOriginal = archivo.rutaS3.replace(/^papelera\//, "");
+    // 5️⃣ Copiar el archivo “reemplazado” a /restaurados/...
+    const nombreBase = archivo.rutaS3.split("/").pop();
+    const nuevaRuta = `restaurados/${Date.now()}_${nombreBase}`;
 
-    await moverObjetoEnS3({
-      origen: archivo.rutaS3,
-      destino: rutaOriginal,
-    });
+    const bucket = process.env.S3_BUCKET;
+    await s3.send(
+      new CopyObjectCommand({
+        Bucket: bucket,
+        CopySource: encodeURI(`${bucket}/${archivo.rutaS3}`),
+        Key: nuevaRuta,
+        ACL: "private",
+      })
+    );
+    await s3.send(
+      new DeleteObjectCommand({
+        Bucket: bucket,
+        Key: archivo.rutaS3,
+      })
+    ); // :contentReference[oaicite:3]{index=3}
 
-    /* 6️⃣  Calcular el nuevo número de versión */
+    // 6️⃣ Calcular versión siguiente
     const [[{ maxVersion }]] = await conexion.query(
       `SELECT COALESCE(MAX(numeroVersion), 0) AS maxVersion
          FROM archivos
         WHERE grupoArchivoId = ?`,
       [archivo.grupoArchivoId]
     );
-    const nuevaVersion = maxVersion + 1;
+    const siguienteVersion = maxVersion + 1;
 
-    /* 7️⃣  Marcar el archivo restaurado como activo */
-    await conexion.query(
-      `UPDATE archivos
-          SET estado = 'activo',
-              numeroVersion = ?,
-              rutaS3 = ?,
-              actualizadoEn = NOW(),
-              eliminadoEn = NULL,
-              fechaRestauracion = NOW()
-        WHERE id = ?`,
-      [nuevaVersion, rutaOriginal, archivoId]
+    // 7️⃣ Insertar la nueva versión activa
+    const [resultado] = await conexion.query(
+      `INSERT INTO archivos (
+         grupoArchivoId, numeroVersion, registroTipo, registroId,
+         nombreOriginal, extension, tamanioBytes, rutaS3,
+         subidoPor, subidoEn, estado
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'activo')`,
+      [
+        archivo.grupoArchivoId,
+        siguienteVersion,
+        archivo.registroTipo,
+        archivo.registroId,
+        archivo.nombreOriginal,
+        archivo.extension,
+        archivo.tamanioBytes,
+        nuevaRuta,
+        usuarioId,
+      ]
     );
+    const nuevoArchivoId = resultado.insertId;
 
-    /* 8️⃣  Registrar evento de restauración */
+    // 8️⃣ Evento de restauración
     await conexion.query(
       `INSERT INTO eventosArchivo
-         (archivoId, accion, usuarioId, detalles, ip, userAgent)
-       VALUES (?, 'restauracion', ?, ?, ?, ?)`,
+         (archivoId, versionId, accion, usuarioId, ip, userAgent, detalles)
+       VALUES (?, ?, 'restauracion', ?, ?, ?, ?)`,
       [
+        nuevoArchivoId,
         archivoId,
         usuarioId,
-        JSON.stringify({ rutaOriginal, nuevaVersion }),
         req.ip,
         req.get("User-Agent"),
+        JSON.stringify({
+          grupoArchivoId: archivo.grupoArchivoId,
+          restauradoDesde: archivo.numeroVersion,
+          nuevaVersion: siguienteVersion,
+          nuevaRuta,
+        }),
       ]
     );
 
     await conexion.commit();
-    return res.json({ mensaje: "Archivo restaurado correctamente." });
-  } catch (error) {
+    return res.json({ message: "Archivo restaurado correctamente." });
+  } catch (err) {
     await conexion.rollback();
-    console.error("Error en restaurarArchivo:", error);
+    console.error("Error al restaurar archivo:", err);
     return res
       .status(500)
-      .json({ mensaje: "Error interno al restaurar archivo." });
+      .json({ message: "Error interno al restaurar archivo." });
   } finally {
     conexion.release();
   }
