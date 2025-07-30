@@ -322,39 +322,32 @@ export const restaurarArchivo = async (req, res) => {
   const usuarioId = req.user.id;
   const rolId = req.user.rol_id;
 
-  /* 1️⃣ Metadatos del archivo a restaurar */
+  /* 1️⃣  Traer metadatos del archivo “reemplazado” */
   const [[archivo]] = await db.query(
-    `SELECT *
-       FROM archivos
-      WHERE id = ? AND estado = 'reemplazado'`,
+    `SELECT * FROM archivos WHERE id = ? AND estado = 'reemplazado'`,
     [archivoId]
   );
   if (!archivo)
-    return res
-      .status(404)
-      .json({
-        message: "Archivo no encontrado o no está en estado 'reemplazado'.",
-      });
+    return res.status(404).json({
+      mensaje: "Archivo no encontrado o su estado no es 'reemplazado'.",
+    });
 
-  /* 2️⃣ Permisos */
+  /* 2️⃣  Permisos */
   if (
     ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
     archivo.subidoPor !== usuarioId
   )
     return res
       .status(403)
-      .json({ message: "No tienes permiso para restaurar este archivo." });
+      .json({ mensaje: "No posees permiso para restaurar este archivo." });
 
-  /* 3️⃣ Resolver la tabla real según registroTipo */
+  /* 3️⃣  Resolver tabla real según registroTipo */
   const tablasPorTipo = {
-    // ► Nueva taxonomía acordada el 20-Jun-2025
     facturasGastos: "gastos",
     comprobantesPagos: "solicitudes_pago",
     abonosCXC: "abonos_cuentas",
     firmas: "usuarios",
-
-    // ► Tipos legacy que siguen existiendo
-    cotizacion: "cotizaciones",
+    cotizacion: "cotizaciones", // legados
     gasto: "gastos",
     solicitudPago: "solicitudes_pago",
   };
@@ -362,9 +355,8 @@ export const restaurarArchivo = async (req, res) => {
   if (!tablaDestino)
     return res
       .status(400)
-      .json({ message: `registroTipo inválido: ${archivo.registroTipo}` });
+      .json({ mensaje: `registroTipo inválido: ${archivo.registroTipo}` });
 
-  /* 4️⃣ Validar que el registro dueño siga presente */
   const [[registroVivo]] = await db.query(
     `SELECT 1 FROM \`${tablaDestino}\` WHERE id = ? LIMIT 1`,
     [archivo.registroId]
@@ -372,14 +364,14 @@ export const restaurarArchivo = async (req, res) => {
   if (!registroVivo)
     return res
       .status(410)
-      .json({ message: "El registro asociado ya no existe." });
+      .json({ mensaje: "El registro asociado ya no existe." });
 
-  /* 5️⃣ Operación crítica en transacción */
+  /* 4️⃣  Iniciar transacción */
   const cx = await db.getConnection();
   try {
     await cx.beginTransaction();
 
-    /* 5.1  Si hay versión activa ⇒ enviarla a papelera */
+    /* 4.1  Enviar la versión activa (si existe) a papelera */
     const [[activoActual]] = await cx.query(
       `SELECT id, rutaS3
          FROM archivos
@@ -387,12 +379,11 @@ export const restaurarArchivo = async (req, res) => {
       [archivo.grupoArchivoId]
     );
     if (activoActual) {
-      const rutaPapelera = await moverArchivoAS3AlPapelera(
-        activoActual.rutaS3,
-        archivo.registroTipo,
-        archivo.registroId
-      );
-
+      const nuevaRutaPapelera = `papelera/${activoActual.rutaS3}`;
+      await moverObjetoEnS3({
+        origen: activoActual.rutaS3,
+        destino: nuevaRutaPapelera,
+      });
       await cx.query(
         `UPDATE archivos
             SET estado = 'reemplazado',
@@ -400,30 +391,18 @@ export const restaurarArchivo = async (req, res) => {
                 fechaReemplazo = NOW(),
                 actualizadoEn = NOW()
           WHERE id = ?`,
-        [rutaPapelera, activoActual.id]
+        [nuevaRutaPapelera, activoActual.id]
       );
     }
 
-    /* 5.2  Copiar archivo de la papelera a /restaurados/… */
-    const nombreBase = archivo.rutaS3.split("/").pop();
-    const nuevaRuta = `restaurados/${Date.now()}_${nombreBase}`;
+    /* 4.2  Restaurar objeto desde papelera a su ruta original */
+    const rutaDestino = archivo.rutaS3.replace(/^papelera\//, "");
+    await moverObjetoEnS3({
+      origen: archivo.rutaS3,
+      destino: rutaDestino,
+    });
 
-    await s3.send(
-      new CopyObjectCommand({
-        Bucket: process.env.S3_BUCKET,
-        CopySource: encodeURI(`${process.env.S3_BUCKET}/${archivo.rutaS3}`),
-        Key: nuevaRuta,
-        ACL: "private",
-      })
-    );
-    await s3.send(
-      new DeleteObjectCommand({
-        Bucket: process.env.S3_BUCKET,
-        Key: archivo.rutaS3,
-      })
-    );
-
-    /* 5.3  Calcular la siguiente versión */
+    /* 4.3  Calcular siguiente versión */
     const [[{ maxVersion }]] = await cx.query(
       `SELECT COALESCE(MAX(numeroVersion),0) AS maxVersion
          FROM archivos
@@ -432,7 +411,7 @@ export const restaurarArchivo = async (req, res) => {
     );
     const siguienteVersion = maxVersion + 1;
 
-    /* 5.4  Insertar nueva versión activa */
+    /* 4.4  Insertar nueva versión activa */
     const [resultado] = await cx.query(
       `INSERT INTO archivos (
          grupoArchivoId, numeroVersion, registroTipo, registroId,
@@ -447,13 +426,13 @@ export const restaurarArchivo = async (req, res) => {
         archivo.nombreOriginal,
         archivo.extension,
         archivo.tamanioBytes,
-        nuevaRuta,
+        rutaDestino,
         usuarioId,
       ]
     );
     const nuevoArchivoId = resultado.insertId;
 
-    /* 5.5  Evento de restauración */
+    /* 4.5  Registrar evento */
     await cx.query(
       `INSERT INTO eventosArchivo
          (archivoId, versionId, accion, usuarioId, ip, userAgent, detalles)
@@ -468,19 +447,19 @@ export const restaurarArchivo = async (req, res) => {
           grupoArchivoId: archivo.grupoArchivoId,
           restauradoDesde: archivo.numeroVersion,
           nuevaVersion: siguienteVersion,
-          nuevaRuta,
+          rutaDestino,
         }),
       ]
     );
 
     await cx.commit();
-    return res.json({ message: "Archivo restaurado correctamente." });
+    return res.json({ mensaje: "Archivo restaurado correctamente." });
   } catch (err) {
     await cx.rollback();
     console.error("Error al restaurar archivo:", err);
     return res
       .status(500)
-      .json({ message: "Error interno al restaurar archivo." });
+      .json({ mensaje: "Error interno al restaurar archivo." });
   } finally {
     cx.release();
   }
