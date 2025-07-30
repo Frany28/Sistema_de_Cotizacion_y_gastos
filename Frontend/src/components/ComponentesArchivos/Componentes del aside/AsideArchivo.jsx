@@ -10,13 +10,16 @@ export default function AsideArchivo() {
 
   useEffect(() => {
     const handleResize = () => {
-      setIsMobile(window.innerWidth < 1024);
-      if (!isMobile) setIsOpen(false);
+      const esMovil = window.innerWidth < 1024;
+      setIsMobile(esMovil);
+      if (!esMovil) setIsOpen(false);
     };
+
+    handleResize(); // ejecuta en primer render
 
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, [isMobile]);
+  }, []);
 
   return (
     <>
@@ -41,9 +44,13 @@ export default function AsideArchivo() {
 
       {/* Aside - con margen superior para no solaparse con navbar */}
       <aside
-        className={`fixed top-0 left-0 z-40 w-72 lg:w-80 h-screen bg-gray-800 transition-all duration-300 ease-in-out ${
-          isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-        }`}
+        className={`fixed ${
+          isMobile ? "top-0 h-screen" : "top-16 h-[calc(100vh-64px)]"
+        } 
+              left-0 z-40 w-72 lg:w-80 bg-gray-800 transition-all duration-300 ease-in-out 
+              ${
+                isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+              }`}
       >
         {/* Botón de cerrar en móviles - más destacado */}
         {isMobile && (
