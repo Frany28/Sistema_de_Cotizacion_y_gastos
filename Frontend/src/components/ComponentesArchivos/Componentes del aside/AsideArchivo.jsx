@@ -41,7 +41,7 @@ export default function AsideArchivo() {
 
       {/* Aside - con margen superior para no solaparse con navbar */}
       <aside
-        className={`fixed lg:sticky top-0 left-0 z-40 w-72 lg:w-80 h-[calc(100vh-4rem)] mt-16 lg:mt-0 bg-gray-800 transition-all duration-300 ease-in-out ${
+        className={`fixed top-0 left-0 z-40 w-72 lg:w-80 h-screen bg-gray-800 transition-all duration-300 ease-in-out ${
           isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
       >
