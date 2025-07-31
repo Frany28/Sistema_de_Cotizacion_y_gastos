@@ -1029,39 +1029,45 @@ export const eliminarDefinitivoArchivo = async (req, res) => {
   const archivoId = Number(req.params.id);
   const { id: usuarioId, rol_id: rolId } = req.user;
 
-  /*  Traer metadatos SOLO si el estado es ‘eliminado’ o ‘reemplazado’ */
+  /*   Solo si su estado es “eliminado” o “reemplazado”  */
   const [[archivo]] = await db.query(
-    `SELECT rutaS3 AS keyS3, subidoPor, estado
+    `SELECT rutaS3, subidoPor, estado
        FROM archivos
       WHERE id = ?
-        AND estado IN ('eliminado', 'reemplazado')`,
+        AND estado IN ('eliminado','reemplazado')`,
     [archivoId]
   );
 
-  if (!archivo) {
+  if (!archivo)
     return res
       .status(404)
-      .json({ message: "Archivo no encontrado o no se puede borrar." });
-  }
+      .json({ message: "Archivo no encontrado en papelera." });
 
+  /*   Permisos → Admin, Supervisor o dueño */
   const esDuenio = archivo.subidoPor === usuarioId;
-  if (![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) && !esDuenio) {
+  if (![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) && !esDuenio)
     return res.status(403).json({ message: "Sin permiso para borrar." });
-  }
+
+  /*  Clave real en S3
+         – si ya empieza con “papelera/” la usamos tal cual,
+         – si no, la anteponemos.                                         */
+  const keyEnPapelera = archivo.rutaS3.startsWith("papelera/")
+    ? archivo.rutaS3
+    : `papelera/${archivo.rutaS3}`;
 
   try {
-    /* Eliminar objeto en S3 */
+    /* Borrar de S3 */
     await s3.send(
       new DeleteObjectCommand({
         Bucket: process.env.S3_BUCKET,
-        Key: archivo.keyS3,
+        Key: keyEnPapelera,
       })
     );
 
-    /* Eliminar registro en BD */
+    /*  Borrar de la BD */
     await db.execute("DELETE FROM archivos WHERE id = ?", [archivoId]);
 
-    /* Registrar evento de auditoría */
+    /* Evento de auditoría */
     await db.execute(
       `INSERT INTO eventosArchivo
          (archivoId, accion, usuarioId, ip, userAgent, detalles)
@@ -1072,17 +1078,17 @@ export const eliminarDefinitivoArchivo = async (req, res) => {
         req.ip,
         req.get("User-Agent"),
         JSON.stringify({
-          key: archivo.keyS3,
+          key: keyEnPapelera,
           estadoAnterior: archivo.estado,
         }),
       ]
     );
 
     return res.json({ message: "Archivo borrado definitivamente." });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({
-      message: "Error al borrar el archivo en S3 o en la base de datos.",
-    });
+  } catch (err) {
+    console.error(err);
+    return res
+      .status(500)
+      .json({ message: "Error al borrar en S3 o en la base de datos." });
   }
 };
