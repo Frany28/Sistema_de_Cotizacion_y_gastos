@@ -1158,7 +1158,7 @@ export const purgarPapelera = async (req, res) => {
   const archivoIds = archivos.map((a) => a.id);
   const rutasPrincipales = archivos.map((a) => a.rutaS3).filter(Boolean);
 
-  /* 2️⃣  Obtener versiones */
+  /*   Obtener versiones */
   const [versiones] = await db.query(
     `SELECT archivoId, rutaS3, tamanioBytes
        FROM versionesArchivo
@@ -1169,7 +1169,7 @@ export const purgarPapelera = async (req, res) => {
   const rutasVersiones = versiones.map((v) => v.rutaS3);
   const rutasTotales = [...rutasPrincipales, ...rutasVersiones];
 
-  /* 3️⃣  Borrar en S3 por lotes de ≤1000 claves */
+  /*  Borrar en S3 por lotes de ≤ 1000 claves */
   try {
     for (const lote of chunk(rutasTotales, 1000)) {
       await s3.send(
@@ -1186,7 +1186,7 @@ export const purgarPapelera = async (req, res) => {
       .json({ mensaje: "Fallo al eliminar objetos en S3. Inténtalo luego." });
   }
 
-  /* 4️⃣  Transacción BD */
+  /* Transacción BD */
   const cx = await db.getConnection();
   try {
     await cx.beginTransaction();
