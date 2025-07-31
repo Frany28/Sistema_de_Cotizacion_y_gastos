@@ -14,6 +14,14 @@ import {
 const ROL_ADMIN = 1;
 const ROL_SUPERVISOR = 2;
 
+const chunk = (array, size = 1000) => {
+  const resultado = [];
+  for (let i = 0; i < array.length; i += size) {
+    resultado.push(array.slice(i, i + size));
+  }
+  return resultado;
+};
+
 export async function moverObjetoEnS3({ origen, destino }) {
   const bucket = process.env.S3_BUCKET;
   const copySource = encodeURI(`${bucket}/${origen}`);
@@ -1128,26 +1136,29 @@ export const eliminarDefinitivoArchivo = async (req, res) => {
 };
 
 export const purgarPapelera = async (req, res) => {
-  /*  Permiso: solo admin o supervisores */
+  /* 0️⃣  Validar permisos  */
   const { id: usuarioId, rol_id: rolId } = req.user;
-  if (![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId))
+  if (![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId)) {
     return res
       .status(403)
-      .json({ mensaje: "Sin permiso para purgar papelera." });
+      .json({ mensaje: "No posees permiso para vaciar la papelera." });
+  }
 
-  /*  Traer archivos en papelera */
+  /* 1️⃣  Obtener todos los archivos en papelera */
   const [archivos] = await db.query(
-    `SELECT id, rutaS3, subidoPor
+    `SELECT id, rutaS3, tamanioBytes, subidoPor
        FROM archivos
       WHERE estado IN ('eliminado','reemplazado')`
   );
-  if (archivos.length === 0)
-    return res.json({ mensaje: "La papelera está vacía." });
+
+  if (archivos.length === 0) {
+    return res.json({ mensaje: "La papelera ya está vacía." });
+  }
 
   const archivoIds = archivos.map((a) => a.id);
   const rutasPrincipales = archivos.map((a) => a.rutaS3).filter(Boolean);
 
-  /*  Rutas de todas las versiones */
+  /* 2️⃣  Obtener versiones */
   const [versiones] = await db.query(
     `SELECT archivoId, rutaS3, tamanioBytes
        FROM versionesArchivo
@@ -1158,33 +1169,46 @@ export const purgarPapelera = async (req, res) => {
   const rutasVersiones = versiones.map((v) => v.rutaS3);
   const rutasTotales = [...rutasPrincipales, ...rutasVersiones];
 
-  /*  Borrado masivo en S3 (máx. 1000 keys por batch) */
-  const bucket = process.env.S3_BUCKET;
+  /* 3️⃣  Borrar en S3 por lotes de ≤1000 claves */
   try {
     for (const lote of chunk(rutasTotales, 1000)) {
-      const params = {
-        Bucket: bucket,
-        Delete: { Objects: lote.map((Key) => ({ Key })) },
-      };
-      await s3Client.send(new DeleteObjectsCommand(params));
+      await s3Client.send(
+        new DeleteObjectsCommand({
+          Bucket: process.env.S3_BUCKET,
+          Delete: { Objects: lote.map((Key) => ({ Key })) },
+        })
+      );
     }
   } catch (err) {
     console.error("Error al borrar en S3:", err);
-    return res.status(502).json({ mensaje: "Fallo al eliminar en S3." });
+    return res
+      .status(502)
+      .json({ mensaje: "Fallo al eliminar objetos en S3. Inténtalo luego." });
   }
 
-  /* Transacción BD */
+  /* 4️⃣  Transacción BD */
   const cx = await db.getConnection();
   try {
     await cx.beginTransaction();
 
-    /* 4.1  Descontar almacenamiento por usuario */
-    const consumoPorUsuario = {};
-    versiones.forEach((v) => {
-      consumoPorUsuario[v.subidoPor] =
-        (consumoPorUsuario[v.subidoPor] || 0) + v.tamanioBytes;
+    /* 4.1  Calcular bytes a restar por usuario */
+    const bytesPorArchivo = {};
+    archivos.forEach((a) => {
+      bytesPorArchivo[a.id] = (bytesPorArchivo[a.id] || 0) + a.tamanioBytes;
     });
-    for (const [uid, bytes] of Object.entries(consumoPorUsuario)) {
+    versiones.forEach((v) => {
+      bytesPorArchivo[v.archivoId] =
+        (bytesPorArchivo[v.archivoId] || 0) + v.tamanioBytes;
+    });
+
+    const bytesPorUsuario = {};
+    archivos.forEach((a) => {
+      bytesPorUsuario[a.subidoPor] =
+        (bytesPorUsuario[a.subidoPor] || 0) + bytesPorArchivo[a.id];
+    });
+
+    /* 4.2  Actualizar usoStorageBytes */
+    for (const [uid, bytes] of Object.entries(bytesPorUsuario)) {
       await cx.query(
         `UPDATE usuarios
             SET usoStorageBytes = GREATEST(usoStorageBytes - ?, 0)
@@ -1193,39 +1217,42 @@ export const purgarPapelera = async (req, res) => {
       );
     }
 
-    /* 4.2  Insertar eventos */
-    const eventoInsert = `INSERT INTO eventosArchivo
-         (archivoId, accion, usuarioId, detalles)
-       VALUES ?`;
+    /* 4.3  Insertar evento por archivo */
     const eventoValores = archivos.map((a) => [
       a.id,
       "borradoDefinitivo",
       usuarioId,
-      JSON.stringify({ rutasEliminadas: rutasTotales }),
+      JSON.stringify({ rutasEliminadas: rutasPrincipales }),
     ]);
-    await cx.query(eventoInsert, [eventoValores]);
+    await cx.query(
+      `INSERT INTO eventosArchivo
+         (archivoId, accion, usuarioId, detalles)
+       VALUES ?`,
+      [eventoValores]
+    );
 
-    /* 4.3  Borrar versiones y marcar archivos */
+    /* 4.4  Eliminar versiones y marcar archivos como purgados */
     await cx.query(`DELETE FROM versionesArchivo WHERE archivoId IN (?)`, [
       archivoIds,
     ]);
     await cx.query(
-      `
-      UPDATE archivos
-         SET rutaS3 = NULL,
-             purgadoEn = NOW()
-       WHERE id IN (?)`,
+      `UPDATE archivos
+          SET rutaS3 = NULL,
+              purgadoEn = NOW()
+        WHERE id IN (?)`,
       [archivoIds]
     );
 
     await cx.commit();
     res.json({
-      mensaje: `Se purgaron ${archivoIds.length} archivos de la papelera.`,
+      mensaje: `Se vació la papelera. ${archivoIds.length} archivo(s) eliminados permanentemente.`,
     });
-  } catch (e) {
+  } catch (error) {
     await cx.rollback();
-    console.error(e);
-    res.status(500).json({ mensaje: "Error al purgar la papelera." });
+    console.error(error);
+    res.status(500).json({
+      mensaje: "Error al actualizar la base de datos durante la purga.",
+    });
   } finally {
     cx.release();
   }
