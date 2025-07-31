@@ -3,6 +3,7 @@ import express from "express";
 import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
 import { verificarPermiso } from "../Middleware/verificarPermiso.js";
 import { uploadGeneric } from "../utils/s3.js";
+
 import {
   obtenerArbolArchivos,
   descargarArchivo,
@@ -12,7 +13,8 @@ import {
   listarHistorialVersiones,
   descargarVersion,
   restaurarVersion,
-  eliminarDefinitivamente,
+  eliminarDefinitivamente, // ← solo-Admin (fallback global)
+  eliminarDefinitivoArchivo, // ← borrar desde papelera
   sustituirArchivo,
   obtenerDetallesArchivo,
   contarVersionesArchivo,
@@ -22,6 +24,7 @@ import {
 
 const router = express.Router();
 
+/*─────────────────────── Árbol y subida ───────────────────────*/
 router.get(
   "/arbol",
   autenticarUsuario,
@@ -29,7 +32,6 @@ router.get(
   obtenerArbolArchivos
 );
 
-// Reemplazar (sustituir) un archivo existente
 router.put(
   "/sustituir/:registroTipo/:registroId",
   autenticarUsuario,
@@ -37,7 +39,7 @@ router.put(
   sustituirArchivo
 );
 
-// Descargar archivo activo
+/*─────────────────────── Descargas ────────────────────────────*/
 router.get(
   "/descargar/:id",
   autenticarUsuario,
@@ -45,10 +47,16 @@ router.get(
   descargarArchivo
 );
 
-// Listar archivos eliminados (papelera)
+router.get(
+  "/version/:versionId/descargar",
+  autenticarUsuario,
+  verificarPermiso("verArchivos"),
+  descargarVersion
+);
+
+/*─────────────────────── Listados ─────────────────────────────*/
 router.get("/papelera", autenticarUsuario, listarArchivosEliminados);
 
-// Listar archivos activos
 router.get(
   "/",
   autenticarUsuario,
@@ -63,7 +71,6 @@ router.get(
   listarVersionesPorGrupo
 );
 
-// Obtener detalle de un archivo específico
 router.get(
   "/detalle/:id",
   autenticarUsuario,
@@ -71,7 +78,8 @@ router.get(
   obtenerDetallesArchivo
 );
 
-// Eliminar archivo (soft delete)
+/*─────────────────────── Eliminación / Restauración ───────────*/
+// Soft-delete (mover a papelera)
 router.delete(
   "/:id",
   autenticarUsuario,
@@ -87,10 +95,26 @@ router.post(
   restaurarArchivo
 );
 
-// Listar versiones de un archivo
+// ❌ Borrado definitivo SOLO cuando el archivo YA está en papelera
+//    (el controlador verifica estado='eliminado' y permisos)
+router.delete(
+  "/papelera/:id",
+  autenticarUsuario,
+  verificarPermiso("eliminarArchivos"),
+  eliminarDefinitivoArchivo
+);
+
+// Fallback global (solo-Admin) —mantener si lo usas en otras vistas
+router.delete(
+  "/eliminar-definitivo/:id",
+  autenticarUsuario,
+  verificarPermiso("eliminarArchivos"),
+  eliminarDefinitivamente
+);
+
+/*─────────────────────── Versiones ────────────────────────────*/
 router.get("/:id/total-versiones", autenticarUsuario, contarVersionesArchivo);
 
-// Listar historial de versiones de un archivo
 router.get(
   "/:id/versiones",
   autenticarUsuario,
@@ -98,28 +122,11 @@ router.get(
   listarHistorialVersiones
 );
 
-// Descargar una versión específica
-router.get(
-  "/version/:versionId/descargar",
-  autenticarUsuario,
-  verificarPermiso("verArchivos"),
-  descargarVersion
-);
-
-// Restaurar una versión específica
 router.post(
   "/version/:versionId/restaurar",
   autenticarUsuario,
   verificarPermiso("editarArchivos"),
   restaurarVersion
-);
-
-// Eliminar definitivamente (solo Admin)
-router.delete(
-  "/eliminar-definitivo/:id",
-  autenticarUsuario,
-  verificarPermiso("eliminarArchivos"),
-  eliminarDefinitivamente
 );
 
 export default router;

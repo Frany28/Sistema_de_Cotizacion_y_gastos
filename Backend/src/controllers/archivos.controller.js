@@ -330,7 +330,7 @@ export const restaurarArchivo = async (req, res) => {
       mensaje: "Archivo no encontrado o su estado no es 'reemplazado'.",
     });
 
-  /* 2️⃣  Permisos */
+  /*  Permisos */
   if (
     ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
     archReemplazado.subidoPor !== usuarioId
@@ -339,7 +339,7 @@ export const restaurarArchivo = async (req, res) => {
       .status(403)
       .json({ mensaje: "No posees permiso para restaurar este archivo." });
 
-  /* 3️⃣  Verificar que el registro asociado aún existe */
+  /*   Verificar que el registro asociado aún existe */
   const destinoPorTipo = {
     facturasGastos: "gastos",
     comprobantesPagos: "solicitudes_pago",
@@ -351,11 +351,9 @@ export const restaurarArchivo = async (req, res) => {
   };
   const tablaDestino = destinoPorTipo[archReemplazado.registroTipo];
   if (!tablaDestino)
-    return res
-      .status(400)
-      .json({
-        mensaje: `registroTipo inválido: ${archReemplazado.registroTipo}`,
-      });
+    return res.status(400).json({
+      mensaje: `registroTipo inválido: ${archReemplazado.registroTipo}`,
+    });
 
   const [[registroVivo]] = await db.query(
     `SELECT 1 FROM \`${tablaDestino}\` WHERE id = ? LIMIT 1`,
@@ -1024,5 +1022,67 @@ export const listarVersionesPorGrupo = async (req, res) => {
     res.status(500).json({ message: "Error al obtener historial por grupo." });
   } finally {
     conexion.release();
+  }
+};
+
+export const eliminarDefinitivoArchivo = async (req, res) => {
+  const archivoId = Number(req.params.id);
+  const { id: usuarioId, rol_id: rolId } = req.user;
+
+  /*  Traer metadatos SOLO si el estado es ‘eliminado’ o ‘reemplazado’ */
+  const [[archivo]] = await db.query(
+    `SELECT rutaS3 AS keyS3, subidoPor, estado
+       FROM archivos
+      WHERE id = ?
+        AND estado IN ('eliminado', 'reemplazado')`,
+    [archivoId]
+  );
+
+  if (!archivo) {
+    return res
+      .status(404)
+      .json({ message: "Archivo no encontrado o no se puede borrar." });
+  }
+
+  const esDuenio = archivo.subidoPor === usuarioId;
+  if (![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) && !esDuenio) {
+    return res.status(403).json({ message: "Sin permiso para borrar." });
+  }
+
+  try {
+    /* Eliminar objeto en S3 */
+    await s3.send(
+      new DeleteObjectCommand({
+        Bucket: process.env.S3_BUCKET,
+        Key: archivo.keyS3,
+      })
+    );
+
+    /* Eliminar registro en BD */
+    await db.execute("DELETE FROM archivos WHERE id = ?", [archivoId]);
+
+    /* Registrar evento de auditoría */
+    await db.execute(
+      `INSERT INTO eventosArchivo
+         (archivoId, accion, usuarioId, ip, userAgent, detalles)
+       VALUES (?, 'borradoDefinitivo', ?, ?, ?, ?)`,
+      [
+        archivoId,
+        usuarioId,
+        req.ip,
+        req.get("User-Agent"),
+        JSON.stringify({
+          key: archivo.keyS3,
+          estadoAnterior: archivo.estado,
+        }),
+      ]
+    );
+
+    return res.json({ message: "Archivo borrado definitivamente." });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      message: "Error al borrar el archivo en S3 o en la base de datos.",
+    });
   }
 };

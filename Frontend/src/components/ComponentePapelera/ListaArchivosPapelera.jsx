@@ -34,6 +34,8 @@ function ListaArchivosPapelera() {
   const [mensajeExito, setMensajeExito] = useState("");
   const [mostrarError, setMostrarError] = useState(false);
   const [mensajeError, setMensajeError] = useState("");
+  const [mostrarConfirmEliminar, setMostrarConfirmEliminar] = useState(false);
+  const [archivoAEliminar, setArchivoAEliminar] = useState(null);
 
   /*─────────────────── Hooks ───────────────────*/
   const navigate = useNavigate();
@@ -70,6 +72,35 @@ function ListaArchivosPapelera() {
     }
   };
 
+  const confirmarEliminacion = (archivo) => {
+    setArchivoAEliminar(archivo);
+    setMostrarConfirmEliminar(true);
+  };
+
+  const ejecutarEliminacion = async () => {
+    try {
+      const { data } = await api.delete(
+        `/archivos/papelera/${archivoAEliminar.id}`,
+        { withCredentials: true }
+      );
+      setMensajeExito(data.message || "Archivo eliminado permanentemente.");
+      setMostrarExito(true);
+
+      // Quitar de la lista
+      setArchivos((prev) => prev.filter((a) => a.id !== archivoAEliminar.id));
+    } catch (error) {
+      console.error("Error al eliminar:", error);
+      setMensajeError(
+        error?.response?.data?.message ||
+          "No se pudo eliminar el archivo. Intenta más tarde."
+      );
+      setMostrarError(true);
+    } finally {
+      setMostrarConfirmEliminar(false);
+      setArchivoAEliminar(null);
+    }
+  };
+
   /*─────────────────── Cargar archivos ───────────────────*/
   useEffect(() => {
     const obtenerArchivos = async () => {
@@ -102,7 +133,7 @@ function ListaArchivosPapelera() {
     let valor = bytes;
     while (valor >= 1024 && indice < unidades.length - 1) {
       valor /= 1024;
-      indice += 1;
+      indice = 1;
     }
     return `${valor.toFixed(indice ? 1 : 0)} ${unidades[indice]}`;
   };
@@ -144,7 +175,7 @@ function ListaArchivosPapelera() {
     return "otros";
   };
 
-  /*─────────────────── Búsqueda + Filtro + Orden ───────────────────*/
+  /*─────────────────── Búsqueda  Filtro  Orden ───────────────────*/
   const archivosProcesados = useMemo(() => {
     let resultado = archivos.filter((archivo) =>
       archivo.nombreOriginal.toLowerCase().includes(busqueda.toLowerCase())
@@ -307,7 +338,7 @@ function ListaArchivosPapelera() {
                 }}
                 className="group bg-gradient-to-b from-gray-800/90 via-gray-850 to-gray-900/90 backdrop-blur-lg border border-gray-700/60 rounded-2xl shadow-xl flex flex-col justify-between px-6 py-5 text-white transition-transform duration-200 hover:-translate-y-1 hover:shadow-2xl hover:border-gray-600/80 cursor-pointer focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               >
-                {/* Icono + metadatos */}
+                {/* Icono  metadatos */}
                 <div className="flex flex-col items-center text-center gap-3">
                   <div className="p-3 bg-gray-700/60 rounded-full ring-1 ring-gray-600/40 group-hover:ring-indigo-500/50 transition-all">
                     {iconoPorExtension(archivo.extension)}
@@ -397,9 +428,16 @@ function ListaArchivosPapelera() {
         onClose={() => setMostrarError(false)}
         mensaje={mensajeError}
       />
+      <ModalConfirmacion
+        visible={mostrarConfirmEliminar}
+        onClose={() => setMostrarConfirmEliminar(false)}
+        onConfirmar={ejecutarEliminacion}
+        titulo="¿Eliminar definitivamente?"
+        mensaje={`Esta acción borrará "${archivoAEliminar?.nombreOriginal}" de forma permanente.`}
+        textoConfirmar="Sí, eliminar"
+      />
     </>
   );
-  
 }
 
 export default ListaArchivosPapelera;
