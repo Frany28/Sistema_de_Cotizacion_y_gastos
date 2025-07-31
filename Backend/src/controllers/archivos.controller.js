@@ -2,7 +2,7 @@ import db from "../config/database.js";
 import {
   s3,
   generarUrlPrefirmadaLectura,
-  moverArchivoAS3AlPapelera,
+  moverArchivoAPapelera,
 } from "../utils/s3.js";
 import { CopyObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 
@@ -84,11 +84,7 @@ export const sustituirArchivo = async (req, res) => {
     await conexion.beginTransaction();
 
     // 5. Mover archivo viejo a papelera en S3
-    await moverArchivoAS3AlPapelera(
-      archivo.keyS3,
-      req.params.registroTipo,
-      req.params.registroId
-    );
+    await moverArchivoAPapelera(archivo.keyS3);
 
     // 6. Marcar el archivo anterior como reemplazado
     await conexion.query(

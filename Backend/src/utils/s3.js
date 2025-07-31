@@ -54,17 +54,14 @@ export async function generarUrlPrefirmadaLectura(key, expiresInSeconds = 300) {
 }
 
 /*─────────────── Mover archivo a /papelera/ ─────────*/
-export async function moverArchivoAS3AlPapelera(
-  claveAntigua,
-  registroTipo,
-  registroId
-) {
+export async function moverArchivoAPapelera(claveAntigua) {
   const bucket = process.env.S3_BUCKET;
 
   // 1. Nueva clave en la papelera
-  const timestampStr = new Date().toISOString().replace(/[:.]/g, "-");
-  const nombreArchivo = claveAntigua.split("/").pop();
-  const claveNueva = `papelera/${registroTipo}/${registroId}/${timestampStr}-${nombreArchivo}`;
+  if (claveAntigua.startsWith("papelera/")) return claveAntigua;
+
+  // Mantener la misma jerarquía ⇒ añadir el prefijo
+  const claveNueva = `papelera/${claveAntigua}`;
 
   // 2. Copiar el objeto
   const copySource = encodeURI(`${bucket}/${claveAntigua}`);
