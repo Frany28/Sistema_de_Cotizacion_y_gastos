@@ -373,7 +373,7 @@ function ListaArchivosPapelera() {
                     className="flex-1 rounded-lg bg-gradient-to-r from-red-600 via-red-700 to-red-800 hover:brightness-110 active:scale-95 text-sm font-semibold py-2 shadow-sm hover:shadow-md transition-all"
                     onClick={(e) => {
                       e.stopPropagation();
-                      console.log("Eliminar definitivamente", archivo.id);
+                      confirmarEliminacion(archivo);
                     }}
                   >
                     Eliminar
