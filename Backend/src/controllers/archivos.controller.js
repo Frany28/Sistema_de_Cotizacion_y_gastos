@@ -1172,7 +1172,7 @@ export const purgarPapelera = async (req, res) => {
   /* 3️⃣  Borrar en S3 por lotes de ≤1000 claves */
   try {
     for (const lote of chunk(rutasTotales, 1000)) {
-      await s3Client.send(
+      await s3.send(
         new DeleteObjectsCommand({
           Bucket: process.env.S3_BUCKET,
           Delete: { Objects: lote.map((Key) => ({ Key })) },
