@@ -1095,7 +1095,7 @@ export const eliminarDefinitivoArchivo = async (req, res) => {
     await cx.query(
       `
       UPDATE archivos
-         SET estado='borrado', purgadoEn=NOW(), rutaS3=NULL
+         SET estado='borrado', rutaS3=NULL
        WHERE id=?`,
       [archivoId]
     );
