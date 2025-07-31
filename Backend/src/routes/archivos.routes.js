@@ -91,7 +91,7 @@ router.delete(
 // src/routes/archivos.routes.js
 router.delete(
   "/papelera/purgar",
-  verificarSesion,
+  autenticarUsuario,
   verificarPermiso("eliminarArchivos"),
   purgarPapelera
 );
