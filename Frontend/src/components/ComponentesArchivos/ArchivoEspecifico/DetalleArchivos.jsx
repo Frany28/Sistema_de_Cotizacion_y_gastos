@@ -20,7 +20,7 @@ import {
   BookOpen,
   FileSpreadsheet,
 } from "lucide-react";
- 
+
 const DetalleArchivo = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -237,7 +237,10 @@ const DetalleArchivo = () => {
 
         {archivo?.grupoArchivoId && (
           <div className="mt-10">
-            <TablaHistorialVersiones grupoId={archivo.grupoArchivoId} />
+            <TablaHistorialVersiones
+              grupoId={archivo.grupoArchivoId}
+              archivoActualId={archivo.id}
+            />
           </div>
         )}
       </div>
