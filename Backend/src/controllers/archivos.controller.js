@@ -318,14 +318,14 @@ export const restaurarArchivo = async (req, res) => {
   const usuarioId = req.user.id;
   const rolId = req.user.rol_id;
 
-  /* 1️⃣  Traer metadatos del archivo “reemplazado” */
-  const [[archivo]] = await db.query(
+  /* 1️⃣  Traer metadatos del archivo que se quiere restaurar */
+  const [[archReemplazado]] = await db.query(
     `SELECT *
        FROM archivos
       WHERE id = ? AND estado = 'reemplazado'`,
     [archivoId]
   );
-  if (!archivo)
+  if (!archReemplazado)
     return res.status(404).json({
       mensaje: "Archivo no encontrado o su estado no es 'reemplazado'.",
     });
@@ -333,14 +333,14 @@ export const restaurarArchivo = async (req, res) => {
   /* 2️⃣  Permisos */
   if (
     ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
-    archivo.subidoPor !== usuarioId
+    archReemplazado.subidoPor !== usuarioId
   )
     return res
       .status(403)
       .json({ mensaje: "No posees permiso para restaurar este archivo." });
 
-  /* 3️⃣  Resolver tabla real según registroTipo */
-  const tablasPorTipo = {
+  /* 3️⃣  Verificar que el registro asociado aún existe */
+  const destinoPorTipo = {
     facturasGastos: "gastos",
     comprobantesPagos: "solicitudes_pago",
     abonosCXC: "abonos_cuentas",
@@ -349,16 +349,17 @@ export const restaurarArchivo = async (req, res) => {
     gasto: "gastos",
     solicitudPago: "solicitudes_pago",
   };
-  const tablaDestino = tablasPorTipo[archivo.registroTipo];
+  const tablaDestino = destinoPorTipo[archReemplazado.registroTipo];
   if (!tablaDestino)
     return res
       .status(400)
-      .json({ mensaje: `registroTipo inválido: ${archivo.registroTipo}` });
+      .json({
+        mensaje: `registroTipo inválido: ${archReemplazado.registroTipo}`,
+      });
 
-  /* 3.1  Verificar que el registro asociado exista */
   const [[registroVivo]] = await db.query(
     `SELECT 1 FROM \`${tablaDestino}\` WHERE id = ? LIMIT 1`,
-    [archivo.registroId]
+    [archReemplazado.registroId]
   );
   if (!registroVivo)
     return res
@@ -370,83 +371,77 @@ export const restaurarArchivo = async (req, res) => {
   try {
     await cx.beginTransaction();
 
-    /* 4.1  Enviar la versión activa (si existe) a papelera */
-    const [[activoActual]] = await cx.query(
+    /* 4.1  Bloquear (FOR UPDATE) la versión activa actual —si existe— */
+    const [[archActivo]] = await cx.query(
       `SELECT id, rutaS3
          FROM archivos
-        WHERE grupoArchivoId = ? AND estado = 'activo'`,
-      [archivo.grupoArchivoId]
+        WHERE grupoArchivoId = ? AND estado = 'activo' FOR UPDATE`,
+      [archReemplazado.grupoArchivoId]
     );
 
-    if (activoActual) {
-      const rutaPapelera = `papelera/${activoActual.rutaS3}`;
-
+    /* 4.2  Si hay activo, pasarlo a papelera y marcarlo como 'reemplazado' */
+    if (archActivo) {
+      const rutaPapelera = `papelera/${archActivo.rutaS3}`;
       await moverObjetoEnS3({
-        origen: activoActual.rutaS3,
+        origen: archActivo.rutaS3,
         destino: rutaPapelera,
       });
 
       await cx.query(
         `UPDATE archivos
-            SET estado = 'reemplazado',
-                rutaS3  = ?,
+            SET estado   = 'reemplazado',
+                rutaS3   = ?,
                 actualizadoEn = NOW()
           WHERE id = ?`,
-        [rutaPapelera, activoActual.id]
+        [rutaPapelera, archActivo.id]
       );
     }
 
-    /* 4.2  Restaurar objeto desde papelera a su ruta original */
-    const rutaDestino = archivo.rutaS3.replace(/^papelera\//, "");
-    await moverObjetoEnS3({ origen: archivo.rutaS3, destino: rutaDestino });
+    /* 4.3  Sacar la versión a restaurar de la papelera y dejarla 'activa' */
+    const rutaDestino = archReemplazado.rutaS3.replace(/^papelera\//, "");
+    await moverObjetoEnS3({
+      origen: archReemplazado.rutaS3,
+      destino: rutaDestino,
+    });
 
-    /* 4.3  Calcular siguiente versión */
-    const [[{ maxVersion }]] = await cx.query(
-      `SELECT COALESCE(MAX(numeroVersion),0) AS maxVersion
-         FROM archivos
-        WHERE grupoArchivoId = ?`,
-      [archivo.grupoArchivoId]
+    await cx.query(
+      `UPDATE archivos
+          SET estado   = 'activo',
+              rutaS3   = ?,
+              actualizadoEn = NOW()
+        WHERE id = ?`,
+      [rutaDestino, archReemplazado.id]
     );
-    const siguienteVersion = maxVersion + 1;
 
-    /* 4.4  Insertar nueva versión activa (sin columnas inexistentes) */
-    const [resultado] = await cx.query(
-      `INSERT INTO archivos (
-         grupoArchivoId, numeroVersion, registroTipo, registroId,
-         nombreOriginal, extension, tamanioBytes, rutaS3,
-         subidoPor, estado
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'activo')`,
-      [
-        archivo.grupoArchivoId,
-        siguienteVersion,
-        archivo.registroTipo,
-        archivo.registroId,
-        archivo.nombreOriginal,
-        archivo.extension,
-        archivo.tamanioBytes,
-        rutaDestino,
-        usuarioId,
-      ]
-    );
-    const nuevoArchivoId = resultado.insertId;
+    /* 4.4  Registrar dos eventos de auditoría */
+    const userAgent = req.get("User-Agent");
+    const ip = req.ip;
 
-    /* 4.5  Registrar evento */
+    if (archActivo) {
+      await cx.query(
+        `INSERT INTO eventosArchivo
+           (archivoId, accion, usuarioId, ip, userAgent, detalles)
+         VALUES (?, 'versionReemplazada', ?, ?, ?, ?)`,
+        [
+          archActivo.id,
+          usuarioId,
+          ip,
+          userAgent,
+          JSON.stringify({ nuevaRuta: `papelera/${archActivo.rutaS3}` }),
+        ]
+      );
+    }
+
     await cx.query(
       `INSERT INTO eventosArchivo
-         (archivoId, versionId, accion, usuarioId, ip, userAgent, detalles)
-       VALUES (?, ?, 'restauracion', ?, ?, ?, ?)`,
+        (archivoId, accion, usuarioId, ip, userAgent, detalles)
+       VALUES (?, 'restauracion', ?, ?, ?, ?)`,
       [
-        nuevoArchivoId,
-        archivoId,
+        archReemplazado.id,
         usuarioId,
-        req.ip,
-        req.get("User-Agent"),
-        JSON.stringify({
-          grupoArchivoId: archivo.grupoArchivoId,
-          restauradoDesde: archivo.numeroVersion,
-          nuevaVersion: siguienteVersion,
-          rutaDestino,
-        }),
+        ip,
+        userAgent,
+        JSON.stringify({ rutaRestaurada: rutaDestino }),
       ]
     );
 
