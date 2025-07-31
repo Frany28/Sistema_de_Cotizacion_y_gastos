@@ -5,18 +5,7 @@ export const ROL_ADMIN = 1;
 export const ROL_SUPERVISOR = 2;
 export const ROL_EMPLEADO = 3;
 
-/**
- * Listar eventos de archivos
- *  • Admin  (rol 1)  ⇒ ve todos los eventos
- *  • Supervisor (rol 2) ⇒ ve todos los eventos
- *  • Empleado  (rol 3)  ⇒ solo eventos de archivos que él mismo subió
- *
- * Query-params:
- *    ?limit=  (int, por defecto 10)
- *    ?offset= (int, por defecto 0)
- * Respuesta:
- *    { eventos:[{nombreArchivo,fechaEvento,tipoEvento}], limit, offset }
- */
+
 export const listarEventosArchivos = async (req, res) => {
   const usuarioId = req.user.id;
   const rolId = req.user.rol_id;
