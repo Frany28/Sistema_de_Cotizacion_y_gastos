@@ -1166,7 +1166,7 @@ export const purgarPapelera = async (req, res) => {
 
   const rutasTotales = [...rutasPrincipales, ...versiones.map((v) => v.rutaS3)];
 
-  /* 3️⃣  Borrar en S3 (lotes ≤ 1000) */
+  /*  Borrar en S3 (lotes ≤ 1000) */
   try {
     for (const lote of chunk(rutasTotales, 1000)) {
       await s3.send(
