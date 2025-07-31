@@ -29,8 +29,14 @@ export const listarEventosArchivos = async (req, res) => {
   const offset = Number(req.query.offset) || 0;
 
   /* Acciones que interesan a la UI */
-  const acciones = ["subida", "eliminacion", "sustitucion", "edicionMetadatos"];
-  const params = [...acciones]; // → bind params
+  const acciones = [
+    "subida",
+    "eliminacion",
+    "sustitucion",
+    "edicionMetadatos",
+    "borradoDefinitivo",
+  ];
+  const params = [...acciones];
 
   /* WHERE base (por tipo de acción) */
   let whereSql = `WHERE e.accion IN (${acciones.map(() => "?").join(",")})`;
@@ -105,7 +111,6 @@ export const contarVersionesDelMes = async (req, res) => {
     res.status(500).json({ mensaje: "Error al contar versiones del mes" });
   }
 };
-
 
 export const obtenerAlmacenamientoTotal = async (req, res) => {
   const archivoId = req.params.id;

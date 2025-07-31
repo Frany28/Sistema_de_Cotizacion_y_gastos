@@ -7,6 +7,7 @@ import api from "../../../api";
 function RegistroDeActividades() {
   const [eventos, setEventos] = useState([]);
 
+  /** 🔎 Traduce el tipo de evento a una frase legible */
   const obtenerDescripcionAccion = (tipoEvento) => {
     switch (tipoEvento) {
       case "subida":
@@ -17,11 +18,14 @@ function RegistroDeActividades() {
         return "fue sustituido";
       case "edicionMetadatos":
         return "fue modificado";
+      case "borradoDefinitivo": // 🆕 nuevo evento
+        return "fue eliminado de forma permanente";
       default:
         return "tuvo actividad";
     }
   };
 
+  /** 🕒 Devuelve “hace 3 h” o “jul 31 2025” según antigüedad */
   const formatearTiempo = (fechaIso) => {
     const fecha = new Date(fechaIso);
     const diffHoras = (Date.now() - fecha.getTime()) / 3_600_000;
@@ -30,6 +34,7 @@ function RegistroDeActividades() {
       : format(fecha, "LLL dd, yyyy", { locale: es });
   };
 
+  /** 📡 Petición al backend */
   const fetchEventos = useCallback(async () => {
     try {
       const { data } = await api.get("/archivos/eventos", {
@@ -58,20 +63,26 @@ function RegistroDeActividades() {
           <p className="text-gray-400 text-sm pt-2">Sin actividad por ahora</p>
         )}
 
-        {eventos.map(({ nombreArchivo, fechaEvento, tipoEvento }, idx) => (
-          <div key={idx} className="flex gap-2 items-start">
-            <File size={18} color="#D1D5DB" className="mt-0.5 flex-shrink-0" />
-            <div className="grid grid-cols-1">
-              <p className="text-white text-sm">
-                <span className="font-medium">{nombreArchivo}</span>{" "}
-                {obtenerDescripcionAccion(tipoEvento)}.
-              </p>
-              <p className="text-[13px] text-gray-400">
-                {formatearTiempo(fechaEvento)}
-              </p>
+        {eventos.map(
+          ({ nombreArchivo, fechaEvento, tipoEvento, idEvento }, idx) => (
+            <div key={idEvento ?? idx} className="flex gap-2 items-start">
+              <File
+                size={18}
+                color="#D1D5DB"
+                className="mt-0.5 flex-shrink-0"
+              />
+              <div className="grid grid-cols-1">
+                <p className="text-white text-sm">
+                  <span className="font-medium">{nombreArchivo}</span>{" "}
+                  {obtenerDescripcionAccion(tipoEvento)}.
+                </p>
+                <p className="text-[13px] text-gray-400">
+                  {formatearTiempo(fechaEvento)}
+                </p>
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        )}
       </div>
 
       <button
