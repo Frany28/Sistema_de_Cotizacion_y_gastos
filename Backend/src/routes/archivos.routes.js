@@ -13,13 +13,14 @@ import {
   listarHistorialVersiones,
   descargarVersion,
   restaurarVersion,
-  eliminarDefinitivamente, // ← solo-Admin (fallback global)
-  eliminarDefinitivoArchivo, // ← borrar desde papelera
+  eliminarDefinitivamente,
+  eliminarDefinitivoArchivo,
   sustituirArchivo,
   obtenerDetallesArchivo,
   contarVersionesArchivo,
   listarArchivosEliminados,
   listarVersionesPorGrupo,
+  purgarPapelera,
 } from "../controllers/archivos.controller.js";
 
 const router = express.Router();
@@ -87,6 +88,14 @@ router.delete(
   eliminarArchivo
 );
 
+// src/routes/archivos.routes.js
+router.delete(
+  "/papelera/purgar",
+  verificarSesion,
+  verificarPermiso("eliminarArchivos"),
+  purgarPapelera
+);
+
 // Restaurar archivo desde papelera
 router.post(
   "/:id/restaurar",
@@ -95,8 +104,6 @@ router.post(
   restaurarArchivo
 );
 
-// ❌ Borrado definitivo SOLO cuando el archivo YA está en papelera
-//    (el controlador verifica estado='eliminado' y permisos)
 router.delete(
   "/papelera/:id",
   autenticarUsuario,
