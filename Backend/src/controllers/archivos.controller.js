@@ -1029,7 +1029,7 @@ export const eliminarDefinitivoArchivo = async (req, res) => {
   const archivoId = Number(req.params.id);
   const { id: usuarioId, rol_id: rolId } = req.user;
 
-  /*   Solo si su estado es “eliminado” o “reemplazado”  */
+  /*  Traer archivo SOLO si está en papelera (eliminado o reemplazado) */
   const [[archivo]] = await db.query(
     `SELECT rutaS3, subidoPor, estado
        FROM archivos
@@ -1043,52 +1043,67 @@ export const eliminarDefinitivoArchivo = async (req, res) => {
       .status(404)
       .json({ message: "Archivo no encontrado en papelera." });
 
-  /*   Permisos → Admin, Supervisor o dueño */
+  /*  Permisos → Admin, Supervisor o dueño */
   const esDuenio = archivo.subidoPor === usuarioId;
   if (![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) && !esDuenio)
     return res.status(403).json({ message: "Sin permiso para borrar." });
 
-  /*  Clave real en S3
-         – si ya empieza con “papelera/” la usamos tal cual,
-         – si no, la anteponemos.                                         */
+  /*  Clave real en S3 (vive bajo /papelera) */
   const keyEnPapelera = archivo.rutaS3.startsWith("papelera/")
     ? archivo.rutaS3
     : `papelera/${archivo.rutaS3}`;
 
+  /*  Transacción: respaldar eventos ➜ borrar eventos ➜ borrar archivo */
+  const conn = await db.getConnection();
   try {
-    /* Borrar de S3 */
+    await conn.beginTransaction();
+
+    // 4.1  Respaldar eventos (opcional: elimina esta sección si no te interesa)
+    await conn.execute(
+      `INSERT INTO eventosArchivoBackup
+         SELECT *, NOW() AS fechaBackup
+           FROM eventosArchivo
+          WHERE archivoId = ?`,
+      [archivoId]
+    );
+
+    // 4.2  Borrar eventos hijos para liberar la FK
+    await conn.execute("DELETE FROM eventosArchivo WHERE archivoId = ?", [
+      archivoId,
+    ]);
+
+    // 4.3  Borrar registro padre
+    await conn.execute("DELETE FROM archivos WHERE id = ?", [archivoId]);
+
+    // 4.4  Commit en BD
+    await conn.commit();
+  } catch (err) {
+    await conn.rollback();
+    console.error(err);
+    return res
+      .status(500)
+      .json({ message: "Error al borrar en la base de datos." });
+  } finally {
+    conn.release();
+  }
+
+  /*  Borra objeto en S3 (fuera de la transacción) */
+  try {
     await s3.send(
       new DeleteObjectCommand({
         Bucket: process.env.S3_BUCKET,
         Key: keyEnPapelera,
       })
     );
-
-    /*  Borrar de la BD */
-    await db.execute("DELETE FROM archivos WHERE id = ?", [archivoId]);
-
-    /* Evento de auditoría */
-    await db.execute(
-      `INSERT INTO eventosArchivo
-         (archivoId, accion, usuarioId, ip, userAgent, detalles)
-       VALUES (?, 'borradoDefinitivo', ?, ?, ?, ?)`,
-      [
-        archivoId,
-        usuarioId,
-        req.ip,
-        req.get("User-Agent"),
-        JSON.stringify({
-          key: keyEnPapelera,
-          estadoAnterior: archivo.estado,
-        }),
-      ]
-    );
-
-    return res.json({ message: "Archivo borrado definitivamente." });
   } catch (err) {
-    console.error(err);
-    return res
-      .status(500)
-      .json({ message: "Error al borrar en S3 o en la base de datos." });
+    // El archivo ya no existe en S3 → no es bloqueo, solo avisamos
+    if (err.name !== "NoSuchKey") {
+      console.error(err);
+      return res
+        .status(500)
+        .json({ message: "Error al borrar el archivo en S3." });
+    }
   }
+
+  return res.json({ message: "Archivo borrado definitivamente." });
 };
