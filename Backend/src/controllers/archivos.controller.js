@@ -1029,81 +1029,96 @@ export const eliminarDefinitivoArchivo = async (req, res) => {
   const archivoId = Number(req.params.id);
   const { id: usuarioId, rol_id: rolId } = req.user;
 
-  /*  Traer archivo SOLO si está en papelera (eliminado o reemplazado) */
-  const [[archivo]] = await db.query(
-    `SELECT rutaS3, subidoPor, estado
-       FROM archivos
-      WHERE id = ?
-        AND estado IN ('eliminado','reemplazado')`,
+  /* Permisos */
+  const [[meta]] = await db.query(
+    `SELECT rutaS3, subidoPor FROM archivos
+      WHERE id=? AND estado IN ('eliminado','reemplazado')`,
     [archivoId]
   );
+  if (!meta) return res.status(404).json({ message: "No está en papelera." });
+  if (
+    ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
+    meta.subidoPor !== usuarioId
+  )
+    return res.status(403).json({ message: "Sin permiso." });
 
-  if (!archivo)
-    return res
-      .status(404)
-      .json({ message: "Archivo no encontrado en papelera." });
+  /* Rutas físicas (archivo + versiones) */
+  const [versiones] = await db.query(
+    `SELECT rutaS3 FROM versionesArchivo WHERE archivoId=?`,
+    [archivoId]
+  );
+  const rutas = [meta.rutaS3, ...versiones.map((v) => v.rutaS3)];
 
-  /*  Permisos → Admin, Supervisor o dueño */
-  const esDuenio = archivo.subidoPor === usuarioId;
-  if (![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) && !esDuenio)
-    return res.status(403).json({ message: "Sin permiso para borrar." });
-
-  /*  Clave real en S3 (vive bajo /papelera) */
-  const keyEnPapelera = archivo.rutaS3.startsWith("papelera/")
-    ? archivo.rutaS3
-    : `papelera/${archivo.rutaS3}`;
-
-  /*  Transacción: respaldar eventos ➜ borrar eventos ➜ borrar archivo */
-  const conn = await db.getConnection();
-  try {
-    await conn.beginTransaction();
-
-    // 4.1  Respaldar eventos (opcional: elimina esta sección si no te interesa)
-    await conn.execute(
-      `INSERT INTO eventosArchivoBackup
-         SELECT *, NOW() AS fechaBackup
-           FROM eventosArchivo
-          WHERE archivoId = ?`,
-      [archivoId]
-    );
-
-    // 4.2  Borrar eventos hijos para liberar la FK
-    await conn.execute("DELETE FROM eventosArchivo WHERE archivoId = ?", [
-      archivoId,
-    ]);
-
-    // 4.3  Borrar registro padre
-    await conn.execute("DELETE FROM archivos WHERE id = ?", [archivoId]);
-
-    // 4.4  Commit en BD
-    await conn.commit();
-  } catch (err) {
-    await conn.rollback();
-    console.error(err);
-    return res
-      .status(500)
-      .json({ message: "Error al borrar en la base de datos." });
-  } finally {
-    conn.release();
-  }
-
-  /*  Borra objeto en S3 (fuera de la transacción) */
+  /*  Borrar en S3 (aquí hacemos rollback manual si algo falla) */
   try {
     await s3.send(
-      new DeleteObjectCommand({
+      new DeleteObjectsCommand({
         Bucket: process.env.S3_BUCKET,
-        Key: keyEnPapelera,
+        Delete: {
+          Objects: rutas.map((r) => ({
+            Key: r.startsWith("papelera/") ? r : `papelera/${r}`,
+          })),
+        },
       })
     );
   } catch (err) {
-    // El archivo ya no existe en S3 → no es bloqueo, solo avisamos
-    if (err.name !== "NoSuchKey") {
-      console.error(err);
-      return res
-        .status(500)
-        .json({ message: "Error al borrar el archivo en S3." });
-    }
+    console.error(err);
+    return res.status(502).json({ message: "Error al borrar en S3." });
   }
 
-  return res.json({ message: "Archivo borrado definitivamente." });
+  /*  Transacción BD */
+  const cx = await db.getConnection();
+  try {
+    await cx.beginTransaction();
+
+    // 3.1  Restar almacenamiento
+    await cx.query(
+      `
+      UPDATE usuarios
+         SET usoStorageBytes = usoStorageBytes - (
+           SELECT COALESCE(SUM(tamanioBytes),0) FROM versionesArchivo WHERE archivoId=?
+         )
+       WHERE id = ?`,
+      [archivoId, meta.subidoPor]
+    );
+
+    // 3.2  Elimina versiones
+    await cx.query(`DELETE FROM versionesArchivo WHERE archivoId=?`, [
+      archivoId,
+    ]);
+
+    // 3.3  Marca el archivo como purgado (no lo borres, así la FK sigue viva)
+    await cx.query(
+      `
+      UPDATE archivos
+         SET estado='borrado', purgadoEn=NOW(), rutaS3=NULL
+       WHERE id=?`,
+      [archivoId]
+    );
+
+    // 3.4  Audita
+    await cx.query(
+      `
+      INSERT INTO eventosArchivo
+        (archivoId, accion, usuarioId, ip, userAgent, detalles)
+      VALUES (?,?,?,?,?, JSON_OBJECT('rutasEliminadas',?))`,
+      [
+        archivoId,
+        "borradoDefinitivo",
+        usuarioId,
+        req.ip,
+        req.get("User-Agent"),
+        JSON.stringify(rutas),
+      ]
+    );
+
+    await cx.commit();
+    res.json({ message: "Archivo purgado y auditado correctamente." });
+  } catch (e) {
+    await cx.rollback();
+    console.error(e);
+    res.status(500).json({ message: "Error al actualizar la base de datos." });
+  } finally {
+    cx.release();
+  }
 };
