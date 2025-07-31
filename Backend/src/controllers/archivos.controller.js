@@ -1172,7 +1172,11 @@ export const purgarPapelera = async (req, res) => {
       await s3.send(
         new DeleteObjectsCommand({
           Bucket: process.env.S3_BUCKET,
-          Delete: { Objects: lote.map((Key) => ({ Key })) },
+          Delete: {
+            Objects: lote.map((k) => ({
+              Key: k.startsWith("papelera/") ? k : `papelera/${k}`,
+            })),
+          },
         })
       );
     }
