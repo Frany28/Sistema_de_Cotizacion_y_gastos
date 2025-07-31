@@ -5,7 +5,7 @@ import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 import {
   s3,
   generarUrlPrefirmadaLectura,
-  moverArchivoAS3AlPapelera,
+  moverArchivoAPapelera,
 } from "../utils/s3.js";
 import { obtenerOcrearGrupoFirma } from "../utils/gruposArchivos.js";
 
@@ -242,7 +242,7 @@ export const actualizarUsuario = async (req, res) => {
       );
       if (ant.length) {
         const antId = ant[0].id;
-        const nuevaRuta = await moverArchivoAS3AlPapelera(
+        const nuevaRuta = await moverArchivoAPapelera(
           ant[0].rutaS3,
           "firmas",
           id
@@ -381,7 +381,7 @@ export const eliminarUsuario = async (req, res) => {
     // 3) Mover cada archivo a papelera
     for (const archivo of archivos) {
       // 3.1) Mover a papelera en S3
-      const nuevaClave = await moverArchivoAS3AlPapelera(
+      const nuevaClave = await moverArchivoAPapelera(
         archivo.rutaS3,
         "firmas",
         id

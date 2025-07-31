@@ -3,7 +3,7 @@ import db from "../config/database.js";
 import {
   generarUrlPrefirmadaLectura,
   s3,
-  moverArchivoAS3AlPapelera,
+  moverArchivoAPapelera,
 } from "../utils/s3.js";
 import { obtenerOcrearGrupoFactura } from "../utils/gruposArchivos.js";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
@@ -215,7 +215,7 @@ export const updateGasto = async (req, res) => {
 
       /* ---------- 1. Mover (y registrar) el archivo anterior ---------- */
       if (gastoExistente.documento) {
-        const rutaPapelera = await moverArchivoAS3AlPapelera(
+        const rutaPapelera = await moverArchivoAPapelera(
           gastoExistente.documento,
           "facturasGastos",
           id
@@ -427,7 +427,7 @@ export const deleteGasto = async (req, res) => {
     // 2) Si hay documento, mover archivo a papelera y actualizar BD
     if (gastoExistente.documento) {
       // 2.1) Mover archivo a papelera
-      const nuevaClave = await moverArchivoAS3AlPapelera(
+      const nuevaClave = await moverArchivoAPapelera(
         gastoExistente.documento,
         "facturasGastos",
         id
