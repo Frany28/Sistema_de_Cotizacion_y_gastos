@@ -333,7 +333,7 @@ function ListaArchivosPapelera() {
 
             {/* Vaciar papelera */}
             <button
-              className="flex items-center gap-2 bg-gradient-to-r from-red-600 …"
+              className="flex items-center gap-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 active:scale-95 text-white text-sm font-semibold rounded-lg px-4 py-2.5 disabled:opacity-50 transition-transform shadow hover:shadow-xl disabled:cursor-not-allowed"
               disabled={archivos.length === 0 || loadingVaciar}
               onClick={() => setMostrarConfirmVaciar(true)}
             >
