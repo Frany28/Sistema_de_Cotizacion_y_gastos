@@ -1136,7 +1136,7 @@ export const eliminarDefinitivoArchivo = async (req, res) => {
 };
 
 export const purgarPapelera = async (req, res) => {
-  /* 0️⃣  Permisos */
+  /*  Permisos */
   const { id: usuarioId, rol_id: rolId } = req.user;
   if (![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId)) {
     return res
@@ -1144,7 +1144,7 @@ export const purgarPapelera = async (req, res) => {
       .json({ mensaje: "No posees permiso para vaciar la papelera." });
   }
 
-  /* 1️⃣  Todos los archivos en papelera */
+  /* Todos los archivos en papelera */
   const [archivos] = await db.query(`
     SELECT id, rutaS3, tamanioBytes, subidoPor
       FROM archivos
@@ -1157,7 +1157,7 @@ export const purgarPapelera = async (req, res) => {
   const archivoIds = archivos.map((a) => a.id);
   const rutasPrincipales = archivos.map((a) => a.rutaS3).filter(Boolean);
 
-  /* 2️⃣  Versiones */
+  /* Versiones */
   const [versiones] = await db.query(
     `SELECT archivoId, rutaS3, tamanioBytes FROM versionesArchivo
       WHERE archivoId IN (?)`,
@@ -1185,7 +1185,7 @@ export const purgarPapelera = async (req, res) => {
     return res.status(502).json({ mensaje: "Fallo al eliminar en S3." });
   }
 
-  /* 4️⃣  Transacción BD */
+  /*Transacción BD */
   const cx = await db.getConnection();
   try {
     await cx.beginTransaction();
