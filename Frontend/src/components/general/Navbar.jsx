@@ -104,16 +104,6 @@ function Navbar() {
       ],
     },
     {
-      label: "Reportes",
-      type: "dropdown",
-      items: [
-        { path: "/relacion-gastos", label: "Relación de Gastos" },
-        { path: "/gastos-clasificacion", label: "Gastos por Clasificación" },
-        { path: "/pagos-realizados", label: "Pagos Realizados" },
-        { path: "/ingresos-cxc", label: "Ingresos / Cuentas por Cobrar" },
-      ],
-    },
-    {
       label: "Crear Registro",
       path: "/crearRegistro",
       type: "link",
