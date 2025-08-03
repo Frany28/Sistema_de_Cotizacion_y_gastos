@@ -3,34 +3,34 @@
 import express from "express";
 import cors from "cors";
 import session from "express-session";
-import connectRedis from "connect-redis";
+import { RedisStore } from "connect-redis";
 import redisClient from "./config/redisClient.js";
 import path from "path";
 import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 
-// ── 1. Cargar variables de entorno ───────────────────────
+/* ── 1. Cargar variables de entorno ─────────────────────── */
 dotenv.config();
 
-// ── 2. __dirname en ES Modules ───────────────────────────
+/* ── 2. Obtener __dirname en ES Modules ─────────────────── */
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// ── 3. Crear instancia de Express ───────────────────────
+/* ── 3. Inicializar Express ─────────────────────────────── */
 const app = express();
 
-// ── 4. Trust proxy (HTTPS detrás de Vercel/Netlify) ─────
+/* ── 4. Confiar en proxy (Vercel/Netlify) ───────────────── */
 app.set("trust proxy", 1);
 
-// ── 5. Configuración de CORS global ─────────────────────
-const listaOrígenesPermitidos = [
-  process.env.URL_FRONTEND, // p.ej. https://sistemacotizaciongastos.netlify.app
-  "http://localhost:5173", // dev local (si aplica)
+/* ── 5. Configuración de CORS y preflight ───────────────── */
+const origenesPermitidos = [
+  process.env.FRONT_URL, // p.ej. https://sistemacotizaciongastos.netlify.app
+  "http://localhost:5173", // entorno desarrollo local
 ].filter(Boolean);
 
 const opcionesCors = {
   origin: (origen, callback) => {
-    if (!origen || listaOrígenesPermitidos.includes(origen)) {
+    if (!origen || origenesPermitidos.includes(origen)) {
       return callback(null, true);
     }
     return callback(new Error(`CORS no permitido: ${origen}`));
@@ -41,40 +41,42 @@ const opcionesCors = {
 };
 
 app.use(cors(opcionesCors));
-app.options("*", cors(opcionesCors)); // habilitar preflight para todas las rutas
+app.options("*", cors(opcionesCors));
 
-// ── 6. Parseo de body y URL-encoded ─────────────────────
+/* ── 6. Parsers de body y form-data ─────────────────────── */
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ── 7. Configuración de sesión con Redis ────────────────
-const RedisStore = connectRedis(session);
+/* ── 7. Configuración de sesión con Redis ──────────────── */
 const esProduccion = process.env.NODE_ENV === "production";
+const redisStore = new RedisStore({ client: redisClient });
 
 app.use(
   session({
     name: "connect.sid",
-    store: new RedisStore({ client: redisClient }),
+    store: redisStore,
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: esProduccion, // HTTPS en prod
-      sameSite: esProduccion ? "none" : "lax", // Safari iOS / Chrome móvil
+      secure: esProduccion, // solo HTTPS en producción
+      sameSite: esProduccion ? "none" : "lax", // exigido por Safari iOS / Chrome móvil
       maxAge: 1000 * 60 * 60 * 8, // 8 horas
     },
   })
 );
 
-// ── 8. Servir uploads u otros estáticos ──────────────────
-app.use("/uploads", express.static(path.resolve(__dirname, "../uploads")));
-
-// ── 9. Middleware de logs (opcional) ────────────────────
-import { logger } from "./middleware/logger.js";
+/* ── 8. Middleware de logs ──────────────────────────────── */
+import { logger } from "./Middleware/logger.js";
 app.use(logger);
 
-// ── 10. Importar rutas ───────────────────────────────────
+/* ── 9. Servir archivos estáticos ───────────────────────── */
+app.use("/uploads", express.static(path.resolve(__dirname, "../uploads")));
+
+/* ── 10. Importar rutas ─────────────────────────────────── */
+import db from "./config/database.js"; // inicializar pool si lo necesitas
+
 import clientesRoutes from "./routes/clientes.routes.js";
 import serviciosProductosRoutes from "./routes/servicios_productos.routes.js";
 import proveedoresRoutes from "./routes/proveedores.routes.js";
@@ -97,7 +99,7 @@ import rolesRoutes from "./routes/roles.routes.js";
 import permisosRoutes from "./routes/permisos.routes.js";
 import rolesPermisosRoutes from "./routes/rolesPermisos.routes.js";
 
-// ── 11. Montar rutas ─────────────────────────────────────
+/* ── 11. Montar rutas ───────────────────────────────────── */
 app.use("/api/clientes", clientesRoutes);
 app.use("/api/servicios-productos", serviciosProductosRoutes);
 app.use("/api/proveedores", proveedoresRoutes);
@@ -120,16 +122,16 @@ app.use("/api/roles", rolesRoutes);
 app.use("/api/permisos", permisosRoutes);
 app.use("/api/roles-permisos", rolesPermisosRoutes);
 
-// ── 12. 404 para rutas no encontradas ────────────────────
+/* ── 12. Handler 404 para rutas API ─────────────────────── */
 app.use((req, res, next) => {
   if (req.originalUrl.startsWith("/api/")) {
-    return res.status(404).json({ message: "Ruta no encontrada" });
+    return res.status(404).json({ message: "Ruta API no encontrada" });
   }
   next();
 });
 
-// ── 13. Manejador global de errores ──────────────────────
-import { errorHandler } from "./middleware/errorHandler.js";
+/* ── 13. Manejador global de errores ────────────────────── */
+import { errorHandler } from "./Middleware/errorHandler.js";
 app.use(errorHandler);
 
 export default app;
