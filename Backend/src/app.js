@@ -2,14 +2,14 @@
 import express from "express";
 import cors from "cors";
 import session from "express-session";
-import { RedisStore } from "connect-redis";
+import { RedisStore } from "connect-redis"; // ← import nombrado correcto
 import redisClient from "./config/redisClient.js";
 
 import path from "path";
 import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 
-/* ── Pool global ─────────────────────────────────────────── */
+/* ── Pool global ───────────────────────────────────────────- */
 import db from "./config/database.js";
 
 /* ── Middlewares propios ────────────────────────────────── */
@@ -29,47 +29,24 @@ import solicitudesPagoRoutes from "./routes/solicitudesPago.routes.js";
 import bancosRoutes from "./routes/bancos.routes.js";
 import archivosRoutes from "./routes/archivos.routes.js";
 import almacenamientoRoutes from "./routes/almacenamiento.routes.js";
+import "./jobs/purgarPapeleras.js";
 import eventosArchivosRoutes from "./routes/eventosArchivos.routes.js";
 
-/* ── Rutas de seguridad ─────────────────────────────────── */
 import authRoutes from "./routes/auth.routes.js";
 import usuariosRoutes from "./routes/usuarios.routes.js";
 import rolesRoutes from "./routes/roles.routes.js";
 import permisosRoutes from "./routes/permisos.routes.js";
 import rolesPermisosRoutes from "./routes/rolesPermisos.routes.js";
 
-/* ── Jobs ───────────────────────────────────────────────── */
-import "./jobs/purgarPapeleras.js";
-
 dotenv.config();
 
-/* ───── Init ────────────────────────────────────────────── */
+/* ───── Init ─────────────────────────────────────────────── */
 const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-/* ───── CORS ────────────────────────────────────────────── */
-// Orígenes permitidos
-const allowedOrigins = [
-  process.env.FRONT_URL, // producción
-  "http://localhost:5173", // desarrollo
-].filter(Boolean);
-
-const corsOptions = {
-  origin: (origin, callback) =>
-    !origin || allowedOrigins.includes(origin)
-      ? callback(null, true)
-      : callback(new Error(`CORS origin not allowed: ${origin}`)),
-  credentials: true,
-  optionsSuccessStatus: 200, // para legacy browsers en preflight
-};
-
-// Aplicar CORS **antes** de cualquier otra cosa (incluida sesión)
-app.options("*", cors(corsOptions)); // preflight
-app.use(cors(corsOptions));
-
-/* ───── Configuración de sesión con Redis ──────────────── */
-const esProduccion = process.env.NODE_ENV === "production";
+/* ───── Config sesión con Redis ─────────────────────────── */
+const isProd = process.env.NODE_ENV === "production";
 const redisStore = new RedisStore({ client: redisClient });
 
 app.set("trust proxy", 1);
@@ -80,11 +57,27 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: esProduccion,
-      sameSite: esProduccion ? "none" : "lax",
+      secure: isProd,
+      sameSite: isProd ? "none" : "lax",
       httpOnly: true,
-      maxAge: 1000 * 60 * 60 * 8, // 8 horas
+      maxAge: 1000 * 60 * 60 * 8, // 8 h
     },
+  })
+);
+
+/* ───── CORS ─────────────────────────────────────────────── */
+const allowedOrigins = [
+  process.env.FRONT_URL, // producción
+  "http://localhost:5173", // desarrollo
+].filter(Boolean);
+
+app.use(
+  cors({
+    origin: (origin, cb) =>
+      !origin || allowedOrigins.includes(origin)
+        ? cb(null, true)
+        : cb(new Error(`CORS origin not allowed: ${origin}`)),
+    credentials: true,
   })
 );
 
@@ -106,10 +99,9 @@ app.use("/api/cuentas", cxcRoutes);
 app.use("/api/solicitudes-pago", solicitudesPagoRoutes);
 app.use("/api/bancos", bancosRoutes);
 app.use("/api/archivos", archivosRoutes);
-app.use("/api/almacenamiento", almacenamientoRoutes);
-
-/* ───── Rutas de autenticación y permisos ───────────────── */
-app.use("/api/auth", authRoutes);
+app.use("/api/almacenamiento", almacenamientoRoutes),
+  /* ───── Rutas de seguridad ──────────────────────────────── */
+  app.use("/api/auth", authRoutes);
 app.use("/api/usuarios", usuariosRoutes);
 app.use("/api/roles", rolesRoutes);
 app.use("/api/permisos", permisosRoutes);
