@@ -9,11 +9,13 @@ import {
   actualizarUsuario,
   eliminarUsuario,
 } from "../controllers/usuarios.controller.js";
+import { validarPasswordDistinta } from "../Middleware/validarPasswordDistinta.js";
+import { validarUsuario } from "../Middleware/validarUsuario.js";
 
 const router = express.Router();
 
 router.get("/", autenticarUsuario, obtenerUsuarios);
-router.get("/permisos/:permiso", autenticarUsuario /* … */);
+router.get("/permisos/:permiso", autenticarUsuario);
 router.get("/:id", autenticarUsuario, obtenerUsuarioPorId);
 
 router.post("/", autenticarUsuario, uploadFirma.single("firma"), crearUsuario);
@@ -22,6 +24,8 @@ router.put(
   "/:id",
   autenticarUsuario,
   uploadFirma.single("firma"),
+  validarUsuario,
+  validarPasswordDistinta,
   actualizarUsuario
 );
 

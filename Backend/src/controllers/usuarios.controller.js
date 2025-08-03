@@ -122,10 +122,10 @@ export const crearUsuario = async (req, res) => {
   }
 };
 
-// Actualizar usuario (puede cambiar datos básicos y subir nueva firma)
 export const actualizarUsuario = async (req, res) => {
   const conexion = await db.getConnection();
   let firmaKeyNueva = null;
+
   try {
     await conexion.beginTransaction();
 
@@ -137,24 +137,47 @@ export const actualizarUsuario = async (req, res) => {
     const tamanioBytes = req.file?.size ?? null;
     const rutaS3 = firmaKey;
 
-    // Campos dinámicos
+    // 1) Obtener hash actual para comparación de contraseña (middleware ya validó distinta)
+    const [[{ password: hashActual } = {}] = []] = await conexion.query(
+      `SELECT password FROM usuarios WHERE id = ?`,
+      [id]
+    );
+
+    // 2) Construir listas dinámicas de campos y valores
     const campos = [];
     const valores = [];
-    if (nombre) campos.push("nombre = ?"), valores.push(nombre.trim());
-    if (email) campos.push("email = ?"), valores.push(email.trim());
-    if (password) {
-      const hashed = await bcrypt.hash(password, 10);
-      campos.push("password = ?"), valores.push(hashed);
+
+    if (nombre) {
+      campos.push("nombre = ?");
+      valores.push(nombre.trim());
     }
-    if (rol_id) campos.push("rol_id = ?"), valores.push(rol_id);
-    if (estado) campos.push("estado = ?"), valores.push(estado);
+    if (email) {
+      campos.push("email = ?");
+      valores.push(email.trim());
+    }
+    if (password) {
+      // Asumimos que middleware ya invalidó coincidencia con hashActual
+      const hashed = await bcrypt.hash(password, 10);
+      campos.push("password = ?");
+      valores.push(hashed);
+    }
+    if (rol_id) {
+      campos.push("rol_id = ?");
+      valores.push(rol_id);
+    }
+    if (estado) {
+      campos.push("estado = ?");
+      valores.push(estado);
+    }
     if (firmaKey) {
       campos.push("firma = ?");
       valores.push(firmaKey);
       firmaKeyNueva = firmaKey;
     }
+
     valores.push(id);
 
+    // 3) Ejecutar UPDATE si hay cambios
     if (campos.length > 0) {
       await conexion.query(
         `UPDATE usuarios SET ${campos.join(", ")} WHERE id = ?`,
@@ -162,28 +185,28 @@ export const actualizarUsuario = async (req, res) => {
       );
     }
 
-    // Si hay nueva firma:
+    // 4) Si viene nueva firma, versionar y auditar
     if (firmaKey) {
-      /* 3.1) grupo (si no existía, lo crea) */
+      // 4.1) Obtener o crear grupo de firma
       const grupoId = await obtenerOcrearGrupoFirma(conexion, id, req.user.id);
 
-      /* 3.2) versión nueva */
+      // 4.2) Calcular siguiente número de versión
       const [[{ maxVer }]] = await conexion.query(
         `SELECT IFNULL(MAX(numeroVersion),0) AS maxVer
-       FROM archivos
-      WHERE registroTipo='firmas' AND registroId = ?`,
+           FROM archivos
+          WHERE registroTipo='firmas' AND registroId = ?`,
         [id]
       );
       const numeroVersion = maxVer + 1;
 
-      /* 3.3) nuevo registro en archivos */
+      // 4.3) Insertar en archivos
       const [aRes] = await conexion.query(
         `INSERT INTO archivos
-       (registroTipo, registroId, grupoArchivoId,
-        nombreOriginal, extension, tamanioBytes,
-        rutaS3, numeroVersion, estado,
-        subidoPor, creadoEn, actualizadoEn)
-     VALUES ('firmas', ?, ?, ?, ?, ?, ?, ?, 'activo', ?, NOW(), NOW())`,
+           (registroTipo, registroId, grupoArchivoId,
+            nombreOriginal, extension, tamanioBytes,
+            rutaS3, numeroVersion, estado,
+            subidoPor, creadoEn, actualizadoEn)
+         VALUES ('firmas', ?, ?, ?, ?, ?, ?, ?, 'activo', ?, NOW(), NOW())`,
         [
           id,
           grupoId,
@@ -197,12 +220,12 @@ export const actualizarUsuario = async (req, res) => {
       );
       const archivoId = aRes.insertId;
 
-      /* 3.4) snapshot versión */
+      // 4.4) Snapshot de la nueva versión
       const [vRes] = await conexion.query(
         `INSERT INTO versionesArchivo
-       (archivoId, numeroVersion, nombreOriginal, extension,
-        tamanioBytes, rutaS3, subidoPor)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+           (archivoId, numeroVersion, nombreOriginal, extension,
+            tamanioBytes, rutaS3, subidoPor)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [
           archivoId,
           numeroVersion,
@@ -215,11 +238,11 @@ export const actualizarUsuario = async (req, res) => {
       );
       const versionId = vRes.insertId;
 
-      /* 3.5) evento de sustitución */
+      // 4.5) Evento de sustitución
       await conexion.query(
         `INSERT INTO eventosArchivo
-       (archivoId, versionId, accion, usuarioId, ip, userAgent, detalles)
-     VALUES (?, ?, 'sustituido', ?, ?, ?, ?)`,
+           (archivoId, versionId, accion, usuarioId, ip, userAgent, detalles)
+         VALUES (?, ?, 'sustituido', ?, ?, ?, ?)`,
         [
           archivoId,
           versionId,
@@ -230,20 +253,20 @@ export const actualizarUsuario = async (req, res) => {
         ]
       );
 
-      /* 3.6) marcar la versión anterior como reemplazada (si existe) */
-      const [ant] = await conexion.query(
+      // 4.6) Marcar versión anterior como 'reemplazada' y auditar
+      const [anteriores] = await conexion.query(
         `SELECT id, rutaS3
-       FROM archivos
-      WHERE registroTipo='firmas' AND registroId = ?
-        AND id <> ? AND estado='activo'
-      ORDER BY numeroVersion DESC
-      LIMIT 1`,
+           FROM archivos
+          WHERE registroTipo='firmas' AND registroId = ?
+            AND id <> ? AND estado='activo'
+          ORDER BY numeroVersion DESC
+          LIMIT 1`,
         [id, archivoId]
       );
-      if (ant.length) {
-        const antId = ant[0].id;
+      if (anteriores.length) {
+        const antId = anteriores[0].id;
         const nuevaRuta = await moverArchivoAPapelera(
-          ant[0].rutaS3,
+          anteriores[0].rutaS3,
           "firmas",
           id
         );
@@ -251,11 +274,10 @@ export const actualizarUsuario = async (req, res) => {
           `UPDATE archivos SET estado='reemplazado', rutaS3=? WHERE id=?`,
           [nuevaRuta, antId]
         );
-        /*  Evento eliminación lógica */
         await conexion.query(
           `INSERT INTO eventosArchivo
-         (archivoId, accion, usuarioId, ip, userAgent, detalles)
-       VALUES (?, 'eliminacion', ?, ?, ?, ?)`,
+             (archivoId, accion, usuarioId, ip, userAgent, detalles)
+           VALUES (?, 'eliminacion', ?, ?, ?, ?)`,
           [
             antId,
             req.user.id,
@@ -266,11 +288,11 @@ export const actualizarUsuario = async (req, res) => {
         );
       }
 
-      /* 3.7) cuota (+ nuevo tamaño) */
+      // 4.7) Actualizar cuota de storage en usuarios
       await conexion.query(
         `UPDATE usuarios
-        SET usoStorageBytes = usoStorageBytes + ?
-      WHERE id = ?`,
+            SET usoStorageBytes = usoStorageBytes + ?
+          WHERE id = ?`,
         [tamanioBytes, id]
       );
     }
@@ -280,6 +302,7 @@ export const actualizarUsuario = async (req, res) => {
   } catch (err) {
     await conexion.rollback();
 
+    // Si subimos firma y algo falla, borramos el objeto S3
     if (firmaKeyNueva) {
       try {
         await s3.send(
@@ -289,7 +312,7 @@ export const actualizarUsuario = async (req, res) => {
           })
         );
       } catch (err2) {
-        console.error("Error borrando firma tras rollback:", err2);
+        console.error("Error al limpiar firma tras rollback:", err2);
       }
     }
 

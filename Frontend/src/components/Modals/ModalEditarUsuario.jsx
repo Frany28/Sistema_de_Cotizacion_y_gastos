@@ -5,6 +5,9 @@ import api from "../../api/index";
 import ModalExito from "./ModalExito";
 import ModalError from "./ModalError";
 
+// Regex para validar email
+const EMAIL_REGEX = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+
 export default function ModalEditarUsuario({
   visible,
   onClose,
@@ -15,7 +18,7 @@ export default function ModalEditarUsuario({
   const [form, setForm] = useState({
     nombre: "",
     email: "",
-    password: "", 
+    password: "",
     rol_id: "",
     estado: "",
     firma: null,
@@ -32,7 +35,7 @@ export default function ModalEditarUsuario({
       setForm({
         nombre: usuario.nombre || "",
         email: usuario.email || "",
-        password: "",
+        password: "", // nunca cargamos la contraseña actual
         rol_id: usuario.rol_id?.toString() || "",
         estado: usuario.estado || "activo",
         firma: usuario.firma || null,
@@ -50,10 +53,37 @@ export default function ModalEditarUsuario({
     setFirmaArchivo(e.target.files[0] || null);
   };
 
+  // Validaciones antes de enviar
+  const validarFormulario = () => {
+    if (!form.nombre.trim()) {
+      setErrorMsg("El nombre es obligatorio");
+      return false;
+    }
+    if (!form.email.trim() || !EMAIL_REGEX.test(form.email.trim())) {
+      setErrorMsg("El email es obligatorio o tiene formato inválido");
+      return false;
+    }
+    if (!form.rol_id) {
+      setErrorMsg("Debe seleccionar un rol");
+      return false;
+    }
+    if (form.password && form.password.length < 6) {
+      setErrorMsg("La contraseña debe tener al menos 6 caracteres");
+      return false;
+    }
+    return true;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsSubmitting(true);
 
+    // 1) Validación en cliente
+    if (!validarFormulario()) {
+      setShowError(true);
+      return;
+    }
+
+    setIsSubmitting(true);
     const data = new FormData();
     let cambios = false;
 
@@ -67,7 +97,7 @@ export default function ModalEditarUsuario({
       data.append("email", form.email);
       cambios = true;
     }
-    // Contraseña (solo si el usuario escribe algo)
+    // Contraseña (solo si escribe algo)
     if (form.password) {
       data.append("password", form.password);
       cambios = true;
@@ -82,7 +112,7 @@ export default function ModalEditarUsuario({
       data.append("estado", form.estado);
       cambios = true;
     }
-    // Firma nueva
+    // Nueva firma
     if (firmaArchivo) {
       data.append("firma", firmaArchivo);
       cambios = true;
@@ -96,12 +126,14 @@ export default function ModalEditarUsuario({
     }
 
     try {
-      await api.put(`/usuarios/${usuario.id}`, data, {
-        withCredentials: true,
-      });
+      await api.put(`/usuarios/${usuario.id}`, data, { withCredentials: true });
       setShowExito(true);
     } catch (err) {
-      setErrorMsg(err.response?.data?.error || "Error al actualizar usuario");
+      setErrorMsg(
+        err.response?.data?.message ||
+          err.response?.data?.error ||
+          "Error al actualizar usuario"
+      );
       setShowError(true);
     } finally {
       setIsSubmitting(false);
