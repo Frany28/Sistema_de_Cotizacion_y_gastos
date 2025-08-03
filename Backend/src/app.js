@@ -1,28 +1,22 @@
+// backend/src/app.js
 import express from "express";
 import cors from "cors";
 import session from "express-session";
-import connectRedis from "connect-redis";
+import { RedisStore } from "connect-redis"; // ← import nombrado correcto
 import redisClient from "./config/redisClient.js";
+
 import path from "path";
 import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 
-/* ── Variables de entorno ───────────────────────────────── */
-dotenv.config();
-
-/* ── Inicializar Express ───────────────────────────────── */
-const app = express();
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-/* ── Base de datos ─────────────────────────────────────── */
+/* ── Pool global ───────────────────────────────────────────- */
 import db from "./config/database.js";
 
-/* ── Middlewares propios ───────────────────────────────── */
+/* ── Middlewares propios ────────────────────────────────── */
 import { errorHandler } from "./Middleware/errorHandler.js";
 import { logger } from "./Middleware/logger.js";
 
-/* ── Rutas de negocio ──────────────────────────────────── */
+/* ── Rutas de negocio ───────────────────────────────────── */
 import clientesRoutes from "./routes/clientes.routes.js";
 import serviciosProductosRoutes from "./routes/servicios_productos.routes.js";
 import proveedoresRoutes from "./routes/proveedores.routes.js";
@@ -35,67 +29,65 @@ import solicitudesPagoRoutes from "./routes/solicitudesPago.routes.js";
 import bancosRoutes from "./routes/bancos.routes.js";
 import archivosRoutes from "./routes/archivos.routes.js";
 import almacenamientoRoutes from "./routes/almacenamiento.routes.js";
+import "./jobs/purgarPapeleras.js";
 import eventosArchivosRoutes from "./routes/eventosArchivos.routes.js";
 
 import authRoutes from "./routes/auth.routes.js";
-import verificarPermisoRoutes from "./routes/verificarPermiso.routes.js";
-import autenticarUsuarioRoutes from "./routes/autenticarUsuario.routes.js";
 import usuariosRoutes from "./routes/usuarios.routes.js";
 import rolesRoutes from "./routes/roles.routes.js";
 import permisosRoutes from "./routes/permisos.routes.js";
 import rolesPermisosRoutes from "./routes/rolesPermisos.routes.js";
 
-/* ── 1. Trust proxy para HTTPS detrás de proxy ──────────── */
-app.set("trust proxy", 1);
+dotenv.config();
 
-/* ── 2. Configuración de sesión con Redis ──────────────── */
-const RedisStore = connectRedis(session);
+/* ───── Init ─────────────────────────────────────────────── */
+const app = express();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+/* ───── Config sesión con Redis ─────────────────────────── */
+const isProd = process.env.NODE_ENV === "production";
 const redisStore = new RedisStore({ client: redisClient });
-const esProduccion = process.env.NODE_ENV === "production";
 
+app.set("trust proxy", 1);
 app.use(
   session({
-    name: "connect.sid",
     store: redisStore,
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
     cookie: {
+      secure: isProd,
+      sameSite: isProd ? "none" : "lax",
       httpOnly: true,
-      secure: esProduccion, // solo en HTTPS producción
-      sameSite: esProduccion ? "none" : "lax", // Safari/iOS y Chrome móvil
-      maxAge: 1000 * 60 * 60 * 8, // 8 horas
+      maxAge: 1000 * 60 * 60 * 8, // 8 h
     },
   })
 );
 
-/* ── 3. Configuración de CORS ──────────────────────────── */
-const listaOrígenesPermitidos = [
-  process.env.FRONT_URL, // tu frontend en Netlify
-  "http://localhost:5173", // entorno de desarrollo
+/* ───── CORS ─────────────────────────────────────────────── */
+const allowedOrigins = [
+  process.env.FRONT_URL, // producción
+  "http://localhost:5173", // desarrollo
 ].filter(Boolean);
 
 app.use(
   cors({
-    origin: (origen, callback) =>
-      !origen || listaOrígenesPermitidos.includes(origen)
-        ? callback(null, true)
-        : callback(new Error(`CORS no permitido: ${origen}`)),
+    origin: (origin, cb) =>
+      !origin || allowedOrigins.includes(origin)
+        ? cb(null, true)
+        : cb(new Error(`CORS origin not allowed: ${origin}`)),
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
-/* ── 4. Parsers y archivos estáticos ────────────────────── */
+/* ───── Estáticos y parsers ─────────────────────────────── */
+app.use("/uploads", express.static(path.resolve(__dirname, "../uploads")));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use("/uploads", express.static(path.resolve(__dirname, "../uploads")));
-
-/* ── 5. Logger de peticiones ───────────────────────────── */
 app.use(logger);
 
-/* ── 6. Montar rutas ───────────────────────────────────── */
+/* ───── Rutas REST ──────────────────────────────────────── */
 app.use("/api/clientes", clientesRoutes);
 app.use("/api/servicios-productos", serviciosProductosRoutes);
 app.use("/api/proveedores", proveedoresRoutes);
@@ -107,18 +99,16 @@ app.use("/api/cuentas", cxcRoutes);
 app.use("/api/solicitudes-pago", solicitudesPagoRoutes);
 app.use("/api/bancos", bancosRoutes);
 app.use("/api/archivos", archivosRoutes);
-app.use("/api/almacenamiento", almacenamientoRoutes);
-app.use("/api/archivos/eventos", eventosArchivosRoutes);
-
-app.use("/api/auth", authRoutes);
-app.use("/api/auth/verificar-permiso", verificarPermisoRoutes);
-app.use("/api/auth/autenticar-usuario", autenticarUsuarioRoutes);
+app.use("/api/almacenamiento", almacenamientoRoutes),
+  /* ───── Rutas de seguridad ──────────────────────────────── */
+  app.use("/api/auth", authRoutes);
 app.use("/api/usuarios", usuariosRoutes);
 app.use("/api/roles", rolesRoutes);
 app.use("/api/permisos", permisosRoutes);
 app.use("/api/roles-permisos", rolesPermisosRoutes);
+app.use("/api/archivos/eventos", eventosArchivosRoutes);
 
-/* ── 7. Handler 404 para APIs ───────────────────────────── */
+/* ───── 404 para API inexistente ─────────────────────────── */
 app.use((req, res, next) => {
   if (req.originalUrl.startsWith("/api/")) {
     return res.status(404).json({ message: "Ruta no encontrada" });
@@ -126,7 +116,7 @@ app.use((req, res, next) => {
   next();
 });
 
-/* ── 8. Manejador global de errores ────────────────────── */
+/* ───── Error handler global ────────────────────────────── */
 app.use(errorHandler);
 
 export default app;
