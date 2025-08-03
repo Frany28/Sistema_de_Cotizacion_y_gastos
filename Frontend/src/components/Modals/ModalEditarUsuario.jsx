@@ -1,4 +1,3 @@
-// src/components/Modals/ModalEditarUsuario.jsx
 import React, { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, Pencil } from "lucide-react";
@@ -16,6 +15,7 @@ export default function ModalEditarUsuario({
   const [form, setForm] = useState({
     nombre: "",
     email: "",
+    password: "", 
     rol_id: "",
     estado: "",
     firma: null,
@@ -26,12 +26,13 @@ export default function ModalEditarUsuario({
   const [showError, setShowError] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
-  // Carga inicial
+  // Carga inicial de datos en el formulario
   useEffect(() => {
     if (usuario) {
       setForm({
         nombre: usuario.nombre || "",
         email: usuario.email || "",
+        password: "",
         rol_id: usuario.rol_id?.toString() || "",
         estado: usuario.estado || "activo",
         firma: usuario.firma || null,
@@ -40,7 +41,6 @@ export default function ModalEditarUsuario({
     }
   }, [usuario]);
 
-  // CORRECCIÓN: usar ...prev en lugar de .prev
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -54,33 +54,42 @@ export default function ModalEditarUsuario({
     e.preventDefault();
     setIsSubmitting(true);
 
-    // Sólo los campos que cambien
     const data = new FormData();
     let cambios = false;
 
+    // Nombre
     if (form.nombre !== usuario.nombre) {
       data.append("nombre", form.nombre);
       cambios = true;
     }
+    // Email
     if (form.email !== usuario.email) {
       data.append("email", form.email);
       cambios = true;
     }
+    // Contraseña (solo si el usuario escribe algo)
+    if (form.password) {
+      data.append("password", form.password);
+      cambios = true;
+    }
+    // Rol
     if (form.rol_id !== String(usuario.rol_id)) {
       data.append("rol_id", form.rol_id);
       cambios = true;
     }
+    // Estado
     if (form.estado !== usuario.estado) {
       data.append("estado", form.estado);
       cambios = true;
     }
+    // Firma nueva
     if (firmaArchivo) {
       data.append("firma", firmaArchivo);
       cambios = true;
     }
 
     if (!cambios) {
-      setErrorMsg("No se detectaron cambios");
+      setErrorMsg("No se detectaron cambios para guardar");
       setShowError(true);
       setIsSubmitting(false);
       return;
@@ -90,8 +99,7 @@ export default function ModalEditarUsuario({
       await api.put(`/usuarios/${usuario.id}`, data, {
         withCredentials: true,
       });
-
-      setShowExito(true); // mostrar modal de éxito
+      setShowExito(true);
     } catch (err) {
       setErrorMsg(err.response?.data?.error || "Error al actualizar usuario");
       setShowError(true);
@@ -134,7 +142,7 @@ export default function ModalEditarUsuario({
             onClick={() => !isSubmitting && onClose()}
           >
             <motion.div
-              className="relative w-full max-w-lg p-6  bg-gray-800 rounded-lg shadow"
+              className="relative w-full max-w-lg p-6 bg-gray-800 rounded-lg shadow"
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
@@ -143,13 +151,13 @@ export default function ModalEditarUsuario({
               <button
                 onClick={() => !isSubmitting && onClose()}
                 disabled={isSubmitting}
-                className="cursor-pointer absolute top-3 right-3 text-gray-400  hover:text-white disabled:opacity-50"
+                className="absolute top-3 right-3 text-gray-400 hover:text-white disabled:opacity-50"
               >
                 <X className="w-5 h-5" />
               </button>
               <div className="text-center mb-4">
                 <Pencil className="mx-auto mb-2 text-blue-600 w-10 h-10" />
-                <h3 className="text-lg font-semibold  text-white">
+                <h3 className="text-lg font-semibold text-white">
                   Editar Usuario
                 </h3>
               </div>
@@ -161,7 +169,7 @@ export default function ModalEditarUsuario({
               >
                 {/* Nombre */}
                 <div>
-                  <label className="block mb-1 text-sm font-medium  text-white">
+                  <label className="block mb-1 text-sm font-medium text-white">
                     Nombre
                   </label>
                   <input
@@ -170,13 +178,13 @@ export default function ModalEditarUsuario({
                     value={form.nombre}
                     onChange={handleChange}
                     disabled={isSubmitting}
-                    className="block w-full p-2.5  border rounded-lg bg-gray-600 border-gray-500 text-white"
+                    className="block w-full p-2.5 border rounded-lg bg-gray-600 border-gray-500 text-white"
                   />
                 </div>
 
                 {/* Email */}
                 <div>
-                  <label className="block mb-1 text-sm font-medium  text-white">
+                  <label className="block mb-1 text-sm font-medium text-white">
                     Email
                   </label>
                   <input
@@ -185,13 +193,29 @@ export default function ModalEditarUsuario({
                     value={form.email}
                     onChange={handleChange}
                     disabled={isSubmitting}
-                    className="block w-full p-2.5  border rounded-lg bg-gray-600 border-gray-500 text-white"
+                    className="block w-full p-2.5 border rounded-lg bg-gray-600 border-gray-500 text-white"
+                  />
+                </div>
+
+                {/* Contraseña */}
+                <div className="col-span-2">
+                  <label className="block mb-1 text-sm font-medium text-white">
+                    Contraseña
+                  </label>
+                  <input
+                    type="password"
+                    name="password"
+                    value={form.password}
+                    onChange={handleChange}
+                    disabled={isSubmitting}
+                    placeholder="Dejar vacío para no cambiar"
+                    className="block w-full p-2.5 border rounded-lg bg-gray-600 border-gray-500 text-white"
                   />
                 </div>
 
                 {/* Rol */}
                 <div>
-                  <label className="block mb-1 text-sm font-medium  text-white">
+                  <label className="block mb-1 text-sm font-medium text-white">
                     Rol
                   </label>
                   <select
@@ -199,7 +223,7 @@ export default function ModalEditarUsuario({
                     value={form.rol_id}
                     onChange={handleChange}
                     disabled={isSubmitting}
-                    className="cursor-pointer block w-full p-2.5  border rounded-lg bg-gray-600 border-gray-500 text-white"
+                    className="block w-full p-2.5 border rounded-lg bg-gray-600 border-gray-500 text-white"
                   >
                     <option value="">Seleccione rol</option>
                     {roles.map((r) => (
@@ -212,7 +236,7 @@ export default function ModalEditarUsuario({
 
                 {/* Estado */}
                 <div>
-                  <label className="block mb-1 text-sm font-medium  text-white">
+                  <label className="block mb-1 text-sm font-medium text-white">
                     Estado
                   </label>
                   <select
@@ -220,7 +244,7 @@ export default function ModalEditarUsuario({
                     value={form.estado}
                     onChange={handleChange}
                     disabled={isSubmitting}
-                    className="cursor-pointer block w-full p-2.5  border rounded-lg bg-gray-600 border-gray-500 text-white"
+                    className="block w-full p-2.5 border rounded-lg bg-gray-600 border-gray-500 text-white"
                   >
                     <option value="activo">Activo</option>
                     <option value="inactivo">Inactivo</option>
@@ -256,28 +280,19 @@ export default function ModalEditarUsuario({
                     accept="image/*"
                     onChange={handleFileChange}
                     disabled={isSubmitting}
-                    className="
-                      block w-full p-2.5  text-gray-200 rounded
-                      file:px-4 file:py-2
-                      file:bg-gray-700
-                       file:text-gray-200
-                      file:border  file:border-gray-500
-                      file:rounded file:cursor-pointer
-                    file:hover:bg-gray-500
-                      transition
-                      duration-200 ease-in-out"
+                    className="block w-full p-2.5 text-gray-200 rounded file:px-4 file:py-2 file:bg-gray-700 file:text-gray-200 file:border file:border-gray-500 file:rounded file:cursor-pointer file:hover:bg-gray-500 transition duration-200 ease-in-out"
                   />
                 </div>
 
-                {/* Botón */}
+                {/* Botón Guardar */}
                 <div className="col-span-2 flex justify-center pt-4">
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className={`cursor-pointer w-full p-2.5 text-white font-medium rounded-lg ${
+                    className={`w-full p-2.5 text-white font-medium rounded-lg ${
                       isSubmitting
                         ? "bg-gray-400 cursor-not-allowed"
-                        : " focus:ring-4  bg-blue-600 hover:bg-blue-700 focus:ring-blue-800"
+                        : "bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-800"
                     }`}
                   >
                     {isSubmitting ? "Guardando..." : "Guardar cambios"}
