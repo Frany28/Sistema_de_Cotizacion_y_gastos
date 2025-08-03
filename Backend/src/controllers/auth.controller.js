@@ -38,7 +38,7 @@ export const login = async (req, res) => {
       email: usuario.email,
     };
 
-    req.session.userId = usuario.id; // Asegurar que userId esté configurado
+    req.session.userId = usuario.id; 
 
     // Verificar que la sesión se haya guardado correctamente
     req.session.save((err) => {
