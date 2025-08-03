@@ -80,6 +80,7 @@ export default function ModalEditarUsuario({
     // 1) Validación en cliente
     if (!validarFormulario()) {
       setShowError(true);
+      onClose(); // cerrar modal de edición
       return;
     }
 
@@ -121,6 +122,7 @@ export default function ModalEditarUsuario({
     if (!cambios) {
       setErrorMsg("No se detectaron cambios para guardar");
       setShowError(true);
+      onClose(); // cerrar modal de edición
       setIsSubmitting(false);
       return;
     }
@@ -128,6 +130,7 @@ export default function ModalEditarUsuario({
     try {
       await api.put(`/usuarios/${usuario.id}`, data, { withCredentials: true });
       setShowExito(true);
+      onClose(); // cerrar modal de edición
     } catch (err) {
       setErrorMsg(
         err.response?.data?.message ||
@@ -135,6 +138,7 @@ export default function ModalEditarUsuario({
           "Error al actualizar usuario"
       );
       setShowError(true);
+      onClose(); // cerrar modal de edición
     } finally {
       setIsSubmitting(false);
     }
@@ -142,7 +146,6 @@ export default function ModalEditarUsuario({
 
   const handleExitoClose = () => {
     setShowExito(false);
-    onClose();
     onUsuarioActualizado();
   };
   const handleErrorClose = () => setShowError(false);
@@ -165,7 +168,7 @@ export default function ModalEditarUsuario({
       />
 
       <AnimatePresence>
-        {visible && !showExito && (
+        {visible && !showExito && !showError && (
           <motion.div
             className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/40"
             initial={{ opacity: 0 }}
