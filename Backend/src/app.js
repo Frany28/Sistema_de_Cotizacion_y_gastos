@@ -2,14 +2,14 @@
 import express from "express";
 import cors from "cors";
 import session from "express-session";
-import { RedisStore } from "connect-redis"; // ← import nombrado correcto
+import { RedisStore } from "connect-redis";
 import redisClient from "./config/redisClient.js";
 
 import path from "path";
 import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 
-/* ── Pool global ───────────────────────────────────────────- */
+/* ── Pool global ─────────────────────────────────────────── */
 import db from "./config/database.js";
 
 /* ── Middlewares propios ────────────────────────────────── */
@@ -29,45 +29,47 @@ import solicitudesPagoRoutes from "./routes/solicitudesPago.routes.js";
 import bancosRoutes from "./routes/bancos.routes.js";
 import archivosRoutes from "./routes/archivos.routes.js";
 import almacenamientoRoutes from "./routes/almacenamiento.routes.js";
-import "./jobs/purgarPapeleras.js";
 import eventosArchivosRoutes from "./routes/eventosArchivos.routes.js";
 
+/* ── Rutas de seguridad ─────────────────────────────────── */
 import authRoutes from "./routes/auth.routes.js";
 import usuariosRoutes from "./routes/usuarios.routes.js";
 import rolesRoutes from "./routes/roles.routes.js";
 import permisosRoutes from "./routes/permisos.routes.js";
 import rolesPermisosRoutes from "./routes/rolesPermisos.routes.js";
 
+/* ── Jobs ───────────────────────────────────────────────── */
+import "./jobs/purgarPapeleras.js";
+
 dotenv.config();
 
-/* ───── Init ─────────────────────────────────────────────── */
+/* ───── Init ────────────────────────────────────────────── */
 const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-/* ───── CORS ─────────────────────────────────────────────── */
-// Lista de orígenes permitidos
+/* ───── CORS ────────────────────────────────────────────── */
+// Orígenes permitidos
 const allowedOrigins = [
   process.env.FRONT_URL, // producción
   "http://localhost:5173", // desarrollo
 ].filter(Boolean);
 
 const corsOptions = {
-  origin: (origin, cb) =>
+  origin: (origin, callback) =>
     !origin || allowedOrigins.includes(origin)
-      ? cb(null, true)
-      : cb(new Error(`CORS origin not allowed: ${origin}`)),
+      ? callback(null, true)
+      : callback(new Error(`CORS origin not allowed: ${origin}`)),
   credentials: true,
-  optionsSuccessStatus: 200, // Para manejar bien preflight en legacy browsers
+  optionsSuccessStatus: 200, // para legacy browsers en preflight
 };
 
-// Preflight para todas las rutas
-app.options("*", cors(corsOptions));
-// Middleware CORS antes de la sesión
+// Aplicar CORS **antes** de cualquier otra cosa (incluida sesión)
+app.options("*", cors(corsOptions)); // preflight
 app.use(cors(corsOptions));
 
-/* ───── Config sesión con Redis ─────────────────────────── */
-const isProd = process.env.NODE_ENV === "production";
+/* ───── Configuración de sesión con Redis ──────────────── */
+const esProduccion = process.env.NODE_ENV === "production";
 const redisStore = new RedisStore({ client: redisClient });
 
 app.set("trust proxy", 1);
@@ -78,10 +80,10 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: isProd,
-      sameSite: isProd ? "none" : "lax",
+      secure: esProduccion,
+      sameSite: esProduccion ? "none" : "lax",
       httpOnly: true,
-      maxAge: 1000 * 60 * 60 * 8, // 8 h
+      maxAge: 1000 * 60 * 60 * 8, // 8 horas
     },
   })
 );
@@ -105,7 +107,8 @@ app.use("/api/solicitudes-pago", solicitudesPagoRoutes);
 app.use("/api/bancos", bancosRoutes);
 app.use("/api/archivos", archivosRoutes);
 app.use("/api/almacenamiento", almacenamientoRoutes);
-/* ───── Rutas de seguridad ──────────────────────────────── */
+
+/* ───── Rutas de autenticación y permisos ───────────────── */
 app.use("/api/auth", authRoutes);
 app.use("/api/usuarios", usuariosRoutes);
 app.use("/api/roles", rolesRoutes);
