@@ -9,6 +9,8 @@ import {
 } from "../utils/s3.js";
 import { obtenerOcrearGrupoFirma } from "../utils/gruposArchivos.js";
 
+const EMAIL_REGEX = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+
 // Crear usuario (incluye registro de firma en S3, tabla archivos y eventosArchivo)
 export const crearUsuario = async (req, res) => {
   const conexion = await db.getConnection();
@@ -135,37 +137,65 @@ export const actualizarUsuario = async (req, res) => {
     const nombreOriginal = req.file?.originalname ?? null;
     const extension = nombreOriginal?.split(".").pop() ?? null;
     const tamanioBytes = req.file?.size ?? null;
-    const rutaS3 = firmaKey;
 
-    // 1) Obtener hash actual para comparación de contraseña (middleware ya validó distinta)
+    // 1) Obtener hash actual (para comparar password)
     const [[{ password: hashActual } = {}] = []] = await conexion.query(
       `SELECT password FROM usuarios WHERE id = ?`,
       [id]
     );
+    if (!hashActual) {
+      return res.status(404).json({ message: "Usuario no encontrado" });
+    }
 
-    // 2) Construir listas dinámicas de campos y valores
+    // 2) Validaciones de campos que lleguen
+    if (email !== undefined) {
+      if (!email.trim() || !EMAIL_REGEX.test(email.trim())) {
+        return res
+          .status(400)
+          .json({ message: "El email tiene un formato inválido" });
+      }
+    }
+    if (password !== undefined) {
+      if (password.length < 6) {
+        return res.status(400).json({
+          message: "La contraseña debe tener al menos 6 caracteres",
+        });
+      }
+      const coincide = await bcrypt.compare(password, hashActual);
+      if (coincide) {
+        return res.status(400).json({
+          message: "La nueva contraseña debe ser diferente a la actual.",
+        });
+      }
+    }
+    if (rol_id !== undefined && !rol_id) {
+      return res
+        .status(400)
+        .json({ message: "Si envías rol_id, debe ser un valor válido" });
+    }
+
+    // 3) Construir UPDATE dinámico
     const campos = [];
     const valores = [];
 
-    if (nombre) {
+    if (nombre !== undefined) {
       campos.push("nombre = ?");
       valores.push(nombre.trim());
     }
-    if (email) {
+    if (email !== undefined) {
       campos.push("email = ?");
       valores.push(email.trim());
     }
-    if (password) {
-      // Asumimos que middleware ya invalidó coincidencia con hashActual
+    if (password !== undefined) {
       const hashed = await bcrypt.hash(password, 10);
       campos.push("password = ?");
       valores.push(hashed);
     }
-    if (rol_id) {
+    if (rol_id !== undefined) {
       campos.push("rol_id = ?");
       valores.push(rol_id);
     }
-    if (estado) {
+    if (estado !== undefined) {
       campos.push("estado = ?");
       valores.push(estado);
     }
@@ -175,22 +205,23 @@ export const actualizarUsuario = async (req, res) => {
       firmaKeyNueva = firmaKey;
     }
 
-    valores.push(id);
-
-    // 3) Ejecutar UPDATE si hay cambios
-    if (campos.length > 0) {
-      await conexion.query(
-        `UPDATE usuarios SET ${campos.join(", ")} WHERE id = ?`,
-        valores
-      );
+    // Si no hay nada para actualizar
+    if (campos.length === 0) {
+      return res
+        .status(400)
+        .json({ message: "No se enviaron campos para actualizar." });
     }
 
-    // 4) Si viene nueva firma, versionar y auditar
+    valores.push(id);
+    await conexion.query(
+      `UPDATE usuarios SET ${campos.join(", ")} WHERE id = ?`,
+      valores
+    );
+
+    // 4) Si subió nueva firma, procesar versión y audit trail
     if (firmaKey) {
-      // 4.1) Obtener o crear grupo de firma
       const grupoId = await obtenerOcrearGrupoFirma(conexion, id, req.user.id);
 
-      // 4.2) Calcular siguiente número de versión
       const [[{ maxVer }]] = await conexion.query(
         `SELECT IFNULL(MAX(numeroVersion),0) AS maxVer
            FROM archivos
@@ -199,7 +230,7 @@ export const actualizarUsuario = async (req, res) => {
       );
       const numeroVersion = maxVer + 1;
 
-      // 4.3) Insertar en archivos
+      // Insertar nuevo archivo
       const [aRes] = await conexion.query(
         `INSERT INTO archivos
            (registroTipo, registroId, grupoArchivoId,
@@ -213,14 +244,14 @@ export const actualizarUsuario = async (req, res) => {
           nombreOriginal,
           extension,
           tamanioBytes,
-          rutaS3,
+          firmaKey,
           numeroVersion,
           req.user.id,
         ]
       );
       const archivoId = aRes.insertId;
 
-      // 4.4) Snapshot de la nueva versión
+      // Snapshot de versión
       const [vRes] = await conexion.query(
         `INSERT INTO versionesArchivo
            (archivoId, numeroVersion, nombreOriginal, extension,
@@ -232,13 +263,13 @@ export const actualizarUsuario = async (req, res) => {
           nombreOriginal,
           extension,
           tamanioBytes,
-          rutaS3,
+          firmaKey,
           req.user.id,
         ]
       );
       const versionId = vRes.insertId;
 
-      // 4.5) Evento de sustitución
+      // Evento de sustitución
       await conexion.query(
         `INSERT INTO eventosArchivo
            (archivoId, versionId, accion, usuarioId, ip, userAgent, detalles)
@@ -249,16 +280,16 @@ export const actualizarUsuario = async (req, res) => {
           req.user.id,
           req.ip,
           req.get("user-agent"),
-          JSON.stringify({ ruta: rutaS3, nombre: nombreOriginal, extension }),
+          JSON.stringify({ ruta: firmaKey, nombre: nombreOriginal, extension }),
         ]
       );
 
-      // 4.6) Marcar versión anterior como 'reemplazada' y auditar
+      // Reemplazar versión anterior
       const [anteriores] = await conexion.query(
         `SELECT id, rutaS3
            FROM archivos
-          WHERE registroTipo='firmas' AND registroId = ?
-            AND id <> ? AND estado='activo'
+          WHERE registroTipo='firmas'
+            AND registroId = ? AND id <> ? AND estado='activo'
           ORDER BY numeroVersion DESC
           LIMIT 1`,
         [id, archivoId]
@@ -288,7 +319,7 @@ export const actualizarUsuario = async (req, res) => {
         );
       }
 
-      // 4.7) Actualizar cuota de storage en usuarios
+      // Aumentar cuota
       await conexion.query(
         `UPDATE usuarios
             SET usoStorageBytes = usoStorageBytes + ?
@@ -302,7 +333,7 @@ export const actualizarUsuario = async (req, res) => {
   } catch (err) {
     await conexion.rollback();
 
-    // Si subimos firma y algo falla, borramos el objeto S3
+    // Si subió la firma y hubo error, borrar de S3
     if (firmaKeyNueva) {
       try {
         await s3.send(
@@ -311,8 +342,8 @@ export const actualizarUsuario = async (req, res) => {
             Key: firmaKeyNueva,
           })
         );
-      } catch (err2) {
-        console.error("Error al limpiar firma tras rollback:", err2);
+      } catch (e) {
+        console.error("Error borrando firma tras rollback:", e);
       }
     }
 

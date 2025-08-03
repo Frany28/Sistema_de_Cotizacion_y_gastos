@@ -9,8 +9,7 @@ import {
   actualizarUsuario,
   eliminarUsuario,
 } from "../controllers/usuarios.controller.js";
-import { validarPasswordDistinta } from "../Middleware/validarPasswordDistinta.js";
-import { validarUsuario } from "../Middleware/validarUsuario.js";
+
 
 const router = express.Router();
 
@@ -24,10 +23,9 @@ router.put(
   "/:id",
   autenticarUsuario,
   uploadFirma.single("firma"),
-  validarUsuario,
-  validarPasswordDistinta,
   actualizarUsuario
 );
+
 
 router.delete("/:id", autenticarUsuario, eliminarUsuario);
 
