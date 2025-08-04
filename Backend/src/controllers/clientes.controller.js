@@ -262,31 +262,66 @@ export const actualizarCliente = async (req, res) => {
 
 // Eliminar cliente
 export const eliminarCliente = async (req, res) => {
+  const clienteId = Number(req.params.id);
+
   try {
+    // Validar cuentas por cobrar pendientes
+    const [[{ cuentaPendiente }]] = await db.execute(
+      `SELECT COUNT(*) AS cuentaPendiente
+         FROM cuentas_por_cobrar
+        WHERE cliente_id = ? AND estado = 'pendiente'`,
+      [clienteId]
+    );
+
+    if (cuentaPendiente > 0) {
+      return res.status(400).json({
+        error:
+          "No se puede eliminar: el cliente tiene cuentas por cobrar pendientes.",
+      });
+    }
+
+    // Validar cotizaciones en proceso
+    const [[{ cotizacionPendiente }]] = await db.execute(
+      `SELECT COUNT(*) AS cotizacionPendiente
+         FROM cotizaciones
+        WHERE cliente_id = ? AND estado = 'pendiente'`,
+      [clienteId]
+    );
+
+    if (cotizacionPendiente > 0) {
+      return res.status(400).json({
+        error:
+          "No se puede eliminar: el cliente tiene cotizaciones en proceso.",
+      });
+    }
+
+    // Si pasa validaciones, borramos
     const [result] = await db.execute("DELETE FROM clientes WHERE id = ?", [
-      req.params.id,
+      clienteId,
     ]);
 
-    /* limpiar caché */
-    cacheMemoria.del(`cliente_${req.params.id}`);
+    // Limpiar caché
+    cacheMemoria.del(`cliente_${clienteId}`);
     for (const k of cacheMemoria.keys()) {
       if (k.startsWith("clientes_")) cacheMemoria.del(k);
     }
 
     if (!result.affectedRows) {
-      return res.status(404).json({ message: "Cliente no encontrado" });
+      return res.status(404).json({ message: "Cliente no encontrado." });
     }
 
-    /* 🆕 204 = éxito sin payload, fuerza al front a refrescar lista */
-    res.status(204).end();
+    // Respuesta 204 para forzar refresco en frontend
+    return res.status(204).end();
   } catch (error) {
-    /* Si existe FK a cotizaciones/abonos, MySQL lanzará 1451 */
+    // Opción de fallback si hay FK que bloquea
     if (error.errno === 1451) {
       return res.status(409).json({
-        error: "No se puede eliminar: el cliente tiene registros asociados",
+        error: "No se puede eliminar: el cliente tiene registros asociados.",
       });
     }
     console.error("Error al eliminar cliente:", error);
-    res.status(500).json({ message: "Error al eliminar el cliente" });
+    return res
+      .status(500)
+      .json({ message: "Error interno al eliminar el cliente." });
   }
 };

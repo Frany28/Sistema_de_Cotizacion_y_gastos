@@ -143,14 +143,21 @@ function ListaClientes() {
   const eliminarCliente = async (id) => {
     try {
       await api.delete(`/clientes/${id}`);
-      const actualizados = clientes.filter((cliente) => cliente.id !== id);
-      setClientes(actualizados);
+      // Si llegamos acá, fue OK
+      setClientes((prev) => prev.filter((c) => c.id !== id));
+      return true;
     } catch (error) {
       console.error("Error al eliminar cliente:", error);
+      // Intentamos leer el mensaje preciso del backend
+      const msgBackend =
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        "No se pudo eliminar el cliente.";
       mostrarError({
-        titulo: "Error al eliminar cliente",
-        mensaje: "No se pudo eliminar el cliente. Intenta nuevamente.",
+        titulo: "No se pudo eliminar",
+        mensaje: msgBackend,
       });
+      return false;
     }
   };
 
@@ -483,13 +490,15 @@ function ListaClientes() {
         visible={mostrarConfirmacion}
         onClose={() => setMostrarConfirmacion(false)}
         onConfirmar={async () => {
-          await eliminarCliente(clienteAEliminar.id);
+          const fueEliminado = await eliminarCliente(clienteAEliminar.id);
           setMostrarConfirmacion(false);
-          mostrarMensajeExito({
-            titulo: "Cliente eliminado",
-            mensaje: "El cliente ha sido eliminado correctamente.",
-            textoBoton: "Cerrar",
-          });
+          if (fueEliminado) {
+            mostrarMensajeExito({
+              titulo: "Cliente eliminado",
+              mensaje: "El cliente ha sido eliminado correctamente.",
+              textoBoton: "Cerrar",
+            });
+          }
         }}
         titulo="¿Eliminar cliente?"
         mensaje={`¿Seguro que deseas eliminar a ${clienteAEliminar?.nombre}? Esta acción no se puede deshacer.`}
