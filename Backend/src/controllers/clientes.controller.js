@@ -89,9 +89,11 @@ export const crearCliente = async (req, res) => {
     // 2.2  Insertar registro
     const sucursalId = sucursal_id ? parseInt(sucursal_id) : 4; // 4 = sucursal genérica
 
+    const usuarioId = req.user.id;
     const [insert] = await db.execute(
-      `INSERT INTO clientes (nombre, email, telefono, direccion, sucursal_id, identificacion)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO clientes 
+      (nombre, email, telefono, direccion, sucursal_id, identificacion, creadoPor)
+    VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
         nombre.trim(),
         email.trim(),
@@ -99,6 +101,7 @@ export const crearCliente = async (req, res) => {
         direccion.trim(),
         sucursalId,
         identificacion.trim(),
+        usuarioId,
       ]
     );
 
@@ -231,11 +234,17 @@ export const actualizarCliente = async (req, res) => {
     }
 
     /* 4. UPDATE */
+    const usuarioId = req.user.id;
     const [result] = await db.execute(
       `UPDATE clientes
-         SET nombre = ?, email = ?, telefono = ?, direccion = ?,
-             identificacion = ?, sucursal_id = ?
-       WHERE id = ?`,
+      SET nombre           = ?,
+          email            = ?,
+          telefono         = ?,
+          direccion        = ?,
+          identificacion   = ?,
+          sucursal_id      = ?,
+          actualizadoPor   = ?
+    WHERE id = ?`,
       [
         nombre.trim(),
         email.trim(),
@@ -243,6 +252,7 @@ export const actualizarCliente = async (req, res) => {
         direccion.trim(),
         identificacion.trim(),
         sucursal_id ? Number(sucursal_id) : null,
+        usuarioId,
         id,
       ]
     );
@@ -313,7 +323,6 @@ export const eliminarCliente = async (req, res) => {
     // Respuesta 204 para forzar refresco en frontend
     return res.status(204).end();
   } catch (error) {
-    // Opción de fallback si hay FK que bloquea
     if (error.errno === 1451) {
       return res.status(409).json({
         error: "No se puede eliminar: el cliente tiene registros asociados.",
