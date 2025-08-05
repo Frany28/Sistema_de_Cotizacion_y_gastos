@@ -124,7 +124,7 @@ export const obtenerProveedores = async (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 25, 100);
   const terminoRaw = (req.query.buscar || "").trim();
   const usaFiltro = terminoRaw.length > 0;
-  const termino = `${terminoRaw}%`; // comodín ambos lados
+  const termino = `${terminoRaw}%`;
   const offset = (page - 1) * limit;
 
   const claveCache = `proveedores_${page}_${limit}_${terminoRaw}`;

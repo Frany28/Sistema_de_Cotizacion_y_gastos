@@ -602,7 +602,7 @@ export const actualizarEstadoGasto = async (req, res) => {
     const { id } = req.params; // gasto_id
     const { estado, motivo_rechazo } = req.body;
 
-    /* 1️⃣  Actualizar estado y motivo (si aplica) */
+    /* Actualizar estado y motivo (si aplica) */
     await db.query(
       `
       UPDATE gastos
@@ -620,7 +620,7 @@ export const actualizarEstadoGasto = async (req, res) => {
       if (k.startsWith("gastos_")) cacheMemoria.del(k);
     }
 
-    /* 2️⃣  Si el nuevo estado es 'aprobado', crear solicitud de pago */
+    /* Si el nuevo estado es 'aprobado', crear solicitud de pago */
     if (estado === "aprobado") {
       /* 2.1  Evitar duplicados */
       const [yaExiste] = await db.query(
@@ -689,7 +689,7 @@ export const actualizarEstadoGasto = async (req, res) => {
       }
     }
 
-    /* 3️⃣  Respuesta */
+    /*  Respuesta */
     res.json({ message: "Estado de gasto actualizado correctamente" });
   } catch (error) {
     console.error("Error al actualizar estado del gasto:", error);
