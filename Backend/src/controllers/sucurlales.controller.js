@@ -54,6 +54,7 @@ export const obtenerSucursal = async (req, res) => {
 
 // Crear una nueva sucursal
 export const crearSucursal = async (req, res) => {
+  const usuarioId = req.user.id;
   const {
     codigo,
     nombre,
@@ -97,7 +98,10 @@ export const crearSucursal = async (req, res) => {
 
     // Insertar en BD
     const [result] = await db.execute(
-      "INSERT INTO sucursales (codigo, nombre, direccion, ciudad, estado_provincia, pais, telefono, email, responsable, estado) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      `INSERT INTO sucursales
+         (codigo, nombre, direccion, ciudad, estado_provincia, pais,
+          telefono, email, responsable, estado, creadoPor)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         codigo.trim(),
         nombre.trim(),
@@ -109,6 +113,7 @@ export const crearSucursal = async (req, res) => {
         email?.trim() || null,
         responsable?.trim() || null,
         estadoNormalizado,
+        usuarioId,
       ]
     );
 
@@ -145,6 +150,7 @@ export const crearSucursal = async (req, res) => {
 // controllers/sucursales.controller.js
 export const actualizarSucursal = async (req, res) => {
   const id = req.params.id;
+  const usuarioId = req.user.id;
 
   // ① Filtrar campos permitidos
   const camposPermitidos = [
@@ -192,10 +198,14 @@ export const actualizarSucursal = async (req, res) => {
       .json({ error: "El estado debe ser 'activo' o 'inactivo'" });
   }
 
-  // ③ Construir SET dinámico y valores
-  const setSql = paresActualizacion.map(([k]) => `${k} = ?`).join(", ");
+  // ③ Construir SET dinámico y valores, e incluir actualizadoPor
+  let setSql = paresActualizacion.map(([k]) => `${k} = ?`).join(", ");
   const valores = paresActualizacion.map(([_, v]) => v?.trim() || null);
-  valores.push(id); // para el WHERE
+  // añadimos updatedBy al SET
+  setSql += ", actualizadoPor = ?";
+  valores.push(usuarioId);
+  // finalmente, la condición WHERE
+  valores.push(id);
 
   await db.execute(`UPDATE sucursales SET ${setSql} WHERE id = ?`, valores);
 

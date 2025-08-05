@@ -293,7 +293,7 @@ export const eliminarServicioProducto = async (req, res) => {
   const id = req.params.id;
 
   try {
-    /* 1️⃣  ¿Sigue activo? -------------------------------------------------- */
+    /* ¿Sigue activo? */
     const [[registro]] = await db.execute(
       "SELECT estado FROM servicios_productos WHERE id = ?",
       [id]

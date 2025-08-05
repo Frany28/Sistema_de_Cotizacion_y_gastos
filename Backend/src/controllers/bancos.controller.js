@@ -8,6 +8,7 @@ import cacheMemoria from "../utils/cacheMemoria.js";
 export const crearBanco = async (req, res) => {
   const { nombre, moneda, tipo_identificador, identificador, estado } =
     req.body;
+  const usuarioId = req.user.id;
 
   try {
     const identificadorNormalizado = identificador.replace(/-/g, "").trim();
@@ -27,18 +28,19 @@ export const crearBanco = async (req, res) => {
     // 2) Insert parametrizado para evitar inyección SQL
     const [resultado] = await db.execute(
       `INSERT INTO bancos 
-        (nombre, moneda, tipo_identificador, identificador, estado) 
-       VALUES (?, ?, ?, ?, ?)`,
+         (nombre, moneda, tipo_identificador, identificador, estado, creadoPor) 
+       VALUES (?, ?, ?, ?, ?, ?)`,
       [
         nombre.trim(),
         moneda,
         tipo_identificador,
         identificador.trim(),
         estado || "activo",
+        usuarioId,
       ]
     );
 
-    // 🆕  invalidar listados
+    //  invalidar listados
     for (const k of cacheMemoria.keys()) {
       if (k.startsWith("bancos_")) cacheMemoria.del(k);
     }
@@ -93,7 +95,7 @@ export const obtenerBancos = async (req, res) => {
 
   const where = condiciones.length ? "WHERE " + condiciones.join(" AND ") : "";
   const [bancos] = await db.execute(
-    `SELECT * FROM bancos ${where} ORDER BY nombre ASC`, // orden alfabético
+    `SELECT * FROM bancos ${where} ORDER BY nombre ASC`,
     params
   );
 
@@ -133,14 +135,14 @@ export const actualizarBanco = async (req, res) => {
   const { nombre, moneda, tipo_identificador, identificador, estado } =
     req.body;
 
-  /* 1️⃣  Validaciones básicas */
+  /* Validaciones básicas */
   if (
     ![nombre, moneda, tipo_identificador, identificador, estado].every(Boolean)
   ) {
     return res.status(400).json({ message: "Faltan datos obligatorios" });
   }
 
-  /* 2️⃣  Validar formato del identificador: solo dígitos y guiones */
+  /*  Validar formato del identificador: solo dígitos y guiones */
   const patronIdentificador = /^[0-9-]+$/;
   if (!patronIdentificador.test(identificador)) {
     return res
@@ -148,11 +150,11 @@ export const actualizarBanco = async (req, res) => {
       .json({ message: "Formato de identificador inválido" });
   }
 
-  /* 3️⃣  Normalizar identificador quitando guiones para comparar-duplicados */
+  /* Normalizar identificador quitando guiones para comparar-duplicados */
   const identificadorNormalizado = identificador.replace(/-/g, "").trim();
 
   try {
-    /* 4️⃣  Comprobar que no exista otro banco con mismo nombre o identificador lógico */
+    /* Comprobar que no exista otro banco con mismo nombre o identificador lógico */
     const [duplicado] = await db.execute(
       `SELECT id
          FROM bancos
@@ -169,22 +171,23 @@ export const actualizarBanco = async (req, res) => {
         .json({ message: "Ya existe un banco con esos datos" });
     }
 
-    /* 5️⃣  Actualizar registro */
+    /* Actualizar registro */
     const [resultado] = await db.execute(
       `UPDATE bancos
-          SET nombre = ?,
-              moneda = ?,
-              tipo_identificador = ?,
-              identificador = ?,
-              estado = ?,
-              actualizado_en = CURRENT_TIMESTAMP
-        WHERE id = ?`,
+         SET nombre             = ?,
+             moneda             = ?,
+             tipo_identificador = ?,
+             identificador      = ?,
+             estado             = ?,
+             actualizadoPor     = ?
+       WHERE id = ?`,
       [
         nombre.trim(),
         moneda,
         tipo_identificador,
-        identificador.trim(), // se guarda tal cual (con guiones)
+        identificador.trim(),
         estado,
+        req.user.id,
         id,
       ]
     );
@@ -193,7 +196,7 @@ export const actualizarBanco = async (req, res) => {
       return res.status(404).json({ message: "Banco no encontrado" });
     }
 
-    /* 6️⃣  Invalidar caches: detalle y listados */
+    /* Invalidar caches: detalle y listados */
     cacheMemoria.del(`banco_${id}`);
     for (const clave of cacheMemoria.keys()) {
       if (clave.startsWith("bancos_")) cacheMemoria.del(clave);
