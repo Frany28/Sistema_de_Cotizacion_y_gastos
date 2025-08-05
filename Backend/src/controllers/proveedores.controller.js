@@ -67,6 +67,7 @@ export const verificarProveedorExistente = async (req, res) => {
 // Crear proveedor
 export const crearProveedor = async (req, res) => {
   const { nombre, email, telefono, direccion, rif, estado } = req.body;
+  const usuarioId = req.user.id;
 
   if (!rif || !/^J-\d{9}$/.test(rif)) {
     return res
@@ -79,7 +80,9 @@ export const crearProveedor = async (req, res) => {
     await conn.beginTransaction();
 
     const [result] = await conn.execute(
-      "INSERT INTO proveedores (nombre, email, telefono, direccion, rif, estado) VALUES (?, ?, ?, ?, ?, ?)",
+      `INSERT INTO proveedores
+         (nombre, email, telefono, direccion, rif, estado, creadoPor)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
         nombre.trim(),
         email.trim(),
@@ -87,6 +90,7 @@ export const crearProveedor = async (req, res) => {
         direccion.trim(),
         rif.trim(),
         estado,
+        usuarioId,
       ]
     );
 
@@ -96,7 +100,7 @@ export const crearProveedor = async (req, res) => {
 
     await conn.commit();
 
-    // ✅ Consultar el proveedor recién creado y devolverlo completo
+    // Consultar el proveedor recién creado y devolverlo completo
     const [proveedorCreado] = await conn.query(
       "SELECT * FROM proveedores WHERE id = ?",
       [result.insertId]
@@ -174,6 +178,7 @@ export const obtenerProveedores = async (req, res) => {
 export const actualizarProveedor = async (req, res) => {
   const { nombre, email, telefono, direccion, rif, estado } = req.body;
   const id = req.params.id;
+  const usuarioId = req.user.id;
 
   try {
     const [existing] = await db.query(
@@ -188,8 +193,25 @@ export const actualizarProveedor = async (req, res) => {
     }
 
     const [result] = await db.query(
-      "UPDATE proveedores SET nombre = ?, email = ?, telefono = ?, direccion = ?, rif = ?, estado = ? WHERE id = ?",
-      [nombre, email, telefono, direccion, rif, estado, id]
+      `UPDATE proveedores
+         SET nombre        = ?,
+             email         = ?,
+             telefono      = ?,
+             direccion     = ?,
+             rif           = ?,
+             estado        = ?,
+             actualizadoPor = ?
+       WHERE id = ?`,
+      [
+        nombre.trim(),
+        email.trim(),
+        telefono.trim(),
+        direccion.trim(),
+        rif.trim(),
+        estado,
+        usuarioId,
+        id,
+      ]
     );
 
     for (const k of cacheMemoria.keys()) {
@@ -213,7 +235,7 @@ export const eliminarProveedor = async (req, res) => {
   const { id } = req.params;
 
   try {
-    /* 1️⃣  Comprobar existencia y estado */
+    /* Comprobar existencia y estado */
     const [[proveedor]] = await db.query(
       "SELECT estado FROM proveedores WHERE id = ?",
       [id]
@@ -231,7 +253,7 @@ export const eliminarProveedor = async (req, res) => {
       });
     }
 
-    /* 2️⃣  Intentar eliminar; capturar FK para responder 409 */
+    /* Intentar eliminar; capturar FK para responder 409 */
     let resultado;
     try {
       [resultado] = await db.query("DELETE FROM proveedores WHERE id = ?", [
@@ -252,7 +274,7 @@ export const eliminarProveedor = async (req, res) => {
       return res.status(404).json({ message: "Proveedor no encontrado" });
     }
 
-    /* 3️⃣  Limpiar caché de listados */
+    /* Limpiar caché de listados */
     for (const clave of cacheMemoria.keys()) {
       if (clave.startsWith("proveedores_")) cacheMemoria.del(clave);
     }
