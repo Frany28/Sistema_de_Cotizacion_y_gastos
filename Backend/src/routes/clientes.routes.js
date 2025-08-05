@@ -7,7 +7,7 @@ import {
   eliminarCliente,
   verificarClienteExistente,
 } from "../controllers/clientes.controller.js";
-import { validarEliminacionCliente } from "../middlewares/validarEliminacionCliente.js";
+import { validarEliminacionCliente } from "../Middleware/validarEliminacionCliente.js";
 import { validarCliente } from "../middlewares/validarCliente.js";
 import { verificarPermiso } from "../middlewares/verificarPermiso.js";
 import { autenticarUsuario } from "../middlewares/autenticarUsuario.js";
