@@ -36,6 +36,7 @@ export const verificarServicioProductoExistente = async (req, res) => {
 
 // Crear servicio/producto
 export const crearServicioProducto = async (req, res) => {
+  const usuarioId = req.user.id;
   const {
     nombre,
     descripcion,
@@ -61,8 +62,12 @@ export const crearServicioProducto = async (req, res) => {
 
     const insertQuery =
       tipo === "producto"
-        ? `INSERT INTO servicios_productos (nombre, descripcion, precio, tipo, porcentaje_iva, cantidad_actual, cantidad_anterior) VALUES (?, ?, ?, ?, ?, ?, ?)`
-        : `INSERT INTO servicios_productos (nombre, descripcion, precio, tipo, porcentaje_iva) VALUES (?, ?, ?, ?, ?)`;
+        ? `INSERT INTO servicios_productos
+             (nombre, descripcion, precio, tipo, porcentaje_iva, cantidad_actual, cantidad_anterior, creadoPor)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        : `INSERT INTO servicios_productos
+             (nombre, descripcion, precio, tipo, porcentaje_iva, creadoPor)
+           VALUES (?, ?, ?, ?, ?, ?)`;
 
     const insertParams =
       tipo === "producto"
@@ -74,8 +79,9 @@ export const crearServicioProducto = async (req, res) => {
             porcentaje_iva,
             cantidad_actual,
             cantidad_anterior,
+            usuarioId,
           ]
-        : [nombre, descripcion, precio, tipo, porcentaje_iva];
+        : [nombre, descripcion, precio, tipo, porcentaje_iva, usuarioId];
 
     const [insertResult] = await db.execute(insertQuery, insertParams);
 
@@ -189,6 +195,7 @@ export const actualizarServicioProducto = async (req, res) => {
   const { nombre, descripcion, precio, tipo, estado, porcentaje_iva } =
     req.body;
   const id = req.params.id;
+  const usuarioId = req.user.id;
 
   try {
     const [existing] = await db.execute(
@@ -205,9 +212,15 @@ export const actualizarServicioProducto = async (req, res) => {
 
     const [result] = await db.execute(
       `UPDATE servicios_productos 
-       SET nombre = ?, descripcion = ?, precio = ?, tipo = ?, estado = ?, porcentaje_iva = ?
+         SET nombre         = ?,
+             descripcion    = ?,
+             precio         = ?,
+             tipo           = ?,
+             estado         = ?,
+             porcentaje_iva = ?,
+             actualizadoPor = ?
        WHERE id = ?`,
-      [nombre, descripcion, precio, tipo, estado, porcentaje_iva, id]
+      [nombre, descripcion, precio, tipo, estado, porcentaje_iva, usuarioId, id]
     );
 
     cacheMemoria.del(`servicio_${id}`);
