@@ -8,9 +8,9 @@ import {
   verificarClienteExistente,
 } from "../controllers/clientes.controller.js";
 import { validarEliminacionCliente } from "../Middleware/validarEliminacionCliente.js";
-import { validarCliente } from "../middlewares/validarCliente.js";
-import { verificarPermiso } from "../middlewares/verificarPermiso.js";
-import { autenticarUsuario } from "../middlewares/autenticarUsuario.js";
+import { validarCliente } from "../Middleware/validarCliente.js";
+import { verificarPermiso } from "../Middleware/verificarPermiso.js";
+import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
 
 const router = express.Router();
 
