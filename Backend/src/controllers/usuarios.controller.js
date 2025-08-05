@@ -27,13 +27,21 @@ export const crearUsuario = async (req, res) => {
     const rutaS3 = firmaKey;
 
     // 2) Insertar en usuarios
+    const usuarioCreador = req.user.id; // ← el ID del usuario autenticado
     const [uResult] = await conexion.query(
       `INSERT INTO usuarios
-         (nombre, email, password, rol_id, estado, firma, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, NOW())`,
-      [nombre.trim(), email.trim(), hashed, rol_id, estado, firmaKey]
+         (nombre, email, password, rol_id, estado, firma, creadoPor)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        nombre.trim(),
+        email.trim(),
+        hashed,
+        rol_id,
+        estado,
+        firmaKey,
+        usuarioCreador,
+      ]
     );
-    const usuarioId = uResult.insertId;
 
     // 3) Generar y guardar código de usuario
     const codigo = `USR${String(usuarioId).padStart(4, "0")}`;
@@ -212,6 +220,9 @@ export const actualizarUsuario = async (req, res) => {
         .json({ message: "No se enviaron campos para actualizar." });
     }
 
+    campos.push("actualizadoPor = ?");
+    valores.push(req.user.id);
+    // condición WHERE
     valores.push(id);
     await conexion.query(
       `UPDATE usuarios SET ${campos.join(", ")} WHERE id = ?`,
@@ -358,7 +369,10 @@ export const actualizarUsuario = async (req, res) => {
 export const obtenerUsuarios = async (req, res) => {
   try {
     const [rows] = await db.query(`
-      SELECT u.id, u.codigo, u.nombre, u.email, u.estado, u.created_at, r.nombre AS rol
+      SELECT u.id, u.codigo, u.nombre, u.email, u.estado,
+        u.fechaCreacion, u.fechaActualizacion,
+        u.creadoPor, u.actualizadoPor,
+        r.nombre AS rol
       FROM usuarios u
       LEFT JOIN roles r ON u.rol_id = r.id
       ORDER BY u.id DESC
