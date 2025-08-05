@@ -140,6 +140,24 @@ function ListaClientes() {
     });
   };
 
+  const manejarClickEliminar = async (cliente) => {
+    try {
+      // 1️⃣ Validar si se puede eliminar (usa tu ruta GET /validar-eliminacion)
+      await api.get(`/clientes/${cliente.id}/validar-eliminacion`);
+      // 2️⃣ Si OK, guardamos y abrimos confirmación
+      setClienteAEliminar(cliente);
+      setMostrarConfirmacion(true);
+    } catch (error) {
+      // 3️⃣ Si 400, mostramos directamente el modal de error
+      const mensajeError =
+        error.response?.data?.error || "No se pudo validar la eliminación.";
+      mostrarError({
+        titulo: "No se puede eliminar",
+        mensaje: mensajeError,
+      });
+    }
+  };
+
   const eliminarCliente = async (id) => {
     try {
       await api.delete(`/clientes/${id}`);
@@ -329,10 +347,7 @@ function ListaClientes() {
                     {puedeEliminar && (
                       <BotonIcono
                         tipo="eliminar"
-                        onClick={() => {
-                          setClienteAEliminar(cliente);
-                          setMostrarConfirmacion(true);
-                        }}
+                        onClick={() => manejarClickEliminar(cliente)}
                         titulo="Eliminar cliente"
                       />
                     )}

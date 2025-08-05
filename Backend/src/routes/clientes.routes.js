@@ -7,7 +7,7 @@ import {
   eliminarCliente,
   verificarClienteExistente,
 } from "../controllers/clientes.controller.js";
-
+import { validarEliminacionCliente } from "../Middleware/validarEliminacionCliente.js";
 import { validarCliente } from "../Middleware/validarCliente.js";
 import { verificarPermiso } from "../Middleware/verificarPermiso.js";
 import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
@@ -44,6 +44,7 @@ router.delete(
   "/:id",
   autenticarUsuario,
   verificarPermiso("eliminarCliente"),
+  validarEliminacionCliente,
   eliminarCliente
 );
 
