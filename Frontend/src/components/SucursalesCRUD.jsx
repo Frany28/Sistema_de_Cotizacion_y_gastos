@@ -293,7 +293,7 @@ export default function UsuariosCRUD() {
                 <td className="px-4 py-3">{u.rol}</td>
                 <td className="px-4 py-3 capitalize">{u.estado}</td>
                 <td className="px-4 py-3">
-                  {formatearFecha(u.fechaCreacion)}+{" "}
+                  {formatearFecha(u.fechaCreacion)}{" "}
                 </td>
                 <td className="px-4 py-3 flex space-x-2">
                   {puedeEditar && (
@@ -350,7 +350,7 @@ export default function UsuariosCRUD() {
                   <span className="text-white ml-1">{u.rol}</span>
                 </div>
                 <div>
-                  <span className="text-gray-400">Creado:</span>+{" "}
+                  <span className="text-gray-400">Creado:</span>{" "}
                   <span className="text-white ml-1">
                     {formatearFecha(u.fechaCreacion)}{" "}
                   </span>{" "}
