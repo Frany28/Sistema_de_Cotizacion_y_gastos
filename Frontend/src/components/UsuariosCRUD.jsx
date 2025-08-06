@@ -290,9 +290,7 @@ export default function UsuariosCRUD() {
                 <td className="px-4 py-3">{u.email}</td>
                 <td className="px-4 py-3">{u.rol}</td>
                 <td className="px-4 py-3 capitalize">{u.estado}</td>
-                <td className="px-4 py-3">
-                  {new Date(u.created_at).toLocaleDateString()}
-                </td>
+                <td className="px-4 py-3">{formatearFecha(u.fechaCreacion)}</td>
                 <td className="px-4 py-3 flex space-x-2">
                   {puedeEditar && (
                     <BotonIcono
