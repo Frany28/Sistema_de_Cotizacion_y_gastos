@@ -146,6 +146,8 @@ export default function UsuariosCRUD() {
   );
   const totalPaginas = Math.ceil(filtrados.length / limit);
   const paginados = filtrados.slice((page - 1) * limit, page * limit);
+  const formatearFecha = (iso) =>
+    iso ? new Date(iso).toLocaleDateString("es-ES") : "-";
 
   if (loading) {
     return (
