@@ -149,7 +149,7 @@ export const getCotizacionById = async (req, res) => {
        FROM cotizaciones c
        JOIN clientes cli ON c.cliente_id = cli.id
        LEFT JOIN sucursales s ON c.sucursal_id = s.id
-       LEFT JOIN usuarios u   ON u.id = c.usuario_id
+      LEFT JOIN usuarios u   ON u.id = c.creadoPor
        WHERE c.id = ?`,
       [id]
     );
@@ -573,7 +573,7 @@ export const generarPDFCotizacion = async (req, res) => {
       FROM cotizaciones c
       JOIN clientes cli ON cli.id = c.cliente_id
       LEFT JOIN sucursales s ON c.sucursal_id = s.id
-      LEFT JOIN usuarios u ON u.id = c.usuario_id
+      LEFT JOIN usuarios u ON u.id = c.creadoPor
       WHERE c.id = ?`,
       [id]
     );
