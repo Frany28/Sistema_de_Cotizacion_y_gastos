@@ -352,7 +352,7 @@ export default function UsuariosCRUD() {
                 <div>
                   <span className="text-gray-400">Creado:</span>+{" "}
                   <span className="text-white ml-1">
-                    {formatearFecha(u.fechaCreacion)}+{" "}
+                    {formatearFecha(u.fechaCreacion)}{" "}
                   </span>{" "}
                 </div>
               </div>
