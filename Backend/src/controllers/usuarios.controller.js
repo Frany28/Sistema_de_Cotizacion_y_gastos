@@ -389,23 +389,16 @@ export const obtenerUsuarios = async (req, res) => {
   }
 };
 
+
 // Obtener un usuario por ID (incluye la URL de la firma)
 export const obtenerUsuarioPorId = async (req, res) => {
   const { id } = req.params;
   try {
     // 1) Datos básicos del usuario
     const [[user]] = await db.query(
-      `SELECT 
-        id,
-        codigo,
-       nombre,
-       email,
-       estado,
-       rol_id      AS rolId,
-        created_at  AS fechaCreacion,
-        updated_at  AS fechaActualizacion
-     FROM usuarios
-    WHERE id = ?`,
+      `SELECT id, codigo, nombre, email, estado, rol_id, created_at
+         FROM usuarios
+        WHERE id = ?`,
       [id]
     );
     if (!user)
