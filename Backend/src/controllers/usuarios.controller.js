@@ -368,16 +368,21 @@ export const actualizarUsuario = async (req, res) => {
 // Obtener todos los usuarios (incluye código y rol)
 export const obtenerUsuarios = async (req, res) => {
   try {
-    const [rows] = await db.query(`
-      SELECT u.id, u.codigo, u.nombre, u.email, u.estado,
-        u.fechaCreacion, u.fechaActualizacion,
-        u.creadoPor, u.actualizadoPor,
-        r.nombre AS rol
-      FROM usuarios u
+    const [filasUsuarios] = await db.query(`
+      SELECT 
+        u.id,
+        u.codigo,
+        u.nombre,
+        u.email,
+        u.estado,
+        u.created_at    AS fechaCreacion,
+        u.updated_at    AS fechaActualizacion,
+        r.nombre        AS rol
+     FROM usuarios u
       LEFT JOIN roles r ON u.rol_id = r.id
       ORDER BY u.id DESC
     `);
-    res.json(rows);
+    res.json(filasUsuarios);
   } catch (error) {
     console.error("Error al obtener usuarios:", error);
     res.status(500).json({ message: "Error al obtener usuarios" });
@@ -390,9 +395,17 @@ export const obtenerUsuarioPorId = async (req, res) => {
   try {
     // 1) Datos básicos del usuario
     const [[user]] = await db.query(
-      `SELECT id, codigo, nombre, email, estado, rol_id, created_at
-         FROM usuarios
-        WHERE id = ?`,
+      `SELECT 
+        id,
+        codigo,
+       nombre,
+       email,
+       estado,
+       rol_id      AS rolId,
+        created_at  AS fechaCreacion,
+        updated_at  AS fechaActualizacion
+     FROM usuarios
+    WHERE id = ?`,
       [id]
     );
     if (!user)
