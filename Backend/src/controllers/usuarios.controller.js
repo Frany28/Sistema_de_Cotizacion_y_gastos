@@ -369,16 +369,18 @@ export const actualizarUsuario = async (req, res) => {
 export const obtenerUsuarios = async (req, res) => {
   try {
     const [filasUsuarios] = await db.query(`
-      SELECT 
+     SELECT
         u.id,
         u.codigo,
         u.nombre,
         u.email,
         u.estado,
-        u.created_at    AS fechaCreacion,
-        u.updated_at    AS fechaActualizacion,
-        r.nombre        AS rol
-     FROM usuarios u
+        u.fechaCreacion    AS fechaCreacion,
+        u.fechaActualizacion AS fechaActualizacion,
+        u.creadoPor,
+      u.actualizadoPor,
+       r.nombre           AS rol
+      FROM usuarios u
       LEFT JOIN roles r ON u.rol_id = r.id
       ORDER BY u.id DESC
     `);
@@ -389,37 +391,54 @@ export const obtenerUsuarios = async (req, res) => {
   }
 };
 
-
 // Obtener un usuario por ID (incluye la URL de la firma)
 export const obtenerUsuarioPorId = async (req, res) => {
   const { id } = req.params;
   try {
-    // 1) Datos básicos del usuario
-    const [[user]] = await db.query(
-      `SELECT id, codigo, nombre, email, estado, rol_id, created_at
-         FROM usuarios
-        WHERE id = ?`,
+    const [[usuario]] = await db.query(
+      `
+      SELECT
+        u.id,
+        u.codigo,
+        u.nombre,
+        u.email,
+        u.estado,
+        u.rol_id               AS rolId,
+        r.nombre               AS rol,
+        u.fechaCreacion        AS fechaCreacion,
+        u.fechaActualizacion   AS fechaActualizacion
+      FROM usuarios u
+      LEFT JOIN roles r
+        ON u.rol_id = r.id
+      WHERE u.id = ?
+      `,
       [id]
     );
-    if (!user)
+    if (!usuario) {
       return res.status(404).json({ message: "Usuario no encontrado" });
+    }
 
-    // 2) Obtener la última firma activa
-    const [files] = await db.query(
-      `SELECT rutaS3
-         FROM archivos
-        WHERE registroTipo = 'firmas'
-          AND registroId = ?
-          AND estado       = 'activo'
-        ORDER BY id DESC
-        LIMIT 1`,
+    const [archivos] = await db.query(
+      `
+      SELECT rutaS3
+      FROM archivos
+      WHERE registroTipo = 'firmas'
+        AND registroId   = ?
+        AND estado       = 'activo'
+      ORDER BY id DESC
+      LIMIT 1
+      `,
       [id]
     );
-    const urlFirma = files.length
-      ? generarUrlPrefirmadaLectura(files[0].rutaS3)
+    const urlFirma = archivos.length
+      ? generarUrlPrefirmadaLectura(archivos[0].rutaS3)
       : null;
 
-    res.json({ ...user, urlFirma });
+ 
+    res.json({
+      ...usuario,
+      urlFirma,
+    });
   } catch (error) {
     console.error("Error al obtener usuario por ID:", error);
     res.status(500).json({ message: "Error al obtener usuario" });
