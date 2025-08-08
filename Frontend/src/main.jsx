@@ -32,13 +32,7 @@ import {
 } from "./pages/pages.js";
 
 // ——— Manejador global de errores para captura en iOS/WebKit ———
-window.onerror = function (
-  mensajeError,
-  fuente,
-  numeroLinea,
-  numeroColumna,
-  objetoError
-) {
+function mostrarErrorEnPantalla(detalle) {
   const contenedorError = document.createElement("pre");
   contenedorError.style.position = "fixed";
   contenedorError.style.top = "0";
@@ -51,15 +45,48 @@ window.onerror = function (
   contenedorError.style.zIndex = "9999";
   contenedorError.style.padding = "10px";
   contenedorError.style.fontSize = "12px";
-  contenedorError.textContent =
+  contenedorError.textContent = detalle;
+  document.body.appendChild(contenedorError);
+}
+
+// Capturar errores globales JS
+window.onerror = function (
+  mensajeError,
+  fuente,
+  numeroLinea,
+  numeroColumna,
+  objetoError
+) {
+  const textoError =
     `Error: ${mensajeError}\n` +
     `Fuente: ${fuente}\n` +
     `Línea: ${numeroLinea}, Columna: ${numeroColumna}\n` +
     (objetoError?.stack ? `Stack:\n${objetoError.stack}` : "");
-
-  document.body.appendChild(contenedorError);
+  mostrarErrorEnPantalla(textoError);
   return false;
 };
+
+// Capturar promesas rechazadas no manejadas
+window.addEventListener("unhandledrejection", (event) => {
+  const razon = event.reason;
+  const detalle =
+    `Unhandled Rejection: ${razon?.message || razon}\n` +
+    (razon?.stack ? `Stack:\n${razon.stack}` : "");
+  mostrarErrorEnPantalla(detalle);
+});
+
+// Capturar errores de recursos (scripts, CSS, img)
+window.addEventListener(
+  "error",
+  (event) => {
+    if (event.target && (event.target.src || event.target.href)) {
+      const recurso = event.target.src || event.target.href;
+      const detalle = `Error cargando recurso: ${recurso}`;
+      mostrarErrorEnPantalla(detalle);
+    }
+  },
+  true
+);
 
 // Renderiza la aplicación
 createRoot(document.getElementById("root")).render(
