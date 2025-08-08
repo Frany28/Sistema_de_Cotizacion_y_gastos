@@ -11,46 +11,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Sistema Cotizacion Gastos</title>
 
-    <!-- ——— Manejador global de errores ANTES de React ——— -->
-    <script>
-      window.onerror = function (
-        mensajeError,
-        fuente,
-        numeroLinea,
-        numeroColumna,
-        objetoError
-      ) {
-        alert(
-          "Error: " +
-            mensajeError +
-            "\n" +
-            "Fuente: " +
-            fuente +
-            "\n" +
-            "Línea: " +
-            numeroLinea +
-            ", Columna: " +
-            numeroColumna +
-            (objetoError && objetoError.stack
-              ? "\nStack: " + objetoError.stack
-              : "")
-        );
-        return false;
-      };
-      window.addEventListener("unhandledrejection", function (event) {
-        const razon = event.reason;
-        alert(
-          "Unhandled Rejection: " +
-            (razon && razon.message ? razon.message : razon) +
-            (razon && razon.stack ? "\nStack: " + razon.stack : "")
-        );
-      });
-    </script>
+    }
+    <script
+      src="https://polyfill.io/v3/polyfill.min.js?features=default,Promise,fetch,Array.prototype.includes,Object.entries,URL"
+      defer
+    ></script>
   </head>
   <body class="bg-gray-900">
     <div id="root"></div>
 
-    <!-- Tu bundle React / Vite -->
     <script type="module" src="./src/main.jsx"></script>
   </body>
 </html>
