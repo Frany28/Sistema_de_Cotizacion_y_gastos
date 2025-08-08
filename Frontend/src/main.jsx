@@ -31,6 +31,37 @@ import {
   GestorDeEventos,
 } from "./pages/pages.js";
 
+// ——— Manejador global de errores para captura en iOS/WebKit ———
+window.onerror = function (
+  mensajeError,
+  fuente,
+  numeroLinea,
+  numeroColumna,
+  objetoError
+) {
+  const contenedorError = document.createElement("pre");
+  contenedorError.style.position = "fixed";
+  contenedorError.style.top = "0";
+  contenedorError.style.left = "0";
+  contenedorError.style.width = "100%";
+  contenedorError.style.maxHeight = "50vh";
+  contenedorError.style.overflow = "auto";
+  contenedorError.style.backgroundColor = "rgba(200,0,0,0.85)";
+  contenedorError.style.color = "#ffffff";
+  contenedorError.style.zIndex = "9999";
+  contenedorError.style.padding = "10px";
+  contenedorError.style.fontSize = "12px";
+  contenedorError.textContent =
+    `Error: ${mensajeError}\n` +
+    `Fuente: ${fuente}\n` +
+    `Línea: ${numeroLinea}, Columna: ${numeroColumna}\n` +
+    (objetoError?.stack ? `Stack:\n${objetoError.stack}` : "");
+
+  document.body.appendChild(contenedorError);
+  return false;
+};
+
+// Renderiza la aplicación
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <BrowserRouter>
@@ -77,7 +108,7 @@ createRoot(document.getElementById("root")).render(
           />
           <Route path="/crearRegistro" element={<CrearRegistro />} />
           <Route element={<LayoutConAside />}>
-            <Route path="/archivos" element={<ArchivosPage />} />;
+            <Route path="/archivos" element={<ArchivosPage />} />
             <Route
               path="/gestor-archivos/archivo/:id"
               element={<VistaDetalleArchivo />}
