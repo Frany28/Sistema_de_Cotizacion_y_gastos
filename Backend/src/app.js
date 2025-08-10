@@ -50,26 +50,6 @@ const origenesPermitidos = [
   "http://localhost:5173", // entorno local
 ].filter(Boolean);
 
-// 2️⃣ Middleware CORS personalizado
-app.use((req, res, next) => {
-  const origen = req.headers.origin;
-  if (!origen || origenesPermitidos.includes(origen)) {
-    res.setHeader("Access-Control-Allow-Origin", origen || "");
-    res.setHeader("Access-Control-Allow-Credentials", "true");
-    res.setHeader(
-      "Access-Control-Allow-Methods",
-      "GET,POST,PUT,PATCH,DELETE,OPTIONS"
-    );
-    res.setHeader(
-      "Access-Control-Allow-Headers",
-      "Content-Type, Authorization, X-Requested-With"
-    );
-  }
-  // Responde preflight y corta la petición
-  if (req.method === "OPTIONS") return res.sendStatus(200);
-  next();
-});
-
 /* ───── Config sesión con Redis ─────────────────────────── */
 const isProd = process.env.NODE_ENV === "production";
 const redisStore = new RedisStore({ client: redisClient });
@@ -98,10 +78,22 @@ const allowedOrigins = [
 
 app.use(
   cors({
-    origin: (origin, cb) =>
-      !origin || allowedOrigins.includes(origin)
-        ? cb(null, true)
-        : cb(new Error(`CORS origin not allowed: ${origin}`)),
+    origin: (origin, cb) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        cb(null, true);
+      } else {
+        cb(new Error(`CORS origin not allowed: ${origin}`));
+      }
+    },
+    credentials: true,
+  })
+);
+
+// Responder preflight explícitamente
+app.options(
+  "*",
+  cors({
+    origin: allowedOrigins,
     credentials: true,
   })
 );
