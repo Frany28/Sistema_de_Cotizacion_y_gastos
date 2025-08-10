@@ -87,8 +87,8 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: isProd, // true en prod (HTTPS)
-      sameSite: "none", // ← CLAVE para cross-site real
+      secure: isProd, 
+      sameSite: "none", 
       httpOnly: true,
       maxAge: 1000 * 60 * 60 * 8,
     },
