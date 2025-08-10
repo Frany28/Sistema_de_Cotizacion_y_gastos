@@ -25,6 +25,7 @@
     "styled-components": "^6.1.18"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.11",
     "@tailwindcss/vite": "^4.1.7",
     "@vitejs/plugin-legacy": "^7.2.1",
     "@vitejs/plugin-react": "^4.4.1",

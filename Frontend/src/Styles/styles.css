@@ -1,11 +1,11 @@
 /* Frontend/src/Styles/styles.css */
 @import "tailwindcss";
 
-/* Dile a Tailwind dónde están tus clases (v4) */
+/* Dónde buscar clases Tailwind (v4) */
 @source "../../index.html";
 @source "../**/*.{js,jsx,ts,tsx,html}";
 
-/* Flowbite (plugin + fuentes) */
+/* Flowbite: plugin y fuentes */
 @plugin "flowbite/plugin";
 @source "../../node_modules/flowbite";
 
