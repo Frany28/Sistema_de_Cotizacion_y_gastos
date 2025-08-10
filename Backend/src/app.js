@@ -4,13 +4,9 @@ import cors from "cors";
 import session from "express-session";
 import { RedisStore } from "connect-redis"; // ← import nombrado correcto
 import redisClient from "./config/redisClient.js";
-
 import path from "path";
 import dotenv from "dotenv";
 import { fileURLToPath } from "url";
-
-/* ── Pool global ───────────────────────────────────────────- */
-import db from "./config/database.js";
 
 /* ── Middlewares propios ────────────────────────────────── */
 import { errorHandler } from "./Middleware/errorHandler.js";
@@ -45,45 +41,49 @@ const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-/* ───── CORS (antes de sesión) ──────────────────────────── */
-/* Explicación:
-   - Permitimos peticiones del mismo origen (sin header Origin) y de la lista de orígenes permitidos.
-   - credentials:true para permitir cookies (sessión) entre frontend y backend.
-*/
-const origenesPermitidos = [
-  process.env.FRONT_URL, // producción (tu dominio en Netlify, p.ej. https://tu-app.netlify.app)
-  "http://localhost:5173", // desarrollo local
-].filter(Boolean);
-
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin || origenesPermitidos.includes(origin)) {
-        return callback(null, true);
-      }
-      return callback(new Error(`CORS origin no permitido: ${origin}`));
-    },
-    credentials: true,
-  })
-);
-
-/* ───── Config sesión con Redis ─────────────────────────── */
-const isProd = process.env.NODE_ENV === "production";
-const redisStore = new RedisStore({ client: redisClient });
-
 app.set("trust proxy", 1);
+
+/* ── CORS mínimo y correcto ────────────────────────────── */
+const listaOrígenesPermitidos = [
+  process.env.FRONTEND_URL || "http://localhost:5173",
+];
+
+const opcionesCors = {
+  origin: (origen, callback) => {
+    // Permite herramientas locales (origen null) y los orígenes configurados
+    if (!origen || listaOrígenesPermitidos.includes(origen)) {
+      return callback(null, true);
+    }
+    return callback(new Error("origenNoPermitido"), false);
+  },
+  credentials: true,
+};
+
+app.use(cors(opcionesCors));
+
+/* ── Parsing ───────────────────────────────────────────── */
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+/* ── Sesión ────────────────────────────────────────────── */
+const esProduccion = process.env.NODE_ENV === "production";
+
+const nombreCookie = "sidSistema"; // camelCase y claro
+const opcionesDeCookie = {
+  httpOnly: true,
+  sameSite: "lax", // con proxy mismo origen es suficiente
+  secure: esProduccion, // true en prod (https)
+  maxAge: 1000 * 60 * 60 * 2, 
+};
+
 app.use(
   session({
-    store: redisStore,
-    secret: process.env.SESSION_SECRET,
+    name: nombreCookie,
+    secret: process.env.SESSION_SECRET || "secretoTemporal",
     resave: false,
-    saveUninitialized: false, // ok
-    cookie: {
-      secure: isProd, // HTTPS en prod
-      sameSite: "lax", // ← clave para mismo origen
-      httpOnly: true,
-      maxAge: 1000 * 60 * 60 * 8,
-    },
+    saveUninitialized: false,
+    cookie: opcionesDeCookie,
+    store: new RedisStore({ client: redisClient, prefix: "sess:" }),
   })
 );
 
