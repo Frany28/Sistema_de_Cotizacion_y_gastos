@@ -3,15 +3,18 @@ import { useNavigate } from "react-router-dom";
 import api from "../../api/index.js";
 
 const Login = () => {
-  const [email, setEmail] = useState("admin.Leonel@gmail.com"); ;
+  const [email, setEmail] = useState("admin.Leonel@gmail.com");
   const [password, setPassword] = useState("DjK72/_15*");
   const [recordar, setRecordar] = useState(false);
   const [error, setError] = useState("");
+  const [cargando, setCargando] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (cargando) return;
     setError("");
+    setCargando(true);
 
     try {
       const { data } = await api.post(
@@ -21,12 +24,15 @@ const Login = () => {
       );
 
       const { usuario } = data;
-      const storage = recordar ? localStorage : sessionStorage;
-      storage.setItem("usuario", JSON.stringify(usuario));
+      const almacenamiento = recordar ? localStorage : sessionStorage;
+      almacenamiento.setItem("usuario", JSON.stringify(usuario));
 
       navigate("/dashboard");
     } catch (err) {
+      console.error("Error en login:", err);
       setError(err.response?.data?.message || "Error al iniciar sesión");
+    } finally {
+      setCargando(false);
     }
   };
 
@@ -85,11 +91,12 @@ const Login = () => {
 
           <button
             type="submit"
+            disabled={cargando}
             className="cursor-pointer bg-blue-700 text-white font-bold py-2 px-4 rounded-md mt-4 hover:bg-blue-600
                        focus:outline-none focus:ring-2 focus:ring-blue-500
-                       focus:ring-opacity-50 transition ease-in-out duration-150"
+                       focus:ring-opacity-50 transition ease-in-out duration-150 disabled:opacity-50"
           >
-            Login
+            {cargando ? "Ingresando..." : "Login"}
           </button>
         </form>
       </div>

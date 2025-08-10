@@ -10,11 +10,12 @@ export default function RutaPrivada({ children }) {
   useEffect(() => {
     api
       .get("/auth/verificar-sesion")
-      .then(() => {
+      .then((res) => {
         setAutenticado(true);
         setVerificando(false);
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error("Error verificar-sesion:", err?.response || err);
         setAutenticado(false);
         setVerificando(false);
       });

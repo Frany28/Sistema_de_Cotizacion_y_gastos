@@ -68,15 +68,7 @@ app.use(
 );
 
 /* ───── Config sesión con Redis ─────────────────────────── */
-/* Explicación:
-   - sameSite se decide por variable de entorno:
-       USAR_PROXY_MISMO_ORIGEN=true  → sameSite:'lax' (cuando usas proxy /api y todo sale por mismo dominio)
-       (ausente o false)             → sameSite:'none' (cuando frontend y backend están en dominios distintos - cross-site)
-*/
 const isProd = process.env.NODE_ENV === "production";
-const usarProxyMismoOrigen = process.env.USAR_PROXY_MISMO_ORIGEN === "true";
-const valorSameSiteCookie = usarProxyMismoOrigen ? "lax" : "none";
-
 const redisStore = new RedisStore({ client: redisClient });
 
 app.set("trust proxy", 1);
@@ -85,10 +77,10 @@ app.use(
     store: redisStore,
     secret: process.env.SESSION_SECRET,
     resave: false,
-    saveUninitialized: false,
+    saveUninitialized: false, // ok
     cookie: {
-      secure: isProd, 
-      sameSite: "none", 
+      secure: isProd, // true en prod (HTTPS)
+      sameSite: "none", // ← CLAVE para cross-site real
       httpOnly: true,
       maxAge: 1000 * 60 * 60 * 8,
     },

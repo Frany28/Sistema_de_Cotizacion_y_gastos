@@ -3,10 +3,21 @@ import react from "@vitejs/plugin-react";
 import path from "path";
 import tailwindcss from "@tailwindcss/vite";
 import { visualizer } from "rollup-plugin-visualizer";
+import legacy from "@vitejs/plugin-legacy";
 
 export default defineConfig({
   root: ".",
-  plugins: [react(), tailwindcss(), visualizer({ filename: "stats.html" })],
+  plugins: [
+    react(),
+    tailwindcss(),
+    legacy({
+      targets: ["defaults", "Safari >= 12", "iOS >= 12", "Chrome >= 49"],
+      modernPolyfills: true,
+      renderLegacyChunks: true,
+      additionalLegacyPolyfills: [],
+    }),
+    visualizer({ filename: "stats.html" }),
+  ],
   css: {
     postcss: "./postcss.config.js",
   },
@@ -19,7 +30,6 @@ export default defineConfig({
     emptyOutDir: true,
     target: "es2015",
   },
-
   optimizeDeps: {
     esbuildOptions: { target: "es2015" },
   },
