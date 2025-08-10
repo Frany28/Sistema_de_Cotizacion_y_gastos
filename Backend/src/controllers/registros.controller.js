@@ -121,7 +121,7 @@ export const createRegistro = async (req, res) => {
         const grupoId = await obtenerOcrearGrupoFactura(
           conexion,
           registroId,
-          datos.usuario_id
+          datos.creadoPor
         );
 
         /* 4.2 Nº de versión */
@@ -150,7 +150,7 @@ export const createRegistro = async (req, res) => {
             tamanioBytes,
             claveS3,
             numeroVersion,
-            datos.usuario_id,
+            datos.creadoPor,
           ]
         );
         const archivoId = aRes.insertId;
@@ -168,7 +168,7 @@ export const createRegistro = async (req, res) => {
             extension,
             tamanioBytes,
             claveS3,
-            datos.usuario_id,
+            datos.creadoPor,
           ]
         );
         const versionId = vRes.insertId;
@@ -182,7 +182,7 @@ export const createRegistro = async (req, res) => {
           [
             archivoId,
             versionId,
-            datos.usuario_id,
+            datos.creadoPor,
             req.ip || null,
             req.get("user-agent") || null,
             JSON.stringify({
@@ -198,7 +198,7 @@ export const createRegistro = async (req, res) => {
           `UPDATE usuarios
            SET usoStorageBytes = usoStorageBytes + ?
            WHERE id = ?`,
-          [tamanioBytes, datos.usuario_id]
+          [tamanioBytes, datos.creadoPor]
         );
       }
 
@@ -253,7 +253,7 @@ const crearGasto = async (datos, conn) => {
     cotizacion_id = null,
     moneda = "USD",
     estado = "pendiente",
-    usuario_id,
+    creadoPor,
     documento,
     tasa_cambio = null,
   } = datos;
@@ -291,7 +291,7 @@ const crearGasto = async (datos, conn) => {
       fecha, sucursal_id, cotizacion_id,
       moneda, tasa_cambio,
       documento,
-      estado, usuario_id, created_at, updated_at
+      estado, creadoPor, created_at, updated_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       proveedorFinal,
@@ -309,7 +309,7 @@ const crearGasto = async (datos, conn) => {
       tasa_cambio,
       documento,
       estado,
-      usuario_id,
+      creadoPor,
       new Date(),
       new Date(),
     ]
@@ -358,7 +358,7 @@ export const getTiposGasto = async (req, res) => {
 export const crearCotizacionDesdeRegistro = async (datos) => {
   let {
     cliente_id,
-    usuario_id,
+    creadoPor,
     sucursal_id,
     estado = "pendiente",
     confirmacion_cliente = false,
@@ -399,12 +399,12 @@ export const crearCotizacionDesdeRegistro = async (datos) => {
 
     const [result] = await db.query(
       `INSERT INTO cotizaciones 
-       (cliente_id, usuario_id, sucursal_id, fecha, subtotal, impuesto, total, estado, confirmacion_cliente, observaciones,
+       (cliente_id, creadoPor, sucursal_id, fecha, subtotal, impuesto, total, estado, confirmacion_cliente, observaciones,
         operacion, puerto, bl, mercancia, contenedor) 
        VALUES (?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         cliente_id,
-        usuario_id,
+        creadoPor,
         sucursal_id,
         fecha,
         total,

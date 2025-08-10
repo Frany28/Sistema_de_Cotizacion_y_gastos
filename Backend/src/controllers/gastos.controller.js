@@ -632,7 +632,7 @@ export const actualizarEstadoGasto = async (req, res) => {
         const [[gasto]] = await db.query(
           `
           SELECT
-            usuario_id      AS usuario_solicita_id,
+            creadoPor      AS usuario_solicita_id,
             proveedor_id,
             concepto_pago,
             total           AS monto_total,
