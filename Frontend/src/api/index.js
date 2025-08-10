@@ -1,7 +1,6 @@
 import axios from "axios";
-
-export const clienteHttp = axios.create({
-  baseURL: "/api",
-  withCredentials: true, // ¡obligatorio para enviar cookies!
-  timeout: 20000,
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL,
+  withCredentials: true,
 });
+export default api;
