@@ -45,7 +45,7 @@ app.set("trust proxy", 1);
 
 /* ── CORS mínimo y correcto ────────────────────────────── */
 const listaOrígenesPermitidos = [
-  process.env.FRONTEND_URL || "http://localhost:5173",
+  process.env.FRONT_URL || "http://localhost:5173",
 ];
 
 const opcionesCors = {
@@ -73,7 +73,7 @@ const opcionesDeCookie = {
   httpOnly: true,
   sameSite: "lax", // con proxy mismo origen es suficiente
   secure: esProduccion, // true en prod (https)
-  maxAge: 1000 * 60 * 60 * 2, 
+  maxAge: 1000 * 60 * 60 * 2,
 };
 
 app.use(
