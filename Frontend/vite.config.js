@@ -1,16 +1,9 @@
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
-
-export default defineConfig({
-  plugins: [react()],
-  build: { target: "es2015" },
-  optimizeDeps: { esbuildOptions: { target: "es2015" } },
-  server: {
-    proxy: {
-      "/api": {
-        target: "http://localhost:3000",
-        changeOrigin: true,
-      },
-    },
-  },
-});
+[build];
+base = "Frontend";
+publish = "dist";
+command = "npm run build"
+[[redirects]];
+from = "/api/*";
+to = "https://sistema-de-cotizacion-y-gastos.vercel.app/api/:splat";
+status = 200;
+force = true;

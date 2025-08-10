@@ -1,7 +1,15 @@
+/* Frontend/src/Styles/styles.css */
 @import "tailwindcss";
-@plugin "flowbite/plugin";
-@source "../node_modules/flowbite";
 
+/* Dile a Tailwind dónde están tus clases (v4) */
+@source "../../index.html";
+@source "../**/*.{js,jsx,ts,tsx,html}";
+
+/* Flowbite (plugin + fuentes) */
+@plugin "flowbite/plugin";
+@source "../../node_modules/flowbite";
+
+/* Tus estilos extra */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -14,7 +22,6 @@
   justify-content: center;
   align-items: center;
 }
-
 .modal-content {
   background: white;
   padding: 2rem;
