@@ -45,31 +45,6 @@ const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const origenesPermitidos = [
-  process.env.FRONT_URL, // p.ej. https://sistema-de-cotizacion-y-gastos.netlify.app
-  "http://localhost:5173", // entorno local
-].filter(Boolean);
-
-// 2️⃣ Middleware CORS personalizado
-app.use((req, res, next) => {
-  const origen = req.headers.origin;
-  if (!origen || origenesPermitidos.includes(origen)) {
-    res.setHeader("Access-Control-Allow-Origin", origen || "");
-    res.setHeader("Access-Control-Allow-Credentials", "true");
-    res.setHeader(
-      "Access-Control-Allow-Methods",
-      "GET,POST,PUT,PATCH,DELETE,OPTIONS"
-    );
-    res.setHeader(
-      "Access-Control-Allow-Headers",
-      "Content-Type, Authorization, X-Requested-With"
-    );
-  }
-  // Responde preflight y corta la petición
-  if (req.method === "OPTIONS") return res.sendStatus(200);
-  next();
-});
-
 /* ───── Config sesión con Redis ─────────────────────────── */
 const isProd = process.env.NODE_ENV === "production";
 const redisStore = new RedisStore({ client: redisClient });
@@ -83,7 +58,7 @@ app.use(
     saveUninitialized: false,
     cookie: {
       secure: isProd,
-      sameSite: isProd ? "none" : "lax",
+      sameSite: "lax",
       httpOnly: true,
       maxAge: 1000 * 60 * 60 * 8, // 8 h
     },
@@ -91,17 +66,20 @@ app.use(
 );
 
 /* ───── CORS ─────────────────────────────────────────────── */
-const allowedOrigins = [
-  process.env.FRONT_URL, // producción
+const origenesPermitidos = [
+  process.env.FRONT_URL, // producción (tu dominio en Netlify)
   "http://localhost:5173", // desarrollo
 ].filter(Boolean);
 
 app.use(
   cors({
-    origin: (origin, cb) =>
-      !origin || allowedOrigins.includes(origin)
-        ? cb(null, true)
-        : cb(new Error(`CORS origin not allowed: ${origin}`)),
+    origin: (origin, callback) => {
+      // Permite same-origin (sin header Origin) y orígenes de la lista
+      if (!origin || origenesPermitidos.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error(`CORS origin no permitido: ${origin}`));
+    },
     credentials: true,
   })
 );
@@ -124,7 +102,7 @@ app.use("/api/cuentas", cxcRoutes);
 app.use("/api/solicitudes-pago", solicitudesPagoRoutes);
 app.use("/api/bancos", bancosRoutes);
 app.use("/api/archivos", archivosRoutes);
-app.use("/api/almacenamiento", almacenamientoRoutes),
+app.use("/api/almacenamiento", almacenamientoRoutes);
   /* ───── Rutas de seguridad ──────────────────────────────── */
   app.use("/api/auth", authRoutes);
 app.use("/api/usuarios", usuariosRoutes);
