@@ -1,15 +1,10 @@
 [build]
-  base    = "Frontend"
   command = "npm run build"
   publish = "dist"
+  base = "Frontend"
 
-[dev]
-  command   = "npm run dev"
-  targetPort = 5173
-
-# ✅ Proxy: todo lo que comience con /api/ va a tu backend en Vercel
 [[redirects]]
   from = "/api/*"
-  to   = "https://sistema-de-cotizacion-y-gastos.vercel.app/api:splat"
+  to = "https://sistema-de-cotizacion-y-gastos.vercel.app/:splat"
   status = 200
-  force  = true
+  force = true

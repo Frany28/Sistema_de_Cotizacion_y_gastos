@@ -14,28 +14,12 @@ export default defineConfig({
       targets: ["defaults", "Safari >= 12", "iOS >= 12", "Chrome >= 49"],
       modernPolyfills: true,
       renderLegacyChunks: true,
-      additionalLegacyPolyfills: [],
     }),
     visualizer({ filename: "stats.html" }),
   ],
-  css: {
-    postcss: "./postcss.config.js",
-  },
-  server: {
-    host: "0.0.0.0",
-    port: 5173,
-  },
-  build: {
-    outDir: "dist",
-    emptyOutDir: true,
-    target: "es2015",
-  },
-  optimizeDeps: {
-    esbuildOptions: { target: "es2015" },
-  },
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "src"),
-    },
-  },
+  css: { postcss: "./postcss.config.js" },
+  server: { host: "0.0.0.0", port: 5173 },
+  build: { outDir: "dist", emptyOutDir: true, target: "es2015" },
+  optimizeDeps: { esbuildOptions: { target: "es2015" } },
+  resolve: { alias: { "@": path.resolve(__dirname, "src") } },
 });
