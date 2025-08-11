@@ -43,12 +43,20 @@ router.get(
 // Ruta para verificar existencia de cliente (sin autenticación)
 router.get("/check", verificarClienteExistente);
 
-// Nueva ruta para validar eliminación de cliente
 router.get(
   "/:id/validar-eliminacion",
   autenticarUsuario,
   verificarPermiso("eliminarCliente"),
-  validarEliminacionCliente
+  async (req, res) => {
+    try {
+      await validarEliminacionCliente(req, res, () => {
+        res.json({ ok: true });
+      });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: "Error validando eliminación" });
+    }
+  }
 );
 
 // Ruta para eliminar un cliente (usa el mismo middleware de validación)
