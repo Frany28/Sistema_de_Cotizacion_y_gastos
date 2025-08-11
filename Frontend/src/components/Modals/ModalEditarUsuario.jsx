@@ -36,7 +36,7 @@ export default function ModalEditarUsuario({
         nombre: usuario.nombre || "",
         email: usuario.email || "",
         password: "", // nunca cargamos la contraseña actual
-        rol_id: usuario.rol_id?.toString() || "",
+        rol_id: usuario.rolId ? String(usuario.rolId) : "",
         estado: usuario.estado || "activo",
         firma: usuario.firma || null,
       });
@@ -63,8 +63,8 @@ export default function ModalEditarUsuario({
       setErrorMsg("El email es obligatorio o tiene formato inválido");
       return false;
     }
-    if (!form.rol_id) {
-      setErrorMsg("Debe seleccionar un rol");
+    if (form.rol_id !== "" && Number.isNaN(Number(form.rol_id))) {
+      setErrorMsg("El rol seleccionado no es válido");
       return false;
     }
     if (form.password && form.password.length < 6) {
@@ -104,7 +104,7 @@ export default function ModalEditarUsuario({
       cambios = true;
     }
     // Rol
-    if (form.rol_id !== String(usuario.rol_id)) {
+    if (form.rol_id !== String(usuario.rolId)) {
       data.append("rol_id", form.rol_id);
       cambios = true;
     }
