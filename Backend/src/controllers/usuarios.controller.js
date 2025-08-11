@@ -403,12 +403,13 @@ export const obtenerUsuarioPorId = async (req, res) => {
         u.nombre,
         u.email,
         u.estado,
-        u.rol_id             AS rolId,
-        r.nombre             AS rol,
-        u.fechaCreacion      AS fechaCreacion,
-        u.fechaActualizacion AS fechaActualizacion
+        u.rol_id               AS rolId,
+        r.nombre               AS rol,
+        u.fechaCreacion        AS fechaCreacion,
+        u.fechaActualizacion   AS fechaActualizacion
       FROM usuarios u
-      LEFT JOIN roles r ON u.rol_id = r.id
+      LEFT JOIN roles r
+        ON u.rol_id = r.id
       WHERE u.id = ?
       `,
       [id]
@@ -433,8 +434,10 @@ export const obtenerUsuarioPorId = async (req, res) => {
       ? generarUrlPrefirmadaLectura(archivos[0].rutaS3)
       : null;
 
-    // ✅ corregido: devolver objeto válido
-    res.json({ usuario, urlFirma });
+    res.json({
+      ...usuario,
+      urlFirma,
+    });
   } catch (error) {
     console.error("Error al obtener usuario por ID:", error);
     res.status(500).json({ message: "Error al obtener usuario" });
