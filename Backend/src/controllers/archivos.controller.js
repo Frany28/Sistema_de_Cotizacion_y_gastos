@@ -46,7 +46,7 @@ export async function moverObjetoEnS3({ origen, destino }) {
 
 export const sustituirArchivo = async (req, res) => {
   const conexion = await db.getConnection();
-  const usuarioId = req.user.id;
+  const creadoPor = req.user.id;
   const rolId = req.user.rol_id;
 
   try {
@@ -71,7 +71,7 @@ export const sustituirArchivo = async (req, res) => {
     // 3. Verificar permiso de sustitución
     if (
       ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
-      archivo.subidoPor !== usuarioId
+      archivo.subidoPor !== creadoPor
     ) {
       return res
         .status(403)
@@ -81,7 +81,7 @@ export const sustituirArchivo = async (req, res) => {
     // 4. Validar cuota de almacenamiento (50MB)
     const [[usuario]] = await conexion.query(
       "SELECT cuotaMb, usoStorageBytes FROM usuarios WHERE id = ?",
-      [usuarioId]
+      [creadoPor]
     );
     const cuotaBytes = usuario.cuotaMb * 1024 * 1024;
     const nuevoUso =
@@ -127,7 +127,7 @@ export const sustituirArchivo = async (req, res) => {
         extension,
         tamanoBytes,
         nuevaKey,
-        usuarioId,
+        creadoPor,
       ]
     );
     const nuevoArchivoId = resultado.insertId;
@@ -135,18 +135,18 @@ export const sustituirArchivo = async (req, res) => {
     // 9. Actualizar uso de almacenamiento del usuario
     await conexion.query(
       "UPDATE usuarios SET usoStorageBytes = ? WHERE id = ?",
-      [nuevoUso, usuarioId]
+      [nuevoUso, creadoPor]
     );
 
     // 10. Registrar evento de sustitución
     await conexion.query(
       `INSERT INTO eventosArchivo
-         (archivoId, versionId, accion, usuarioId, ip, userAgent, detalles)
+         (archivoId, versionId, accion, creadoPor, ip, userAgent, detalles)
        VALUES (?, ?, 'sustitucion', ?, ?, ?, ?)`,
       [
         nuevoArchivoId,
         archivo.id,
-        usuarioId,
+        creadoPor,
         req.ip,
         req.get("User-Agent"),
         JSON.stringify({
@@ -175,7 +175,7 @@ export const sustituirArchivo = async (req, res) => {
 // Controller: descargar archivo activo
 export const descargarArchivo = async (req, res) => {
   const archivoId = Number(req.params.id);
-  const usuarioId = req.user.id;
+  const creadoPor = req.user.id;
   const rolId = req.user.rol_id;
 
   try {
@@ -190,7 +190,7 @@ export const descargarArchivo = async (req, res) => {
       return res.status(404).json({ message: "Archivo no encontrado." });
     if (
       ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
-      archivo.subidoPor !== usuarioId
+      archivo.subidoPor !== creadoPor
     ) {
       return res.status(403).json({
         message: "Acceso denegado: no puedes descargar este archivo.",
@@ -199,11 +199,11 @@ export const descargarArchivo = async (req, res) => {
 
     const url = await generarUrlPrefirmadaLectura(archivo.keyS3, 600);
     await db.execute(
-      `INSERT INTO eventosArchivo (archivoId, accion, usuarioId, ip, userAgent, detalles)
+      `INSERT INTO eventosArchivo (archivoId, accion, creadoPor, ip, userAgent, detalles)
        VALUES (?, 'descarga', ?, ?, ?, ?)`,
       [
         archivoId,
-        usuarioId,
+        creadoPor,
         req.ip,
         req.get("User-Agent"),
         JSON.stringify({ key: archivo.keyS3 }),
@@ -221,7 +221,7 @@ export const descargarArchivo = async (req, res) => {
 
 // Controller: listar archivos con paginación y búsqueda
 export const listarArchivos = async (req, res) => {
-  const usuarioId = req.user.id;
+  const creadoPor = req.user.id;
   const rolId = req.user.rol_id;
   const page = Number(req.query.page) || 1;
   const limit = Number(req.query.limit) || 10;
@@ -234,7 +234,7 @@ export const listarArchivos = async (req, res) => {
 
     if (![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId)) {
       where += " AND a.subidoPor = ?";
-      params.push(usuarioId);
+      params.push(creadoPor);
     }
     if (search) {
       where += " AND a.nombreOriginal LIKE ?";
@@ -276,7 +276,7 @@ export const listarArchivos = async (req, res) => {
 // Controller: eliminar archivo (soft-delete)
 export const eliminarArchivo = async (req, res) => {
   const archivoId = Number(req.params.id);
-  const usuarioId = req.user.id;
+  const creadoPor = req.user.id;
   const rolId = req.user.rol_id;
 
   try {
@@ -291,7 +291,7 @@ export const eliminarArchivo = async (req, res) => {
     }
     if (
       ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
-      archivo.subidoPor !== usuarioId
+      archivo.subidoPor !== creadoPor
     ) {
       return res
         .status(403)
@@ -308,9 +308,9 @@ export const eliminarArchivo = async (req, res) => {
       [archivo.tamanoBytes, archivo.subidoPor]
     );
     await db.execute(
-      `INSERT INTO eventosArchivo (archivoId, accion, usuarioId, ip, userAgent)
+      `INSERT INTO eventosArchivo (archivoId, accion, creadoPor, ip, userAgent)
        VALUES (?, 'eliminacion', ?, ?, ?)`,
-      [archivoId, usuarioId, req.ip, req.get("User-Agent")]
+      [archivoId, creadoPor, req.ip, req.get("User-Agent")]
     );
 
     return res.json({
@@ -327,7 +327,7 @@ export const eliminarArchivo = async (req, res) => {
 //────────────────── Restaurar archivo ────────────────
 export const restaurarArchivo = async (req, res) => {
   const archivoId = Number(req.params.id);
-  const usuarioId = req.user.id;
+  const creadoPor = req.user.id;
   const rolId = req.user.rol_id;
 
   /* 1️⃣  Traer metadatos del archivo que se quiere restaurar */
@@ -345,7 +345,7 @@ export const restaurarArchivo = async (req, res) => {
   /*  Permisos */
   if (
     ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
-    archReemplazado.subidoPor !== usuarioId
+    archReemplazado.subidoPor !== creadoPor
   )
     return res
       .status(403)
@@ -430,11 +430,11 @@ export const restaurarArchivo = async (req, res) => {
     if (archActivo) {
       await cx.query(
         `INSERT INTO eventosArchivo
-           (archivoId, accion, usuarioId, ip, userAgent, detalles)
+           (archivoId, accion, creadoPor, ip, userAgent, detalles)
          VALUES (?, 'versionReemplazada', ?, ?, ?, ?)`,
         [
           archActivo.id,
-          usuarioId,
+          creadoPor,
           ip,
           userAgent,
           JSON.stringify({ nuevaRuta: `papelera/${archActivo.rutaS3}` }),
@@ -444,11 +444,11 @@ export const restaurarArchivo = async (req, res) => {
 
     await cx.query(
       `INSERT INTO eventosArchivo
-        (archivoId, accion, usuarioId, ip, userAgent, detalles)
+        (archivoId, accion, creadoPor, ip, userAgent, detalles)
        VALUES (?, 'restauracion', ?, ?, ?, ?)`,
       [
         archReemplazado.id,
-        usuarioId,
+        creadoPor,
         ip,
         userAgent,
         JSON.stringify({ rutaRestaurada: rutaDestino }),
@@ -470,7 +470,7 @@ export const restaurarArchivo = async (req, res) => {
 
 export const listarHistorialVersiones = async (req, res) => {
   const archivoId = Number(req.params.id);
-  const usuarioId = req.user.id;
+  const creadoPor = req.user.id;
   const rolId = req.user.rol_id;
 
   const conexion = await db.getConnection();
@@ -489,7 +489,7 @@ export const listarHistorialVersiones = async (req, res) => {
     // 2. Validar acceso
     if (
       ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
-      archivo.subidoPor !== usuarioId
+      archivo.subidoPor !== creadoPor
     ) {
       return res.status(403).json({
         message: "No tienes permiso para ver este historial.",
@@ -530,7 +530,7 @@ export const listarHistorialVersiones = async (req, res) => {
 // Controller: descargar una versión específica
 export const descargarVersion = async (req, res) => {
   const versionId = Number(req.params.versionId);
-  const usuarioId = req.user.id;
+  const creadoPor = req.user.id;
   const rolId = req.user.rol_id;
 
   try {
@@ -545,19 +545,19 @@ export const descargarVersion = async (req, res) => {
       return res.status(404).json({ message: "Versión no encontrada." });
     if (
       ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
-      version.subidoPor !== usuarioId
+      version.subidoPor !== creadoPor
     ) {
       return res.status(403).json({ message: "Acceso denegado." });
     }
 
     const url = await generarUrlPrefirmadaLectura(version.keyS3, 600);
     await db.execute(
-      `INSERT INTO eventosArchivo (archivoId, versionId, accion, usuarioId, ip, userAgent, detalles)
+      `INSERT INTO eventosArchivo (archivoId, versionId, accion, creadoPor, ip, userAgent, detalles)
        VALUES (?, ?, 'descarga', ?, ?, ?, ?)`,
       [
         version.archivoId,
         versionId,
-        usuarioId,
+        creadoPor,
         req.ip,
         req.get("User-Agent"),
         JSON.stringify({ key: version.keyS3 }),
@@ -575,7 +575,7 @@ export const descargarVersion = async (req, res) => {
 
 export const restaurarVersion = async (req, res) => {
   const conexion = await db.getConnection();
-  const usuarioId = req.user.id;
+  const creadoPor = req.user.id;
   const rolId = req.user.rol_id;
 
   try {
@@ -597,7 +597,7 @@ export const restaurarVersion = async (req, res) => {
     // 2. Validar permisos
     if (
       ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
-      version.subidoPor !== usuarioId
+      version.subidoPor !== creadoPor
     ) {
       return res
         .status(403)
@@ -607,7 +607,7 @@ export const restaurarVersion = async (req, res) => {
     // 3. Validar cuota
     const [[usuario]] = await conexion.query(
       "SELECT cuotaMb, usoStorageBytes FROM usuarios WHERE id = ?",
-      [usuarioId]
+      [creadoPor]
     );
     const cuotaBytes = usuario.cuotaMb * 1024 * 1024;
     const nuevoUso = usuario.usoStorageBytes + version.tamanioBytes;
@@ -648,11 +648,11 @@ export const restaurarVersion = async (req, res) => {
       // Evento
       await conexion.query(
         `INSERT INTO eventosArchivo
-           (archivoId, accion, usuarioId, detalles, ip, userAgent)
+           (archivoId, accion, creadoPor, detalles, ip, userAgent)
          VALUES (?, 'versionReemplazada', ?, ?, ?, ?)`,
         [
           activoActual.id,
-          usuarioId,
+          creadoPor,
           JSON.stringify({ nuevaRuta: nuevaRutaPapelera }),
           req.ip,
           req.get("User-Agent"),
@@ -692,7 +692,7 @@ export const restaurarVersion = async (req, res) => {
         version.extension,
         version.tamanioBytes,
         nuevaRuta,
-        usuarioId,
+        creadoPor,
       ]
     );
     const nuevoArchivoId = resultado.insertId;
@@ -700,18 +700,18 @@ export const restaurarVersion = async (req, res) => {
     // 8. Actualizar almacenamiento
     await conexion.query(
       `UPDATE usuarios SET usoStorageBytes = ? WHERE id = ?`,
-      [nuevoUso, usuarioId]
+      [nuevoUso, creadoPor]
     );
 
     // 9. Registrar evento
     await conexion.query(
       `INSERT INTO eventosArchivo
-         (archivoId, versionId, accion, usuarioId, ip, userAgent, detalles)
+         (archivoId, versionId, accion, creadoPor, ip, userAgent, detalles)
        VALUES (?, ?, 'restauracion', ?, ?, ?, ?)`,
       [
         nuevoArchivoId,
         versionId,
-        usuarioId,
+        creadoPor,
         req.ip,
         req.get("User-Agent"),
         JSON.stringify({
@@ -739,7 +739,7 @@ export const restaurarVersion = async (req, res) => {
 // Controller: eliminar archivo definitivamente (solo Admin)
 export const eliminarDefinitivamente = async (req, res) => {
   const archivoId = Number(req.params.id);
-  const usuarioId = req.user.id;
+  const creadoPor = req.user.id;
   const rolId = req.user.rol_id;
 
   if (rolId !== ROL_ADMIN) {
@@ -772,11 +772,11 @@ export const eliminarDefinitivamente = async (req, res) => {
 
     // Registrar evento
     await db.execute(
-      `INSERT INTO eventosArchivo (archivoId, accion, usuarioId, ip, userAgent, detalles)
+      `INSERT INTO eventosArchivo (archivoId, accion, creadoPor, ip, userAgent, detalles)
        VALUES (?, 'borradoDefinitivo', ?, ?, ?, ?)`,
       [
         archivoId,
-        usuarioId,
+        creadoPor,
         req.ip,
         req.get("User-Agent"),
         JSON.stringify({ key: archivo.keyS3 }),
@@ -793,7 +793,7 @@ export const eliminarDefinitivamente = async (req, res) => {
 };
 
 export const obtenerArbolArchivos = async (req, res) => {
-  const usuarioId = req.user.id;
+  const creadoPor = req.user.id;
   const rolId = req.user.rol_id;
   const esVistaCompleta = [ROL_ADMIN, ROL_SUPERVISOR].includes(rolId);
 
@@ -805,7 +805,7 @@ export const obtenerArbolArchivos = async (req, res) => {
         WHERE estado = 'activo'
           ${esVistaCompleta ? "" : "AND subidoPor = ?"}
      ORDER BY rutaS3`,
-      esVistaCompleta ? [] : [usuarioId]
+      esVistaCompleta ? [] : [creadoPor]
     );
 
     const raiz = [];
@@ -851,7 +851,7 @@ export const obtenerArbolArchivos = async (req, res) => {
 
 export const obtenerDetallesArchivo = async (req, res) => {
   const archivoId = Number(req.params.id);
-  const usuarioId = req.user.id;
+  const creadoPor = req.user.id;
   const rolId = req.user.rol_id;
 
   const conexion = await db.getConnection();
@@ -883,7 +883,7 @@ export const obtenerDetallesArchivo = async (req, res) => {
     // Si no es admin o supervisor, validar que el usuario sea dueño
     if (
       ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
-      archivo.subidoPor !== usuarioId
+      archivo.subidoPor !== creadoPor
     ) {
       await conexion.release();
       return res.status(403).json({ message: "Acceso denegado." });
@@ -913,7 +913,7 @@ export const obtenerDetallesArchivo = async (req, res) => {
 
 export const contarVersionesArchivo = async (req, res) => {
   const archivoId = Number(req.params.id);
-  const usuarioId = req.user.id;
+  const creadoPor = req.user.id;
   const rolId = req.user.rol_id;
 
   try {
@@ -932,7 +932,7 @@ export const contarVersionesArchivo = async (req, res) => {
     // Control de acceso
     if (
       ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
-      archivo.subidoPor !== usuarioId
+      archivo.subidoPor !== creadoPor
     ) {
       return res.status(403).json({ message: "Acceso denegado." });
     }
@@ -947,7 +947,7 @@ export const contarVersionesArchivo = async (req, res) => {
 };
 
 export const listarArchivosEliminados = async (req, res) => {
-  const usuarioId = req.user.id;
+  const creadoPor = req.user.id;
   const rolId = req.user.rol_id;
 
   try {
@@ -963,7 +963,7 @@ export const listarArchivosEliminados = async (req, res) => {
     const params = [];
     if (![1, 2].includes(rolId)) {
       queryBase += " AND a.subidoPor = ?";
-      params.push(usuarioId);
+      params.push(creadoPor);
     }
 
     const [archivos] = await db.query(queryBase, params);
@@ -984,7 +984,7 @@ export const listarArchivosEliminados = async (req, res) => {
 
 export const listarVersionesPorGrupo = async (req, res) => {
   const grupoArchivoId = Number(req.params.grupoArchivoId);
-  const usuarioId = req.user.id;
+  const creadoPor = req.user.id;
   const rolId = req.user.rol_id;
 
   const conexion = await db.getConnection();
@@ -1004,7 +1004,7 @@ export const listarVersionesPorGrupo = async (req, res) => {
 
     if (
       ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
-      grupo.creadoPor !== usuarioId
+      grupo.creadoPor !== creadoPor
     ) {
       return res
         .status(403)
@@ -1039,7 +1039,7 @@ export const listarVersionesPorGrupo = async (req, res) => {
 
 export const eliminarDefinitivoArchivo = async (req, res) => {
   const archivoId = Number(req.params.id);
-  const { id: usuarioId, rol_id: rolId } = req.user;
+  const { id: creadoPor, rol_id: rolId } = req.user;
 
   /* Permisos */
   const [[meta]] = await db.query(
@@ -1050,7 +1050,7 @@ export const eliminarDefinitivoArchivo = async (req, res) => {
   if (!meta) return res.status(404).json({ message: "No está en papelera." });
   if (
     ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
-    meta.subidoPor !== usuarioId
+    meta.subidoPor !== creadoPor
   )
     return res.status(403).json({ message: "Sin permiso." });
 
@@ -1112,12 +1112,12 @@ export const eliminarDefinitivoArchivo = async (req, res) => {
     await cx.query(
       `
       INSERT INTO eventosArchivo
-        (archivoId, accion, usuarioId, ip, userAgent, detalles)
+        (archivoId, accion, creadoPor, ip, userAgent, detalles)
       VALUES (?,?,?,?,?, JSON_OBJECT('rutasEliminadas',?))`,
       [
         archivoId,
         "borradoDefinitivo",
-        usuarioId,
+        creadoPor,
         req.ip,
         req.get("User-Agent"),
         JSON.stringify(rutas),
@@ -1137,7 +1137,7 @@ export const eliminarDefinitivoArchivo = async (req, res) => {
 
 export const purgarPapelera = async (req, res) => {
   /*  Permisos */
-  const { id: usuarioId, rol_id: rolId } = req.user;
+  const { id: creadoPor, rol_id: rolId } = req.user;
   if (![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId)) {
     return res
       .status(403)
@@ -1214,14 +1214,14 @@ export const purgarPapelera = async (req, res) => {
     const eventoValores = archivos.map((a) => [
       a.id,
       "borradoDefinitivo",
-      usuarioId,
+      creadoPor,
       req.ip,
       req.get("User-Agent"),
       JSON.stringify({ rutasEliminadas: rutasTotales }),
     ]);
     await cx.query(
       `INSERT INTO eventosArchivo
-         (archivoId, accion, usuarioId, ip, userAgent, detalles)
+         (archivoId, accion, creadoPor, ip, userAgent, detalles)
        VALUES ?`,
       [eventoValores]
     );

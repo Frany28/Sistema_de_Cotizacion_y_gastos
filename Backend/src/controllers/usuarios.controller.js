@@ -44,19 +44,19 @@ export const crearUsuario = async (req, res) => {
     );
 
     // 3) Generar y guardar código de usuario
-    const codigo = `USR${String(usuarioId).padStart(4, "0")}`;
+    const codigo = `USR${String(creadoPor).padStart(4, "0")}`;
     await conexion.query(
       `UPDATE usuarios
          SET codigo = ?
        WHERE id = ?`,
-      [codigo, usuarioId]
+      [codigo, creadoPor]
     );
 
     // 4) Si hay firma, registrar TODO el circuito de archivos
     if (firmaKey) {
       const grupoId = await obtenerOcrearGrupoFirma(
         conexion,
-        usuarioId,
+        creadoPor,
         req.user.id
       );
 
@@ -69,7 +69,7 @@ export const crearUsuario = async (req, res) => {
         subidoPor, creadoEn, actualizadoEn)
      VALUES ('firmas', ?, ?, ?, ?, ?, ?, 1, 'activo', ?, NOW(), NOW())`,
         [
-          usuarioId,
+          creadoPor,
           grupoId,
           nombreOriginal,
           extension,
@@ -100,7 +100,7 @@ export const crearUsuario = async (req, res) => {
       /* 4.3) auditoría */
       await conexion.query(
         `INSERT INTO eventosArchivo
-       (archivoId, versionId, accion, usuarioId, ip, userAgent, detalles)
+       (archivoId, versionId, accion, creadoPor, ip, userAgent, detalles)
      VALUES (?, ?, 'subida', ?, ?, ?, ?)`,
         [
           archivoId,
@@ -117,12 +117,12 @@ export const crearUsuario = async (req, res) => {
         `UPDATE usuarios
         SET usoStorageBytes = usoStorageBytes + ?
       WHERE id = ?`,
-        [tamanioBytes, usuarioId]
+        [tamanioBytes, creadoPor]
       );
     }
 
     await conexion.commit();
-    res.status(201).json({ id: usuarioId, firma: firmaKey });
+    res.status(201).json({ id: creadoPor, firma: firmaKey });
   } catch (err) {
     await conexion.rollback();
     console.error("Error al crear usuario:", err);
@@ -283,7 +283,7 @@ export const actualizarUsuario = async (req, res) => {
       // Evento de sustitución
       await conexion.query(
         `INSERT INTO eventosArchivo
-           (archivoId, versionId, accion, usuarioId, ip, userAgent, detalles)
+           (archivoId, versionId, accion, creadoPor, ip, userAgent, detalles)
          VALUES (?, ?, 'sustituido', ?, ?, ?, ?)`,
         [
           archivoId,
@@ -318,7 +318,7 @@ export const actualizarUsuario = async (req, res) => {
         );
         await conexion.query(
           `INSERT INTO eventosArchivo
-             (archivoId, accion, usuarioId, ip, userAgent, detalles)
+             (archivoId, accion, creadoPor, ip, userAgent, detalles)
            VALUES (?, 'eliminacion', ?, ?, ?, ?)`,
           [
             antId,
@@ -492,7 +492,7 @@ export const eliminarUsuario = async (req, res) => {
       // 3.3) Insertar evento de auditoría
       await conexion.query(
         `INSERT INTO eventosArchivo
-             (archivoId, versionId, accion, usuarioId, ip, userAgent, detalles)
+             (archivoId, versionId, accion, creadoPor, ip, userAgent, detalles)
            VALUES (?, NULL,'eliminacion' , ?, ?, ?, ?)`,
         [
           archivo.id,

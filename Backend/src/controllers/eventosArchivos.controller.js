@@ -7,7 +7,7 @@ export const ROL_EMPLEADO = 3;
 
 
 export const listarEventosArchivos = async (req, res) => {
-  const usuarioId = req.user.id;
+  const creadoPor = req.user.id;
   const rolId = req.user.rol_id;
 
   /* Admin y Supervisor obtienen vista completa */
@@ -34,7 +34,7 @@ export const listarEventosArchivos = async (req, res) => {
   if (!esVistaCompleta) {
     // a.subidoPor = usuario que subió originalmente el archivo
     whereSql += " AND a.subidoPor = ?";
-    params.push(usuarioId);
+    params.push(creadoPor);
   }
 
   try {
