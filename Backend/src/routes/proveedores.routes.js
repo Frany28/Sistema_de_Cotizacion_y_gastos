@@ -38,7 +38,7 @@ router.delete(
   "/:id",
   autenticarUsuario,
   verificarPermiso("eliminarProveedor"),
-  eliminarProveedor //  ← sin validarProveedor
+  eliminarProveedor
 );
 
 // ──────────────── GETs ────────────────

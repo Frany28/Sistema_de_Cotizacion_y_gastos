@@ -229,16 +229,20 @@ export const actualizarProveedor = async (req, res) => {
   }
 };
 
-const eliminarProveedor = async (id) => {
+// controllers/proveedores.controller.js
+
+export const eliminarProveedor = async (req, res) => {
   try {
-    await api.delete(`/proveedores/${id}`);
-    // refresca la lista para reflejar la eliminación
+    const { data } = await api.delete(`/proveedores/${id}`);
+    // refrescar la lista para reflejar la eliminación
     await fetchProveedores();
-    return true;
+    return true; // ← clave: informar éxito al onConfirmar
   } catch (error) {
-    // 409: backend devuelve mensajes detallados (array) y/o message
-    if (error.response?.status === 409) {
-      const data = error.response.data || {};
+    const status = error.response?.status;
+    const data = error.response?.data || {};
+
+    if (status === 409) {
+      // backend puede enviar múltiples mensajes en 'mensajes'
       const lista =
         Array.isArray(data.mensajes) && data.mensajes.length
           ? data.mensajes.map((m) => `• ${m}`).join("\n")
@@ -248,7 +252,7 @@ const eliminarProveedor = async (id) => {
         titulo: data.error || "No permitido",
         mensaje: lista,
       });
-    } else if (error.response?.status === 404) {
+    } else if (status === 404) {
       mostrarError({
         titulo: "No encontrado",
         mensaje: "Proveedor no encontrado.",
@@ -257,10 +261,12 @@ const eliminarProveedor = async (id) => {
       console.error("Error al eliminar proveedor:", error);
       mostrarError({
         titulo: "Error al eliminar proveedor",
-        mensaje: "No se pudo eliminar el proveedor. Intenta nuevamente.",
+        mensaje:
+          data.message ||
+          "No se pudo eliminar el proveedor. Intenta nuevamente.",
       });
     }
-    return false;
+    return false; // ← clave: informar fallo al onConfirmar
   }
 };
 
