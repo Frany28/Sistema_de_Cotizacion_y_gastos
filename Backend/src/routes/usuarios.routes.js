@@ -1,77 +1,60 @@
+import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
+import db from "../config/database.js";
 import express from "express";
-import multer from "multer";
-
+import { uploadComprobante } from "../utils/s3.js";
 import {
-  crearUsuario,
   obtenerUsuarios,
   obtenerUsuarioPorId,
+  crearUsuario,
   actualizarUsuario,
   eliminarUsuario,
 } from "../controllers/usuarios.controller.js";
 
-import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
-import { verificarPermiso } from "../Middleware/verificarPermiso.js";
-
-// Configuración de subida (si ya la tienes en otro archivo, reutilízala)
-const upload = multer({ storage: multer.memoryStorage() });
-
 const router = express.Router();
 
-/**
- * Listar usuarios
- * Permiso real en BD: administrarUsuarios
- */
-router.get(
-  "/",
-  autenticarUsuario,
-  verificarPermiso("administrarUsuarios"),
-  obtenerUsuarios
-);
+router.get("/", autenticarUsuario, obtenerUsuarios);
+router.get("/permisos/:permiso", autenticarUsuario);
+router.get("/:id", autenticarUsuario, obtenerUsuarioPorId);
 
-/**
- * Ver detalle de usuario
- * Permiso real en BD: administrarUsuarios
- */
-router.get(
-  "/:id",
-  autenticarUsuario,
-  verificarPermiso("administrarUsuarios"),
-  obtenerUsuarioPorId
-);
-
-/**
- * Crear usuario
- * Permiso real en BD: crearUsuario
- */
 router.post(
   "/",
   autenticarUsuario,
-  verificarPermiso("crearUsuario"),
-  upload.single("firma"),
+  uploadComprobante.single("firma"),
   crearUsuario
 );
 
-/**
- * Editar usuario
- * Permiso real en BD: editarUsuario
- */
 router.put(
   "/:id",
   autenticarUsuario,
-  verificarPermiso("editarUsuario"),
-  upload.single("firma"),
+  uploadComprobante.single("firma"),
   actualizarUsuario
 );
 
-/**
- * Eliminar usuario
- * Permiso real en BD: eliminarUsuario
- */
-router.delete(
-  "/:id",
-  autenticarUsuario,
-  verificarPermiso("eliminarUsuario"),
-  eliminarUsuario
-);
+router.delete("/:id", autenticarUsuario, eliminarUsuario);
+
+router.get("/permisos/:clave", autenticarUsuario, async (req, res) => {
+  const { clave } = req.params;
+  const usuario = req.user;
+
+  try {
+    if (usuario.rol_id === 1) {
+      return res.json({ tienePermiso: true });
+    }
+
+    const [rows] = await db.query(
+      `SELECT 1
+         FROM roles_permisos rp
+         JOIN permisos p ON p.id = rp.permiso_id
+         WHERE rp.rol_id = ? AND p.nombre = ?
+         LIMIT 1`,
+      [usuario.rol_id, clave]
+    );
+
+    res.json({ tienePermiso: rows.length > 0 });
+  } catch (error) {
+    console.error("Error al verificar permiso (frontend):", error);
+    res.status(500).json({ message: "Error interno al verificar permiso" });
+  }
+});
 
 export default router;
