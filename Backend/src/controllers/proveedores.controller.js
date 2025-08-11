@@ -229,42 +229,75 @@ export const actualizarProveedor = async (req, res) => {
   }
 };
 
-// Eliminar proveedor
-// proveedores.controller.js
 export const eliminarProveedor = async (req, res) => {
   const { id } = req.params;
 
   try {
-    /* Comprobar existencia y estado */
     const [[proveedor]] = await db.query(
-      "SELECT estado FROM proveedores WHERE id = ?",
+      `
+      SELECT 
+        p.estado,
+        EXISTS(
+          SELECT 1 
+          FROM gastos g 
+          WHERE g.proveedor_id = p.id 
+          LIMIT 1
+        ) AS tieneGastos
+      FROM proveedores p
+      WHERE p.id = ?
+      `,
       [id]
     );
 
+    // 2) Validaciones de existencia
     if (!proveedor) {
       return res.status(404).json({ message: "Proveedor no encontrado" });
     }
 
+    // 3) Acumular todos los motivos de bloqueo
+    const motivosBloqueo = [];
+
     if (proveedor.estado === "activo") {
+      motivosBloqueo.push(
+        "El proveedor está ACTIVO; primero cámbielo a INACTIVO para poder eliminarlo."
+      );
+    }
+
+    if (Number(proveedor.tieneGastos) === 1) {
+      motivosBloqueo.push(
+        "No puedes eliminar un proveedor que tiene gastos registrados."
+      );
+    }
+
+    // 4) Si hay uno o más motivos, respondemos 409 con AMBOS mensajes
+    if (motivosBloqueo.length > 0) {
       return res.status(409).json({
         error: "No permitido",
-        message:
-          "El proveedor está ACTIVO; primero cámbielo a INACTIVO para poder eliminarlo.",
+        message: motivosBloqueo.join(" "),
+        mensajes: motivosBloqueo, // útil si el front quiere listarlos
+        detalles: {
+          estado: proveedor.estado,
+          tieneGastos: !!Number(proveedor.tieneGastos),
+        },
       });
     }
 
-    /* Intentar eliminar; capturar FK para responder 409 */
+    // 5) Intentar eliminar (barrera de seguridad por si cambió algo entre la validación y el delete)
     let resultado;
     try {
       [resultado] = await db.query("DELETE FROM proveedores WHERE id = ?", [
         id,
       ]);
     } catch (err) {
+      // Si hay FK (p.ej. alguien registró un gasto justo antes), retornamos 409 coherente
       if (err.code === "ER_ROW_IS_REFERENCED_2") {
         return res.status(409).json({
           error: "Proveedor con gastos",
           message:
             "No puedes eliminar un proveedor que tiene gastos registrados.",
+          mensajes: [
+            "No puedes eliminar un proveedor que tiene gastos registrados.",
+          ],
         });
       }
       throw err; // otros errores los maneja el catch exterior
@@ -274,7 +307,7 @@ export const eliminarProveedor = async (req, res) => {
       return res.status(404).json({ message: "Proveedor no encontrado" });
     }
 
-    /* Limpiar caché de listados */
+    // 6) Limpiar caché de listados
     for (const clave of cacheMemoria.keys()) {
       if (clave.startsWith("proveedores_")) cacheMemoria.del(clave);
     }

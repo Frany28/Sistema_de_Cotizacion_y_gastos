@@ -86,8 +86,9 @@ function ListaProveedores() {
     }
   }, []);
 
-  const handleEliminarClick = (proveedor) => {
-    setProveedorAEliminar(proveedor); // ← muestra ModalConfirmacion
+  const handleEliminarClick = async (proveedor) => {
+    const ok = await prevalidarEliminacionProveedor(proveedor);
+    if (ok) setProveedorAEliminar(proveedor); // solo si pasa validaciones
   };
 
   useEffect(() => {
@@ -160,10 +161,10 @@ function ListaProveedores() {
     } catch (error) {
       if (error.response?.status === 409) {
         mostrarError({
-          titulo: "No permitido",
+          titulo: error.response.data?.error || "No permitido",
           mensaje:
             error.response.data?.message ||
-            "El proveedor está ACTIVO; no puede eliminarse.",
+            "No puedes eliminar este proveedor.",
         });
       } else {
         console.error("Error al eliminar proveedor:", error);
@@ -205,6 +206,41 @@ function ListaProveedores() {
     setLimit(nuevoLimite);
     localStorage.setItem("proveedoresLimit", nuevoLimite);
     setPage(1);
+  };
+
+  // Valida en cliente y servidor si puede eliminarse
+  const prevalidarEliminacionProveedor = async (p) => {
+    // 1) Regla inmediata en cliente
+    if (p.estado === "activo") {
+      mostrarError({
+        titulo: "No permitido",
+        mensaje:
+          "El proveedor está ACTIVO; primero cámbielo a INACTIVO para poder eliminarlo.",
+      });
+      return false;
+    }
+
+    try {
+      await api.get(`/proveedores/${p.id}/validar-eliminacion`);
+
+      return true;
+    } catch (err) {
+      if (err.response?.status === 409) {
+        mostrarError({
+          titulo: err.response.data?.error || "No se puede eliminar",
+          mensaje:
+            err.response.data?.message ||
+            "No puedes eliminar un proveedor que tiene gastos registrados.",
+        });
+        return false;
+      }
+      console.error("Error validando eliminación:", err);
+      mostrarError({
+        titulo: "Error de validación",
+        mensaje: "No se pudo verificar si puede eliminarse. Intenta de nuevo.",
+      });
+      return false;
+    }
   };
 
   if (loading) {
