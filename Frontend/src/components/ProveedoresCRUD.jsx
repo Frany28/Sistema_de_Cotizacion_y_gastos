@@ -209,9 +209,8 @@ function ListaProveedores() {
   };
 
   // Valida en cliente y servidor si puede eliminarse
-  const prevalidarEliminacionProveedor = async (p) => {
-    // 1) Regla inmediata en cliente
-    if (p.estado === "activo") {
+  const prevalidarEliminacionProveedor = async (proveedor) => {
+    if (proveedor.estado === "activo") {
       mostrarError({
         titulo: "No permitido",
         mensaje:
@@ -219,28 +218,8 @@ function ListaProveedores() {
       });
       return false;
     }
-
-    try {
-      await api.get(`/proveedores/${p.id}/validar-eliminacion`);
-
-      return true;
-    } catch (err) {
-      if (err.response?.status === 409) {
-        mostrarError({
-          titulo: err.response.data?.error || "No se puede eliminar",
-          mensaje:
-            err.response.data?.message ||
-            "No puedes eliminar un proveedor que tiene gastos registrados.",
-        });
-        return false;
-      }
-      console.error("Error validando eliminación:", err);
-      mostrarError({
-        titulo: "Error de validación",
-        mensaje: "No se pudo verificar si puede eliminarse. Intenta de nuevo.",
-      });
-      return false;
-    }
+    // La validación de gastos asociados la hace el DELETE en el backend
+    return true;
   };
 
   if (loading) {
@@ -505,17 +484,19 @@ function ListaProveedores() {
         totalPaginas={totalPaginas}
         onCambiarPagina={setPage}
       />
-
       <ModalConfirmacion
         visible={!!proveedorAEliminar}
         onClose={() => setProveedorAEliminar(null)}
         onConfirmar={async () => {
-          await eliminarProveedor(proveedorAEliminar.id);
-          setProveedorAEliminar(null);
-          mostrarMensajeExito({
-            titulo: "Proveedor eliminado",
-            mensaje: "El proveedor ha sido eliminado correctamente.",
-          });
+          const ok = await eliminarProveedor(proveedorAEliminar.id);
+          if (ok) {
+            setProveedorAEliminar(null);
+            mostrarMensajeExito({
+              titulo: "Proveedor eliminado",
+              mensaje: "El proveedor ha sido eliminado correctamente.",
+            });
+          }
+          // si NO ok, ya mostramos el error y dejamos el modal abierto
         }}
         titulo="¿Eliminar proveedor?"
         mensaje={`¿Seguro que deseas eliminar a ${proveedorAEliminar?.nombre}? Esta acción no se puede deshacer.`}
