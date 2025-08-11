@@ -12,18 +12,19 @@ import {
 import { validarServicioProducto } from "../Middleware/validarServicioProducto.js";
 import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
 import { verificarPermiso } from "../Middleware/verificarPermiso.js";
+
 const router = express.Router();
 
-// Rutas para servicios y productos
+/* ✅ Crear servicio/producto: primero auth, luego permiso, luego validación, luego controlador */
 router.post(
   "/",
-  validarServicioProducto,
-  crearServicioProducto,
   autenticarUsuario,
-  verificarPermiso("crearServicio")
+  verificarPermiso("crearServicio"),
+  validarServicioProducto,
+  crearServicioProducto
 );
 
-// Rutas para editar y eliminar servicios y productos
+/* Editar y eliminar */
 router.put(
   "/:id",
   autenticarUsuario,
@@ -32,10 +33,9 @@ router.put(
   actualizarServicioProducto
 );
 
-// Ruta para restar cantidad de un producto
 router.put("/restar/:id", restarCantidadProducto);
 
-// Rutas para obtener servicios y productos
+/* Listar (paginado/filtrado) */
 router.get(
   "/",
   autenticarUsuario,
@@ -43,13 +43,13 @@ router.get(
   obtenerServiciosProductos
 );
 
-// Ruta para verificar si un servicio o producto ya existe
+/* Verificar duplicado por nombre */
 router.get("/check", verificarServicioProductoExistente);
 
-// Ruta para obtener un servicio o producto por ID
+/* Obtener por id (si necesitas protegerlo, agrega auth+permiso aquí también) */
 router.get("/:id", getServicioProductoById);
 
-// Ruta para eliminar un servicio o producto
+/* Eliminar */
 router.delete(
   "/:id",
   autenticarUsuario,

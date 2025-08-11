@@ -36,7 +36,16 @@ export const verificarServicioProductoExistente = async (req, res) => {
 
 // Crear servicio/producto
 export const crearServicioProducto = async (req, res) => {
-  const usuarioId = req.user.id;
+  const usuarioId = req.user?.id; // ✅ acceso seguro
+
+  if (!usuarioId) {
+    return res
+      .status(401)
+      .json({
+        message: "Sesión no válida o expirada. Inicia sesión nuevamente.",
+      });
+  }
+
   const {
     nombre,
     descripcion,
@@ -48,9 +57,12 @@ export const crearServicioProducto = async (req, res) => {
   } = req.body;
 
   try {
+    // Normalizar entradas mínimas
+    const nombreLimpio = (nombre ?? "").trim();
+
     const [existing] = await db.execute(
       "SELECT id FROM servicios_productos WHERE nombre = ?",
-      [nombre]
+      [nombreLimpio]
     );
 
     if (existing.length > 0) {
@@ -72,19 +84,25 @@ export const crearServicioProducto = async (req, res) => {
     const insertParams =
       tipo === "producto"
         ? [
-            nombre,
+            nombreLimpio,
             descripcion,
-            precio,
+            Number(precio),
             tipo,
-            porcentaje_iva,
-            cantidad_actual,
-            cantidad_anterior,
+            Number(porcentaje_iva),
+            Number(cantidad_actual),
+            Number(cantidad_anterior),
             usuarioId,
           ]
-        : [nombre, descripcion, precio, tipo, porcentaje_iva, usuarioId];
+        : [
+            nombreLimpio,
+            descripcion,
+            Number(precio),
+            tipo,
+            Number(porcentaje_iva),
+            usuarioId,
+          ];
 
     const [insertResult] = await db.execute(insertQuery, insertParams);
-
     const insertId = insertResult.insertId;
 
     if (!insertId) {
@@ -93,7 +111,6 @@ export const crearServicioProducto = async (req, res) => {
         .json({ error: "No se pudo obtener el ID insertado" });
     }
 
-    // Generar código
     const codigoGenerado = `${tipo === "producto" ? "PRO" : "SER"}-${String(
       insertId
     ).padStart(4, "0")}`;
@@ -108,15 +125,15 @@ export const crearServicioProducto = async (req, res) => {
       [insertId]
     );
 
-    // 🆕 invalidar listados
-    for (const k of cacheMemoria.keys()) {
-      if (k.startsWith("servicios_")) cacheMemoria.del(k);
+    // Invalidar caches de listados
+    for (const clave of cacheMemoria.keys()) {
+      if (clave.startsWith("servicios_")) cacheMemoria.del(clave);
     }
 
-    res.status(201).json(nuevo[0]);
+    return res.status(201).json(nuevo[0]);
   } catch (error) {
     console.error(" Error al crear servicio/producto:", error);
-    res
+    return res
       .status(500)
       .json({ error: "Error interno al registrar el producto o servicio" });
   }
