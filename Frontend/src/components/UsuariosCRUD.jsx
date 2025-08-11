@@ -350,7 +350,7 @@ export default function UsuariosCRUD() {
                 <div>
                   <span className="text-gray-400">Creado:</span>
                   <span className="text-white ml-1">
-                    {new Date(u.created_at).toLocaleDateString()}
+                    {new Date(u.fechaCreacion).toLocaleDateString()}
                   </span>
                 </div>
               </div>
@@ -416,7 +416,7 @@ export default function UsuariosCRUD() {
               <div>
                 <span className="text-gray-400">Creado:</span>
                 <span className="text-white ml-1">
-                  {new Date(u.created_at).toLocaleDateString()}
+                  {new Date(u.fechaCreacion).toLocaleDateString()}
                 </span>
               </div>
             </div>
