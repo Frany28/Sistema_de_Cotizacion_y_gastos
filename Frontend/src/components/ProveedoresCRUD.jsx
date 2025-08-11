@@ -86,24 +86,8 @@ function ListaProveedores() {
     }
   }, []);
 
-  const handleEliminarClick = async (proveedor) => {
-    try {
-      await api.delete(`/proveedores/${proveedor.id}`);
-      fetchProveedores();
-    } catch (err) {
-      if (err?.response?.status === 409) {
-        mostrarError({
-          titulo: "Operación no permitida",
-          mensaje: err.response.data.message,
-        });
-      } else {
-        console.error("Error al eliminar proveedor:", err);
-        mostrarError({
-          titulo: "Error al eliminar proveedor",
-          mensaje: "No se pudo eliminar el proveedor. Intenta nuevamente.",
-        });
-      }
-    }
+  const handleEliminarClick = (proveedor) => {
+    setProveedorAEliminar(proveedor); // ← muestra ModalConfirmacion
   };
 
   useEffect(() => {
@@ -168,7 +152,11 @@ function ListaProveedores() {
   const eliminarProveedor = async (id) => {
     try {
       await api.delete(`/proveedores/${id}`);
-      setProveedores(proveedores.filter((p) => p.id !== id));
+
+      // Opcional: refrescar desde servidor para mantener paginación/total consistentes
+      await fetchProveedores();
+
+      // (El modal de éxito lo dispara ModalConfirmacion.onConfirmar)
     } catch (error) {
       if (error.response?.status === 409) {
         mostrarError({
