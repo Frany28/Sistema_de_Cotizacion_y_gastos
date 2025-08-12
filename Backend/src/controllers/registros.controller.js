@@ -61,6 +61,8 @@ export const createRegistro = async (req, res) => {
   }
 
   const datos = { ...req.combinedData };
+  if (datos.usuario && !datos.creadoPor)
+    datos.creadoPor = Number(datos.usuario);
   const tipoNormalizado = (datos.tipo || "").trim().toLowerCase();
 
   const conexion = await db.getConnection();

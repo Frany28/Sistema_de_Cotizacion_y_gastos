@@ -194,6 +194,7 @@ const CrearRegistro = () => {
         tipo: "cotizacion",
         cliente_id: clienteSeleccionado.id,
         creadoPor: usuarioId,
+        usuario: usuarioId,
         estado: "pendiente",
         confirmacion_cliente: 0,
         observaciones: datosGenerales.observaciones || "",
@@ -380,6 +381,7 @@ const CrearRegistro = () => {
       formData.append("sucursal_id", datosGasto.sucursal_id);
       formData.append("documento", datosGasto.documento);
       formData.append("creadoPor", usuarioId);
+      formData.append("usuario", String(parseInt(usuarioId, 10)));
       formData.append("moneda", datosGasto.moneda || "USD");
 
       // 3. Campos opcionales
