@@ -181,7 +181,7 @@ export const registrarAbono = async (req, res) => {
       // 7.5 Evento auditoría
       await conn.query(
         `INSERT INTO eventosArchivo
-       (archivoId, versionId, accion, usuarioId,
+       (archivoId, versionId, accion, creadoPor,
         ip, userAgent, detalles)
      VALUES (?, ?, 'subida', ?, ?, ?, ?)`,
         [

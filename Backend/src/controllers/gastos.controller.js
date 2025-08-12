@@ -247,7 +247,7 @@ export const updateGasto = async (req, res) => {
         if (antArchivo.length) {
           await conexion.query(
             `INSERT INTO eventosArchivo
-             (archivoId, accion, usuarioId,
+             (archivoId, accion, creadoPor,
               fechaHora, ip, userAgent, detalles)
          VALUES (?, 'eliminacion', ?, NOW(), ?, ?, ?)`,
             [
@@ -329,7 +329,7 @@ export const updateGasto = async (req, res) => {
       /* 2.6  Evento de sustitución */
       await conexion.query(
         `INSERT INTO eventosArchivo
-       (archivoId, accion, usuarioId,
+       (archivoId, accion, creadoPor,
         fechaHora, ip, userAgent, detalles)
      VALUES (?, 'sustitucion', ?, NOW(), ?, ?, ?)`,
         [
@@ -454,7 +454,7 @@ export const deleteGasto = async (req, res) => {
         const archivoId = archivos[0].id;
         await conexion.query(
           `INSERT INTO eventosArchivo
-             (archivoId, accion, usuarioId, fechaHora, ip, userAgent, detalles)
+             (archivoId, accion, creadoPor, fechaHora, ip, userAgent, detalles)
            VALUES (?, 'eliminacion', ?, NOW(), ?, ?, ?)`,
           [
             archivoId,
