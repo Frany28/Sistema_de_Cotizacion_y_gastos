@@ -210,15 +210,52 @@ function ListaProveedores() {
 
   // Valida en cliente y servidor si puede eliminarse
   const prevalidarEliminacionProveedor = async (proveedor) => {
-    if (proveedor.estado === "activo") {
-      mostrarError({
-        titulo: "No permitido",
-        mensaje:
-          "El proveedor está ACTIVO; primero cámbielo a INACTIVO para poder eliminarlo.",
+    const razones = [];
+
+    // Regla 1: Debe estar INACTIVO
+    if (proveedor.estado !== "inactivo") {
+      razones.push("El proveedor debe estar INACTIVO para poder eliminarlo.");
+    }
+
+    // Regla 2: No debe tener pagos pendientes (por_pagar)
+    try {
+      // Ajusta la ruta si tu API usa otro path para solicitudes de pago
+      const { data } = await api.get("/solicitudes-pago", {
+        params: { proveedorId: proveedor.id, estado: "por_pagar", limit: 1 },
       });
+
+      const totalPendientes =
+        Number(
+          data?.total ??
+            data?.totalPendientes ??
+            (Array.isArray(data?.items)
+              ? data.items.length
+              : Array.isArray(data?.solicitudes)
+              ? data.solicitudes.length
+              : Array.isArray(data)
+              ? data.length
+              : 0)
+        ) || 0;
+
+      if (totalPendientes > 0) {
+        razones.push(
+          "El proveedor tiene solicitudes de pago PENDIENTES por pagar."
+        );
+      }
+    } catch (e) {
+      // Si falla la prevalidación remota, no bloquees aquí: el DELETE hará la validación definitiva.
+      console.warn(
+        "No se pudo prevalidar pagos pendientes. Se validará en el backend al eliminar.",
+        e
+      );
+    }
+
+    if (razones.length > 0) {
+      const mensaje = razones.map((r) => `• ${r}`).join("\n");
+      mostrarError({ titulo: "No permitido", mensaje });
       return false;
     }
-    // La validación de gastos asociados la hace el DELETE en el backend
+
     return true;
   };
 

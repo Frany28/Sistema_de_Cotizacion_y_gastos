@@ -232,41 +232,108 @@ export const actualizarProveedor = async (req, res) => {
 // controllers/proveedores.controller.js
 
 export const eliminarProveedor = async (req, res) => {
+  const proveedorId = Number(req.params.id);
+
+  // Validación temprana del id
+  if (!Number.isInteger(proveedorId) || proveedorId <= 0) {
+    return res.status(400).json({ error: "ID de proveedor inválido" });
+  }
+
+  const conn = await db.getConnection();
   try {
-    const { data } = await api.delete(`/proveedores/${id}`);
-    // refrescar la lista para reflejar la eliminación
-    await fetchProveedores();
-    return true; // ← clave: informar éxito al onConfirmar
-  } catch (error) {
-    const status = error.response?.status;
-    const data = error.response?.data || {};
+    await conn.beginTransaction();
 
-    if (status === 409) {
-      // backend puede enviar múltiples mensajes en 'mensajes'
-      const lista =
-        Array.isArray(data.mensajes) && data.mensajes.length
-          ? data.mensajes.map((m) => `• ${m}`).join("\n")
-          : data.message || "No puedes eliminar este proveedor.";
+    // 1) Verificar existencia y estado del proveedor
+    const [proveedorRows] = await conn.query(
+      "SELECT id, estado FROM proveedores WHERE id = ?",
+      [proveedorId]
+    );
 
-      mostrarError({
-        titulo: data.error || "No permitido",
-        mensaje: lista,
-      });
-    } else if (status === 404) {
-      mostrarError({
-        titulo: "No encontrado",
-        mensaje: "Proveedor no encontrado.",
-      });
-    } else {
-      console.error("Error al eliminar proveedor:", error);
-      mostrarError({
-        titulo: "Error al eliminar proveedor",
-        mensaje:
-          data.message ||
-          "No se pudo eliminar el proveedor. Intenta nuevamente.",
+    if (proveedorRows.length === 0) {
+      await conn.rollback();
+      return res.status(404).json({ message: "Proveedor no encontrado" });
+    }
+
+    const estadoProveedor = proveedorRows[0].estado;
+    const mensajes = [];
+
+    if (estadoProveedor !== "inactivo") {
+      mensajes.push("El proveedor debe estar en estado inactivo.");
+    }
+
+    // 2) Verificar que no tenga pagos pendientes (solicitudes de pago por pagar)
+    const [[{ totalPendientes }]] = await conn.query(
+      "SELECT COUNT(*) AS totalPendientes FROM solicitudes_pago WHERE proveedor_id = ? AND estado = 'por_pagar'",
+      [proveedorId]
+    );
+    if (totalPendientes > 0) {
+      mensajes.push(
+        "El proveedor tiene solicitudes de pago pendientes por pagar."
+      );
+    }
+
+    // 3) (Extra seguro) Verificar si existen gastos asociados (FK ON DELETE RESTRICT)
+    const [[{ totalGastos }]] = await conn.query(
+      "SELECT COUNT(*) AS totalGastos FROM gastos WHERE proveedor_id = ?",
+      [proveedorId]
+    );
+    if (totalGastos > 0) {
+      mensajes.push(
+        "Existen gastos asociados a este proveedor. No se puede eliminar (solo inactivar)."
+      );
+    }
+
+    // Si hay cualquier incumplimiento, devolvemos 409 con el detalle
+    if (mensajes.length > 0) {
+      await conn.rollback();
+      return res.status(409).json({
+        error: "No permitido",
+        mensajes,
       });
     }
-    return false; // ← clave: informar fallo al onConfirmar
+
+    // 4) Eliminar proveedor
+    const [resultadoDelete] = await conn.query(
+      "DELETE FROM proveedores WHERE id = ?",
+      [proveedorId]
+    );
+
+    if (resultadoDelete.affectedRows === 0) {
+      await conn.rollback();
+      return res.status(404).json({ message: "Proveedor no encontrado" });
+    }
+
+    // 5) Limpiar caché relacionada a listados de proveedores
+    for (const claveCache of cacheMemoria.keys()) {
+      if (claveCache.startsWith("proveedores_")) {
+        cacheMemoria.del(claveCache);
+      }
+    }
+
+    await conn.commit();
+    return res.json({ message: "Proveedor eliminado correctamente" });
+  } catch (error) {
+    await conn.rollback();
+    console.error("Error al eliminar proveedor:", error);
+
+    // Si la BD bloquea por FK, devolvemos un 409 con mensaje claro
+    if (
+      error?.code === "ER_ROW_IS_REFERENCED_2" ||
+      error?.code === "ER_ROW_IS_REFERENCED"
+    ) {
+      return res.status(409).json({
+        error: "No permitido",
+        mensajes: [
+          "Existen registros relacionados que impiden la eliminación. Mantén el proveedor inactivo.",
+        ],
+      });
+    }
+
+    return res
+      .status(500)
+      .json({ message: "Error al eliminar proveedor", error: error.message });
+  } finally {
+    conn.release();
   }
 };
 
