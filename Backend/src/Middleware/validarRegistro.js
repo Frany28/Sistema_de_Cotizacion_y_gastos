@@ -36,9 +36,9 @@ export const validarRegistro = async (req, res, next) => {
     }
   }
 
-  if (datosCombinados.usuario_id) {
+  if (datosCombinados.creadoPor) {
     const [usuario] = await db.query("SELECT id FROM usuarios WHERE id = ?", [
-      datosCombinados.usuario_id,
+      datosCombinados.creadoPor,
     ]);
     if (usuario.length === 0) {
       errores.push("El usuario especificado no existe.");
@@ -59,7 +59,7 @@ export const validarRegistro = async (req, res, next) => {
       sucursal_id,
       cotizacion_id,
       moneda = "USD",
-      usuario_id,
+      creadoPor,
       estado = "pendiente",
       tasa_cambio,
     } = datosCombinados;
@@ -103,7 +103,7 @@ export const validarRegistro = async (req, res, next) => {
       errores.push("La sucursal es requerida y debe ser numérica.");
     }
 
-    if (!usuario_id || isNaN(usuario_id)) {
+    if (!creadoPor || isNaN(creadoPor)) {
       errores.push("El usuario es requerido y debe ser numérico.");
     }
 
