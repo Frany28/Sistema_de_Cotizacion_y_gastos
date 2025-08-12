@@ -178,7 +178,7 @@ export const createRegistro = async (req, res) => {
         /* 4.5 eventosArchivo */
         await conexion.query(
           `INSERT INTO eventosArchivo
-         (archivoId, versionId, accion, usuarioId,
+         (archivoId, versionId, accion, creadoPor,
         ip, userAgent, detalles)
           VALUES (?, ?, 'subida', ?, ?, ?, ?)`,
           [
