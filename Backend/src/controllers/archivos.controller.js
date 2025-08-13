@@ -1166,7 +1166,6 @@ export const purgarPapelera = async (req, res) => {
 
   const rutasTotales = [...rutasPrincipales, ...versiones.map((v) => v.rutaS3)];
 
-  /*  Borrar en S3 (lotes ≤ 1000) */
   try {
     for (const lote of chunk(rutasTotales, 1000)) {
       await s3.send(
@@ -1190,7 +1189,7 @@ export const purgarPapelera = async (req, res) => {
   try {
     await cx.beginTransaction();
 
-    /* 4.1  Restar almacenamiento a cada usuario */
+    /* Restar almacenamiento a cada usuario */
     const bytesPorUsuario = {};
     const sumar = (uid, b) =>
       (bytesPorUsuario[uid] = (bytesPorUsuario[uid] || 0) + b);
@@ -1226,7 +1225,7 @@ export const purgarPapelera = async (req, res) => {
       [eventoValores]
     );
 
-    /* 4.3  Eliminar versiones y marcar archivos */
+    /*   Eliminar versiones y marcar archivos */
     await cx.query(`DELETE FROM versionesArchivo WHERE archivoId IN (?)`, [
       archivoIds,
     ]);
