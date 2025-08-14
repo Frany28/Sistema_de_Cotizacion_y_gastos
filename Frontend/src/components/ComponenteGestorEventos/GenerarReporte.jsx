@@ -7,7 +7,7 @@ export default function GenerarReporte({ onGenerarReporte, urlImagen }) {
   };
 
   return (
-    <section className="w-[1376px] rounded-2xl border border-white/10 bg-slate-900/70 p-6 md:p-8 shadow-xl shadow-black/20">
+    <section className=" justify-center w-[1376px] rounded-2xl border border-white/10 bg-slate-900/70 p-6 md:p-8 shadow-xl shadow-black/20">
       <div className="grid items-center gap-8 md:grid-cols-2">
         {/* Columna izquierda: título, descripción y CTA */}
         <div>
