@@ -276,3 +276,83 @@ export const obtenerAlmacenamientoTotalPorDocumento = async (req, res) => {
       .json({ mensaje: "Error al calcular almacenamiento total" });
   }
 };
+
+// === NUEVO: CONTADORES PARA TARJETAS (mes actual por defecto) ===
+export const obtenerContadoresTarjetas = async (req, res) => {
+  try {
+    const { desde, hasta, registroTipo } = req.query;
+
+    // Rango por defecto: mes en curso (incluye hora inicio y fin)
+    const fechaInicio = desde
+      ? new Date(`${desde}T00:00:00`)
+      : (() => {
+          const f = new Date();
+          f.setDate(1);
+          f.setHours(0, 0, 0, 0);
+          return f;
+        })();
+
+    const fechaFin = hasta
+      ? new Date(`${hasta}T23:59:59`)
+      : (() => {
+          const f = new Date(fechaInicio);
+          f.setMonth(f.getMonth() + 1);
+          return f;
+        })();
+
+    // Filtro opcional por tipo de registro (firmas, facturasGastos, etc.)
+    const filtroTipoSql = registroTipo ? "AND a.registroTipo = ?" : "";
+    const paramsTipo = registroTipo ? [registroTipo] : [];
+
+    // 1) Total de archivos activos hoy (no cuenta reemplazados/eliminados/borrados)
+    const [[mActivos]] = await db.query(
+      `SELECT COUNT(*) AS totalArchivosActivos
+         FROM archivos a
+        WHERE a.estado = 'activo' ${filtroTipoSql}`,
+      paramsTipo
+    );
+
+    // 2) Acciones por periodo (excluye acciones vacías)
+    const baseParams = [fechaInicio, fechaFin, ...paramsTipo];
+
+    const [[mSubidos]] = await db.query(
+      `SELECT COUNT(*) AS totalSubidos
+         FROM eventosArchivo e
+         JOIN archivos a ON a.id = e.archivoId
+        WHERE e.fechaHora >= ? AND e.fechaHora < ?
+          AND e.accion = 'subida' ${filtroTipoSql}`,
+      baseParams
+    );
+
+    const [[mEliminados]] = await db.query(
+      `SELECT COUNT(*) AS totalEliminados
+         FROM eventosArchivo e
+         JOIN archivos a ON a.id = e.archivoId
+        WHERE e.fechaHora >= ? AND e.fechaHora < ?
+          AND e.accion = 'eliminacion' ${filtroTipoSql}`,
+      baseParams
+    );
+
+    const [[mReemplazados]] = await db.query(
+      `SELECT COUNT(*) AS totalReemplazados
+         FROM eventosArchivo e
+         JOIN archivos a ON a.id = e.archivoId
+        WHERE e.fechaHora >= ? AND e.fechaHora < ?
+          AND e.accion = 'sustitucion' ${filtroTipoSql}`,
+      baseParams
+    );
+
+    return res.json({
+      totalArchivosActivos: mActivos.totalArchivosActivos,
+      totalSubidos: mSubidos.totalSubidos,
+      totalEliminados: mEliminados.totalEliminados,
+      totalReemplazados: mReemplazados.totalReemplazados,
+      desde: fechaInicio,
+      hasta: fechaFin,
+      registroTipo: registroTipo ?? null,
+    });
+  } catch (error) {
+    console.error("Error en obtenerContadoresTarjetas:", error);
+    return res.status(500).json({ mensaje: "Error al obtener contadores" });
+  }
+};

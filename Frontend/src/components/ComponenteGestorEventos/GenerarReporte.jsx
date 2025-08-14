@@ -16,7 +16,7 @@ export default function GenerarReporte({ onGenerarReporte, urlImagen }) {
         w-full max-w-[1408px]
         rounded-[14px]
         border border-white/10
-        bg-[#0f172a]/95
+        bg-[#1F2937]
         shadow-xl shadow-black/20
         px-6 py-7 md:px-8 md:py-8
       "
