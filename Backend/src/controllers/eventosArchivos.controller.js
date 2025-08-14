@@ -44,7 +44,7 @@ export const obtenerMetricasTablero = async (req, res) => {
       [fechaInicio, fechaFin]
     );
 
-    // ✅ AHORA cuenta versiones desde versionesArchivo (no desde archivos)
+    //  AHORA cuenta versiones desde versionesArchivo (no desde archivos)
     const [[m3]] = await db.query(
       `SELECT COUNT(*) AS totalVersionesMes
          FROM versionesArchivo v

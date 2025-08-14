@@ -83,9 +83,9 @@ createRoot(document.getElementById("root")).render(
               path="/gestor-archivos/archivo/:id"
               element={<VistaDetalleArchivo />}
             />
-            <Route path="/gestor-eventos" element={<GestorDeEventos />} />
             <Route path="/papelera" element={<Papelera />} />
           </Route>
+          <Route path="/gestor-eventos" element={<GestorDeEventos />} />
           <Route path="/gestor-archivos" element={<GestorDeArchivos />} />
           <Route path="/reportes" element={<RelacionesGatos />} />
         </Route>
