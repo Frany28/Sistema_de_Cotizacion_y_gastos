@@ -1,15 +1,10 @@
 import React from "react";
+import imagenGestorEventos from "../../Styles/img/2810772-Photoroom-1.png";
 
-
-// Componente principal de la sección "Gestor de Eventos"
-// Archivo y variables en camelCase (requisito del proyecto).
-// Nota: en React los componentes deben ser PascalCase por convención.
 export default function GenerarReporte({ onGenerarReporte, urlImagen }) {
   const manejarGenerarReporte = () => {
     if (typeof onGenerarReporte === "function") onGenerarReporte();
   };
-
-  
 
   return (
     <section className="w-full rounded-2xl border border-white/10 bg-slate-900/70 p-6 md:p-8 shadow-xl shadow-black/20">
@@ -49,7 +44,7 @@ export default function GenerarReporte({ onGenerarReporte, urlImagen }) {
 
           <div className="relative overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-slate-800 to-slate-700">
             <img
-              src="../../Styles/img/2810772-Photoroom (1).png"
+              src={imagenGestorEventos}
               alt="Ilustración de seguimiento de eventos"
               className="h-full w-full object-contain p-6"
               loading="lazy"
@@ -60,5 +55,3 @@ export default function GenerarReporte({ onGenerarReporte, urlImagen }) {
     </section>
   );
 }
-
-
