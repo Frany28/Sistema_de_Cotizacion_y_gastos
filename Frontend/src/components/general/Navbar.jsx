@@ -1,7 +1,7 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import { LogOut, User, Settings } from "lucide-react";
-import { imagenEmpresa } from "../../Styles/img/Point Technology.png";
+import imagenEmpresa from "../../Styles/img/Point Technology.png";
 
 function Navbar() {
   const location = useLocation();
@@ -116,7 +116,11 @@ function Navbar() {
       <div className="max-w-screen-xl mx-auto flex items-center justify-between p-4">
         {/* Logo */}
         <div className="flex">
-          <img src={imagenEmpresa} className="mr-3 h-8" alt="Point Technology" />
+          <img
+            src={imagenEmpresa}
+            className="mr-3 h-8"
+            alt="Point Technology"
+          />
         </div>
 
         <div className="flex items-center md:order-2">
