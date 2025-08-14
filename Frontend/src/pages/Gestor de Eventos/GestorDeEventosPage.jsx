@@ -1,7 +1,7 @@
 import GenerarReporte from "../../components/ComponenteGestorEventos/GenerarReporte";
 import TarjetaArchivosSubidos from "../../components/ComponenteGestorEventos/tarjetas/TarjetaArchivosSubidos";
 import TarjetaArchivosEliminados from "../../components/ComponenteGestorEventos/tarjetas/TarjetaArchivosEliminados";
-import TarjetaTotalArchivos from "../../components/ComponenteGestorEventos/tarjetas/tarjetaTotalArchivos";
+import TarjetaTotalDeArchivos from "../../components/ComponenteGestorEventos/tarjetas/TarjetaTotalDeArchivos";
 import TarjetaArchivosReemplazados from "../../components/ComponenteGestorEventos/tarjetas/TarjetaArchivosReemplazados";
 
 function GestorDeEventosPage() {
@@ -12,8 +12,8 @@ function GestorDeEventosPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
           <TarjetaArchivosSubidos />
-          <TarjetaArchivosEliminados/>
-          <TarjetaTotalArchivos />
+          <TarjetaArchivosEliminados />
+          <TarjetaTotalDeArchivos />
           <TarjetaArchivosReemplazados />
         </div>
       </div>
