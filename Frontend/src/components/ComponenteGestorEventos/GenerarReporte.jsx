@@ -7,7 +7,7 @@ export default function GenerarReporte({ onGenerarReporte, urlImagen }) {
   };
 
   return (
-    <section className="w-full rounded-2xl border border-white/10 bg-slate-900/70 p-6 md:p-8 shadow-xl shadow-black/20">
+    <section className="w-[1376px] rounded-2xl border border-white/10 bg-slate-900/70 p-6 md:p-8 shadow-xl shadow-black/20">
       <div className="grid items-center gap-8 md:grid-cols-2">
         {/* Columna izquierda: título, descripción y CTA */}
         <div>
@@ -46,7 +46,7 @@ export default function GenerarReporte({ onGenerarReporte, urlImagen }) {
             <img
               src={imagenGestorEventos}
               alt="Ilustración de seguimiento de eventos"
-              className="h-full w-full object-contain p-6"
+              className="h-[340px] w-[418px] object-contain p-6"
               loading="lazy"
             />
           </div>
