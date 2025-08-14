@@ -1,9 +1,9 @@
 import GenerarReporte from "../../components/ComponenteGestorEventos/GenerarReporte";
 
-function GestorDeEventos() {
-  <>
+function GestorDeEventosPage() {
+  return<>
     <GenerarReporte />
   </>;
 }
 
-export default GestorDeEventos;
+export default GestorDeEventosPage;

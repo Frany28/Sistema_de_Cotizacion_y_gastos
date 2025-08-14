@@ -59,3 +59,5 @@ export default function GenerarReporte({ onGenerarReporte, urlImagen }) {
     </section>
   );
 }
+
+
