@@ -116,7 +116,7 @@ function Navbar() {
       <div className="max-w-screen-xl mx-auto flex items-center justify-between p-4">
         {/* Logo */}
         <div className="flex">
-          <img src={imagenEmpresa} className="mr-3 h-8" alt="Flowbite Logo" />
+          <img src={imagenEmpresa} className="mr-3 h-8" alt="Point Technology" />
         </div>
 
         <div className="flex items-center md:order-2">

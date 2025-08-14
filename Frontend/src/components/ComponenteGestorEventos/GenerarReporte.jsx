@@ -40,13 +40,13 @@ export default function GenerarReporte({ onGenerarReporte, urlImagen }) {
         {/* Columna derecha: contenedor de imagen/ilustración */}
         <div className="relative">
           {/* Glow decorativo */}
-          <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-indigo-500/20 blur-3xl" />
+          <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full" />
 
-          <div className="relative overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-slate-800 to-slate-700">
+          <div className="relative overflow-hidden rounded-xl">
             <img
               src={imagenGestorEventos}
               alt="Ilustración de seguimiento de eventos"
-              className="h-[340px] w-[418px] object-contain p-6"
+              className="h-[340px] w-[418px] object-contain"
               loading="lazy"
             />
           </div>
