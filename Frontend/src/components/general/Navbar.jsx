@@ -1,7 +1,7 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import { LogOut, User, Settings } from "lucide-react";
-import { imagenEmpresa } from "../../Styles/img/Point Technologys.png";
+import { imagenEmpresa } from "../../Styles/img/Point Technology.png";
 
 function Navbar() {
   const location = useLocation();
