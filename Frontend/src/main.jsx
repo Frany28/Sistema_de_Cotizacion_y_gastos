@@ -29,7 +29,6 @@ import {
   VistaDetalleArchivo,
   Papelera,
   GestorDeEventosPage,
-  GestorDeEventosPage,
 } from "./pages/pages.js";
 
 createRoot(document.getElementById("root")).render(
