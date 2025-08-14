@@ -89,7 +89,7 @@ export const obtenerTendenciaActividad = async (req, res) => {
   const filtroTipoSql = registroTipo ? "AND a.registroTipo = ?" : "";
   if (registroTipo) params.push(registroTipo);
 
-  // ✅ Si no se filtra por acción, excluimos acciones vacías
+  // Si no se filtra por acción, excluimos acciones vacías
   const filtroAccionSql = accion ? "AND e.accion = ?" : "AND e.accion <> ''";
   if (accion) params.push(accion);
 
@@ -149,7 +149,6 @@ export const listarActividadReciente = async (req, res) => {
     filtros.push("e.accion = ?");
     params.push(accion);
   } else {
-    // ✅ evita filas con acción vacía
     filtros.push("e.accion <> ''");
   }
 
@@ -232,7 +231,7 @@ export const contarVersionesDelMesPorArchivo = async (req, res) => {
       return res.status(404).json({ mensaje: "Archivo no encontrado" });
     }
 
-    // ✅ cuenta en versionesArchivo por archivoId
+    //  cuenta en versionesArchivo por archivoId
     const [[fila]] = await db.query(
       `SELECT COUNT(*) AS totalDelMes
          FROM versionesArchivo
