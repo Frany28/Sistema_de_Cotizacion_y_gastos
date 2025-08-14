@@ -10,7 +10,7 @@ function GestorDeEventosPage() {
       <div className="pt-5 ">
         <GenerarReporte />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-2 p-2">
+        <div className="grid grid-cols-1 items-center justify-center md:grid-cols-2 xl:grid-cols-4 gap-2 p-5">
           <TarjetaArchivosSubidos />
           <TarjetaArchivosEliminados />
           <TarjetaTotalDeArchivos />

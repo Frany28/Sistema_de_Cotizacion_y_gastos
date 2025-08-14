@@ -13,7 +13,7 @@ export default function GenerarReporte({ onGenerarReporte, urlImagen }) {
     <section
       className="
         mx-auto
-        w-full max-w-[1408px]
+        w-full max-w-[1480px]
         rounded-[14px]
         border border-white/10
         bg-[#1F2937]
