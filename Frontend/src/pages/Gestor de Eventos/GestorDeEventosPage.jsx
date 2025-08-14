@@ -1,8 +1,8 @@
-import GestorDeEventos from "../../components/ComponenteGestorEventos/GenerarReporte";
+import GenerarReporte from "../../components/ComponenteGestorEventos/GenerarReporte";
 
 function GestorDeEventos() {
   <>
-    <GestorDeEventos />
+    <GenerarReporte />
   </>;
 }
 
