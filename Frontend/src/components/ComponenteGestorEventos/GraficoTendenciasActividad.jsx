@@ -165,21 +165,21 @@ const Leyenda = () => (
         className="inline-block w-2.5 h-2.5 rounded-full"
         style={{ background: coloresSerie.subidos.trazo }}
       />
-      <span>Archivos Subidos</span>
+      <span className="text-white">Archivos Subidos</span>
     </div>
     <div className="flex items-center gap-2">
       <span
         className="inline-block w-2.5 h-2.5 rounded-full"
         style={{ background: coloresSerie.eliminados.trazo }}
       />
-      <span>Archivos Eliminados</span>
+      <span className="text-white">Archivos Eliminados</span>
     </div>
     <div className="flex items-center gap-2">
       <span
         className="inline-block w-2.5 h-2.5 rounded-full"
         style={{ background: coloresSerie.reemplazados.trazo }}
       />
-      <span>Archivos Reemplazados</span>
+      <span className="text-white">Archivos Reemplazados</span>
     </div>
   </div>
 );
