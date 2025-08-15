@@ -3,21 +3,30 @@ import TarjetaArchivosSubidos from "../../components/ComponenteGestorEventos/tar
 import TarjetaArchivosEliminados from "../../components/ComponenteGestorEventos/tarjetas/TarjetaArchivosEliminados";
 import TarjetaTotalDeArchivos from "../../components/ComponenteGestorEventos/tarjetas/TarjetaTotalDeArchivos";
 import TarjetaArchivosReemplazados from "../../components/ComponenteGestorEventos/tarjetas/TarjetaArchivosReemplazados";
+import GraficoTendenciasActividad from "../../components/ComponenteGestorEventos/GraficoTendenciasActividad";
 
 function GestorDeEventosPage() {
   return (
-    <>
-      <div className="pt-5 ">
-        <GenerarReporte />
+    <div className="pt-5">
+      {/* Header grande con su propio contenedor */}
+      <GenerarReporte />
 
-        <div className="grid grid-cols-1 items-center justify-center md:grid-cols-2 xl:grid-cols-4 gap-2 p-5">
+      {/* MISMO contenedor del header para alinear bordes y padding */}
+      <div className="mx-auto w-full max-w-[1480px] px-6 md:px-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-6 mt-6">
           <TarjetaArchivosSubidos />
           <TarjetaArchivosEliminados />
           <TarjetaTotalDeArchivos />
           <TarjetaArchivosReemplazados />
         </div>
       </div>
-    </>
+
+      <GraficoTendenciasActividad
+        registroTipo={null} // o "facturasGastos" / "firmas" / ...
+        accion={null} // o "subida" | "eliminacion" | "sustitucion" ...
+        usarHistoricoCompleto={true}
+      />
+    </div>
   );
 }
 
