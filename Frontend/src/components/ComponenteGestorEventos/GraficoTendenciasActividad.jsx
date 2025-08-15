@@ -9,7 +9,7 @@ import {
   CartesianGrid,
   Tooltip,
 } from "recharts";
-import { obtenerTendenciaActividad } from "../services/eventosArchivosApi";
+import { obtenerTendenciaActividad } from "../../services/eventosArchivosApi";
 
 const coloresSerie = {
   subidos: { trazo: "#818CF8", relleno: "rgba(99,102,241,0.55)" },
