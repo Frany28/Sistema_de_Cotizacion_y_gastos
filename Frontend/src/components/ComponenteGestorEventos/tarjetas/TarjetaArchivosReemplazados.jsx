@@ -27,7 +27,7 @@ const TarjetaArchivosReemplazados = () => {
         <GitCompare className="text-blue-500" size={20} />
       </div>
       <div className="flex flex-col justify-center h-full">
-        <p className="text-sm text-gray-400 ml-7">Archivos Reemplazados</p>
+        <p className=" text-2xl text-gray-400 ml-7">Archivos Reemplazados</p>
         {cargando ? (
           <div className="h-8 bg-gray-700/50 rounded w-1/2 animate-pulse ml-7" />
         ) : (
