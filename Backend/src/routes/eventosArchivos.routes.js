@@ -1,9 +1,8 @@
 // routes/eventosArchivos.routes.js
 import { Router } from "express";
 import {
-  // nuevas/renombradas
   obtenerMetricasTablero,
-  obtenerTendenciaActividad,
+  obtenerTendenciaActividad, // ← la serie diaria del gráfico
   listarActividadReciente,
   contarVersionesDelMesPorArchivo,
   obtenerAlmacenamientoTotalPorDocumento,
@@ -14,8 +13,7 @@ import { verificarPermiso } from "../Middleware/verificarPermiso.js";
 
 const router = Router();
 
-/* === NUEVOS ENDPOINTS PARA EL DASHBOARD === */
-// Tarjetas superiores (totales globales)
+/* === Endpoints de tablero === */
 router.get(
   "/metricas",
   autenticarUsuario,
@@ -23,7 +21,7 @@ router.get(
   obtenerMetricasTablero
 );
 
-// Serie diaria para el gráfico de tendencia
+// Serie diaria (el gráfico consume esta)
 router.get(
   "/tendencia",
   autenticarUsuario,
@@ -31,7 +29,7 @@ router.get(
   obtenerTendenciaActividad
 );
 
-/* === FEED PRINCIPAL (reemplaza listarEventosArchivos) === */
+/* === Feed principal === */
 router.get(
   "/",
   autenticarUsuario,
@@ -39,7 +37,7 @@ router.get(
   listarActividadReciente
 );
 
-/* === UTILIDADES POR ARCHIVO (mismas rutas, nuevas funciones) === */
+/* === Utilidades por archivo === */
 router.get(
   "/:id/versiones-del-mes",
   autenticarUsuario,
