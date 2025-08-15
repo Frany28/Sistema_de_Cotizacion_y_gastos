@@ -225,7 +225,7 @@ export default function GraficoTendenciasActividad({
 
   return (
     <div
-      className={`w-full rounded-xl border border-gray-800 bg-[#0f172a] p-4 ${claseContenedor}`}
+      className={`w-full rounded-xl border border-gray-800 bg-gray-800 p-4 ${claseContenedor}`}
     >
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-gray-100 font-semibold">Tendencias de actividad</h3>
