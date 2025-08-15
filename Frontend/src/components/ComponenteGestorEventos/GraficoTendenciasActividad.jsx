@@ -144,9 +144,15 @@ const TooltipPersonalizado = ({ active, payload, label }) => {
     <div className="rounded-md bg-gray-900/90 text-gray-100 p-3 text-sm shadow-lg border border-gray-800">
       <div className="font-medium mb-1">{label}</div>
       <div className="flex flex-col gap-0.5">
-        <span>Archivos Subidos: {formatearMiles(p.subidos)}</span>
-        <span>Archivos Eliminados: {formatearMiles(p.eliminados)}</span>
-        <span>Archivos Reemplazados: {formatearMiles(p.reemplazados)}</span>
+        <span className="text-white">
+          Archivos Subidos: {formatearMiles(p.subidos)}
+        </span>
+        <span className="text-white">
+          Archivos Eliminados: {formatearMiles(p.eliminados)}
+        </span>
+        <span className="text-white">
+          Archivos Reemplazados: {formatearMiles(p.reemplazados)}
+        </span>
       </div>
     </div>
   );

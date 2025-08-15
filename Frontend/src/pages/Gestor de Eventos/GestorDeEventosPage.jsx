@@ -20,7 +20,7 @@ function GestorDeEventosPage() {
           <TarjetaArchivosReemplazados />
         </div>
       </div>
-      <div className="mx-auto w-full max-w-[1480px] px-6 md:px-8">
+      <div className="mx-auto w-full max-w-[1480px] px-6 md:pt-5">
         <GraficoTendenciasActividad alturaPx={420} />
       </div>
     </div>
