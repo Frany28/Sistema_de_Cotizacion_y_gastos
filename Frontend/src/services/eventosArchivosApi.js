@@ -2,7 +2,7 @@
 import axios from "axios";
 
 const clienteEventosArchivos = axios.create({
-  baseURL: "/api/eventos-archivos", // ← igual al de app.js
+  baseURL: "/api/archivos/eventos", // ← igual al de app.js
   withCredentials: true,
 });
 
