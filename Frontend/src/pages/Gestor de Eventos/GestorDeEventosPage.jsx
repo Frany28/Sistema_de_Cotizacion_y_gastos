@@ -21,11 +21,7 @@ function GestorDeEventosPage() {
         </div>
       </div>
 
-      <GraficoTendenciasActividad
-        registroTipo={null} // o "facturasGastos" / "firmas" / ...
-        accion={null} // o "subida" | "eliminacion" | "sustitucion" ...
-        usarHistoricoCompleto={true}
-      />
+      <GraficoTendenciasActividad alturaPx={420} />
     </div>
   );
 }
