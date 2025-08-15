@@ -1,4 +1,4 @@
-// src/components/GraficoTendenciasActividad.jsx
+// src/components/GestorEventos/GraficoTendenciasActividad.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ResponsiveContainer,
@@ -11,6 +11,7 @@ import {
 } from "recharts";
 import { obtenerTendenciaActividad } from "../../services/eventosArchivosApi";
 
+/* ───────────────── Config visual ───────────────── */
 const coloresSerie = {
   subidos: { trazo: "#818CF8", relleno: "rgba(99,102,241,0.55)" },
   eliminados: { trazo: "#F87171", relleno: "rgba(239,68,68,0.55)" },
@@ -35,13 +36,27 @@ const nombreMesCortoEsp = (indiceMes0a11) =>
 
 const formatearMiles = (n) =>
   new Intl.NumberFormat("es-VE", { maximumFractionDigits: 0 }).format(n ?? 0);
+/* ──────────────────────────────────────────────── */
 
-/* ───────── Utils de escala dinámica ───────── */
+/* ───────────── Utils de escala dinámica ───────────── */
 const calcularMaximoApilado = (datosMensuales) =>
   datosMensuales.reduce((m, d) => {
     const suma = (d.subidos || 0) + (d.eliminados || 0) + (d.reemplazados || 0);
     return Math.max(m, suma);
   }, 0);
+
+const calcularMaximoPorSerie = (datosMensuales) => {
+  let maximo = 0;
+  for (const d of datosMensuales) {
+    maximo = Math.max(
+      maximo,
+      d.subidos || 0,
+      d.eliminados || 0,
+      d.reemplazados || 0
+    );
+  }
+  return maximo;
+};
 
 // Redondea hacia arriba a 1/2/5×10^k para ticks “bonitos”
 const redondearBonito = (valor) => {
@@ -56,14 +71,17 @@ const redondearBonito = (valor) => {
   return factor * potencia;
 };
 
-const calcularEscalaDinamica = (datosMensuales) => {
-  const maxApilado = calcularMaximoApilado(datosMensuales);
-  if (maxApilado === 0) return 10; // caso vacío o todo 0
-  const conMargen = maxApilado * 1.12; // +12% de aire visual
+const calcularEscalaDinamicaPorModo = (datosMensuales, modoVisualizacion) => {
+  const base =
+    modoVisualizacion === "apilado"
+      ? calcularMaximoApilado(datosMensuales)
+      : calcularMaximoPorSerie(datosMensuales);
+  const conMargen = (base || 10) * 1.12; // +12% de aire visual
   return redondearBonito(conMargen);
 };
-/* ──────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────── */
 
+/* ───────────── Agrupación por mes (serie diaria → mensual) ───────────── */
 const obtenerRangoMeses = (fechaMin, fechaMax) => {
   const ini = new Date(fechaMin.getFullYear(), fechaMin.getMonth(), 1);
   const fin = new Date(fechaMax.getFullYear(), fechaMax.getMonth(), 1);
@@ -93,15 +111,15 @@ const agruparSerieDiariaPorMes = (serieDiaria) => {
       2,
       "0"
     )}`;
-    const acc = mapa.get(clave) || {
+    const acumulado = mapa.get(clave) || {
       subidos: 0,
       eliminados: 0,
       reemplazados: 0,
     };
-    acc.subidos += Number(r.subidas) || 0;
-    acc.eliminados += Number(r.eliminaciones) || 0;
-    acc.reemplazados += Number(r.sustituciones) || 0;
-    mapa.set(clave, acc);
+    acumulado.subidos += Number(r.subidas) || 0;
+    acumulado.eliminados += Number(r.eliminaciones) || 0;
+    acumulado.reemplazados += Number(r.sustituciones) || 0;
+    mapa.set(clave, acumulado);
   }
 
   const meses = obtenerRangoMeses(fechaMin, fechaMax);
@@ -116,7 +134,9 @@ const agruparSerieDiariaPorMes = (serieDiaria) => {
 
   return { datos, fechaMin, fechaMax };
 };
+/* ──────────────────────────────────────────────────────────────── */
 
+/* ───────────────── Componentes de UI ───────────────── */
 const TooltipPersonalizado = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   const p = Object.fromEntries(payload.map((it) => [it.dataKey, it.value]));
@@ -157,13 +177,16 @@ const Leyenda = () => (
     </div>
   </div>
 );
+/* ───────────────────────────────────────────────────── */
 
+/* ─────────────────── Componente principal ─────────────────── */
 export default function GraficoTendenciasActividad({
   registroTipo = null,
   accion = null,
   usarHistoricoCompleto = true,
   claseContenedor = "",
-  alturaPx = 320, // ← NUEVO: altura configurable
+  alturaPx = 320, // altura configurable
+  modoVisualizacion = "superpuesto", // "superpuesto" | "apilado"
 }) {
   const [estaCargando, setEstaCargando] = useState(true);
   const [errorMensaje, setErrorMensaje] = useState("");
@@ -194,9 +217,11 @@ export default function GraficoTendenciasActividad({
   }, [registroTipo, accion, usarHistoricoCompleto]);
 
   const maximoEscalaY = useMemo(
-    () => calcularEscalaDinamica(datosMensuales),
-    [datosMensuales]
+    () => calcularEscalaDinamicaPorModo(datosMensuales, modoVisualizacion),
+    [datosMensuales, modoVisualizacion]
   );
+
+  const stackIdSegunModo = modoVisualizacion === "apilado" ? "1" : undefined;
 
   return (
     <div
@@ -273,7 +298,7 @@ export default function GraficoTendenciasActividad({
                 axisLine={{ stroke: "#334155" }}
               />
               <YAxis
-                domain={[0, maximoEscalaY]} // ← Escala Y 100% dinámica
+                domain={[0, maximoEscalaY]}
                 tickFormatter={formatearMiles}
                 tick={{ fill: "#94a3b8", fontSize: 12 }}
                 tickLine={false}
@@ -286,7 +311,7 @@ export default function GraficoTendenciasActividad({
               <Area
                 type="monotone"
                 dataKey="subidos"
-                stackId="1"
+                stackId={stackIdSegunModo}
                 stroke={coloresSerie.subidos.trazo}
                 fill="url(#gradSubidos)"
                 strokeWidth={2}
@@ -294,7 +319,7 @@ export default function GraficoTendenciasActividad({
               <Area
                 type="monotone"
                 dataKey="eliminados"
-                stackId="1"
+                stackId={stackIdSegunModo}
                 stroke={coloresSerie.eliminados.trazo}
                 fill="url(#gradEliminados)"
                 strokeWidth={2}
@@ -302,7 +327,7 @@ export default function GraficoTendenciasActividad({
               <Area
                 type="monotone"
                 dataKey="reemplazados"
-                stackId="1"
+                stackId={stackIdSegunModo}
                 stroke={coloresSerie.reemplazados.trazo}
                 fill="url(#gradReemplazados)"
                 strokeWidth={2}
