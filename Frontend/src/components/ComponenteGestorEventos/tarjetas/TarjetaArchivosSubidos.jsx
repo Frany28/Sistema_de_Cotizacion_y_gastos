@@ -22,12 +22,12 @@ const TarjetaArchivosSubidos = () => {
   }, []);
 
   return (
-    <div className="w-[326px] h-[162px] bg-gray-800 rounded-xl p-5 relative shadow-md border border-gray-700">
+    <div className="w-[326px] h-[158px] bg-gray-800 rounded-xl p-5 relative shadow-md border border-gray-700">
       <div className="absolute top-4 left-4">
         <FilePlus className="text-blue-500" size={20} />
       </div>
       <div className="flex flex-col justify-center h-full">
-        <p className=" text-2xl text-gray-400 ml-7">Archivos Subidos</p>
+        <p className=" text-sm text-gray-400 ml-7">Archivos Subidos</p>
         {cargando ? (
           <div className="h-8 bg-gray-700/50 rounded w-1/2 animate-pulse ml-7" />
         ) : (
