@@ -157,7 +157,7 @@ export default function ActividadRecienteArchivos({
         offset,
       };
       // ← igual que el historial, usamos el cliente axios `api`
-      const { data } = await api.get("/eventos-archivos", { params });
+      const { data } = await api.get("/archivos/eventos", { params });
 
       const items = Array.isArray(data)
         ? data
