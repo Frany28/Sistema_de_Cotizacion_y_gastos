@@ -1,56 +1,11 @@
-// src/components/ActividadArchivos/ActividadRecienteArchivos.jsx
-import { useEffect, useMemo, useState } from "react";
-import axios from "axios";
-
-const etiquetaAccion = (accion) => {
-  switch (accion) {
-    case "subida":
-      return "Archivo agregado";
-    case "eliminacion":
-      return "Archivo eliminado";
-    case "sustitucion":
-      return "Archivo reemplazado";
-    case "borradoDefinitivo":
-      return "Borrado definitivo";
-    case "edicionMetadatos":
-      return "Metadatos editados";
-    case "restauracion":
-      return "Archivo restaurado";
-    case "descarga":
-      return "Archivo descargado";
-    default:
-      return "Evento";
-  }
-};
-
-const obtenerIniciales = (nombre = "") =>
-  nombre
-    .trim()
-    .split(/\s+/)
-    .map((p) => p[0]?.toUpperCase())
-    .slice(0, 2)
-    .join("") || "US";
-
-const formatearFechaHora = (iso) => {
-  const f = new Date(iso);
-  const fecha = f.toLocaleDateString("es-VE", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-  const hora = f.toLocaleTimeString("es-VE", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  return { fecha, hora };
-};
+import { useEffect, useState } from "react";
+import { obtenerActividadReciente } from "../../services/eventosArchivosApi";
 
 export default function ActividadRecienteArchivos() {
   const [eventos, setEventos] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
   const [filtroAccion, setFiltroAccion] = useState("todos");
-  const [ordenarPor, setOrdenarPor] = useState("recientes"); // “recientes” o “antiguos”
   const [limit, setLimit] = useState(12);
   const [offset, setOffset] = useState(0);
 
@@ -58,14 +13,14 @@ export default function ActividadRecienteArchivos() {
     try {
       setCargando(true);
       setError("");
-      const params = { limit, offset };
-      if (filtroAccion !== "todos") params.accion = filtroAccion; // subida | eliminacion | sustitucion ...
-      const { data } = await axios.get("/api/eventos-archivos/actividad", {
-        params,
-        withCredentials: true,
-      });
-      const lista = Array.isArray(data?.eventos) ? data.eventos : [];
-      setEventos(lista);
+      const params = {
+        limit,
+        offset,
+        accion: filtroAccion !== "todos" ? filtroAccion : undefined,
+        // registroTipo, q, desde, hasta si los usas
+      };
+      const data = await obtenerActividadReciente(params);
+      setEventos(Array.isArray(data?.eventos) ? data.eventos : []);
     } catch (e) {
       setError("No se pudo cargar la actividad.");
     } finally {
@@ -75,8 +30,7 @@ export default function ActividadRecienteArchivos() {
 
   useEffect(() => {
     cargarEventos();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtroAccion, limit, offset]);
+  }, [limit, offset, filtroAccion]);
 
   const eventosOrdenados = useMemo(() => {
     const copia = [...eventos];
