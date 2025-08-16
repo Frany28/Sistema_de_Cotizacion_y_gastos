@@ -4,6 +4,7 @@ import TarjetaArchivosEliminados from "../../components/ComponenteGestorEventos/
 import TarjetaTotalDeArchivos from "../../components/ComponenteGestorEventos/tarjetas/TarjetaTotalDeArchivos";
 import TarjetaArchivosReemplazados from "../../components/ComponenteGestorEventos/tarjetas/TarjetaArchivosReemplazados";
 import GraficoTendenciasActividad from "../../components/ComponenteGestorEventos/GraficoTendenciasActividad";
+import ActividadRecienteArchivos from "../../components/ComponenteGestorEventos/ActividadRecienteArchivos";
 
 function GestorDeEventosPage() {
   return (
@@ -22,6 +23,9 @@ function GestorDeEventosPage() {
       </div>
       <div className="mx-auto w-full max-w-[1480px] px-6 md:pt-5">
         <GraficoTendenciasActividad alturaPx={420} />
+      </div>
+      <div className="mx-auto w-full max-w-[1480px] px-6 md:pt-5">
+        <ActividadRecienteArchivos />
       </div>
     </div>
   );
