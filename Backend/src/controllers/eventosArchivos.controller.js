@@ -25,27 +25,27 @@ export const obtenerMetricasTablero = async (req, res) => {
   const fechaFin = new Date(fechaInicio);
   fechaFin.setMonth(fechaFin.getMonth() + 1);
 
-  // Filtro opcional por registroTipo (aplica a métricas donde corresponde)
-  const filtroTipoSql = registroTipo ? "AND a.registroTipo = ?" : [];
+  // ✅ usar cadena vacía, no []
+  const filtroTipoSql = registroTipo ? "AND a.registroTipo = ?" : "";
   const paramsTipo = registroTipo ? [registroTipo] : [];
 
   try {
-    const [[m1]] = await db.query(
+    const [[mActivos]] = await db.query(
       `SELECT COUNT(*) AS totalArchivosActivos
          FROM archivos a
         WHERE a.estado = 'activo' ${filtroTipoSql}`,
       paramsTipo
     );
 
-    const [[m2]] = await db.query(
+    const [[mEventos]] = await db.query(
       `SELECT COUNT(*) AS totalEventosMes
          FROM eventosArchivo e
         WHERE e.fechaHora >= ? AND e.fechaHora < ?`,
       [fechaInicio, fechaFin]
     );
 
-    //  AHORA cuenta versiones desde versionesArchivo (no desde archivos)
-    const [[m3]] = await db.query(
+    // ✅ corregir params (eliminar ".")
+    const [[mVersiones]] = await db.query(
       `SELECT COUNT(*) AS totalVersionesMes
          FROM versionesArchivo v
          JOIN archivos a ON a.id = v.archivoId
@@ -54,7 +54,7 @@ export const obtenerMetricasTablero = async (req, res) => {
       [fechaInicio, fechaFin, ...paramsTipo]
     );
 
-    const [[m4]] = await db.query(
+    const [[mAlmacen]] = await db.query(
       `SELECT COALESCE(SUM(a.tamanioBytes),0) AS totalAlmacenamientoBytes
          FROM archivos a
         WHERE 1=1 ${filtroTipoSql}`,
@@ -62,10 +62,10 @@ export const obtenerMetricasTablero = async (req, res) => {
     );
 
     return res.json({
-      totalArchivosActivos: m1.totalArchivosActivos,
-      totalEventosMes: m2.totalEventosMes,
-      totalVersionesMes: m3.totalVersionesMes,
-      totalAlmacenamientoBytes: m4.totalAlmacenamientoBytes,
+      totalArchivosActivos: mActivos.totalArchivosActivos,
+      totalEventosMes: mEventos.totalEventosMes,
+      totalVersionesMes: mVersiones.totalVersionesMes,
+      totalAlmacenamientoBytes: mAlmacen.totalAlmacenamientoBytes,
     });
   } catch (error) {
     console.error("Error en obtenerMetricasTablero:", error);
@@ -183,25 +183,25 @@ export const listarActividadReciente = async (req, res) => {
   try {
     const [eventos] = await db.query(
       `
-      SELECT
-        e.id              AS eventoId,
-        e.fechaHora       AS fechaEvento,
-        e.accion          AS tipoEvento,
-        e.creadoPor       AS usuarioId,
-        u.nombre          AS usuarioNombre,
-        a.id              AS archivoId,
-        a.nombreOriginal  AS nombreArchivo,
-        a.extension       AS extension,
-        a.tamanioBytes    AS tamanioBytes,
-        a.registroTipo    AS registroTipo,
-        a.registroId      AS registroId
-      FROM eventosArchivo e
-      JOIN archivos a      ON a.id = e.archivoId
-      LEFT JOIN usuarios u ON u.id = e.creadoPor
-      ${whereSql}
-      ORDER BY e.fechaHora DESC
-      LIMIT ? OFFSET ?
-      `,
+  SELECT
+    e.id              AS eventoId,
+    e.fechaHora       AS fechaEvento,
+    e.accion          AS tipoEvento,
+    e.creadoPor       AS usuarioId,
+    u.nombre          AS usuarioNombre,
+    a.id              AS archivoId,
+    a.nombreOriginal  AS nombreArchivo,
+    a.extension       AS extension,
+    a.tamanioBytes    AS tamanioBytes,
+    a.registroTipo    AS registroTipo,
+    a.registroId      AS registroId
+  FROM eventosArchivo e
+  JOIN archivos a      ON a.id = e.archivoId
+  LEFT JOIN usuarios u ON u.id = e.creadoPor
+  ${whereSql}
+  ORDER BY e.fechaHora DESC
+  LIMIT ? OFFSET ?
+  `,
       [...params, limit, offset]
     );
 
