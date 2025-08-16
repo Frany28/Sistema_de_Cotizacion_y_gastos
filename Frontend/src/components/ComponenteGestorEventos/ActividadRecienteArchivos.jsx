@@ -190,23 +190,34 @@ export default function ActividadRecienteArchivos({
   return (
     <div className="w-full mx-auto">
       {/* Barra superior de filtros y búsqueda */}
-      <div className="mb-4 grid grid-cols-1 lg:grid-cols-3 gap-3 items-center">
+      <div className="mb-4 flex flex-col gap-4">
+        {/* Título */}
+        <h2 className="text-xl font-semibold text-gray-800">
+          Actividad Reciente
+        </h2>
+
+        {/* Filtros */}
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Filter className="h-5 w-5 text-gray-600" />
+            <span className="text-sm font-medium text-gray-600">Filter</span>
+          </div>
+          <div className="flex-1 border-b border-gray-200"></div>
+        </div>
+
         {/* Filtros rápidos */}
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm text-zinc-400 flex items-center gap-1">
-            <Filter className="h-4 w-4" /> Filtrar
-          </span>
-          {opcionesFiltro.map((op) => (
+          {opcionesFiltro.slice(1).map((op) => (
             <button
               key={op.clave}
               onClick={() => {
                 setPagina(0);
                 setFiltroAccion(op.clave);
               }}
-              className={`px-3 py-1.5 text-sm rounded-full border transition ${
+              className={`px-3 py-1 text-sm rounded-md transition ${
                 filtroAccion === op.clave
-                  ? "bg-zinc-800/60 text-white border-zinc-600"
-                  : "bg-zinc-900/40 text-zinc-300 border-zinc-700 hover:bg-zinc-800/60"
+                  ? "bg-blue-100 text-blue-600 font-medium"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               }`}
               aria-pressed={filtroAccion === op.clave}
             >
@@ -214,51 +225,15 @@ export default function ActividadRecienteArchivos({
             </button>
           ))}
         </div>
-
-        {/* Búsqueda */}
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <span className="absolute left-3 top-2.5 text-zinc-400">
-              <Search className="h-4 w-4" />
-            </span>
-            <input
-              value={busqueda}
-              onChange={(e) => {
-                setPagina(0);
-                setBusqueda(e.target.value);
-              }}
-              placeholder="Buscar por archivo o usuario..."
-              className="w-full pl-9 pr-3 py-2 rounded-lg bg-zinc-900/60 border border-zinc-700 text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-500"
-            />
-          </div>
-        </div>
-
-        {/* Ordenar */}
-        <div className="flex items-center gap-2 justify-start lg:justify-end">
-          <span className="text-sm text-zinc-400 flex items-center gap-1">
-            <SortAsc className="h-4 w-4" /> Ordenar por
-          </span>
-          <select
-            value={orden}
-            onChange={(e) => setOrden(e.target.value)}
-            className="px-3 py-2 rounded-lg bg-zinc-900/60 border border-zinc-700 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-500"
-          >
-            {opcionesOrden.map((op) => (
-              <option key={op.clave} value={op.clave}>
-                {op.texto}
-              </option>
-            ))}
-          </select>
-        </div>
       </div>
 
       {/* Lista */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="space-y-3">
         {cargando &&
           Array.from({ length: pageSize }).map((_, i) => (
             <div
               key={`skeleton-${i}`}
-              className="h-24 rounded-xl bg-zinc-900/60 border border-zinc-800 animate-pulse"
+              className="h-20 rounded-lg bg-gray-100 animate-pulse"
             />
           ))}
 
@@ -280,30 +255,25 @@ export default function ActividadRecienteArchivos({
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.25 }}
-                className="rounded-xl bg-zinc-900/60 border border-zinc-800 hover:border-zinc-700 shadow-lg shadow-black/10"
+                className="rounded-lg bg-white border border-gray-200 p-4 hover:shadow-sm"
               >
-                <div className="p-4 flex items-start gap-3">
-                  <div className="shrink-0 mt-0.5 text-zinc-300">
+                <div className="flex items-start gap-3">
+                  <div className="shrink-0 mt-0.5 text-gray-500">
                     {iconoPorExtension(ext)}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-medium text-zinc-100 truncate">
+                      <h3 className="font-medium text-gray-900 truncate">
                         {ev.nombreArchivo || "Archivo sin nombre"}
                       </h3>
-                      {etiqueta}
                     </div>
-                    <div className="mt-1 grid grid-cols-2 sm:flex sm:flex-wrap sm:items-center gap-x-4 gap-y-1 text-sm text-zinc-400">
+                    <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
                       <span className="inline-flex items-center gap-1">
-                        <User className="h-4 w-4" />{" "}
-                        {ev.usuarioNombre || "Usuario desconocido"}
+                        {etiqueta}
                       </span>
                       <span className="inline-flex items-center gap-1">
-                        <Clock className="h-4 w-4" /> {fecha} · {hora}
+                        {fecha} · {hora}
                       </span>
-                      {ext && <span className="uppercase">.{ext}</span>}
-                      {tam != null && <span>{abreviarBytes(tam)}</span>}
-                      {ev.numeroVersion && <span>v{ev.numeroVersion}</span>}
                     </div>
                   </div>
                 </div>
@@ -314,26 +284,26 @@ export default function ActividadRecienteArchivos({
 
       {/* Estado vacío / error */}
       {!cargando && !error && eventosOrdenados.length === 0 && (
-        <div className="mt-8 text-center text-zinc-400">
+        <div className="mt-8 text-center text-gray-500">
           No hay actividad para los filtros actuales.
         </div>
       )}
-      {error && <div className="mt-4 text-center text-red-400">{error}</div>}
+      {error && <div className="mt-4 text-center text-red-500">{error}</div>}
 
       {/* Paginación */}
       <div className="mt-6 flex items-center justify-between">
         <button
           onClick={irAnterior}
           disabled={pagina === 0 || cargando}
-          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-zinc-700 bg-zinc-900/60 text-zinc-100 disabled:opacity-40"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50"
         >
           <ChevronLeft className="h-4 w-4" /> Anterior
         </button>
-        <div className="text-sm text-zinc-400">Página {pagina + 1}</div>
+        <div className="text-sm text-gray-500">Página {pagina + 1}</div>
         <button
           onClick={irSiguiente}
           disabled={!hayMas || cargando}
-          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-zinc-700 bg-zinc-900/60 text-zinc-100 disabled:opacity-40"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50"
         >
           Siguiente <ChevronRight className="h-4 w-4" />
         </button>
