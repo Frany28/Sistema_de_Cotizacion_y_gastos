@@ -1,3 +1,4 @@
+// src/components/ComponentesArchivos/ActividadRecienteArchivos.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
@@ -13,33 +14,8 @@ import {
   Image as IconImage,
   File as IconFile,
   User,
-  Trash2,
-  Upload,
-  Replace,
-  Edit,
 } from "lucide-react";
-
-/**
- * Componente: ActividadReciente
- *
- * Qué hace:
- * - Lista eventos de archivos (como el mock de la imagen) totalmente en español.
- * - Filtros por tipo de evento (Todos, Agregado, Eliminado, Reemplazado, Editado, Borrado definitivo).
- * - Búsqueda por texto.
- * - Ordenar por: Más reciente, Más antiguo, Nombre de archivo (A→Z), Tamaño.
- * - Paginación (limit/offset).
- * - Tarjetas con iconos por tipo/ extensión, fecha y hora, usuario y etiqueta de acción.
- * - Diseño oscuro, moderno y responsive con Tailwind.
- *
- * Cómo usar:
- * <ActividadReciente apiBaseUrl="/api" pageSize={10} registroTipo="facturasGastos" />
- *
- * Notas:
- * - El endpoint esperado es GET `${apiBaseUrl}/eventos-archivos` con query:
- *   { accion?, q?, registroTipo?, desde?, hasta?, limit?, offset? }
- * - Ajusta apiBaseUrl según tu proxy (ej. "/api" con Netlify proxy o Vercel).
- * - Todos los nombres de variables están en camelCase y en español.
- */
+import api from "../../../api"; // ← igual que en HistorialVersionesArchivo.jsx
 
 const etiquetasEvento = {
   subida: {
@@ -94,7 +70,6 @@ function formatearFechaHora(fechaIso) {
     return { fecha: "—", hora: "—" };
   }
 }
-
 function abreviarBytes(bytes) {
   if (bytes == null) return "—";
   const unidades = ["B", "KB", "MB", "GB", "TB"];
@@ -106,7 +81,6 @@ function abreviarBytes(bytes) {
   }
   return `${v.toFixed(v < 10 && i > 0 ? 1 : 0)} ${unidades[i]}`;
 }
-
 function iconoPorExtension(ext = "") {
   const e = ext.toLowerCase();
   if (["doc", "docx", "txt", "md"].includes(e))
@@ -119,7 +93,6 @@ function iconoPorExtension(ext = "") {
     return <IconImage className="h-5 w-5" />;
   return <IconFile className="h-5 w-5" />;
 }
-
 function chipEvento(tipoEvento) {
   const meta = etiquetasEvento[tipoEvento] || {
     texto: tipoEvento,
@@ -135,17 +108,14 @@ function chipEvento(tipoEvento) {
 }
 
 export default function ActividadRecienteArchivos({
-  apiBaseUrl = "/api",
   pageSize = 10,
   registroTipo,
 }) {
-  // Estado UI
   const [filtroAccion, setFiltroAccion] = useState("todos");
   const [orden, setOrden] = useState("reciente");
   const [busqueda, setBusqueda] = useState("");
   const [pagina, setPagina] = useState(0);
 
-  // Datos
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState("");
   const [eventos, setEventos] = useState([]);
@@ -179,31 +149,28 @@ export default function ActividadRecienteArchivos({
     setCargando(true);
     setError("");
     try {
-      const params = new URLSearchParams();
-      if (filtroAccion !== "todos") params.set("accion", filtroAccion);
-      if (busqueda.trim()) params.set("q", busqueda.trim());
-      if (registroTipo) params.set("registroTipo", registroTipo);
-      params.set("limit", String(limit));
-      params.set("offset", String(offset));
+      const params = {
+        ...(filtroAccion !== "todos" && { accion: filtroAccion }),
+        ...(busqueda.trim() && { q: busqueda.trim() }),
+        ...(registroTipo && { registroTipo }),
+        limit,
+        offset,
+      };
+      // ← igual que el historial, usamos el cliente axios `api`
+      const { data } = await api.get("/eventos-archivos", { params });
 
-      const url = `${apiBaseUrl}/eventos-archivos?${params.toString()}`;
-      const res = await fetch(url, { credentials: "include" });
-      if (!res.ok) throw new Error(`Error ${res.status}`);
-      const data = await res.json();
-
-      // Si el backend devuelve únicamente el arreglo, úsalo; si envía {items,total}, soportamos ambos
       const items = Array.isArray(data)
         ? data
         : data.items || data.eventos || [];
       setEventos(items);
-      // Calcula si hay más (si vino total) o por tamaño de página
+
       const total = data.total ?? null;
       setHayMas(
         total != null ? offset + items.length < total : items.length === limit
       );
     } catch (e) {
-      setError("No se pudo obtener la actividad reciente.");
       console.error(e);
+      setError("No se pudo obtener la actividad reciente.");
     } finally {
       setCargando(false);
     }
@@ -213,11 +180,10 @@ export default function ActividadRecienteArchivos({
     cargarEventos(); /* eslint-disable-next-line */
   }, [filtroAccion, orden, busqueda, offset, registroTipo]);
 
-  const eventosOrdenados = useMemo(() => {
-    const copia = [...eventos];
-    return copia.sort(ordenarLocal);
-  }, [eventos, orden]);
-
+  const eventosOrdenados = useMemo(
+    () => [...eventos].sort(ordenarLocal),
+    [eventos, orden]
+  );
   const irSiguiente = () => setPagina((p) => p + 1);
   const irAnterior = () => setPagina((p) => Math.max(0, p - 1));
 
