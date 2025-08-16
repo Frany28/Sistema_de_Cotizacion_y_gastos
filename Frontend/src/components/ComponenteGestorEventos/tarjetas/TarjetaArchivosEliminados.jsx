@@ -24,7 +24,7 @@ const TarjetaArchivosEliminados = () => {
   return (
     <div className="w-[326px] h-[158px] bg-gray-800 rounded-xl p-2 relative shadow-md border border-gray-700">
       <div className="absolute top-4 left-5">
-        <Trash2 className="text-blue-500" size={20} />
+        <Trash2 className="text-blue-500" size={25} />
       </div>
       <div className="flex flex-col justify-center h-full">
         <p className="text-sm text-gray-400 ml-7">Archivos Eliminados</p>
