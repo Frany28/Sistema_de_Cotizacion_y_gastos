@@ -15,7 +15,7 @@ import {
   File as IconFile,
   User,
 } from "lucide-react";
-import api from "../../../api"; // ← igual que en HistorialVersionesArchivo.jsx
+import api from "../../api/index";
 
 const etiquetasEvento = {
   subida: {
