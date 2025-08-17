@@ -321,7 +321,7 @@ export const actualizarUsuario = async (req, res) => {
         await conexion.query(
           `INSERT INTO eventosArchivo
              (archivoId, accion, creadoPor, ip, userAgent, detalles)
-           VALUES (?, 'eliminacion', ?, ?, ?, ?)`,
+           VALUES (?, 'sustitucion', ?, ?, ?, ?)`,
           [
             antId,
             req.user.id,
