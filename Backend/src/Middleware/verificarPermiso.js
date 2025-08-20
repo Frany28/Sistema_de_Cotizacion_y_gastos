@@ -63,13 +63,13 @@ export const scopeEdicionGasto = [
     // Obtener gasto actual
     const gastoId = req.params.id;
     const [[gasto]] = await db.query(
-      "SELECT usuario_id, estado FROM gastos WHERE id = ?",
+      "SELECT creadoPor, estado FROM gastos WHERE id = ?",
       [gastoId]
     );
 
     // Supervisor (rol_id = 3) solo puede editar sus propios gastos pendientes
     if (usuario.rol_id === 3) {
-      if (gasto.usuario_id !== usuario.id || gasto.estado !== "pendiente") {
+      if (gasto.creadoPor !== usuario.id || gasto.estado !== "pendiente") {
         return res.status(403).json({
           message: "Solo puedes editar tus propios gastos pendientes",
         });
