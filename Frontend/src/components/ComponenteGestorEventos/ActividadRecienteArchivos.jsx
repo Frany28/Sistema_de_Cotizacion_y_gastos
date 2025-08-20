@@ -1,384 +1,353 @@
-// src/components/ComponentesArchivos/ActividadRecienteArchivos.jsx
+// src/components/GestorEventos/GraficoTendenciasActividad.jsx
 import React, { useEffect, useMemo, useState } from "react";
-import { motion } from "framer-motion";
 import {
-  ChevronLeft,
-  ChevronRight,
-  Filter,
-  SortAsc,
-  FileText,
-  FileSpreadsheet,
-  FileArchive,
-  Image as IconImage,
-  File as IconFile,
-} from "lucide-react";
-import api from "../../api/index";
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+} from "recharts";
+import { obtenerTendenciaActividad } from "../../services/eventosArchivosApi";
 
-const etiquetasEvento = {
-  subida: {
-    texto: "Agregado",
-    clase:
-      "bg-emerald-500/10 text-emerald-300 ring-1 ring-inset ring-emerald-500/30",
-  },
-  eliminacion: {
-    texto: "Eliminado",
-    clase: "bg-rose-500/10 text-rose-300 ring-1 ring-inset ring-rose-500/30",
-  },
-  sustitucion: {
-    texto: "Reemplazado",
-    clase: "bg-amber-500/10 text-amber-300 ring-1 ring-inset ring-amber-500/30",
-  },
-  edicion: {
-    texto: "Editado",
-    clase: "bg-sky-500/10 text-sky-300 ring-1 ring-inset ring-sky-500/30",
-  },
-  borrado_definitivo: {
-    texto: "Borrado definitivo",
-    clase: "bg-red-600/10 text-red-300 ring-1 ring-inset ring-red-600/30",
-  },
+/* ───────────────── Config visual ───────────────── */
+const coloresSerie = {
+  subidos: { trazo: "#818CF8", relleno: "rgba(99,102,241,0.55)" },
+  eliminados: { trazo: "#F87171", relleno: "rgba(239,68,68,0.55)" },
+  reemplazados: { trazo: "#D1D5DB", relleno: "rgba(229,231,235,0.60)" },
 };
 
-const opcionesFiltro = [
-  { clave: "todos", texto: "Todos" },
-  { clave: "subida", texto: "Agregado" },
-  { clave: "eliminacion", texto: "Eliminado" },
-  { clave: "sustitucion", texto: "Reemplazado" },
-  { clave: "edicion", texto: "Editado" },
-  { clave: "borrado_definitivo", texto: "Borrado definitivo" },
-];
+const nombreMesCortoEsp = (indiceMes0a11) =>
+  [
+    "Ene",
+    "Feb",
+    "Mar",
+    "Abr",
+    "May",
+    "Jun",
+    "Jul",
+    "Ago",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dic",
+  ][indiceMes0a11];
 
-const opcionesOrden = [
-  { clave: "reciente", texto: "Más reciente" },
-  { clave: "antiguo", texto: "Más antiguo" },
-  { clave: "archivoAZ", texto: "Nombre A→Z" },
-  { clave: "tamano", texto: "Tamaño" },
-];
+const formatearMiles = (n) =>
+  new Intl.NumberFormat("es-VE", { maximumFractionDigits: 0 }).format(n ?? 0);
+/* ──────────────────────────────────────────────── */
 
-function formatearFechaHora(fechaIso) {
-  try {
-    const fecha = new Date(fechaIso);
-    const f = new Intl.DateTimeFormat("es-VE", { dateStyle: "medium" }).format(
-      fecha
+/* ───────────── Utils de escala dinámica ───────────── */
+const calcularMaximoApilado = (datosMensuales) =>
+  datosMensuales.reduce((m, d) => {
+    const suma = (d.subidos || 0) + (d.eliminados || 0) + (d.reemplazados || 0);
+    return Math.max(m, suma);
+  }, 0);
+
+const calcularMaximoPorSerie = (datosMensuales) => {
+  let maximo = 0;
+  for (const d of datosMensuales) {
+    maximo = Math.max(
+      maximo,
+      d.subidos || 0,
+      d.eliminados || 0,
+      d.reemplazados || 0
     );
-    const h = new Intl.DateTimeFormat("es-VE", { timeStyle: "short" }).format(
-      fecha
-    );
-    return { fecha: f, hora: h };
-  } catch {
-    return { fecha: "—", hora: "—" };
   }
-}
-function abreviarBytes(bytes) {
-  if (bytes == null) return "—";
-  const unidades = ["B", "KB", "MB", "GB", "TB"];
-  let i = 0;
-  let v = Number(bytes);
-  while (v >= 1024 && i < unidades.length - 1) {
-    v /= 1024;
-    i++;
+  return maximo;
+};
+
+// Redondea hacia arriba a 1/2/5×10^k para ticks “bonitos”
+const redondearBonito = (valor) => {
+  if (!valor || valor <= 0) return 10;
+  const potencia = Math.pow(10, Math.floor(Math.log10(valor)));
+  const base = valor / potencia;
+  let factor;
+  if (base <= 1) factor = 1;
+  else if (base <= 2) factor = 2;
+  else if (base <= 5) factor = 5;
+  else factor = 10;
+  return factor * potencia;
+};
+
+const calcularEscalaDinamicaPorModo = (datosMensuales, modoVisualizacion) => {
+  const base =
+    modoVisualizacion === "apilado"
+      ? calcularMaximoApilado(datosMensuales)
+      : calcularMaximoPorSerie(datosMensuales);
+  const conMargen = (base || 10) * 1.12; // +12% de aire visual
+  return redondearBonito(conMargen);
+};
+/* ─────────────────────────────────────────────────── */
+
+/* ───────────── Agrupación por mes (serie diaria → mensual) ───────────── */
+const obtenerRangoMeses = (fechaMin, fechaMax) => {
+  const ini = new Date(fechaMin.getFullYear(), fechaMin.getMonth(), 1);
+  const fin = new Date(fechaMax.getFullYear(), fechaMax.getMonth(), 1);
+  const lista = [];
+  for (let f = new Date(ini); f <= fin; f.setMonth(f.getMonth() + 1)) {
+    lista.push({
+      anio: f.getFullYear(),
+      mes: f.getMonth(),
+      clave: `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, "0")}`,
+    });
   }
-  return `${v.toFixed(v < 10 && i > 0 ? 1 : 0)} ${unidades[i]}`;
-}
-function iconoPorExtension(ext = "") {
-  const e = ext.toLowerCase();
-  if (["doc", "docx", "txt", "md"].includes(e))
-    return <FileText className="h-5 w-5" />;
-  if (["xls", "xlsx", "csv"].includes(e))
-    return <FileSpreadsheet className="h-5 w-5" />;
-  if (["zip", "rar", "7z"].includes(e))
-    return <FileArchive className="h-5 w-5" />;
-  if (["png", "jpg", "jpeg", "webp", "gif"].includes(e))
-    return <IconImage className="h-5 w-5" />;
-  return <IconFile className="h-5 w-5" />;
-}
-function chipEvento(tipoEvento) {
-  const meta = etiquetasEvento[tipoEvento] || {
-    texto: tipoEvento,
-    clase: "bg-zinc-700/40 text-zinc-300 ring-1 ring-inset ring-zinc-600/50",
-  };
+  return lista;
+};
+
+const agruparSerieDiariaPorMes = (serieDiaria) => {
+  if (!serieDiaria?.length)
+    return { datos: [], fechaMin: null, fechaMax: null };
+
+  const fechasMs = serieDiaria.map((r) => new Date(r.fecha).getTime());
+  const fechaMin = new Date(Math.min(...fechasMs));
+  const fechaMax = new Date(Math.max(...fechasMs));
+
+  const mapa = new Map();
+  for (const r of serieDiaria) {
+    const f = new Date(r.fecha);
+    const clave = `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(
+      2,
+      "0"
+    )}`;
+    const acumulado = mapa.get(clave) || {
+      subidos: 0,
+      eliminados: 0,
+      reemplazados: 0,
+    };
+    // ⬇⬇ mapeamos nombres de la API → nombres del gráfico
+    acumulado.subidos += Number(r.subidas) || 0;
+    acumulado.eliminados += Number(r.eliminaciones) || 0;
+    acumulado.reemplazados += Number(r.sustituciones) || 0;
+    mapa.set(clave, acumulado);
+  }
+
+  const meses = obtenerRangoMeses(fechaMin, fechaMax);
+  const datos = meses.map((m) => {
+    const val = mapa.get(m.clave) || {
+      subidos: 0,
+      eliminados: 0,
+      reemplazados: 0,
+    };
+    return { etiquetaMes: nombreMesCortoEsp(m.mes), ...val };
+  });
+
+  return { datos, fechaMin, fechaMax };
+};
+/* ──────────────────────────────────────────────────────────────── */
+
+/* ───────────────── Componentes de UI ───────────────── */
+const TooltipPersonalizado = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null;
+  const p = Object.fromEntries(payload.map((it) => [it.dataKey, it.value]));
   return (
-    <span
-      className={`inline-flex items-center px-2 py-0.5 text-[11px] rounded-full ${meta.clase}`}
-    >
-      {meta.texto}
-    </span>
+    <div className="rounded-md bg-gray-900/90 text-gray-100 p-3 text-sm shadow-lg border border-gray-800">
+      <div className="font-medium mb-1">{label}</div>
+      <div className="flex flex-col gap-0.5">
+        <span className="text-white">
+          Archivos Subidos: {formatearMiles(p.subidos)}
+        </span>
+        <span className="text-white">
+          Archivos Eliminados: {formatearMiles(p.eliminados)}
+        </span>
+        <span className="text-white">
+          Archivos Reemplazados: {formatearMiles(p.reemplazados)}
+        </span>
+      </div>
+    </div>
   );
-}
+};
 
-export default function ActividadRecienteArchivos({
-  pageSize = 10,
-  registroTipo,
+const Leyenda = () => (
+  <div className="flex items-center gap-6 text-sm">
+    <div className="flex items-center gap-2">
+      <span
+        className="inline-block w-2.5 h-2.5 rounded-full"
+        style={{ background: coloresSerie.subidos.trazo }}
+      />
+      <span className="text-white">Archivos Subidos</span>
+    </div>
+    <div className="flex items-center gap-2">
+      <span
+        className="inline-block w-2.5 h-2.5 rounded-full"
+        style={{ background: coloresSerie.eliminados.trazo }}
+      />
+      <span className="text-white">Archivos Eliminados</span>
+    </div>
+    <div className="flex items-center gap-2">
+      <span
+        className="inline-block w-2.5 h-2.5 rounded-full"
+        style={{ background: coloresSerie.reemplazados.trazo }}
+      />
+      <span className="text-white">Archivos Reemplazados</span>
+    </div>
+  </div>
+);
+/* ───────────────────────────────────────────────────── */
+
+/* ─────────────────── Componente principal ─────────────────── */
+export default function GraficoTendenciasActividad({
+  registroTipo = null,
+  accion = null,
+  usarHistoricoCompleto = true,
+  claseContenedor = "",
+  alturaPx = 320, // altura configurable
+  modoVisualizacion = "superpuesto", // "superpuesto" | "apilado"
 }) {
-  const [filtroAccion, setFiltroAccion] = useState("todos");
-  const [orden, setOrden] = useState("reciente");
-  const [busqueda, setBusqueda] = useState("");
-  const [pagina, setPagina] = useState(0);
-
-  const [cargando, setCargando] = useState(false);
-  const [error, setError] = useState("");
-  const [eventos, setEventos] = useState([]);
-  const [hayMas, setHayMas] = useState(false);
-
-  const limit = pageSize;
-  const offset = useMemo(() => pagina * limit, [pagina, limit]);
-
-  const ordenarLocal = (a, b) => {
-    switch (orden) {
-      case "antiguo":
-        return new Date(a.fechaEvento) - new Date(b.fechaEvento);
-      case "archivoAZ":
-        return (a.nombreArchivo || "").localeCompare(
-          b.nombreArchivo || "",
-          "es",
-          { sensitivity: "base" }
-        );
-      case "tamano":
-        return (
-          (b.tamanioBytesVersion ?? b.tamanioArchivo ?? 0) -
-          (a.tamanioBytesVersion ?? a.tamanioArchivo ?? 0)
-        );
-      case "reciente":
-      default:
-        return new Date(b.fechaEvento) - new Date(a.fechaEvento);
-    }
-  };
-
-  const cargarEventos = async () => {
-    setCargando(true);
-    setError("");
-    try {
-      const params = {
-        ...(filtroAccion !== "todos" && { accion: filtroAccion }),
-        ...(busqueda.trim() && { q: busqueda.trim() }),
-        ...(registroTipo && { registroTipo }),
-        limit,
-        offset,
-      };
-      const { data } = await api.get("/archivos/eventos", { params });
-
-      const items = Array.isArray(data)
-        ? data
-        : data.items || data.eventos || [];
-      setEventos(items);
-
-      const total = data.total ?? null;
-      setHayMas(
-        total != null ? offset + items.length < total : items.length === limit
-      );
-    } catch (e) {
-      console.error(e);
-      setError("No se pudo obtener la actividad reciente.");
-    } finally {
-      setCargando(false);
-    }
-  };
+  const [estaCargando, setEstaCargando] = useState(true);
+  const [errorMensaje, setErrorMensaje] = useState("");
+  const [datosMensuales, setDatosMensuales] = useState([]);
 
   useEffect(() => {
-    cargarEventos();
-  }, [filtroAccion, orden, busqueda, offset, registroTipo]);
+    const cargar = async () => {
+      try {
+        setEstaCargando(true);
+        setErrorMensaje("");
 
-  const eventosOrdenados = useMemo(
-    () => [...eventos].sort(ordenarLocal),
-    [eventos, orden]
+        const respuesta = await obtenerTendenciaActividad({
+          registroTipo: registroTipo || undefined,
+          accion: accion || undefined,
+          todo: usarHistoricoCompleto ? "1" : undefined,
+        });
+
+        const { datos } = agruparSerieDiariaPorMes(respuesta.serie || []);
+        setDatosMensuales(datos);
+      } catch (e) {
+        setErrorMensaje("No se pudo cargar la tendencia de actividad.");
+        console.error(e);
+      } finally {
+        setEstaCargando(false);
+      }
+    };
+    cargar();
+  }, [registroTipo, accion, usarHistoricoCompleto]);
+
+  const maximoEscalaY = useMemo(
+    () => calcularEscalaDinamicaPorModo(datosMensuales, modoVisualizacion),
+    [datosMensuales, modoVisualizacion]
   );
-  const irSiguiente = () => setPagina((p) => p + 1);
-  const irAnterior = () => setPagina((p) => Math.max(0, p - 1));
 
-  const AvatarUsuario = ({ nombre = "Usuario" }) => {
-    const iniciales = nombre
-      .split(" ")
-      .map((s) => s[0])
-      .join("")
-      .slice(0, 2)
-      .toUpperCase();
-    return (
-      <div className="h-7 w-7 rounded-full bg-slate-600/60 text-slate-100 grid place-content-center text-xs font-medium shrink-0">
-        {iniciales}
-      </div>
-    );
-  };
+  const stackIdSegunModo = modoVisualizacion === "apilado" ? "1" : undefined;
 
   return (
-    <div className="w-full mx-auto rounded-xl bg-slate-900 p-5 md:p-6">
-      {/* Cabecera */}
-      <div className="mb-4 md:mb-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-[18px] md:text-xl font-semibold text-slate-100">
-            Actividad Reciente
-          </h2>
+    <div
+      className={`w-full rounded-xl border border-gray-800 bg-gray-800 p-4 ${claseContenedor}`}
+    >
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-gray-100 font-semibold">Tendencias de actividad</h3>
+        <Leyenda />
+      </div>
 
-          {/* Ordenar por */}
-          <div className="hidden sm:flex items-center gap-2">
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 rounded-md border border-slate-700 bg-slate-800 px-3 py-1.5 text-[13px] text-slate-200 hover:bg-slate-750/60"
-              title="Ordenar por"
-            >
-              <SortAsc className="h-4 w-4 text-slate-300" />
-              <span>Ordenar por</span>
-            </button>
-            <select
-              className="rounded-md border border-slate-700 bg-slate-800 px-3 py-1.5 text-[13px] text-slate-200 hover:bg-slate-800/80 focus:outline-none"
-              value={orden}
-              onChange={(e) => {
-                setPagina(0);
-                setOrden(e.target.value);
-              }}
-            >
-              {opcionesOrden.map((op) => (
-                <option key={op.clave} value={op.clave}>
-                  {op.texto}
-                </option>
-              ))}
-            </select>
-          </div>
+      {estaCargando ? (
+        <div className="h-56 animate-pulse rounded-lg bg-gray-800/40" />
+      ) : errorMensaje ? (
+        <div className="h-56 flex items-center justify-center text-red-300 text-sm">
+          {errorMensaje}
         </div>
-
-        <div className="mt-4">
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-slate-300" />
-            <span className="text-[13px] font-medium text-slate-300">
-              Filtrar
-            </span>
-          </div>
-
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            {opcionesFiltro.map((op) => {
-              const activo = filtroAccion === op.clave;
-              return (
-                <button
-                  key={op.clave}
-                  onClick={() => {
-                    setPagina(0);
-                    setFiltroAccion(op.clave);
-                  }}
-                  className={[
-                    "px-3 py-1.5 text-[12px] rounded-md border transition",
-                    activo
-                      ? "border-sky-500/50 bg-sky-500/10 text-sky-300"
-                      : "border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700/60",
-                  ].join(" ")}
-                  aria-pressed={activo}
+      ) : (
+        <div className="w-full" style={{ height: alturaPx }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart
+              data={datosMensuales}
+              margin={{ left: 8, right: 8, top: 8, bottom: 0 }}
+            >
+              <defs>
+                <linearGradient id="gradSubidos" x1="0" y1="0" x2="0" y2="1">
+                  <stop
+                    offset="5%"
+                    stopColor={coloresSerie.subidos.trazo}
+                    stopOpacity={0.8}
+                  />
+                  <stop
+                    offset="95%"
+                    stopColor={coloresSerie.subidos.trazo}
+                    stopOpacity={0.1}
+                  />
+                </linearGradient>
+                <linearGradient id="gradEliminados" x1="0" y1="0" x2="0" y2="1">
+                  <stop
+                    offset="5%"
+                    stopColor={coloresSerie.eliminados.trazo}
+                    stopOpacity={0.8}
+                  />
+                  <stop
+                    offset="95%"
+                    stopColor={coloresSerie.eliminados.trazo}
+                    stopOpacity={0.1}
+                  />
+                </linearGradient>
+                <linearGradient
+                  id="gradReemplazados"
+                  x1="0"
+                  y1="0"
+                  x2="0"
+                  y2="1"
                 >
-                  {op.texto}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
+                  <stop
+                    offset="5%"
+                    stopColor={coloresSerie.reemplazados.trazo}
+                    stopOpacity={0.8}
+                  />
+                  <stop
+                    offset="95%"
+                    stopColor={coloresSerie.reemplazados.trazo}
+                    stopOpacity={0.1}
+                  />
+                </linearGradient>
+              </defs>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-        {cargando &&
-          Array.from({ length: pageSize }).map((_, i) => (
-            <div
-              key={`skeleton-${i}`}
-              className="h-20 rounded-lg bg-slate-800/60 animate-pulse"
-            />
-          ))}
+              <CartesianGrid strokeDasharray="3 6" stroke="#334155" />
+              <XAxis
+                dataKey="etiquetaMes"
+                tick={{ fill: "#94a3b8", fontSize: 12 }}
+                tickLine={false}
+                axisLine={{ stroke: "#475569" }}
+              />
+              <YAxis
+                domain={[0, maximoEscalaY]}
+                tickFormatter={formatearMiles}
+                tick={{ fill: "#94a3b8", fontSize: 12 }}
+                tickLine={false}
+                axisLine={{ stroke: "#475569" }}
+                width={48}
+              />
+              <Tooltip content={<TooltipPersonalizado />} />
 
-        {!cargando &&
-          eventosOrdenados.map((ev) => {
-            const ext =
-              ev.extensionVersion || ev.extensionArchivo || ev.extension || "";
-            const tam =
-              ev.tamanioBytesVersion ??
-              ev.tamanioArchivo ??
-              ev.tamanioBytes ??
-              null;
-            const { fecha, hora } = formatearFechaHora(ev.fechaEvento);
-            const etiqueta = chipEvento(ev.tipoEvento);
-            const usuarioNombre =
-              ev.usuarioNombre ||
-              ev.usuario ||
-              ev.usuarioAccion ||
-              "Usuario Desconocido";
-            const detalleAccion =
-              ev.tipoEvento === "subida"
-                ? "Agregó Archivo"
-                : ev.tipoEvento === "eliminacion"
-                ? "Eliminó Archivo"
-                : ev.tipoEvento === "sustitucion"
-                ? "Reemplazó Archivo"
-                : ev.tipoEvento === "edicion"
-                ? "Editó Archivo"
-                : "Actividad";
-
-            return (
-              <motion.div
-                key={ev.eventoId}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.25 }}
-                className="rounded-lg bg-slate-800 border border-slate-700 p-4 hover:bg-slate-750/60"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="shrink-0 mt-0.5 text-slate-300">
-                    {iconoPorExtension(ext)}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-medium text-slate-100 truncate">
-                        {ev.nombreArchivo || "Archivo sin nombre"}
-                      </h3>
-                    </div>
-
-                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-slate-300">
-                      {etiqueta}
-                      <span className="text-slate-400">•</span>
-                      <span className="text-slate-300">
-                        {fecha} · {hora}
-                      </span>
-                      {tam != null && (
-                        <>
-                          <span className="text-slate-400">•</span>
-                          <span className="text-slate-300">
-                            {abreviarBytes(tam)}
-                          </span>
-                        </>
-                      )}
-                    </div>
-
-                    <div className="mt-3 flex items-center gap-2 text-[12px]">
-                      <AvatarUsuario nombre={usuarioNombre} />
-                      <span className="text-slate-200">{usuarioNombre}</span>
-                      <span className="text-slate-500">·</span>
-                      <span className="text-slate-400">{detalleAccion}</span>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            );
-          })}
-      </div>
-
-      {!cargando && !error && eventosOrdenados.length === 0 && (
-        <div className="mt-8 text-center text-slate-400">
-          No hay actividad para los filtros actuales.
+              <Area
+                type="monotone"
+                dataKey="subidos"
+                name="Subidos"
+                stroke={coloresSerie.subidos.trazo}
+                fill="url(#gradSubidos)"
+                strokeWidth={2}
+                dot={false}
+                stackId={stackIdSegunModo}
+              />
+              <Area
+                type="monotone"
+                dataKey="eliminados"
+                name="Eliminados"
+                stroke={coloresSerie.eliminados.trazo}
+                fill="url(#gradEliminados)"
+                strokeWidth={2}
+                dot={false}
+                stackId={stackIdSegunModo}
+              />
+              <Area
+                type="monotone"
+                dataKey="reemplazados"
+                name="Reemplazados"
+                stroke={coloresSerie.reemplazados.trazo}
+                fill="url(#gradReemplazados)"
+                strokeWidth={2}
+                dot={false}
+                stackId={stackIdSegunModo}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
         </div>
       )}
-      {error && <div className="mt-4 text-center text-rose-400">{error}</div>}
-
-      <div className="mt-6 flex items-center justify-between">
-        <button
-          onClick={irAnterior}
-          disabled={pagina === 0 || cargando}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700/70 disabled:opacity-50"
-        >
-          <ChevronLeft className="h-4 w-4" /> Anterior
-        </button>
-
-        <div className="text-[13px] text-slate-400">Página {pagina + 1}</div>
-
-        <button
-          onClick={irSiguiente}
-          disabled={!hayMas || cargando}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700/70 disabled:opacity-50"
-        >
-          Siguiente <ChevronRight className="h-4 w-4" />
-        </button>
-      </div>
     </div>
   );
 }
