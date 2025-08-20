@@ -15,9 +15,7 @@ import {
 import api from "../../api/index";
 
 /* ──────────────────────────────────────────────────────────────
-   Mapeo EXACTO de tipos del backend (eventosArchivo.accion):
-   'subida','eliminacion','restauracion','descarga',
-   'edicionMetadatos','borradoDefinitivo','sustitucion'
+   Tipos EXACTOS que usa el backend (eventosArchivo.accion)
    ────────────────────────────────────────────────────────────── */
 const etiquetasEvento = {
   subida: {
@@ -52,24 +50,7 @@ const etiquetasEvento = {
   },
 };
 
-/* Filtros visibles (clave = valor que espera el backend en ?accion=) */
-const opcionesFiltro = [
-  { clave: "todos", texto: "Todos" },
-  { clave: "subida", texto: "Agregado" },
-  { clave: "eliminacion", texto: "Eliminado" },
-  { clave: "restauracion", texto: "Restaurado" },
-  { clave: "descarga", texto: "Descargado" },
-  { clave: "edicionMetadatos", texto: "Editado (metadatos)" },
-  { clave: "borradoDefinitivo", texto: "Borrado definitivo" },
-  { clave: "sustitucion", texto: "Reemplazado" },
-];
-
-const opcionesOrden = [
-  { clave: "reciente", texto: "Más reciente" },
-  { clave: "antiguo", texto: "Más antiguo" },
-  { clave: "archivoAZ", texto: "Nombre A→Z" },
-  { clave: "tamano", texto: "Tamaño" },
-];
+const accionesValidas = Object.keys(etiquetasEvento);
 
 /* ───────────── Utilidades de presentación ───────────── */
 function formatearFechaHora(fechaIso) {
@@ -130,7 +111,7 @@ function chipEvento(tipoEvento) {
 
 export default function ActividadRecienteArchivos({
   pageSize = 10,
-  registroTipo, // opcional: para filtrar por tipo de documento (firmas, facturasGastos, etc.)
+  registroTipo, // opcional: 'firmas' | 'facturasGastos' | 'comprobantesPagos' | 'abonosCXC'
 }) {
   const [filtroAccion, setFiltroAccion] = useState("todos");
   const [orden, setOrden] = useState("reciente");
@@ -141,6 +122,7 @@ export default function ActividadRecienteArchivos({
   const [error, setError] = useState("");
   const [eventos, setEventos] = useState([]);
   const [hayMas, setHayMas] = useState(false);
+  const [tiposDisponibles, setTiposDisponibles] = useState([]); // ← dinámico
 
   const limit = pageSize;
   const offset = useMemo(() => pagina * limit, [pagina, limit]);
@@ -168,23 +150,43 @@ export default function ActividadRecienteArchivos({
     setError("");
     try {
       const params = {
-        ...(filtroAccion !== "todos" && { accion: filtroAccion }),
+        ...(filtroAccion !== "todos" &&
+          accionesValidas.includes(filtroAccion) && { accion: filtroAccion }),
         ...(busqueda.trim() && { q: busqueda.trim() }),
         ...(registroTipo && { registroTipo }),
         limit,
         offset,
       };
 
-      // Tu backend expone GET /archivos/eventos → listarActividadReciente
       const { data } = await api.get("/archivos/eventos", { params });
 
-      // El controlador retorna { eventos, limit, offset }
+      // Soportar varias formas de respuesta del backend:
       const items = Array.isArray(data)
         ? data
         : data.items || data.eventos || [];
       setEventos(items);
 
-      const total = data.total ?? null; // si en algún momento agregas total
+      // Determinar tipos disponibles: usar los que exponga la API o deducir de los items
+      const tiposApi =
+        (data && (data.tiposDisponibles || data.tipos || data.acciones)) || [];
+      const tiposDeducidos = Array.from(
+        new Set(
+          items
+            .map((ev) => ev.tipoEvento)
+            .filter((t) => accionesValidas.includes(t))
+        )
+      );
+      const nuevosTipos = (tiposApi.length ? tiposApi : tiposDeducidos).filter(
+        (t) => accionesValidas.includes(t)
+      );
+      setTiposDisponibles(nuevosTipos);
+
+      // Si el filtro actual deja de existir, restaurar a "todos"
+      if (filtroAccion !== "todos" && !nuevosTipos.includes(filtroAccion)) {
+        setFiltroAccion("todos");
+      }
+
+      const total = data?.total ?? null;
       setHayMas(
         total != null ? offset + items.length < total : items.length === limit
       );
@@ -196,15 +198,35 @@ export default function ActividadRecienteArchivos({
     }
   };
 
+  // Cargar cuando cambian dependencias
   useEffect(() => {
     cargarEventos();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtroAccion, orden, busqueda, offset, registroTipo]);
 
-  const eventosOrdenados = useMemo(
-    () => [...eventos].sort(ordenarLocal),
-    [eventos, orden]
-  );
+  // Si cambia registroTipo, reseteo paginación y filtro
+  useEffect(() => {
+    setPagina(0);
+    setFiltroAccion("todos");
+  }, [registroTipo]);
+
+  // Filtros mostrados: "Todos" + solo tipos presentes
+  const opcionesFiltroDinamicas = useMemo(() => {
+    const chips = tiposDisponibles.map((clave) => ({
+      clave,
+      texto: etiquetasEvento[clave]?.texto || clave,
+    }));
+    return [{ clave: "todos", texto: "Todos" }, ...chips];
+  }, [tiposDisponibles]);
+
+  // Filtro local adicional por si el backend no filtra por 'accion'
+  const eventosFiltradosLocal = useMemo(() => {
+    const base =
+      filtroAccion === "todos"
+        ? eventos
+        : eventos.filter((e) => e.tipoEvento === filtroAccion);
+    return [...base].sort(ordenarLocal);
+  }, [eventos, filtroAccion, ordenarLocal]);
 
   const irSiguiente = () => setPagina((p) => p + 1);
   const irAnterior = () => setPagina((p) => Math.max(0, p - 1));
@@ -272,11 +294,10 @@ export default function ActividadRecienteArchivos({
                 setOrden(e.target.value);
               }}
             >
-              {opcionesOrden.map((op) => (
-                <option key={op.clave} value={op.clave}>
-                  {op.texto}
-                </option>
-              ))}
+              <option value="reciente">Más reciente</option>
+              <option value="antiguo">Más antiguo</option>
+              <option value="archivoAZ">Nombre A→Z</option>
+              <option value="tamano">Tamaño</option>
             </select>
           </div>
         </div>
@@ -295,7 +316,7 @@ export default function ActividadRecienteArchivos({
           />
         </div>
 
-        {/* Filtros */}
+        {/* Filtros dinámicos */}
         <div className="mt-4">
           <div className="flex items-center gap-2">
             <Filter className="h-4 w-4 text-slate-300" />
@@ -305,7 +326,7 @@ export default function ActividadRecienteArchivos({
           </div>
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            {opcionesFiltro.map((op) => {
+            {opcionesFiltroDinamicas.map((op) => {
               const activo = filtroAccion === op.clave;
               return (
                 <button
@@ -341,8 +362,8 @@ export default function ActividadRecienteArchivos({
           ))}
 
         {!cargando &&
-          eventosOrdenados.map((ev) => {
-            // Campos devueltos por listarActividadReciente:
+          eventosFiltradosLocal.map((ev) => {
+            // Campos esperados del backend:
             // eventoId, fechaEvento, tipoEvento, usuarioId, usuarioNombre,
             // archivoId, nombreArchivo, extension, tamanioBytes, registroTipo, registroId
             const ext =
@@ -419,7 +440,7 @@ export default function ActividadRecienteArchivos({
           })}
       </div>
 
-      {!cargando && !error && eventosOrdenados.length === 0 && (
+      {!cargando && !error && eventosFiltradosLocal.length === 0 && (
         <div className="mt-8 text-center text-slate-400">
           No hay actividad para los filtros actuales.
         </div>

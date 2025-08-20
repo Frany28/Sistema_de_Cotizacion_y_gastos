@@ -36,7 +36,6 @@ const nombreMesCortoEsp = (indiceMes0a11) =>
 
 const formatearMiles = (n) =>
   new Intl.NumberFormat("es-VE", { maximumFractionDigits: 0 }).format(n ?? 0);
-/* ──────────────────────────────────────────────── */
 
 /* ───────────── Utils de escala dinámica ───────────── */
 const calcularMaximoApilado = (datosMensuales) =>
@@ -79,7 +78,6 @@ const calcularEscalaDinamicaPorModo = (datosMensuales, modoVisualizacion) => {
   const conMargen = (base || 10) * 1.12; // +12% de aire visual
   return redondearBonito(conMargen);
 };
-/* ─────────────────────────────────────────────────── */
 
 /* ───────────── Agrupación por mes (serie diaria → mensual) ───────────── */
 const obtenerRangoMeses = (fechaMin, fechaMax) => {
@@ -116,7 +114,7 @@ const agruparSerieDiariaPorMes = (serieDiaria) => {
       eliminados: 0,
       reemplazados: 0,
     };
-    // ⬇⬇ mapeamos nombres de la API → nombres del gráfico
+    // mapeo API → gráfico
     acumulado.subidos += Number(r.subidas) || 0;
     acumulado.eliminados += Number(r.eliminaciones) || 0;
     acumulado.reemplazados += Number(r.sustituciones) || 0;
@@ -135,7 +133,6 @@ const agruparSerieDiariaPorMes = (serieDiaria) => {
 
   return { datos, fechaMin, fechaMax };
 };
-/* ──────────────────────────────────────────────────────────────── */
 
 /* ───────────────── Componentes de UI ───────────────── */
 const TooltipPersonalizado = ({ active, payload, label }) => {
@@ -184,7 +181,6 @@ const Leyenda = () => (
     </div>
   </div>
 );
-/* ───────────────────────────────────────────────────── */
 
 /* ─────────────────── Componente principal ─────────────────── */
 export default function GraficoTendenciasActividad({
@@ -192,7 +188,7 @@ export default function GraficoTendenciasActividad({
   accion = null,
   usarHistoricoCompleto = true,
   claseContenedor = "",
-  alturaPx = 320, // altura configurable
+  alturaPx = 320,
   modoVisualizacion = "superpuesto", // "superpuesto" | "apilado"
 }) {
   const [estaCargando, setEstaCargando] = useState(true);
@@ -207,7 +203,7 @@ export default function GraficoTendenciasActividad({
 
         const respuesta = await obtenerTendenciaActividad({
           registroTipo: registroTipo || undefined,
-          accion: accion || undefined,
+          accion: accion || undefined, // Dejar undefined si quieres las 3 series
           todo: usarHistoricoCompleto ? "1" : undefined,
         });
 

@@ -73,7 +73,7 @@ export const obtenerMetricasTablero = async (req, res) => {
   }
 };
 
-// B) TENDENCIA DE ACTIVIDAD (últimos N días)
+// src/controllers/eventosArchivos.controller.js
 export const obtenerTendenciaActividad = async (req, res) => {
   const dias = Math.max(7, Math.min(180, Number(req.query.dias ?? 30)));
   const { registroTipo, accion } = req.query;
@@ -83,7 +83,7 @@ export const obtenerTendenciaActividad = async (req, res) => {
   const fechaInicio = new Date(fechaFin);
   fechaInicio.setDate(fechaFin.getDate() - (dias - 1));
 
-  // Orden correcto de parámetros: primero fechas del CTE, luego filtros
+  // Orden de parámetros: primero fechas, luego filtros
   const params = [fechaInicio, fechaFin];
 
   const filtroTipoSql = registroTipo ? "AND a.registroTipo = ?" : "";
@@ -104,12 +104,10 @@ export const obtenerTendenciaActividad = async (req, res) => {
       )
       SELECT
         f.f AS fecha,
-        SELECT
-        f.f AS fecha,
-        SUM(CASE WHEN e.accion = 'subidaArchivo'       THEN 1 ELSE 0 END) AS subidas,
-        SUM(CASE WHEN e.accion = 'eliminacionArchivo'  THEN 1 ELSE 0 END) AS eliminaciones,
-        SUM(CASE WHEN e.accion = 'sustitucionArchivo'  THEN 1 ELSE 0 END) AS sustituciones,
-        SUM(CASE WHEN e.accion = 'borradoDefinitivo'   THEN 1 ELSE 0 END) AS borradosDefinitivos
+        SUM(CASE WHEN e.accion = 'subida'            THEN 1 ELSE 0 END) AS subidas,
+        SUM(CASE WHEN e.accion = 'eliminacion'       THEN 1 ELSE 0 END) AS eliminaciones,
+        SUM(CASE WHEN e.accion = 'sustitucion'       THEN 1 ELSE 0 END) AS sustituciones,
+        SUM(CASE WHEN e.accion = 'borradoDefinitivo' THEN 1 ELSE 0 END) AS borradosDefinitivos
       FROM fechas f
       LEFT JOIN eventosArchivo e
         ON DATE(e.fechaHora) = f.f
