@@ -105,6 +105,9 @@ export const obtenerUrlComprobante = async (req, res) => {
   res.json(respuesta);
 };
 
+// ──────────────────────────────────────────────────────────────
+// FUNCIÓN 1: updateGasto (solo cambios relacionados a eventos)
+// ──────────────────────────────────────────────────────────────
 export const updateGasto = async (req, res) => {
   const { id } = req.params;
   let claveS3Nueva = null;
@@ -121,7 +124,6 @@ export const updateGasto = async (req, res) => {
       await conexion.rollback();
       return res.status(404).json({ message: "Gasto no encontrado" });
     }
-
     if (gastoExistente.estado === "aprobado") {
       await conexion.rollback();
       return res
@@ -212,44 +214,41 @@ export const updateGasto = async (req, res) => {
 
     if (documentoNuevo) {
       claveS3Nueva = documentoNuevo;
+      const huboReemplazo = Boolean(gastoExistente.documento);
 
-      /* ---------- 1. Mover (y registrar) el archivo anterior ---------- */
-      if (gastoExistente.documento) {
+      // 1) Si había archivo anterior: moverlo a papelera y registrar eliminacionArchivo (motivo: sustitución)
+      if (huboReemplazo) {
         const rutaPapelera = await moverArchivoAPapelera(
           gastoExistente.documento,
           "facturasGastos",
           id
         );
 
-        /* 1.1  Marcar archivo activo → reemplazado y cambiar su ruta */
         await conexion.query(
           `UPDATE archivos
-          SET estado = 'reemplazado',
-              rutaS3 = ?
-        WHERE registroTipo = 'facturasGastos'
-          AND registroId   = ?
-          AND estado       = 'activo'`,
+             SET estado = 'reemplazado', rutaS3 = ?
+           WHERE registroTipo = 'facturasGastos'
+             AND registroId   = ?
+             AND estado       = 'activo'`,
           [rutaPapelera, id]
         );
 
-        /* 1.2  Evento de eliminación (para ese archivo anterior) */
         const [antArchivo] = await conexion.query(
           `SELECT id
-         FROM archivos
-        WHERE registroTipo = 'facturasGastos'
-          AND registroId   = ?
-          AND estado       = 'reemplazado'
-        ORDER BY id DESC
-        LIMIT 1`,
+             FROM archivos
+            WHERE registroTipo = 'facturasGastos'
+              AND registroId   = ?
+              AND estado       = 'reemplazado'
+            ORDER BY id DESC
+            LIMIT 1`,
           [id]
         );
 
         if (antArchivo.length) {
           await conexion.query(
             `INSERT INTO eventosArchivo
-             (archivoId, accion, creadoPor,
-              fechaHora, ip, userAgent, detalles)
-         VALUES (?, 'sustitucion', ?, NOW(), ?, ?, ?)`,
+               (archivoId, accion, creadoPor, fechaHora, ip, userAgent, detalles)
+             VALUES (?, 'eliminacionArchivo', ?, NOW(), ?, ?, ?)`,
             [
               antArchivo[0].id,
               req.user?.id || null,
@@ -264,41 +263,36 @@ export const updateGasto = async (req, res) => {
         }
       }
 
-      /* ---------- 2. Alta del nuevo archivo (con versión) ---------- */
-
-      /* 2.1  Grupo */
-      const grupoId = await obtenerOcrearGrupoFactura(
+      // 2) Alta del nuevo archivo (grupo, versión, activo)
+      const grupoArchivoId = await obtenerOcrearGrupoFactura(
         conexion,
         id,
         req.user?.id || null
       );
 
-      /* 2.2  Nº de versión = versiones existentes + 1 */
       const [[{ maxVer }]] = await conexion.query(
         `SELECT IFNULL(MAX(numeroVersion),0) AS maxVer
-       FROM archivos
-      WHERE registroTipo = 'facturasGastos'
-        AND registroId   = ?`,
+           FROM archivos
+          WHERE registroTipo = 'facturasGastos'
+            AND registroId   = ?`,
         [id]
       );
       const numeroVersion = maxVer + 1;
 
-      /* 2.3  Datos básicos del nuevo archivo */
       const extension = req.file.originalname.split(".").pop().toLowerCase();
       const tamanioBytes = req.file.size;
 
-      /* 2.4  Tabla archivos (grupo + versión + activo) */
       const [resArchivo] = await conexion.query(
         `INSERT INTO archivos
-       (registroTipo, registroId, grupoArchivoId,
-        nombreOriginal, extension, tamanioBytes,
-        rutaS3, numeroVersion, estado,
-        subidoPor, creadoEn, actualizadoEn)
-     VALUES ('facturasGastos', ?, ?, ?, ?, ?, ?, ?, 'activo',
-             ?, NOW(), NOW())`,
+           (registroTipo, registroId, grupoArchivoId,
+            nombreOriginal, extension, tamanioBytes,
+            rutaS3, numeroVersion, estado,
+            subidoPor, creadoEn, actualizadoEn)
+         VALUES ('facturasGastos', ?, ?, ?, ?, ?, ?, ?, 'activo',
+                 ?, NOW(), NOW())`,
         [
           id,
-          grupoId,
+          grupoArchivoId,
           req.file.originalname,
           extension,
           tamanioBytes,
@@ -309,12 +303,11 @@ export const updateGasto = async (req, res) => {
       );
       const archivoId = resArchivo.insertId;
 
-      /* 2.5  versionesArchivo */
       await conexion.query(
         `INSERT INTO versionesArchivo
-       (archivoId, numeroVersion, nombreOriginal, extension,
-        tamanioBytes, rutaS3, subidoPor, creadoEn)
-     VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
+           (archivoId, numeroVersion, nombreOriginal, extension,
+            tamanioBytes, rutaS3, subidoPor, creadoEn)
+         VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
         [
           archivoId,
           numeroVersion,
@@ -326,14 +319,16 @@ export const updateGasto = async (req, res) => {
         ]
       );
 
-      /* 2.6  Evento de sustitución */
+      const accionNueva = huboReemplazo
+        ? "sustitucionArchivo"
+        : "subidaArchivo";
       await conexion.query(
         `INSERT INTO eventosArchivo
-       (archivoId, accion, creadoPor,
-        fechaHora, ip, userAgent, detalles)
-     VALUES (?, 'sustitucion', ?, NOW(), ?, ?, ?)`,
+           (archivoId, accion, creadoPor, fechaHora, ip, userAgent, detalles)
+         VALUES (?, ?, ?, NOW(), ?, ?, ?)`,
         [
           archivoId,
+          accionNueva,
           req.user?.id || null,
           req.ip || null,
           req.get("user-agent") || null,
@@ -345,11 +340,10 @@ export const updateGasto = async (req, res) => {
         ]
       );
 
-      /* 2.7  Actualizar cuota de almacenamiento del usuario */
       await conexion.query(
         `UPDATE usuarios
-        SET usoStorageBytes = usoStorageBytes + ?
-      WHERE id = ?`,
+            SET usoStorageBytes = usoStorageBytes + ?
+          WHERE id = ?`,
         [tamanioBytes, req.user?.id || null]
       );
     }
@@ -371,10 +365,7 @@ export const updateGasto = async (req, res) => {
 
     return res.json({
       message: "Gasto actualizado correctamente",
-      data: {
-        ...gastoActualizado,
-        urlFacturaFirmada,
-      },
+      data: { ...gastoActualizado, urlFacturaFirmada },
     });
   } catch (error) {
     console.error("Error al actualizar gasto:", error);
@@ -401,6 +392,9 @@ export const updateGasto = async (req, res) => {
   }
 };
 
+// ──────────────────────────────────────────────────────────────
+// FUNCIÓN 2: deleteGasto (solo cambio de acción a eliminacionArchivo)
+// ──────────────────────────────────────────────────────────────
 export const deleteGasto = async (req, res) => {
   const { id } = req.params;
   const conexion = await db.getConnection();
@@ -408,7 +402,6 @@ export const deleteGasto = async (req, res) => {
   try {
     await conexion.beginTransaction();
 
-    // 1) Verificar existencia y estado
     const [[gastoExistente]] = await conexion.query(
       "SELECT estado, documento FROM gastos WHERE id = ?",
       [id]
@@ -419,34 +412,31 @@ export const deleteGasto = async (req, res) => {
     }
     if (gastoExistente.estado === "aprobado") {
       await conexion.rollback();
-      return res.status(403).json({
-        message: "No puedes eliminar un gasto aprobado.",
-      });
+      return res
+        .status(403)
+        .json({ message: "No puedes eliminar un gasto aprobado." });
     }
 
-    // 2) Si hay documento, mover archivo a papelera y actualizar BD
     if (gastoExistente.documento) {
-      // 2.1) Mover archivo a papelera
       const nuevaClave = await moverArchivoAPapelera(
         gastoExistente.documento,
         "facturasGastos",
         id
       );
 
-      // 2.2) Actualizar ruta y estado en archivos
       await conexion.query(
         `UPDATE archivos
-            SET estado = 'eliminado',
-                rutaS3 = ?
+            SET estado = 'eliminado', rutaS3 = ?
           WHERE registroTipo = ? AND registroId = ?`,
         [nuevaClave, "facturasGastos", id]
       );
 
-      // 2.3) Insertar evento de borrado
       const [archivos] = await conexion.query(
         `SELECT id
            FROM archivos
-          WHERE registroTipo = ? AND registroId = ?`,
+          WHERE registroTipo = ? AND registroId = ?
+          ORDER BY id DESC
+          LIMIT 1`,
         ["facturasGastos", id]
       );
 
@@ -455,7 +445,7 @@ export const deleteGasto = async (req, res) => {
         await conexion.query(
           `INSERT INTO eventosArchivo
              (archivoId, accion, creadoPor, fechaHora, ip, userAgent, detalles)
-           VALUES (?, 'borradoDefinitivo', ?, NOW(), ?, ?, ?)`,
+           VALUES (?, 'eliminacionArchivo', ?, NOW(), ?, ?, ?)`,
           [
             archivoId,
             req.user?.id || null,
@@ -470,12 +460,10 @@ export const deleteGasto = async (req, res) => {
       }
     }
 
-    // 3) Eliminar gasto
     await conexion.query("DELETE FROM gastos WHERE id = ?", [id]);
 
     await conexion.commit();
 
-    // 4) Limpiar caché
     cacheMemoria.del(`gasto_${id}`);
     for (const k of cacheMemoria.keys()) {
       if (k.startsWith("gastos_")) cacheMemoria.del(k);

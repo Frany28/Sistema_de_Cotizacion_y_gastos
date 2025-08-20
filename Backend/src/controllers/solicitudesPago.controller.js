@@ -534,7 +534,7 @@ export const pagarSolicitudPago = async (req, res) => {
         `INSERT INTO eventosArchivo
        (archivoId, versionId, accion, usuarioId,
         ip, userAgent, detalles)
-     VALUES (?, ?, 'subida', ?, ?, ?, ?)`,
+     VALUES (?, ?, 'subidaArchivo', ?, ?, ?, ?)`,
         [
           archivoId,
           versionId,

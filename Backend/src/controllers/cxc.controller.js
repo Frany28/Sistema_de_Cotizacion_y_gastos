@@ -183,7 +183,7 @@ export const registrarAbono = async (req, res) => {
         `INSERT INTO eventosArchivo
        (archivoId, versionId, accion, creadoPor,
         ip, userAgent, detalles)
-     VALUES (?, ?, 'subida', ?, ?, ?, ?)`,
+     VALUES (?, ?, 'subidaArchivo', ?, ?, ?, ?)`,
         [
           archivoId,
           versionId,

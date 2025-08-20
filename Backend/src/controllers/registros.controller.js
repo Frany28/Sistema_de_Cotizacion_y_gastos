@@ -53,6 +53,7 @@ export const getDatosRegistro = async (req, res) => {
   }
 };
 
+// SOLO LA FUNCIÓN QUE CAMBIA
 export const createRegistro = async (req, res) => {
   if (!req.combinedData) {
     return res.status(400).json({
@@ -73,11 +74,10 @@ export const createRegistro = async (req, res) => {
       await conexion.beginTransaction();
 
       const resultado = await crearGasto(datos, conexion);
-
       const { registro_id: registroId, codigo } = resultado;
 
       if (req.file) {
-        // 1. Calcular path S3
+        // 1) Construir clave S3: facturas_gastos/año/mes/CODIGO/timestamp-nombre
         const meses = [
           "enero",
           "febrero",
@@ -98,7 +98,7 @@ export const createRegistro = async (req, res) => {
         const nombreSeguro = req.file.originalname.replace(/\s+/g, "_");
         claveS3 = `facturas_gastos/${anio}/${mesPalabra}/${codigo}/${Date.now()}-${nombreSeguro}`;
 
-        // 2. Subir archivo a S3
+        // 2) Subir a S3 (privado)
         await s3.send(
           new PutObjectCommand({
             Bucket: process.env.S3_BUCKET,
@@ -109,24 +109,24 @@ export const createRegistro = async (req, res) => {
           })
         );
 
-        // 3. Actualizar gasto con ruta
+        // 3) Actualizar gasto con ruta del archivo
         await conexion.query(`UPDATE gastos SET documento = ? WHERE id = ?`, [
           claveS3,
           registroId,
         ]);
 
-        // 4. Insertar en tabla archivos (sin numeroVersion)
+        // 4) Registrar en archivos y versiones
         const extension = path.extname(req.file.originalname).substring(1);
         const tamanioBytes = req.file.size;
 
-        /* 4.1 Grupo */
-        const grupoId = await obtenerOcrearGrupoFactura(
+        // 4.1 Grupo de archivo por gasto (crea o reutiliza)
+        const grupoArchivoId = await obtenerOcrearGrupoFactura(
           conexion,
           registroId,
           datos.creadoPor
         );
 
-        /* 4.2 Nº de versión */
+        // 4.2 Calcular número de versión = max + 1
         const [[{ maxVer }]] = await conexion.query(
           `SELECT IFNULL(MAX(numeroVersion),0) AS maxVer
            FROM archivos
@@ -135,18 +135,18 @@ export const createRegistro = async (req, res) => {
         );
         const numeroVersion = maxVer + 1;
 
-        /* 4.3 Tabla archivos */
-        const [aRes] = await conexion.query(
+        // 4.3 Insertar en archivos (estado activo)
+        const [resArchivo] = await conexion.query(
           `INSERT INTO archivos
-        (registroTipo, registroId, grupoArchivoId,
-      nombreOriginal, extension, tamanioBytes,
-      rutaS3, numeroVersion, estado,
-      subidoPor, creadoEn, actualizadoEn)
-      VALUES ('facturasGastos', ?, ?, ?, ?, ?, ?, ?, 'activo',
-        ?, NOW(), NOW())`,
+           (registroTipo, registroId, grupoArchivoId,
+            nombreOriginal, extension, tamanioBytes,
+            rutaS3, numeroVersion, estado,
+            subidoPor, creadoEn, actualizadoEn)
+           VALUES ('facturasGastos', ?, ?, ?, ?, ?, ?, ?, 'activo',
+                   ?, NOW(), NOW())`,
           [
             registroId,
-            grupoId,
+            grupoArchivoId,
             req.file.originalname,
             extension,
             tamanioBytes,
@@ -155,13 +155,13 @@ export const createRegistro = async (req, res) => {
             datos.creadoPor,
           ]
         );
-        const archivoId = aRes.insertId;
+        const archivoId = resArchivo.insertId;
 
-        /* 4.4 versionesArchivo */
-        const [vRes] = await conexion.query(
+        // 4.4 Insertar en versionesArchivo
+        const [resVersion] = await conexion.query(
           `INSERT INTO versionesArchivo
            (archivoId, numeroVersion, nombreOriginal, extension,
-          tamanioBytes, rutaS3, subidoPor)
+            tamanioBytes, rutaS3, subidoPor)
            VALUES (?, ?, ?, ?, ?, ?, ?)`,
           [
             archivoId,
@@ -173,14 +173,13 @@ export const createRegistro = async (req, res) => {
             datos.creadoPor,
           ]
         );
-        const versionId = vRes.insertId;
+        const versionId = resVersion.insertId;
 
-        /* 4.5 eventosArchivo */
+        // 4.5 Registrar evento con NUEVO nombre de acción: subidaArchivo
         await conexion.query(
           `INSERT INTO eventosArchivo
-         (archivoId, versionId, accion, creadoPor,
-        ip, userAgent, detalles)
-          VALUES (?, ?, 'subida', ?, ?, ?, ?)`,
+           (archivoId, versionId, accion, creadoPor, ip, userAgent, detalles)
+           VALUES (?, ?, 'subidaArchivo', ?, ?, ?, ?)`,
           [
             archivoId,
             versionId,
@@ -195,30 +194,27 @@ export const createRegistro = async (req, res) => {
           ]
         );
 
-        /* 4.6 cuota del usuario */
+        // 4.6 Actualizar cuota de almacenamiento del usuario
         await conexion.query(
           `UPDATE usuarios
-           SET usoStorageBytes = usoStorageBytes + ?
+             SET usoStorageBytes = usoStorageBytes + ?
            WHERE id = ?`,
           [tamanioBytes, datos.creadoPor]
         );
       }
 
       await conexion.commit();
-
       return res.status(201).json(resultado);
     } else if (tipoNormalizado === "cotizacion") {
       const resultado = await crearCotizacionDesdeRegistro(datos);
       return res.status(201).json(resultado);
     } else {
-      return res.status(400).json({
-        message: "Tipo de registro no válido.",
-      });
+      return res.status(400).json({ message: "Tipo de registro no válido." });
     }
   } catch (error) {
     await conexion.rollback();
 
-    // Si subiste archivo y falla → borrar en S3
+    // Si subiste archivo y falló algo → eliminar en S3 para no dejar basura
     if (claveS3) {
       try {
         await s3.send(
@@ -233,9 +229,7 @@ export const createRegistro = async (req, res) => {
     }
 
     console.error("Error al crear el gasto:", error);
-    return res.status(500).json({
-      message: `Error interno al crear el gasto`,
-    });
+    return res.status(500).json({ message: "Error interno al crear el gasto" });
   } finally {
     conexion.release();
   }

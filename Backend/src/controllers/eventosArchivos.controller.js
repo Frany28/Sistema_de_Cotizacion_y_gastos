@@ -104,11 +104,12 @@ export const obtenerTendenciaActividad = async (req, res) => {
       )
       SELECT
         f.f AS fecha,
-        SUM(CASE WHEN e.accion = 'subida'            THEN 1 ELSE 0 END) AS subidas,
-        SUM(CASE WHEN e.accion = 'eliminacion'       THEN 1 ELSE 0 END) AS eliminaciones,
-        SUM(CASE WHEN e.accion = 'sustitucion'       THEN 1 ELSE 0 END) AS sustituciones,
-        SUM(CASE WHEN e.accion = 'edicionMetadatos'  THEN 1 ELSE 0 END) AS edicionesMetadatos,
-        SUM(CASE WHEN e.accion = 'borradoDefinitivo' THEN 1 ELSE 0 END) AS borradosDefinitivos
+        SELECT
+        f.f AS fecha,
+        SUM(CASE WHEN e.accion = 'subidaArchivo'       THEN 1 ELSE 0 END) AS subidas,
+        SUM(CASE WHEN e.accion = 'eliminacionArchivo'  THEN 1 ELSE 0 END) AS eliminaciones,
+        SUM(CASE WHEN e.accion = 'sustitucionArchivo'  THEN 1 ELSE 0 END) AS sustituciones,
+        SUM(CASE WHEN e.accion = 'borradoDefinitivo'   THEN 1 ELSE 0 END) AS borradosDefinitivos
       FROM fechas f
       LEFT JOIN eventosArchivo e
         ON DATE(e.fechaHora) = f.f
@@ -320,7 +321,7 @@ export const obtenerContadoresTarjetas = async (req, res) => {
          FROM eventosArchivo e
          JOIN archivos a ON a.id = e.archivoId
         WHERE e.fechaHora >= ? AND e.fechaHora < ?
-          AND e.accion = 'subida' ${filtroTipoSql}`,
+          AND e.accion = 'subidaArchivo' ${filtroTipoSql}`,
       baseParams
     );
 
@@ -329,7 +330,7 @@ export const obtenerContadoresTarjetas = async (req, res) => {
          FROM eventosArchivo e
          JOIN archivos a ON a.id = e.archivoId
         WHERE e.fechaHora >= ? AND e.fechaHora < ?
-          AND e.accion = 'eliminacion' ${filtroTipoSql}`,
+         AND e.accion = 'eliminacionArchivo'  ${filtroTipoSql}`,
       baseParams
     );
 
@@ -338,7 +339,7 @@ export const obtenerContadoresTarjetas = async (req, res) => {
          FROM eventosArchivo e
          JOIN archivos a ON a.id = e.archivoId
         WHERE e.fechaHora >= ? AND e.fechaHora < ?
-          AND e.accion = 'sustitucion' ${filtroTipoSql}`,
+          AND e.accion = 'sustitucionArchivo'  ${filtroTipoSql}`,
       baseParams
     );
 

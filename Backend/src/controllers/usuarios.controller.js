@@ -97,11 +97,11 @@ export const crearUsuario = async (req, res) => {
       );
       const versionId = vRes.insertId;
 
-      // 4.3) auditoría
+      // 4.3) evento: subidaArchivo
       await conexion.query(
         `INSERT INTO eventosArchivo
            (archivoId, versionId, accion, creadoPor, ip, userAgent, detalles)
-         VALUES (?, ?, 'subida', ?, ?, ?, ?)`,
+         VALUES (?, ?, 'subidaArchivo', ?, ?, ?, ?)`,
         [
           archivoId,
           versionId,
@@ -279,11 +279,11 @@ export const actualizarUsuario = async (req, res) => {
       );
       const versionId = vRes.insertId;
 
-      // 4.3) Evento de sustitución (valor válido del ENUM)
+      // 4.3) Evento del archivo NUEVO: sustitucionArchivo
       await conexion.query(
         `INSERT INTO eventosArchivo
            (archivoId, versionId, accion, creadoPor, ip, userAgent, detalles)
-         VALUES (?, ?, 'sustitucion', ?, ?, ?, ?)`,
+         VALUES (?, ?, 'sustitucionArchivo', ?, ?, ?, ?)`,
         [
           archivoId,
           versionId,
@@ -313,15 +313,17 @@ export const actualizarUsuario = async (req, res) => {
           id
         );
 
+        // Estado correcto del archivo anterior
         await conexion.query(
           `UPDATE archivos SET estado='reemplazado', rutaS3=? WHERE id=?`,
           [nuevaRuta, antId]
         );
 
+        // Evento sobre el archivo anterior: eliminacionArchivo (se movió a papelera)
         await conexion.query(
           `INSERT INTO eventosArchivo
              (archivoId, accion, creadoPor, ip, userAgent, detalles)
-           VALUES (?, 'sustitucion', ?, ?, ?, ?)`,
+           VALUES (?, 'eliminacionArchivo', ?, ?, ?, ?)`,
           [
             antId,
             req.user.id,
@@ -431,7 +433,7 @@ export const obtenerUsuarioPorId = async (req, res) => {
       [id]
     );
     const urlFirma = archivos.length
-      ? generarUrlPrefirmadaLectura(archivos[0].rutaS3)
+      ? await generarUrlPrefirmadaLectura(archivos[0].rutaS3)
       : null;
 
     res.json({
@@ -521,11 +523,11 @@ export const eliminarUsuario = async (req, res) => {
         [nuevaRutaS3, archivo.id]
       );
 
-      // Evento de auditoría
+      // Evento de auditoría (archivo movido a papelera)
       await conexion.query(
         `INSERT INTO eventosArchivo
-            (archivoId, versionId, accion, creadoPor, ip, userAgent, detalles)
-         VALUES (?, NULL, 'eliminacion', ?, ?, ?, ?)`,
+           (archivoId, accion, creadoPor, ip, userAgent, detalles)
+         VALUES (?, 'eliminacionArchivo', ?, ?, ?, ?)`,
         [
           archivo.id,
           idActor,
@@ -540,7 +542,6 @@ export const eliminarUsuario = async (req, res) => {
     }
 
     // 3) Romper FKs internas antes del DELETE
-
     await conexion.query(
       `UPDATE usuarios
           SET creadoPor = ?, actualizadoPor = NULL

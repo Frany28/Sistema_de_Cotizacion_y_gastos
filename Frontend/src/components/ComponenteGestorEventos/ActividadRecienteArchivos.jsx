@@ -14,9 +14,6 @@ import {
 } from "lucide-react";
 import api from "../../api/index";
 
-/* ─────────────────────────────────────────────────────────────
-   Etiquetas de evento (texto y estilos de chip en modo oscuro)
-   ───────────────────────────────────────────────────────────── */
 const etiquetasEvento = {
   subida: {
     texto: "Agregado",
@@ -57,9 +54,6 @@ const opcionesOrden = [
   { clave: "tamano", texto: "Tamaño" },
 ];
 
-/* ─────────────────────────────────────────────────────────────
-   Utilidades (mantenemos lógica original, solo formato oscuro)
-   ───────────────────────────────────────────────────────────── */
 function formatearFechaHora(fechaIso) {
   try {
     const fecha = new Date(fechaIso);
@@ -111,9 +105,6 @@ function chipEvento(tipoEvento) {
   );
 }
 
-/* ─────────────────────────────────────────────────────────────
-   Componente principal (mismo comportamiento, nuevo estilo)
-   ───────────────────────────────────────────────────────────── */
 export default function ActividadRecienteArchivos({
   pageSize = 10,
   registroTipo,
@@ -183,7 +174,7 @@ export default function ActividadRecienteArchivos({
   };
 
   useEffect(() => {
-    cargarEventos(); /* eslint-disable-next-line */
+    cargarEventos();
   }, [filtroAccion, orden, busqueda, offset, registroTipo]);
 
   const eventosOrdenados = useMemo(
@@ -193,7 +184,6 @@ export default function ActividadRecienteArchivos({
   const irSiguiente = () => setPagina((p) => p + 1);
   const irAnterior = () => setPagina((p) => Math.max(0, p - 1));
 
-  /* Helper para avatar de usuario con iniciales (look & feel de la imagen) */
   const AvatarUsuario = ({ nombre = "Usuario" }) => {
     const iniciales = nombre
       .split(" ")
@@ -244,7 +234,6 @@ export default function ActividadRecienteArchivos({
           </div>
         </div>
 
-        {/* Línea “Filtrar” y chips */}
         <div className="mt-4">
           <div className="flex items-center gap-2">
             <Filter className="h-4 w-4 text-slate-300" />
@@ -279,7 +268,6 @@ export default function ActividadRecienteArchivos({
         </div>
       </div>
 
-      {/* Lista en 2 columnas (como la imagen) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
         {cargando &&
           Array.from({ length: pageSize }).map((_, i) => (
@@ -352,7 +340,6 @@ export default function ActividadRecienteArchivos({
                       )}
                     </div>
 
-                    {/* Línea usuario + acción (como “Alice Smith  Added File”) */}
                     <div className="mt-3 flex items-center gap-2 text-[12px]">
                       <AvatarUsuario nombre={usuarioNombre} />
                       <span className="text-slate-200">{usuarioNombre}</span>
@@ -366,7 +353,6 @@ export default function ActividadRecienteArchivos({
           })}
       </div>
 
-      {/* Estado vacío / error */}
       {!cargando && !error && eventosOrdenados.length === 0 && (
         <div className="mt-8 text-center text-slate-400">
           No hay actividad para los filtros actuales.
@@ -374,7 +360,6 @@ export default function ActividadRecienteArchivos({
       )}
       {error && <div className="mt-4 text-center text-rose-400">{error}</div>}
 
-      {/* Paginación (igual look & feel) */}
       <div className="mt-6 flex items-center justify-between">
         <button
           onClick={irAnterior}
