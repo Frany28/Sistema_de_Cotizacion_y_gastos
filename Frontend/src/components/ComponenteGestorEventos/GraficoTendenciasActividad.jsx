@@ -116,6 +116,7 @@ const agruparSerieDiariaPorMes = (serieDiaria) => {
       eliminados: 0,
       reemplazados: 0,
     };
+    // ⬇⬇ mapeamos nombres de la API → nombres del gráfico
     acumulado.subidos += Number(r.subidas) || 0;
     acumulado.eliminados += Number(r.eliminaciones) || 0;
     acumulado.reemplazados += Number(r.sustituciones) || 0;
@@ -301,42 +302,47 @@ export default function GraficoTendenciasActividad({
                 dataKey="etiquetaMes"
                 tick={{ fill: "#94a3b8", fontSize: 12 }}
                 tickLine={false}
-                axisLine={{ stroke: "#334155" }}
+                axisLine={{ stroke: "#475569" }}
               />
               <YAxis
                 domain={[0, maximoEscalaY]}
                 tickFormatter={formatearMiles}
                 tick={{ fill: "#94a3b8", fontSize: 12 }}
                 tickLine={false}
-                axisLine={{ stroke: "#334155" }}
-                allowDecimals={false}
-                tickCount={6}
+                axisLine={{ stroke: "#475569" }}
+                width={48}
               />
               <Tooltip content={<TooltipPersonalizado />} />
 
               <Area
                 type="monotone"
                 dataKey="subidos"
-                stackId={stackIdSegunModo}
+                name="Subidos"
                 stroke={coloresSerie.subidos.trazo}
                 fill="url(#gradSubidos)"
                 strokeWidth={2}
+                dot={false}
+                stackId={stackIdSegunModo}
               />
               <Area
                 type="monotone"
                 dataKey="eliminados"
-                stackId={stackIdSegunModo}
+                name="Eliminados"
                 stroke={coloresSerie.eliminados.trazo}
                 fill="url(#gradEliminados)"
                 strokeWidth={2}
+                dot={false}
+                stackId={stackIdSegunModo}
               />
               <Area
                 type="monotone"
                 dataKey="reemplazados"
-                stackId={stackIdSegunModo}
+                name="Reemplazados"
                 stroke={coloresSerie.reemplazados.trazo}
                 fill="url(#gradReemplazados)"
                 strokeWidth={2}
+                dot={false}
+                stackId={stackIdSegunModo}
               />
             </AreaChart>
           </ResponsiveContainer>
