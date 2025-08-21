@@ -259,27 +259,23 @@ export default function ActividadRecienteArchivos({
 
           {/* Ordenar por */}
           <div className="hidden sm:flex items-center gap-2">
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 rounded-md border border-slate-700 bg-slate-800 px-3 py-1.5 text-[13px] text-slate-200 hover:bg-slate-750/60"
-              title="Ordenar por"
-            >
+            <label className="inline-flex items-center gap-2 text-[13px] text-slate-200">
               <SortAsc className="h-4 w-4 text-slate-300" />
-              <span>Ordenar por</span>
-            </button>
-            <select
-              className="rounded-md border border-slate-700 bg-slate-800 px-3 py-1.5 text-[13px] text-slate-200 hover:bg-slate-800/80 focus:outline-none"
-              value={orden}
-              onChange={(e) => {
-                setPagina(0);
-                setOrden(e.target.value);
-              }}
-            >
-              <option value="reciente">Más reciente</option>
-              <option value="antiguo">Más antiguo</option>
-              <option value="archivoAZ">Nombre A→Z</option>
-              <option value="tamano">Tamaño</option>
-            </select>
+              <span>Ordenar por:</span>
+              <select
+                className="ml-2 rounded-md border border-slate-700 bg-slate-800 px-3 py-1.5 text-[13px] text-slate-200 hover:bg-slate-800/80 focus:outline-none"
+                value={orden}
+                onChange={(e) => {
+                  setPagina(0);
+                  setOrden(e.target.value);
+                }}
+              >
+                <option value="reciente">Más reciente</option>
+                <option value="antiguo">Más antiguo</option>
+                <option value="archivoAZ">Nombre A→Z</option>
+                <option value="tamano">Tamaño</option>
+              </select>
+            </label>
           </div>
         </div>
 
