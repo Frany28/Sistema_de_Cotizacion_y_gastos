@@ -167,7 +167,7 @@ export const obtenerTendenciaActividad = async (req, res) => {
 
 /* =====  B) FEED DE ACTIVIDAD  ===== */
 
-// C) FEED DE ACTIVIDAD (corrige actor a creadoPor y filtra acciones vacías por defecto)
+// B) FEED DE ACTIVIDAD — Enum estricto y tiposDisponibles/total
 export const listarActividadReciente = async (req, res) => {
   const creadoPorUsuario = req.user.id;
   const rolId = req.user.rol_id;
@@ -180,67 +180,110 @@ export const listarActividadReciente = async (req, res) => {
   const filtros = [];
   const params = [];
 
-  if (accion) {
-    filtros.push("e.accion = ?");
-    params.push(accion);
-  } else {
-    filtros.push("e.accion <> ''");
+  // Rango de fechas (opcional)
+  if (desde) {
+    filtros.push("en.fechaHora >= ?");
+    params.push(new Date(`${desde}T00:00:00`));
+  }
+  if (hasta) {
+    filtros.push("en.fechaHora < ?");
+    params.push(new Date(`${hasta}T23:59:59`));
   }
 
+  // Filtro por acción (sobre acción normalizada al ENUM oficial)
+  if (accion) {
+    filtros.push("en.accionNorm = ?");
+    params.push(accion);
+  } else {
+    filtros.push("en.accionNorm <> ''");
+  }
+
+  // Filtro por tipo de registro (opcional)
   if (registroTipo) {
     filtros.push("a.registroTipo = ?");
     params.push(registroTipo);
   }
 
+  // Búsqueda por nombre de archivo (opcional)
   if (q) {
     filtros.push("a.nombreOriginal LIKE ?");
     params.push(`%${q}%`);
   }
 
-  if (desde) {
-    filtros.push("e.fechaHora >= ?");
-    params.push(new Date(`${desde}T00:00:00`));
-  }
-
-  if (hasta) {
-    filtros.push("e.fechaHora < ?");
-    params.push(new Date(`${hasta}T23:59:59`));
-  }
-
-  // Empleado: ve lo que subió él o eventos que él mismo ejecutó
+  // Visibilidad para empleados
   if (!esVistaCompleta) {
-    filtros.push("(a.subidoPor = ? OR e.creadoPor = ?)");
+    filtros.push("(a.subidoPor = ? OR en.creadoPor = ?)");
     params.push(creadoPorUsuario, creadoPorUsuario);
   }
 
   const whereSql = filtros.length ? `WHERE ${filtros.join(" AND ")}` : "";
 
   try {
+    // Normalizamos a los 4 valores del ENUM
+    const baseSql = `
+      WITH eventosNorm AS (
+        SELECT
+          e.id,
+          e.fechaHora,
+          e.creadoPor,
+          e.archivoId,
+          CASE
+            WHEN e.accion IN ('subida','subidaArchivo')                 THEN 'subidaArchivo'
+            WHEN e.accion IN ('eliminacion','eliminacionArchivo')       THEN 'eliminacionArchivo'
+            WHEN e.accion IN ('sustitucion','sustitucionArchivo')       THEN 'sustitucionArchivo'
+            WHEN e.accion = 'borradoDefinitivo'                         THEN 'borradoDefinitivo'
+            ELSE ''
+          END AS accionNorm
+        FROM eventosArchivo e
+      )
+      SELECT
+        en.id             AS eventoId,
+        en.fechaHora      AS fechaEvento,
+        en.accionNorm     AS tipoEvento,
+        en.creadoPor      AS usuarioId,
+        u.nombre          AS usuarioNombre,
+        a.id              AS archivoId,
+        a.nombreOriginal  AS nombreArchivo,
+        a.extension       AS extension,
+        a.tamanioBytes    AS tamanioBytes,
+        a.registroTipo    AS registroTipo,
+        a.registroId      AS registroId
+      FROM eventosNorm en
+      JOIN archivos a      ON a.id = en.archivoId
+      LEFT JOIN usuarios u ON u.id = en.creadoPor
+      ${whereSql}
+    `;
+
+    // total para paginación
+    const [[{ total }]] = await db.query(
+      `SELECT COUNT(*) AS total FROM (${baseSql}) AS t`,
+      params
+    );
+
+    // tiposDisponibles (DISTINCT), solo de los 4 oficiales
+    const [tiposRows] = await db.query(
+      `SELECT DISTINCT tipoEvento FROM (${baseSql}) AS t
+       WHERE tipoEvento IN ('subidaArchivo','eliminacionArchivo','sustitucionArchivo','borradoDefinitivo')
+       ORDER BY tipoEvento ASC`,
+      params
+    );
+    const tiposDisponibles = tiposRows.map((r) => r.tipoEvento);
+
+    // página de eventos
     const [eventos] = await db.query(
-      `
-  SELECT
-    e.id              AS eventoId,
-    e.fechaHora       AS fechaEvento,
-    e.accion          AS tipoEvento,
-    e.creadoPor       AS usuarioId,
-    u.nombre          AS usuarioNombre,
-    a.id              AS archivoId,
-    a.nombreOriginal  AS nombreArchivo,
-    a.extension       AS extension,
-    a.tamanioBytes    AS tamanioBytes,
-    a.registroTipo    AS registroTipo,
-    a.registroId      AS registroId
-  FROM eventosArchivo e
-  JOIN archivos a      ON a.id = e.archivoId
-  LEFT JOIN usuarios u ON u.id = e.creadoPor
-  ${whereSql}
-  ORDER BY e.fechaHora DESC
-  LIMIT ? OFFSET ?
-  `,
+      `${baseSql}
+       ORDER BY fechaEvento DESC
+       LIMIT ? OFFSET ?`,
       [...params, limit, offset]
     );
 
-    return res.json({ eventos, limit, offset });
+    return res.json({
+      eventos,
+      limit,
+      offset,
+      total,
+      tiposDisponibles,
+    });
   } catch (error) {
     console.error("Error en listarActividadReciente:", error);
     return res.status(500).json({ mensaje: "Error al listar eventos" });

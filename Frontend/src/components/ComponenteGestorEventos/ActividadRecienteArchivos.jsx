@@ -18,35 +18,22 @@ import api from "../../api/index";
    Tipos EXACTOS que usa el backend (eventosArchivo.accion)
    ────────────────────────────────────────────────────────────── */
 const etiquetasEvento = {
-  subida: {
+  subidaArchivo: {
     texto: "Agregado",
     clase:
       "bg-emerald-500/10 text-emerald-300 ring-1 ring-inset ring-emerald-500/30",
   },
-  eliminacion: {
+  eliminacionArchivo: {
     texto: "Eliminado",
     clase: "bg-rose-500/10 text-rose-300 ring-1 ring-inset ring-rose-500/30",
   },
-  restauracion: {
-    texto: "Restaurado",
-    clase: "bg-teal-500/10 text-teal-300 ring-1 ring-inset ring-teal-500/30",
-  },
-  descarga: {
-    texto: "Descargado",
-    clase:
-      "bg-indigo-500/10 text-indigo-300 ring-1 ring-inset ring-indigo-500/30",
-  },
-  edicionMetadatos: {
-    texto: "Editado (metadatos)",
-    clase: "bg-sky-500/10 text-sky-300 ring-1 ring-inset ring-sky-500/30",
+  sustitucionArchivo: {
+    texto: "Reemplazado",
+    clase: "bg-amber-500/10 text-amber-300 ring-1 ring-inset ring-amber-500/30",
   },
   borradoDefinitivo: {
     texto: "Borrado definitivo",
     clase: "bg-red-600/10 text-red-300 ring-1 ring-inset ring-red-600/30",
-  },
-  sustitucion: {
-    texto: "Reemplazado",
-    clase: "bg-amber-500/10 text-amber-300 ring-1 ring-inset ring-amber-500/30",
   },
 };
 
@@ -248,20 +235,14 @@ export default function ActividadRecienteArchivos({
 
   const renderDetalleAccion = (tipo) => {
     switch (tipo) {
-      case "subida":
+      case "subidaArchivo":
         return "Agregó Archivo";
-      case "eliminacion":
+      case "eliminacionArchivo":
         return "Eliminó Archivo";
-      case "restauracion":
-        return "Restauró Archivo";
-      case "descarga":
-        return "Descargó Archivo";
-      case "edicionMetadatos":
-        return "Editó Metadatos";
+      case "sustitucionArchivo":
+        return "Reemplazó Archivo";
       case "borradoDefinitivo":
         return "Borrado Definitivo";
-      case "sustitucion":
-        return "Reemplazó Archivo";
       default:
         return "Actividad";
     }
