@@ -73,27 +73,48 @@ export const obtenerMetricasTablero = async (req, res) => {
   }
 };
 
-// src/controllers/eventosArchivos.controller.js
+// Reemplazo de la función en src/controllers/eventosArchivos.controller.js
 export const obtenerTendenciaActividad = async (req, res) => {
+  // dias: por defecto 30, mínimo 7 y máximo 180 (igual que antes)
   const dias = Math.max(7, Math.min(180, Number(req.query.dias ?? 30)));
   const { registroTipo, accion } = req.query;
 
+  // Rango de fechas (diario, truncando a 00:00)
   const fechaFin = new Date();
   fechaFin.setHours(0, 0, 0, 0);
   const fechaInicio = new Date(fechaFin);
   fechaInicio.setDate(fechaFin.getDate() - (dias - 1));
 
-  // Orden de parámetros: primero fechas, luego filtros
-  const params = [fechaInicio, fechaFin];
-
-  const filtroTipoSql = registroTipo ? "AND a.registroTipo = ?" : "";
-  if (registroTipo) params.push(registroTipo);
-
-  // Si no se filtra por acción, excluimos acciones vacías
-  const filtroAccionSql = accion ? "AND e.accion = ?" : "AND e.accion <> ''";
-  if (accion) params.push(accion);
-
   try {
+    // 1) Normalizamos acciones en una subconsulta para unificar histórico:
+    //    'subida' | 'subidaArchivo'           → 'subidaArchivo'
+    //    'eliminacion' | 'eliminacionArchivo' → 'eliminacionArchivo'
+    //    'sustitucion' | 'sustitucionArchivo' → 'sustitucionArchivo'
+    //    'borradoDefinitivo'                  → 'borradoDefinitivo'
+    //
+    //    Nota: descartamos acciones vacías.
+    const params = [fechaInicio, fechaFin];
+    const filtrosEv = [];
+    const filtrosJoinArch = [];
+
+    if (accion) {
+      // Filtramos por la acción ya normalizada
+      filtrosEv.push(`ev.accionNorm = ?`);
+      params.push(accion);
+    } else {
+      filtrosEv.push(`ev.accionNorm <> ''`);
+    }
+
+    if (registroTipo) {
+      filtrosJoinArch.push(`a.registroTipo = ?`);
+      params.push(registroTipo);
+    }
+
+    const whereEv = filtrosEv.length ? `WHERE ${filtrosEv.join(" AND ")}` : "";
+    const andJoinArch = filtrosJoinArch.length
+      ? `AND ${filtrosJoinArch.join(" AND ")}`
+      : "";
+
     const [rows] = await db.query(
       `
       WITH RECURSIVE fechas AS (
@@ -101,25 +122,40 @@ export const obtenerTendenciaActividad = async (req, res) => {
         UNION ALL
         SELECT DATE_ADD(f, INTERVAL 1 DAY) FROM fechas
         WHERE f < DATE(?)
+      ),
+      eventosNorm AS (
+        SELECT
+          DATE(e.fechaHora)     AS fechaDia,
+          CASE
+            WHEN e.accion IN ('subida','subidaArchivo')                 THEN 'subidaArchivo'
+            WHEN e.accion IN ('eliminacion','eliminacionArchivo')       THEN 'eliminacionArchivo'
+            WHEN e.accion IN ('sustitucion','sustitucionArchivo')       THEN 'sustitucionArchivo'
+            WHEN e.accion = 'borradoDefinitivo'                         THEN 'borradoDefinitivo'
+            ELSE ''
+          END                      AS accionNorm,
+          e.archivoId
+        FROM eventosArchivo e
+        WHERE e.fechaHora >= ? AND e.fechaHora < ?
+      ),
+      ev AS (
+        SELECT en.*, a.registroTipo
+        FROM eventosNorm en
+        JOIN archivos a ON a.id = en.archivoId
+        WHERE 1=1 ${andJoinArch}
       )
       SELECT
         f.f AS fecha,
-        SUM(CASE WHEN e.accion = 'subida'            THEN 1 ELSE 0 END) AS subidas,
-        SUM(CASE WHEN e.accion = 'eliminacion'       THEN 1 ELSE 0 END) AS eliminaciones,
-        SUM(CASE WHEN e.accion = 'sustitucion'       THEN 1 ELSE 0 END) AS sustituciones,
-        SUM(CASE WHEN e.accion = 'borradoDefinitivo' THEN 1 ELSE 0 END) AS borradosDefinitivos
+        SUM(CASE WHEN ev.accionNorm = 'subidaArchivo'       THEN 1 ELSE 0 END) AS subidas,
+        SUM(CASE WHEN ev.accionNorm = 'eliminacionArchivo'  THEN 1 ELSE 0 END) AS eliminaciones,
+        SUM(CASE WHEN ev.accionNorm = 'sustitucionArchivo'  THEN 1 ELSE 0 END) AS sustituciones,
+        SUM(CASE WHEN ev.accionNorm = 'borradoDefinitivo'   THEN 1 ELSE 0 END) AS borradosDefinitivos
       FROM fechas f
-      LEFT JOIN eventosArchivo e
-        ON DATE(e.fechaHora) = f.f
-      LEFT JOIN archivos a
-        ON a.id = e.archivoId
-      WHERE 1=1
-        ${filtroTipoSql}
-        ${filtroAccionSql}
+      LEFT JOIN ev ON ev.fechaDia = f.f
+      ${whereEv ? whereEv.replaceAll("ev.", "ev.") : ""}
       GROUP BY f.f
       ORDER BY f.f ASC
       `,
-      params
+      [fechaInicio, fechaFin, fechaInicio, fechaFin, ...params.slice(2)]
     );
 
     return res.json({ desde: fechaInicio, hasta: fechaFin, dias, serie: rows });
