@@ -1,4 +1,3 @@
-// src/components/ComponenteGestorEventos/ModalOpcionesReporte.jsx
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { X, Calendar, CalendarRange, CalendarClock } from "lucide-react";
@@ -13,7 +12,6 @@ export default function ModalOpcionesReporte({
   const [anio, setAnio] = useState(new Date().getFullYear());
   const [fechaInicio, setFechaInicio] = useState("");
   const [fechaFin, setFechaFin] = useState("");
-
   const contenedorRef = useRef(null);
 
   /* Bloquear scroll del body mientras el modal está visible */
