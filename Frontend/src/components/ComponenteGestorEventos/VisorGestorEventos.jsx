@@ -1,7 +1,7 @@
 // src/pages/GestorEventos/VisorGestorEventos.jsx
 import { useState } from "react";
-import GenerarReporte from "../ComponenteGestorEventos/GenerarReporte";
-import ModalOpcionesReporte from "../ComponenteGestorEventos/ModalOpcionesReporte";
+import GenerarReporte from "./GenerarReporte";
+import ModalOpcionesReporte from "./ModalOpcionesReporte";
 import { descargarReporteEventosPdf } from "../../services/eventosArchivosApi";
 
 export default function VisorGestorEventos() {
