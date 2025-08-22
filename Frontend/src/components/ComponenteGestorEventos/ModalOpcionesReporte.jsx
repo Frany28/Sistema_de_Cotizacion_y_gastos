@@ -77,6 +77,7 @@ export default function ModalOpcionesReporte({
   };
 
   // 👇 Nota: cierro solo si el clic fue exactamente en el backdrop
+
   const manejarClickBackdrop = (e) => {
     if (e.target === e.currentTarget) onClose?.();
   };
@@ -88,9 +89,7 @@ export default function ModalOpcionesReporte({
       role="dialog"
       aria-modal="true"
     >
-      <div style={estiloPanel}>
-        {/* ... resto del contenido tal como lo tienes (botones Mensual/Anual/Rango, inputs y acciones) ... */}
-        {/* Botones footer */}
+      <div ref={contenedorRef} style={estiloPanel}>
         <div
           style={{
             display: "flex",
