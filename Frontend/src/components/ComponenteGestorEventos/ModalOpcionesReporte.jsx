@@ -1,18 +1,23 @@
-// src/components/ComponenteGestorEventos/ModalOpcionesReporte.jsx
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { AnimatePresence, motion } from "framer-motion";
+import { X, FileText, Calendar, CalendarRange, Download } from "lucide-react";
 
 export default function ModalOpcionesReporte({
-  visible,
+  visible = false,
   onClose,
   onConfirmar,
+  titulo = "Generar reporte de eventos",
+  mensaje = "Selecciona el tipo de periodo para el informe en PDF:",
 }) {
-  const [tipoReporte, setTipoReporte] = useState("mensual");
+  // Estado del selector
+  const [tipoReporte, setTipoReporte] = useState("mensual"); // mensual | anual | rango
   const [mes, setMes] = useState(new Date().getMonth() + 1);
   const [anio, setAnio] = useState(new Date().getFullYear());
   const [fechaInicio, setFechaInicio] = useState("");
   const [fechaFin, setFechaFin] = useState("");
 
+  // Bloqueo de scroll al abrir
   useEffect(() => {
     if (!visible) return;
     const prevOverflow = document.body.style.overflow;
@@ -22,19 +27,25 @@ export default function ModalOpcionesReporte({
     };
   }, [visible]);
 
+  // Cerrar con Escape
   useEffect(() => {
     if (!visible) return;
-    const onKey = (e) => e.key === "Escape" && onClose?.();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    const manejarTecla = (e) => e.key === "Escape" && onClose?.();
+    window.addEventListener("keydown", manejarTecla);
+    return () => window.removeEventListener("keydown", manejarTecla);
   }, [visible, onClose]);
+
+  const manejarClickBackdrop = (e) => {
+    if (e.target === e.currentTarget) onClose?.();
+  };
 
   const confirmar = () => {
     const opcionesSeleccion = { tipoReporte };
-    if (tipoReporte === "mensual")
+    if (tipoReporte === "mensual") {
       Object.assign(opcionesSeleccion, { mes, anio });
-    if (tipoReporte === "anual") Object.assign(opcionesSeleccion, { anio });
-    if (tipoReporte === "rango") {
+    } else if (tipoReporte === "anual") {
+      Object.assign(opcionesSeleccion, { anio });
+    } else if (tipoReporte === "rango") {
       if (!fechaInicio || !fechaFin || fechaFin < fechaInicio) {
         alert("Selecciona un rango válido (fecha fin ≥ fecha inicio).");
         return;
@@ -44,242 +55,194 @@ export default function ModalOpcionesReporte({
     onConfirmar?.(opcionesSeleccion);
   };
 
+  // Variantes de animación
+  const variantesOverlay = { oculto: { opacity: 0 }, visible: { opacity: 1 } };
+  const variantesPanel = {
+    oculto: { opacity: 0, scale: 0.95 },
+    visible: { opacity: 1, scale: 1 },
+  };
+
   if (!visible || typeof document === "undefined") return null;
 
-  const estiloOverlay = {
-    position: "fixed",
-    inset: 0,
-    background: "rgba(0,0,0,0.45)",
-    backdropFilter: "blur(2px)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 2147483647,
-  };
-
-  const estiloPanel = {
-    width: "100%",
-    maxWidth: 640,
-    background: "#1f2937",
-    color: "white",
-    border: "1px solid rgba(255,255,255,0.1)",
-    borderRadius: 12,
-    padding: 24,
-    boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
-  };
-
-  const estiloBoton = {
-    cursor: "pointer",
-    borderRadius: 10,
-    padding: "10px 16px",
-    fontSize: 14,
-  };
-
-  // Cerrar SOLO si el clic fue exactamente sobre el backdrop (no el panel)
-  const manejarClickBackdrop = (e) => {
-    if (e.target === e.currentTarget) onClose?.();
-  };
-
   return createPortal(
-    <div
-      style={estiloOverlay}
-      onClick={manejarClickBackdrop}
-      role="dialog"
-      aria-modal="true"
-    >
-      <div style={estiloPanel}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            marginBottom: 8,
-          }}
+    <AnimatePresence>
+      {visible && (
+        <motion.div
+          key="overlay"
+          initial="oculto"
+          animate="visible"
+          exit="oculto"
+          variants={variantesOverlay}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={manejarClickBackdrop}
+          role="dialog"
+          aria-modal="true"
         >
-          <h3 style={{ fontWeight: 600, fontSize: 18, margin: 0 }}>
-            Generar reporte
-          </h3>
-          <button
-            onClick={onClose}
-            style={{ ...estiloBoton, background: "#374151" }}
+          <motion.div
+            key="panel"
+            initial="oculto"
+            animate="visible"
+            exit="oculto"
+            variants={variantesPanel}
+            transition={{ type: "spring", stiffness: 260, damping: 22 }}
+            className="relative w-full max-w-xl rounded-lg bg-gray-800 text-white shadow-xl border border-white/10"
           >
-            Cerrar
-          </button>
-        </div>
-
-        <p
-          style={{
-            color: "#d1d5db",
-            fontSize: 13,
-            marginTop: 0,
-            marginBottom: 16,
-          }}
-        >
-          Seleccione el tipo de periodo para el informe en PDF.
-        </p>
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3,1fr)",
-            gap: 12,
-            marginBottom: 16,
-          }}
-        >
-          {[
-            { id: "mensual", etiqueta: "Mensual" },
-            { id: "anual", etiqueta: "Anual" },
-            { id: "rango", etiqueta: "Rango" },
-          ].map(({ id, etiqueta }) => (
-            <button
-              key={id}
-              onClick={() => setTipoReporte(id)}
-              style={{
-                ...estiloBoton,
-                padding: "10px 12px",
-                background: tipoReporte === id ? "#6366f1" : "#374151",
-                border: "1px solid rgba(255,255,255,0.15)",
-                color: "white",
-              }}
-            >
-              {etiqueta}
-            </button>
-          ))}
-        </div>
-
-        {tipoReporte === "mensual" && (
-          <div
-            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}
-          >
-            <div>
-              <label style={{ fontSize: 13, color: "#d1d5db" }}>Mes</label>
-              <select
-                value={mes}
-                onChange={(e) => setMes(Number(e.target.value))}
-                style={{
-                  width: "100%",
-                  background: "#374151",
-                  color: "white",
-                  padding: "8px 12px",
-                  borderRadius: 8,
-                  border: "1px solid #4b5563",
-                }}
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <div className="w-10 h-10 rounded-full bg-blue-900/60 flex items-center justify-center">
+                  <FileText className="w-5 h-5 text-blue-400" />
+                </div>
+                <div>
+                  <p className="text-sm text-blue-400 font-semibold">
+                    {titulo}
+                  </p>
+                  <p className="text-xs text-gray-300">{mensaje}</p>
+                </div>
+              </div>
+              <button
+                onClick={onClose}
+                className="cursor-pointer p-2 rounded-md hover:bg-white/10 text-gray-300 hover:text-white"
+                aria-label="Cerrar modal"
               >
-                {Array.from({ length: 12 }, (_, i) => (
-                  <option key={i + 1} value={i + 1}>
-                    {i + 1}
-                  </option>
-                ))}
-              </select>
+                <X className="w-5 h-5" />
+              </button>
             </div>
-            <div>
-              <label style={{ fontSize: 13, color: "#d1d5db" }}>Año</label>
-              <input
-                type="number"
-                value={anio}
-                onChange={(e) => setAnio(Number(e.target.value))}
-                style={{
-                  width: "100%",
-                  background: "#374151",
-                  color: "white",
-                  padding: "8px 12px",
-                  borderRadius: 8,
-                  border: "1px solid #4b5563",
-                }}
-              />
-            </div>
-          </div>
-        )}
 
-        {tipoReporte === "anual" && (
-          <div>
-            <label style={{ fontSize: 13, color: "#d1d5db" }}>Año</label>
-            <input
-              type="number"
-              value={anio}
-              onChange={(e) => setAnio(Number(e.target.value))}
-              style={{
-                width: "100%",
-                background: "#374151",
-                color: "white",
-                padding: "8px 12px",
-                borderRadius: 8,
-                border: "1px solid #4b5563",
-              }}
-            />
-          </div>
-        )}
+            {/* Contenido */}
+            <div className="px-5 py-4">
+              {/* Botones de tipo */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+                <button
+                  type="button"
+                  onClick={() => setTipoReporte("mensual")}
+                  className={`cursor-pointer group flex items-center gap-2 rounded-lg border px-3 py-2 text-sm
+                    ${
+                      tipoReporte === "mensual"
+                        ? "border-blue-500 bg-blue-500/10 text-blue-300"
+                        : "border-white/10 bg-gray-700/40 text-gray-200 hover:bg-gray-700/60"
+                    }`}
+                >
+                  <Calendar className="w-4 h-4" />
+                  Mensual
+                </button>
 
-        {tipoReporte === "rango" && (
-          <div
-            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}
-          >
-            <div>
-              <label style={{ fontSize: 13, color: "#d1d5db" }}>
-                Fecha inicio
-              </label>
-              <input
-                type="date"
-                value={fechaInicio}
-                onChange={(e) => setFechaInicio(e.target.value)}
-                style={{
-                  width: "100%",
-                  background: "#374151",
-                  color: "white",
-                  padding: "8px 12px",
-                  borderRadius: 8,
-                  border: "1px solid #4b5563",
-                }}
-              />
-            </div>
-            <div>
-              <label style={{ fontSize: 13, color: "#d1d5db" }}>
-                Fecha fin
-              </label>
-              <input
-                type="date"
-                value={fechaFin}
-                onChange={(e) => setFechaFin(e.target.value)}
-                style={{
-                  width: "100%",
-                  background: "#374151",
-                  color: "white",
-                  padding: "8px 12px",
-                  borderRadius: 8,
-                  border: "1px solid #4b5563",
-                }}
-              />
-            </div>
-          </div>
-        )}
+                <button
+                  type="button"
+                  onClick={() => setTipoReporte("anual")}
+                  className={`cursor-pointer group flex items-center gap-2 rounded-lg border px-3 py-2 text-sm
+                    ${
+                      tipoReporte === "anual"
+                        ? "border-blue-500 bg-blue-500/10 text-blue-300"
+                        : "border-white/10 bg-gray-700/40 text-gray-200 hover:bg-gray-700/60"
+                    }`}
+                >
+                  <Calendar className="w-4 h-4" />
+                  Anual
+                </button>
 
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "flex-end",
-            gap: 12,
-            marginTop: 18,
-          }}
-        >
-          <button
-            onClick={onClose}
-            style={{
-              ...estiloBoton,
-              background: "#374151",
-              border: "1px solid #4b5563",
-              color: "white",
-            }}
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={confirmar}
-            style={{ ...estiloBoton, background: "#6366f1", color: "white" }}
-          >
-            Generar PDF
-          </button>
-        </div>
-      </div>
-    </div>,
+                <button
+                  type="button"
+                  onClick={() => setTipoReporte("rango")}
+                  className={`cursor-pointer group flex items-center gap-2 rounded-lg border px-3 py-2 text-sm
+                    ${
+                      tipoReporte === "rango"
+                        ? "border-blue-500 bg-blue-500/10 text-blue-300"
+                        : "border-white/10 bg-gray-700/40 text-gray-200 hover:bg-gray-700/60"
+                    }`}
+                >
+                  <CalendarRange className="w-4 h-4" />
+                  Rango
+                </button>
+              </div>
+
+              {/* Controles según tipo */}
+              {tipoReporte === "mensual" && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs text-gray-300">Mes</label>
+                    <select
+                      value={mes}
+                      onChange={(e) => setMes(Number(e.target.value))}
+                      className="bg-gray-700/60 border border-white/10 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      {Array.from({ length: 12 }, (_, i) => (
+                        <option key={i + 1} value={i + 1}>
+                          {i + 1}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs text-gray-300">Año</label>
+                    <input
+                      type="number"
+                      value={anio}
+                      onChange={(e) => setAnio(Number(e.target.value))}
+                      className="bg-gray-700/60 border border-white/10 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {tipoReporte === "anual" && (
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs text-gray-300">Año</label>
+                  <input
+                    type="number"
+                    value={anio}
+                    onChange={(e) => setAnio(Number(e.target.value))}
+                    className="bg-gray-700/60 border border-white/10 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              )}
+
+              {tipoReporte === "rango" && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs text-gray-300">
+                      Fecha inicio
+                    </label>
+                    <input
+                      type="date"
+                      value={fechaInicio}
+                      onChange={(e) => setFechaInicio(e.target.value)}
+                      className="bg-gray-700/60 border border-white/10 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs text-gray-300">Fecha fin</label>
+                    <input
+                      type="date"
+                      value={fechaFin}
+                      onChange={(e) => setFechaFin(e.target.value)}
+                      className="bg-gray-700/60 border border-white/10 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-3 px-5 pb-5">
+              <button
+                onClick={onClose}
+                className="cursor-pointer px-4 py-2 text-sm rounded-md bg-gray-700/60 border border-white/10 hover:bg-gray-700"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmar}
+                className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 text-sm rounded-md bg-blue-600 hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <Download className="w-4 h-4" />
+                Generar PDF
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>,
     document.body
   );
 }
