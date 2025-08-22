@@ -1,4 +1,3 @@
-// src/pages/GestorEventos/VisorGestorEventos.jsx
 import { useState } from "react";
 import GenerarReporte from "./GenerarReporte";
 import ModalOpcionesReporte from "./ModalOpcionesReporte";
