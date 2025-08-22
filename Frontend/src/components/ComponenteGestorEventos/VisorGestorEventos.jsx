@@ -1,6 +1,7 @@
 // src/components/ComponenteGestorEventos/VisorGestorEventos.jsx
 import { useEffect, useState } from "react";
-import GenerarReporte from "./GenerarReporte";
+// Si GenerarReporte está en src/components/GenerarReporte.jsx:
+import GenerarReporte from "../GenerarReporte";
 import ModalOpcionesReporte from "./ModalOpcionesReporte";
 import { descargarReporteEventosPdf } from "../../services/eventosArchivosApi";
 

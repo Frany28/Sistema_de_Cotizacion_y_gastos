@@ -1,5 +1,5 @@
 // src/components/ComponenteGestorEventos/ModalOpcionesReporte.jsx
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
 export default function ModalOpcionesReporte({
@@ -13,14 +13,12 @@ export default function ModalOpcionesReporte({
   const [fechaInicio, setFechaInicio] = useState("");
   const [fechaFin, setFechaFin] = useState("");
 
-  const contenedorRef = useRef(null);
-
   useEffect(() => {
     if (!visible) return;
-    const prev = document.body.style.overflow;
+    const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
-      document.body.style.overflow = prev;
+      document.body.style.overflow = prevOverflow;
     };
   }, [visible]);
 
@@ -31,30 +29,24 @@ export default function ModalOpcionesReporte({
     return () => window.removeEventListener("keydown", onKey);
   }, [visible, onClose]);
 
-  const manejarClickBackdrop = (e) => {
-    if (contenedorRef.current && !contenedorRef.current.contains(e.target)) {
-      onClose?.();
-    }
-  };
-
   const confirmar = () => {
-    const payloadSeleccion = { tipoReporte };
+    const opcionesSeleccion = { tipoReporte };
     if (tipoReporte === "mensual")
-      Object.assign(payloadSeleccion, { mes, anio });
-    if (tipoReporte === "anual") Object.assign(payloadSeleccion, { anio });
+      Object.assign(opcionesSeleccion, { mes, anio });
+    if (tipoReporte === "anual") Object.assign(opcionesSeleccion, { anio });
     if (tipoReporte === "rango") {
       if (!fechaInicio || !fechaFin || fechaFin < fechaInicio) {
         alert("Selecciona un rango válido (fecha fin ≥ fecha inicio).");
         return;
       }
-      Object.assign(payloadSeleccion, { fechaInicio, fechaFin });
+      Object.assign(opcionesSeleccion, { fechaInicio, fechaFin });
     }
-    onConfirmar?.(payloadSeleccion);
+    onConfirmar?.(opcionesSeleccion);
   };
 
-  if (!visible) return null;
+  // Guardia SSR + visibilidad
+  if (!visible || typeof document === "undefined") return null;
 
-  // ⛔ Nada de Tailwind para el z-index: lo forzamos inline
   const estiloOverlay = {
     position: "fixed",
     inset: 0,
@@ -63,7 +55,7 @@ export default function ModalOpcionesReporte({
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    zIndex: 2147483647, // tope fuerte
+    zIndex: 2147483647,
   };
 
   const estiloPanel = {
@@ -84,178 +76,21 @@ export default function ModalOpcionesReporte({
     fontSize: 14,
   };
 
+  // 👇 Nota: cierro solo si el clic fue exactamente en el backdrop
+  const manejarClickBackdrop = (e) => {
+    if (e.target === e.currentTarget) onClose?.();
+  };
+
   return createPortal(
-    <div style={estiloOverlay} onMouseDown={manejarClickBackdrop}>
-      <div
-        ref={contenedorRef}
-        onMouseDown={(e) => e.stopPropagation()}
-        style={estiloPanel}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            marginBottom: 8,
-          }}
-        >
-          <h3 style={{ fontWeight: 600, fontSize: 18, margin: 0 }}>
-            Generar reporte
-          </h3>
-          <button
-            onClick={onClose}
-            style={{ ...estiloBoton, background: "#374151" }}
-          >
-            Cerrar
-          </button>
-        </div>
-        <p
-          style={{
-            color: "#d1d5db",
-            fontSize: 13,
-            marginTop: 0,
-            marginBottom: 16,
-          }}
-        >
-          Seleccione el tipo de periodo para el informe en PDF.
-        </p>
-
-        {/* selector tipo */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3,1fr)",
-            gap: 12,
-            marginBottom: 16,
-          }}
-        >
-          {[
-            { id: "mensual", etiqueta: "Mensual" },
-            { id: "anual", etiqueta: "Anual" },
-            { id: "rango", etiqueta: "Rango" },
-          ].map(({ id, etiqueta }) => (
-            <button
-              key={id}
-              onClick={() => setTipoReporte(id)}
-              style={{
-                ...estiloBoton,
-                padding: "10px 12px",
-                background: tipoReporte === id ? "#6366f1" : "#374151",
-                border: "1px solid rgba(255,255,255,0.15)",
-                color: "white",
-              }}
-            >
-              {etiqueta}
-            </button>
-          ))}
-        </div>
-
-        {/* controles */}
-        {tipoReporte === "mensual" && (
-          <div
-            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}
-          >
-            <div>
-              <label style={{ fontSize: 13, color: "#d1d5db" }}>Mes</label>
-              <select
-                value={mes}
-                onChange={(e) => setMes(Number(e.target.value))}
-                style={{
-                  width: "100%",
-                  background: "#374151",
-                  color: "white",
-                  padding: "8px 12px",
-                  borderRadius: 8,
-                  border: "1px solid #4b5563",
-                }}
-              >
-                {Array.from({ length: 12 }, (_, i) => (
-                  <option key={i + 1} value={i + 1}>
-                    {i + 1}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label style={{ fontSize: 13, color: "#d1d5db" }}>Año</label>
-              <input
-                type="number"
-                value={anio}
-                onChange={(e) => setAnio(Number(e.target.value))}
-                style={{
-                  width: "100%",
-                  background: "#374151",
-                  color: "white",
-                  padding: "8px 12px",
-                  borderRadius: 8,
-                  border: "1px solid #4b5563",
-                }}
-              />
-            </div>
-          </div>
-        )}
-
-        {tipoReporte === "anual" && (
-          <div>
-            <label style={{ fontSize: 13, color: "#d1d5db" }}>Año</label>
-            <input
-              type="number"
-              value={anio}
-              onChange={(e) => setAnio(Number(e.target.value))}
-              style={{
-                width: "100%",
-                background: "#374151",
-                color: "white",
-                padding: "8px 12px",
-                borderRadius: 8,
-                border: "1px solid #4b5563",
-              }}
-            />
-          </div>
-        )}
-
-        {tipoReporte === "rango" && (
-          <div
-            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}
-          >
-            <div>
-              <label style={{ fontSize: 13, color: "#d1d5db" }}>
-                Fecha inicio
-              </label>
-              <input
-                type="date"
-                value={fechaInicio}
-                onChange={(e) => setFechaInicio(e.target.value)}
-                style={{
-                  width: "100%",
-                  background: "#374151",
-                  color: "white",
-                  padding: "8px 12px",
-                  borderRadius: 8,
-                  border: "1px solid #4b5563",
-                }}
-              />
-            </div>
-            <div>
-              <label style={{ fontSize: 13, color: "#d1d5db" }}>
-                Fecha fin
-              </label>
-              <input
-                type="date"
-                value={fechaFin}
-                onChange={(e) => setFechaFin(e.target.value)}
-                style={{
-                  width: "100%",
-                  background: "#374151",
-                  color: "white",
-                  padding: "8px 12px",
-                  borderRadius: 8,
-                  border: "1px solid #4b5563",
-                }}
-              />
-            </div>
-          </div>
-        )}
-
+    <div
+      style={estiloOverlay}
+      onClick={manejarClickBackdrop}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div style={estiloPanel}>
+        {/* ... resto del contenido tal como lo tienes (botones Mensual/Anual/Rango, inputs y acciones) ... */}
+        {/* Botones footer */}
         <div
           style={{
             display: "flex",
