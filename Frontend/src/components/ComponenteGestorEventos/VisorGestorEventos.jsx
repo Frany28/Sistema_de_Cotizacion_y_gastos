@@ -1,5 +1,4 @@
-// src/components/ComponenteGestorEventos/VisorGestorEventos.jsx
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import GenerarReporte from "./GenerarReporte";
 import ModalOpcionesReporte from "./ModalOpcionesReporte";
 import { descargarReporteEventosPdf } from "../../services/eventosArchivosApi";
@@ -16,14 +15,18 @@ export default function VisorGestorEventos() {
     setMostrarModal(false);
   };
 
+  useEffect(() => {
+    console.log("mostrarModal cambió:", mostrarModal);
+  }, [mostrarModal]);
+
   const manejarConfirmar = async (opcionesSeleccion) => {
     try {
       const blob = await descargarReporteEventosPdf(opcionesSeleccion);
       const url = URL.createObjectURL(blob);
-      const enlace = document.createElement("a");
-      enlace.href = url;
-      enlace.download = "reporte-eventos.pdf";
-      enlace.click();
+      const enlaceDescarga = document.createElement("a");
+      enlaceDescarga.href = url;
+      enlaceDescarga.download = "reporte-eventos.pdf";
+      enlaceDescarga.click();
       URL.revokeObjectURL(url);
     } catch (e) {
       console.error(e);

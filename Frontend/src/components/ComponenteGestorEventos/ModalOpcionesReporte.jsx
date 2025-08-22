@@ -1,3 +1,4 @@
+// src/components/ComponenteGestorEventos/ModalOpcionesReporte.jsx
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { X, Calendar, CalendarRange, CalendarClock } from "lucide-react";
@@ -5,7 +6,7 @@ import { X, Calendar, CalendarRange, CalendarClock } from "lucide-react";
 export default function ModalOpcionesReporte({
   visible,
   onClose,
-  onConfirmar, // recibe (payloadSeleccion)
+  onConfirmar,
 }) {
   const [tipoReporte, setTipoReporte] = useState("mensual");
   const [mes, setMes] = useState(new Date().getMonth() + 1);
@@ -14,7 +15,7 @@ export default function ModalOpcionesReporte({
   const [fechaFin, setFechaFin] = useState("");
   const contenedorRef = useRef(null);
 
-  /* Bloquear scroll del body mientras el modal está visible */
+  // Bloquear scroll del body mientras el modal está visible
   useEffect(() => {
     if (!visible) return;
     const prevOverflow = document.body.style.overflow;
@@ -24,7 +25,7 @@ export default function ModalOpcionesReporte({
     };
   }, [visible]);
 
-  /* Cerrar con tecla Escape */
+  // Cerrar con tecla Escape
   useEffect(() => {
     if (!visible) return;
     const manejarKey = (e) => {
@@ -34,7 +35,7 @@ export default function ModalOpcionesReporte({
     return () => window.removeEventListener("keydown", manejarKey);
   }, [visible, onClose]);
 
-  /* Cerrar al hacer click fuera del panel */
+  // Cerrar al hacer click en el backdrop
   const manejarClickBackdrop = (e) => {
     if (contenedorRef.current && !contenedorRef.current.contains(e.target)) {
       onClose?.();
@@ -61,7 +62,7 @@ export default function ModalOpcionesReporte({
   return createPortal(
     <div
       onMouseDown={manejarClickBackdrop}
-      className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      className="fixed inset-0 z-[2147483647] flex items-center justify-center bg-black/45 backdrop-blur-sm"
       aria-modal="true"
       role="dialog"
     >
