@@ -4,6 +4,7 @@ import imagenGestorEventos from "../../Styles/img/2810772-Photoroom-1.png";
 
 export default function GenerarReporte({ onGenerarReporte, urlImagen }) {
   const manejarGenerarReporte = () => {
+    console.log("click botón Generar Reporte");
     if (typeof onGenerarReporte === "function") onGenerarReporte();
   };
 
