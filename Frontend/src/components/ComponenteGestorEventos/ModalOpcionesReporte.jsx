@@ -44,7 +44,6 @@ export default function ModalOpcionesReporte({
     onConfirmar?.(opcionesSeleccion);
   };
 
-  // Guardia SSR + visibilidad
   if (!visible || typeof document === "undefined") return null;
 
   const estiloOverlay = {
@@ -76,8 +75,7 @@ export default function ModalOpcionesReporte({
     fontSize: 14,
   };
 
-  // 👇 Nota: cierro solo si el clic fue exactamente en el backdrop
-
+  // Cerrar SOLO si el clic fue exactamente sobre el backdrop (no el panel)
   const manejarClickBackdrop = (e) => {
     if (e.target === e.currentTarget) onClose?.();
   };
@@ -89,7 +87,171 @@ export default function ModalOpcionesReporte({
       role="dialog"
       aria-modal="true"
     >
-      <div ref={contenedorRef} style={estiloPanel}>
+      <div style={estiloPanel}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            marginBottom: 8,
+          }}
+        >
+          <h3 style={{ fontWeight: 600, fontSize: 18, margin: 0 }}>
+            Generar reporte
+          </h3>
+          <button
+            onClick={onClose}
+            style={{ ...estiloBoton, background: "#374151" }}
+          >
+            Cerrar
+          </button>
+        </div>
+
+        <p
+          style={{
+            color: "#d1d5db",
+            fontSize: 13,
+            marginTop: 0,
+            marginBottom: 16,
+          }}
+        >
+          Seleccione el tipo de periodo para el informe en PDF.
+        </p>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3,1fr)",
+            gap: 12,
+            marginBottom: 16,
+          }}
+        >
+          {[
+            { id: "mensual", etiqueta: "Mensual" },
+            { id: "anual", etiqueta: "Anual" },
+            { id: "rango", etiqueta: "Rango" },
+          ].map(({ id, etiqueta }) => (
+            <button
+              key={id}
+              onClick={() => setTipoReporte(id)}
+              style={{
+                ...estiloBoton,
+                padding: "10px 12px",
+                background: tipoReporte === id ? "#6366f1" : "#374151",
+                border: "1px solid rgba(255,255,255,0.15)",
+                color: "white",
+              }}
+            >
+              {etiqueta}
+            </button>
+          ))}
+        </div>
+
+        {tipoReporte === "mensual" && (
+          <div
+            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}
+          >
+            <div>
+              <label style={{ fontSize: 13, color: "#d1d5db" }}>Mes</label>
+              <select
+                value={mes}
+                onChange={(e) => setMes(Number(e.target.value))}
+                style={{
+                  width: "100%",
+                  background: "#374151",
+                  color: "white",
+                  padding: "8px 12px",
+                  borderRadius: 8,
+                  border: "1px solid #4b5563",
+                }}
+              >
+                {Array.from({ length: 12 }, (_, i) => (
+                  <option key={i + 1} value={i + 1}>
+                    {i + 1}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: 13, color: "#d1d5db" }}>Año</label>
+              <input
+                type="number"
+                value={anio}
+                onChange={(e) => setAnio(Number(e.target.value))}
+                style={{
+                  width: "100%",
+                  background: "#374151",
+                  color: "white",
+                  padding: "8px 12px",
+                  borderRadius: 8,
+                  border: "1px solid #4b5563",
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        {tipoReporte === "anual" && (
+          <div>
+            <label style={{ fontSize: 13, color: "#d1d5db" }}>Año</label>
+            <input
+              type="number"
+              value={anio}
+              onChange={(e) => setAnio(Number(e.target.value))}
+              style={{
+                width: "100%",
+                background: "#374151",
+                color: "white",
+                padding: "8px 12px",
+                borderRadius: 8,
+                border: "1px solid #4b5563",
+              }}
+            />
+          </div>
+        )}
+
+        {tipoReporte === "rango" && (
+          <div
+            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}
+          >
+            <div>
+              <label style={{ fontSize: 13, color: "#d1d5db" }}>
+                Fecha inicio
+              </label>
+              <input
+                type="date"
+                value={fechaInicio}
+                onChange={(e) => setFechaInicio(e.target.value)}
+                style={{
+                  width: "100%",
+                  background: "#374151",
+                  color: "white",
+                  padding: "8px 12px",
+                  borderRadius: 8,
+                  border: "1px solid #4b5563",
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: 13, color: "#d1d5db" }}>
+                Fecha fin
+              </label>
+              <input
+                type="date"
+                value={fechaFin}
+                onChange={(e) => setFechaFin(e.target.value)}
+                style={{
+                  width: "100%",
+                  background: "#374151",
+                  color: "white",
+                  padding: "8px 12px",
+                  borderRadius: 8,
+                  border: "1px solid #4b5563",
+                }}
+              />
+            </div>
+          </div>
+        )}
+
         <div
           style={{
             display: "flex",
