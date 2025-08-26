@@ -440,40 +440,6 @@ export const obtenerContadoresTarjetas = async (req, res) => {
   }
 };
 
-function construirRangoFechas({
-  tipoReporte,
-  mes,
-  anio,
-  fechaInicio,
-  fechaFin,
-}) {
-  const ahora = new Date();
-
-  if (tipoReporte === "mensual") {
-    const m = Number(mes),
-      y = Number(anio || ahora.getFullYear());
-    const fIni = new Date(y, m - 1, 1, 0, 0, 0, 0);
-    const fFin = new Date(y, m, 1, 0, 0, 0, 0);
-    return {
-      fIni,
-      fFin,
-      etiqueta: `Mensual ${String(m).padStart(2, "0")}/${y}`,
-    };
-  }
-
-  if (tipoReporte === "anual") {
-    const y = Number(anio || ahora.getFullYear());
-    const fIni = new Date(y, 0, 1, 0, 0, 0, 0);
-    const fFin = new Date(y + 1, 0, 1, 0, 0, 0, 0);
-    return { fIni, fFin, etiqueta: `Anual ${y}` };
-  }
-
-  // rango
-  const fIni = new Date(`${fechaInicio}T00:00:00`);
-  const fFin = new Date(`${fechaFin}T23:59:59`);
-  return { fIni, fFin, etiqueta: `Rango ${fechaInicio} → ${fechaFin}` };
-}
-
 export async function generarReporteEventosPdf(req, res) {
   try {
     const {

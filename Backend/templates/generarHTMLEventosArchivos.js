@@ -17,13 +17,12 @@ function escaparHtml(texto) {
 export function generarHTMLEventosArchivos({
   // Cabecera y metadatos
   usuario = "admin",
-  periodoLabel, // p.ej. "Mensual 07/2025" / "Anual 2025" / "Rango 2025-07-01 → 2025-07-31"
-  fechaInicioTexto, // p.ej. "01/07/2025"
-  fechaFinTexto, // p.ej. "31/07/2025"
+  periodoLabel, 
+  fechaInicioTexto,
+  fechaFinTexto, 
 
-  // Compatibilidad con controladores antiguos:
-  fechaInicio, // p.ej. "2025-07-01" (legacy)
-  fechaFin, // p.ej. "2025-07-31" (legacy)
+  fechaInicio, 
+  fechaFin,
 
   // Datos
   totales = { subidos: 0, reemplazados: 0, eliminados: 0, borrados: 0 },
