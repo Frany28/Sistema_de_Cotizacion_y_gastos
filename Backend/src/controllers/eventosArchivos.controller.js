@@ -1,5 +1,9 @@
 // src/controllers/eventosArchivos.controller.js
 import db from "../config/database.js";
+import puppeteer from "puppeteer-core";
+import chromium from "@sparticuz/chromium";
+import { generarHTMLEventosArchivos } from "../../templates/generarHTMLEventosArchivos.js";
+
 import PDFDocument from "pdfkit";
 
 export const rolAdmin = 1;
@@ -640,3 +644,192 @@ export async function generarReporteEventosPdf(req, res) {
     res.status(500).json({ mensaje: "No fue posible generar el PDF" });
   }
 }
+
+function construirRangoFechas({
+  tipoReporte,
+  mes,
+  anio,
+  fechaInicio,
+  fechaFin,
+}) {
+  const ahora = new Date();
+
+  if (tipoReporte === "mensual") {
+    const m = Number(mes);
+    const y = Number(anio || ahora.getFullYear());
+    const fIni = new Date(y, m - 1, 1, 0, 0, 0, 0);
+    const fFin = new Date(y, m, 1, 0, 0, 0, 0);
+    return {
+      fIni,
+      fFin,
+      periodoLabel: `Mensual ${String(m).padStart(2, "0")}/${y}`,
+      fechaInicioTexto: fIni.toLocaleDateString("es-VE"),
+      fechaFinTexto: new Date(fFin - 1).toLocaleDateString("es-VE"),
+    };
+  }
+
+  if (tipoReporte === "anual") {
+    const y = Number(anio || ahora.getFullYear());
+    const fIni = new Date(y, 0, 1, 0, 0, 0, 0);
+    const fFin = new Date(y + 1, 0, 1, 0, 0, 0, 0);
+    return {
+      fIni,
+      fFin,
+      periodoLabel: `Anual ${y}`,
+      fechaInicioTexto: fIni.toLocaleDateString("es-VE"),
+      fechaFinTexto: new Date(fFin - 1).toLocaleDateString("es-VE"),
+    };
+  }
+
+  // rango libre
+  const fIni = new Date(`${fechaInicio}T00:00:00`);
+  const fFin = new Date(`${fechaFin}T23:59:59`);
+  return {
+    fIni,
+    fFin,
+    periodoLabel: `Rango ${fechaInicio} → ${fechaFin}`,
+    fechaInicioTexto: fIni.toLocaleDateString("es-VE"),
+    fechaFinTexto: fFin.toLocaleDateString("es-VE"),
+  };
+}
+
+export const generarPdfMovimientosArchivos = async (req, res) => {
+  try {
+    const {
+      tipoReporte = "mensual",
+      mes,
+      anio,
+      fechaInicio,
+      fechaFin,
+      registroTipo,
+    } = req.query;
+
+    // Validaciones básicas
+    if (!["mensual", "anual", "rango"].includes(tipoReporte)) {
+      return res.status(400).json({ mensaje: "tipoReporte inválido" });
+    }
+    if (tipoReporte === "mensual" && !mes) {
+      return res.status(400).json({ mensaje: "Debe enviar mes (1-12)" });
+    }
+    if (tipoReporte === "rango" && (!fechaInicio || !fechaFin)) {
+      return res
+        .status(400)
+        .json({ mensaje: "Debe enviar fechaInicio y fechaFin (YYYY-MM-DD)" });
+    }
+
+    // 1) Construcción del periodo (personalizable)
+    const { fIni, fFin, periodoLabel, fechaInicioTexto, fechaFinTexto } =
+      construirRangoFechas({
+        tipoReporte,
+        mes,
+        anio,
+        fechaInicio,
+        fechaFin,
+      });
+
+    // 2) Filtro opcional por tipo de registro (facturasGastos, firmas, etc.)
+    const filtroTipoSql = registroTipo ? "AND a.registroTipo = ?" : "";
+    const paramsTipo = registroTipo ? [registroTipo] : [];
+
+    // 3) Totales del periodo (normalizando enums históricos)
+    const [[tot]] = await db.query(
+      `SELECT
+         SUM(e.accion IN ('subida','subidaArchivo'))            AS subidos,
+         SUM(e.accion IN ('sustitucion','sustitucionArchivo'))  AS reemplazados,
+         SUM(e.accion IN ('eliminacion','eliminacionArchivo'))  AS eliminados,
+         SUM(e.accion = 'borradoDefinitivo')                    AS borrados
+       FROM eventosArchivo e
+       JOIN archivos a ON a.id = e.archivoId
+      WHERE e.fechaHora >= ? AND e.fechaHora < ? ${filtroTipoSql}`,
+      [fIni, fFin, ...paramsTipo]
+    );
+
+    const totales = {
+      subidos: Number(tot?.subidos || 0),
+      reemplazados: Number(tot?.reemplazados || 0),
+      eliminados: Number(tot?.eliminados || 0),
+      borrados: Number(tot?.borrados || 0),
+    };
+
+    // 4) Detalle (hasta 500 filas para PDFs manejables)
+    const [rows] = await db.query(
+      `SELECT 
+         e.fechaHora,
+         CASE
+           WHEN e.accion IN ('subida','subidaArchivo')           THEN 'subidaArchivo'
+           WHEN e.accion IN ('eliminacion','eliminacionArchivo') THEN 'eliminacionArchivo'
+           WHEN e.accion IN ('sustitucion','sustitucionArchivo') THEN 'sustitucionArchivo'
+           WHEN e.accion = 'borradoDefinitivo'                   THEN 'borradoDefinitivo'
+           ELSE ''
+         END AS accionNorm,
+         u.nombre         AS usuarioNombre,
+         a.nombreOriginal AS nombreArchivo,
+         a.extension      AS extension
+       FROM eventosArchivo e
+       JOIN archivos a      ON a.id = e.archivoId
+  LEFT JOIN usuarios u      ON u.id = e.creadoPor
+      WHERE e.fechaHora >= ? AND e.fechaHora < ? ${filtroTipoSql}
+      ORDER BY e.fechaHora DESC
+      LIMIT 500`,
+      [fIni, fFin, ...paramsTipo]
+    );
+
+    const detalleMovimientos = rows
+      .filter((r) => r.accionNorm) // fuera vacíos
+      .map((r) => ({
+        fecha: new Date(r.fechaHora).toLocaleDateString("es-VE"),
+        hora: new Date(r.fechaHora).toLocaleTimeString("es-VE", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+        usuario: r.usuarioNombre || "—",
+        tipoAccion: r.accionNorm,
+        archivo: `${r.nombreArchivo || "—"}${
+          r.extension ? "." + r.extension : ""
+        }`,
+        observaciones: "", // si luego decides añadir columna, la mapeas aquí
+      }));
+
+    // 5) Generar HTML (misma idea que Orden de Pago)
+    const html = generarHTMLEventosArchivos({
+      usuario: req.user?.nombre || "admin",
+      periodoLabel,
+      fechaInicioTexto,
+      fechaFinTexto,
+      totales,
+      detalleMovimientos,
+      logoUrl: null, // si quieres, pásame un dataURL/URL
+    });
+
+    // 6) Puppeteer → PDF (idéntico a tu patrón de solicitudesPago)
+    const browser = await puppeteer.launch({
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
+      ignoreHTTPSErrors: true,
+    });
+
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: "networkidle0" });
+
+    const pdfBuffer = await page.pdf({
+      format: "A4",
+      printBackground: true,
+      margin: { top: "14mm", bottom: "14mm", left: "10mm", right: "10mm" },
+    });
+
+    await browser.close();
+
+    // 7) Respuesta
+    res
+      .set({
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `inline; filename=reporte_movimientos_${tipoReporte}.pdf`,
+      })
+      .send(pdfBuffer);
+  } catch (error) {
+    console.error("error generarPdfMovimientosArchivos:", error);
+    res.status(500).json({ mensaje: "No fue posible generar el PDF" });
+  }
+};
