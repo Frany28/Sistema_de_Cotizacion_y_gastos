@@ -7,7 +7,7 @@ import {
   contarVersionesDelMesPorArchivo,
   obtenerAlmacenamientoTotalPorDocumento,
   obtenerContadoresTarjetas,
-  generarReporteEventosPdf,
+  generarPdfMovimientosArchivos,
 } from "../controllers/eventosArchivos.controller.js";
 import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
 import { verificarPermiso } from "../Middleware/verificarPermiso.js";
@@ -61,10 +61,10 @@ router.get(
 );
 
 router.get(
-  "/reporte.pdf",
+  "/reporte/pdf",
   autenticarUsuario,
   verificarPermiso("verEventosArchivos"),
-  generarReporteEventosPdf
+  generarPdfMovimientosArchivos
 );
 
 export default router;

@@ -440,186 +440,8 @@ export const obtenerContadoresTarjetas = async (req, res) => {
   }
 };
 
-export async function generarReporteEventosPdf(req, res) {
-  try {
-    const {
-      tipoReporte = "mensual",
-      mes,
-      anio,
-      fechaInicio,
-      fechaFin,
-      registroTipo,
-    } = req.query;
-    if (!["mensual", "anual", "rango"].includes(tipoReporte)) {
-      return res.status(400).json({ mensaje: "tipoReporte inválido" });
-    }
-    if (tipoReporte === "mensual" && !mes) {
-      return res.status(400).json({ mensaje: "Falta mes (1-12)" });
-    }
-    if (tipoReporte === "rango" && (!fechaInicio || !fechaFin)) {
-      return res
-        .status(400)
-        .json({ mensaje: "Debe enviar fechaInicio y fechaFin" });
-    }
-
-    const { fIni, fFin, etiqueta } = construirRangoFechas({
-      tipoReporte,
-      mes,
-      anio,
-      fechaInicio,
-      fechaFin,
-    });
-
-    // Filtro opcional por tipo de registro (ej. firmas, facturas_gastos…)
-    const filtroTipoSql = registroTipo ? "AND a.registroTipo = ?" : "";
-    const paramsTipo = registroTipo ? [registroTipo] : [];
-
-    // 1) Totales por acción en el período
-    const [totRows] = await db.query(
-      `
-      SELECT
-        SUM(e.accion='subidaArchivo')            AS totalSubidos,
-        SUM(e.accion='eliminacionArchivo')       AS totalEliminados,
-        SUM(e.accion='sustitucionArchivo')       AS totalReemplazados,
-        SUM(e.accion='borradoDefinitivo')        AS totalBorradosDefinitivos
-      FROM eventosArchivo e
-      JOIN archivos a ON a.id = e.archivoId
-      WHERE e.fechaHora >= ? AND e.fechaHora < ?
-      ${filtroTipoSql}
-      `,
-      [fIni, fFin, ...paramsTipo]
-    );
-
-    const totales = totRows?.[0] || {
-      totalSubidos: 0,
-      totalEliminados: 0,
-      totalReemplazados: 0,
-      totalBorradosDefinitivos: 0,
-    };
-
-    // 2) Listado detallado (últimos 500 para no hacer PDFs gigantes)
-    const [detalle] = await db.query(
-      `
-      SELECT
-        e.id                AS eventoId,
-        e.fechaHora         AS fechaEvento,
-        e.accion            AS accion,
-        e.creadoPor         AS usuarioId,
-        a.id                AS archivoId,
-        a.nombreOriginal    AS nombreArchivo,
-        a.extension         AS extension,
-        a.registroTipo      AS registroTipo,
-        a.registroId        AS registroId
-      FROM eventosArchivo e
-      JOIN archivos a ON a.id = e.archivoId
-      WHERE e.fechaHora >= ? AND e.fechaHora < ?
-      ${filtroTipoSql}
-      ORDER BY e.fechaHora DESC
-      LIMIT 500
-      `,
-      [fIni, fFin, ...paramsTipo]
-    );
-
-    // 3) Generar PDF en streaming
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader(
-      "Content-Disposition",
-      `inline; filename="reporte-eventos-${tipoReporte}.pdf"`
-    );
-
-    const doc = new PDFDocument({ size: "A4", margin: 36 });
-    doc.pipe(res);
-
-    // Encabezado
-    doc
-      .fontSize(16)
-      .fillColor("#111")
-      .text("Reporte de Eventos de Archivos", { continued: false });
-    doc.moveDown(0.3);
-    doc.fontSize(10).fillColor("#444").text(`Período: ${etiqueta}`);
-    if (registroTipo) doc.text(`Filtro registroTipo: ${registroTipo}`);
-    doc.moveDown(0.8);
-    doc.moveTo(36, doc.y).lineTo(559, doc.y).strokeColor("#999").stroke();
-    doc.moveDown(0.8);
-
-    // Tarjetas de totales
-    const toNum = (v) => Number(v || 0);
-    const totalesL = [
-      ["Subidos", toNum(totales.totalSubidos)],
-      ["Eliminados", toNum(totales.totalEliminados)],
-      ["Reemplazados", toNum(totales.totalReemplazados)],
-      ["Borrados definitivos", toNum(totales.totalBorradosDefinitivos)],
-    ];
-
-    doc.fontSize(12).fillColor("#111").text("Resumen", { underline: false });
-    doc.moveDown(0.4);
-    totalesL.forEach(([label, val]) => {
-      doc.fontSize(10).fillColor("#333").text(`${label}: ${val}`);
-    });
-
-    doc.moveDown(0.8);
-    doc
-      .fontSize(12)
-      .fillColor("#111")
-      .text("Detalle de eventos (máx. 500)", { underline: false });
-    doc.moveDown(0.3);
-
-    // Cabecera tabla
-    const cols = [120, 90, 120, 190]; // anchos
-    const headers = ["Fecha", "Acción", "Archivo (ext.)", "TipoRegistro#Id"];
-    const xBase = doc.x,
-      yStart = doc.y;
-
-    doc.fontSize(9).fillColor("#666");
-    headers.forEach((h, i) => {
-      doc.text(h, xBase + cols.slice(0, i).reduce((a, b) => a + b, 0), yStart, {
-        width: cols[i],
-      });
-    });
-    doc.moveDown(0.2);
-    doc.moveTo(36, doc.y).lineTo(559, doc.y).strokeColor("#ddd").stroke();
-
-    // Filas
-    doc.fontSize(9).fillColor("#111");
-    detalle.forEach((r) => {
-      const fila = [
-        new Date(r.fechaEvento).toLocaleString(),
-        r.accion,
-        `${r.nombreArchivo || "-"} (${r.extension || "-"})`,
-        `${r.registroTipo || "-"} #${r.registroId ?? "-"}`,
-      ];
-      const yFila = doc.y + 2;
-      fila.forEach((txt, i) => {
-        doc.text(
-          String(txt),
-          xBase + cols.slice(0, i).reduce((a, b) => a + b, 0),
-          yFila,
-          {
-            width: cols[i],
-            ellipsis: true,
-          }
-        );
-      });
-      doc.moveDown(0.6);
-      if (doc.y > 760) doc.addPage();
-    });
-
-    doc.end();
-  } catch (err) {
-    console.error("Error al generar PDF:", err);
-    res.status(500).json({ mensaje: "No fue posible generar el PDF" });
-  }
-}
-
-function construirRangoFechas({
-  tipoReporte,
-  mes,
-  anio,
-  fechaInicio,
-  fechaFin,
-}) {
+function rango({ tipoReporte, mes, anio, fechaInicio, fechaFin }) {
   const ahora = new Date();
-
   if (tipoReporte === "mensual") {
     const m = Number(mes);
     const y = Number(anio || ahora.getFullYear());
@@ -633,7 +455,6 @@ function construirRangoFechas({
       fechaFinTexto: new Date(fFin - 1).toLocaleDateString("es-VE"),
     };
   }
-
   if (tipoReporte === "anual") {
     const y = Number(anio || ahora.getFullYear());
     const fIni = new Date(y, 0, 1, 0, 0, 0, 0);
@@ -646,8 +467,6 @@ function construirRangoFechas({
       fechaFinTexto: new Date(fFin - 1).toLocaleDateString("es-VE"),
     };
   }
-
-  // rango libre
   const fIni = new Date(`${fechaInicio}T00:00:00`);
   const fFin = new Date(`${fechaFin}T23:59:59`);
   return {
@@ -670,7 +489,6 @@ export const generarPdfMovimientosArchivos = async (req, res) => {
       registroTipo,
     } = req.query;
 
-    // Validaciones básicas
     if (!["mensual", "anual", "rango"].includes(tipoReporte)) {
       return res.status(400).json({ mensaje: "tipoReporte inválido" });
     }
@@ -683,21 +501,11 @@ export const generarPdfMovimientosArchivos = async (req, res) => {
         .json({ mensaje: "Debe enviar fechaInicio y fechaFin (YYYY-MM-DD)" });
     }
 
-    // 1) Construcción del periodo (personalizable)
-    const { fIni, fFin, periodoLabel, fechaInicioTexto, fechaFinTexto } =
-      construirRangoFechas({
-        tipoReporte,
-        mes,
-        anio,
-        fechaInicio,
-        fechaFin,
-      });
+    const { fIni, fFin, periodoLabel, fechaInicioTexto, fechaFinTexto } = rango(
+      { tipoReporte, mes, anio, fechaInicio, fechaFin }
+    );
 
-    // 2) Filtro opcional por tipo de registro (facturasGastos, firmas, etc.)
-    const filtroTipoSql = registroTipo ? "AND a.registroTipo = ?" : "";
-    const paramsTipo = registroTipo ? [registroTipo] : [];
-
-    // 3) Totales del periodo (normalizando enums históricos)
+    // Totales normalizando histórico
     const [[tot]] = await db.query(
       `SELECT
          SUM(e.accion IN ('subida','subidaArchivo'))            AS subidos,
@@ -706,8 +514,9 @@ export const generarPdfMovimientosArchivos = async (req, res) => {
          SUM(e.accion = 'borradoDefinitivo')                    AS borrados
        FROM eventosArchivo e
        JOIN archivos a ON a.id = e.archivoId
-      WHERE e.fechaHora >= ? AND e.fechaHora < ? ${filtroTipoSql}`,
-      [fIni, fFin, ...paramsTipo]
+      WHERE e.fechaHora >= ? AND e.fechaHora < ?
+        ${registroTipo ? "AND a.registroTipo = ?" : ""}`,
+      registroTipo ? [fIni, fFin, registroTipo] : [fIni, fFin]
     );
 
     const totales = {
@@ -717,7 +526,7 @@ export const generarPdfMovimientosArchivos = async (req, res) => {
       borrados: Number(tot?.borrados || 0),
     };
 
-    // 4) Detalle (hasta 500 filas para PDFs manejables)
+    // Detalle (máx 500)
     const [rows] = await db.query(
       `SELECT 
          e.fechaHora,
@@ -732,16 +541,17 @@ export const generarPdfMovimientosArchivos = async (req, res) => {
          a.nombreOriginal AS nombreArchivo,
          a.extension      AS extension
        FROM eventosArchivo e
-       JOIN archivos a      ON a.id = e.archivoId
-  LEFT JOIN usuarios u      ON u.id = e.creadoPor
-      WHERE e.fechaHora >= ? AND e.fechaHora < ? ${filtroTipoSql}
+       JOIN archivos a ON a.id = e.archivoId
+  LEFT JOIN usuarios u ON u.id = e.creadoPor
+      WHERE e.fechaHora >= ? AND e.fechaHora < ?
+        ${registroTipo ? "AND a.registroTipo = ?" : ""}
       ORDER BY e.fechaHora DESC
       LIMIT 500`,
-      [fIni, fFin, ...paramsTipo]
+      registroTipo ? [fIni, fFin, registroTipo] : [fIni, fFin]
     );
 
     const detalleMovimientos = rows
-      .filter((r) => r.accionNorm) // fuera vacíos
+      .filter((r) => r.accionNorm)
       .map((r) => ({
         fecha: new Date(r.fechaHora).toLocaleDateString("es-VE"),
         hora: new Date(r.fechaHora).toLocaleTimeString("es-VE", {
@@ -753,10 +563,9 @@ export const generarPdfMovimientosArchivos = async (req, res) => {
         archivo: `${r.nombreArchivo || "—"}${
           r.extension ? "." + r.extension : ""
         }`,
-        observaciones: "", // si luego decides añadir columna, la mapeas aquí
+        observaciones: "",
       }));
 
-    // 5) Generar HTML (misma idea que Orden de Pago)
     const html = generarHTMLEventosArchivos({
       usuario: req.user?.nombre || "admin",
       periodoLabel,
@@ -764,10 +573,10 @@ export const generarPdfMovimientosArchivos = async (req, res) => {
       fechaFinTexto,
       totales,
       detalleMovimientos,
-      logoUrl: null, // si quieres, pásame un dataURL/URL
+      logoUrl: null,
+      // si quieres ocultar el gráfico: mostrarGrafico:false
     });
 
-    // 6) Puppeteer → PDF (idéntico a tu patrón de solicitudesPago)
     const browser = await puppeteer.launch({
       args: chromium.args,
       defaultViewport: chromium.defaultViewport,
@@ -779,23 +588,22 @@ export const generarPdfMovimientosArchivos = async (req, res) => {
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "networkidle0" });
 
-    const pdfBuffer = await page.pdf({
+    const pdf = await page.pdf({
       format: "A4",
       printBackground: true,
-      margin: { top: "14mm", bottom: "14mm", left: "10mm", right: "10mm" },
+      margin: { top: "14mm", bottom: "14mm", left: "12mm", right: "12mm" },
     });
 
     await browser.close();
 
-    // 7) Respuesta
     res
       .set({
         "Content-Type": "application/pdf",
         "Content-Disposition": `inline; filename=reporte_movimientos_${tipoReporte}.pdf`,
       })
-      .send(pdfBuffer);
-  } catch (error) {
-    console.error("error generarPdfMovimientosArchivos:", error);
+      .send(pdf);
+  } catch (e) {
+    console.error("generarPdfMovimientosArchivos:", e);
     res.status(500).json({ mensaje: "No fue posible generar el PDF" });
   }
 };
