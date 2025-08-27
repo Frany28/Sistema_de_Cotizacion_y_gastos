@@ -480,6 +480,7 @@ function rango({ tipoReporte, mes, anio, fechaInicio, fechaFin }) {
 
 export const generarPdfMovimientosArchivos = async (req, res) => {
   try {
+    // 1) Leer parámetros
     const {
       tipoReporte = "mensual",
       mes,
@@ -489,121 +490,120 @@ export const generarPdfMovimientosArchivos = async (req, res) => {
       registroTipo,
     } = req.query;
 
-    if (!["mensual", "anual", "rango"].includes(tipoReporte)) {
+    // Normalizar rango de fechas
+    let desde, hasta, periodoLabel;
+    const hoy = new Date();
+
+    if (tipoReporte === "mensual") {
+      const m = Number(mes ?? hoy.getMonth() + 1);
+      const y = Number(anio ?? hoy.getFullYear());
+      desde = new Date(y, m - 1, 1, 0, 0, 0, 0);
+      hasta = new Date(y, m, 1, 0, 0, 0, 0);
+      periodoLabel = `Mensual ${String(m).padStart(2, "0")}/${y}`;
+    } else if (tipoReporte === "anual") {
+      const y = Number(anio ?? hoy.getFullYear());
+      desde = new Date(y, 0, 1, 0, 0, 0, 0);
+      hasta = new Date(y + 1, 0, 1, 0, 0, 0, 0);
+      periodoLabel = `Anual ${y}`;
+    } else if (tipoReporte === "rango") {
+      desde = new Date(`${fechaInicio}T00:00:00`);
+      hasta = new Date(`${fechaFin}T23:59:59`);
+      periodoLabel = `Rango ${fechaInicio} a ${fechaFin}`;
+    } else {
       return res.status(400).json({ mensaje: "tipoReporte inválido" });
     }
-    if (tipoReporte === "mensual" && !mes) {
-      return res.status(400).json({ mensaje: "Debe enviar mes (1-12)" });
+
+    // 2) Armar filtros
+    const filtrosEvento = ["e.fechaHora >= ? AND e.fechaHora <= ?"];
+    const paramsEvento = [desde, hasta];
+
+    if (registroTipo) {
+      filtrosEvento.push("a.registroTipo = ?");
+      paramsEvento.push(registroTipo);
     }
-    if (tipoReporte === "rango" && (!fechaInicio || !fechaFin)) {
-      return res
-        .status(400)
-        .json({ mensaje: "Debe enviar fechaInicio y fechaFin (YYYY-MM-DD)" });
-    }
 
-    const { fIni, fFin, periodoLabel, fechaInicioTexto, fechaFinTexto } = rango(
-      { tipoReporte, mes, anio, fechaInicio, fechaFin }
+    // 3) Totales por tipo de acción (ajusta a tus enums reales)
+    const [[totales]] = await db.query(
+      `
+        SELECT
+          SUM(CASE WHEN e.accion = 'subida' THEN 1 ELSE 0 END)            AS subidos,
+          SUM(CASE WHEN e.accion = 'sustitucion' THEN 1 ELSE 0 END)       AS reemplazados,
+          SUM(CASE WHEN e.accion = 'eliminacion' THEN 1 ELSE 0 END)       AS eliminados,
+          SUM(CASE WHEN e.accion = 'borradoDefinitivo' THEN 1 ELSE 0 END) AS borrados
+        FROM eventosArchivo e
+        JOIN archivos a ON a.id = e.archivoId
+        WHERE ${filtrosEvento.join(" AND ")}
+      `,
+      paramsEvento
     );
 
-    // Totales normalizando histórico
-    const [[tot]] = await db.query(
-      `SELECT
-         SUM(e.accion IN ('subida','subidaArchivo'))            AS subidos,
-         SUM(e.accion IN ('sustitucion','sustitucionArchivo'))  AS reemplazados,
-         SUM(e.accion IN ('eliminacion','eliminacionArchivo'))  AS eliminados,
-         SUM(e.accion = 'borradoDefinitivo')                    AS borrados
-       FROM eventosArchivo e
-       JOIN archivos a ON a.id = e.archivoId
-      WHERE e.fechaHora >= ? AND e.fechaHora < ?
-        ${registroTipo ? "AND a.registroTipo = ?" : ""}`,
-      registroTipo ? [fIni, fFin, registroTipo] : [fIni, fFin]
+    // 4) Detalle (top N filas)
+    const [detalle] = await db.query(
+      `
+        SELECT
+          DATE_FORMAT(e.fechaHora, '%d/%m/%Y') AS fecha,
+          DATE_FORMAT(e.fechaHora, '%H:%i')    AS hora,
+          COALESCE(u.nombre, CONCAT('Usuario #', e.creadoPor)) AS usuario,
+          e.accion    AS tipoAccion,
+          a.nombreOriginal AS archivo
+        FROM eventosArchivo e
+        JOIN archivos a      ON a.id = e.archivoId
+        LEFT JOIN usuarios u ON u.id = e.creadoPor
+        WHERE ${filtrosEvento.join(" AND ")}
+        ORDER BY e.fechaHora DESC
+        LIMIT 500
+      `,
+      paramsEvento
     );
 
-    const totales = {
-      subidos: Number(tot?.subidos || 0),
-      reemplazados: Number(tot?.reemplazados || 0),
-      eliminados: Number(tot?.eliminados || 0),
-      borrados: Number(tot?.borrados || 0),
-    };
-
-    // Detalle (máx 500)
-    const [rows] = await db.query(
-      `SELECT 
-         e.fechaHora,
-         CASE
-           WHEN e.accion IN ('subida','subidaArchivo')           THEN 'subidaArchivo'
-           WHEN e.accion IN ('eliminacion','eliminacionArchivo') THEN 'eliminacionArchivo'
-           WHEN e.accion IN ('sustitucion','sustitucionArchivo') THEN 'sustitucionArchivo'
-           WHEN e.accion = 'borradoDefinitivo'                   THEN 'borradoDefinitivo'
-           ELSE ''
-         END AS accionNorm,
-         u.nombre         AS usuarioNombre,
-         a.nombreOriginal AS nombreArchivo,
-         a.extension      AS extension
-       FROM eventosArchivo e
-       JOIN archivos a ON a.id = e.archivoId
-  LEFT JOIN usuarios u ON u.id = e.creadoPor
-      WHERE e.fechaHora >= ? AND e.fechaHora < ?
-        ${registroTipo ? "AND a.registroTipo = ?" : ""}
-      ORDER BY e.fechaHora DESC
-      LIMIT 500`,
-      registroTipo ? [fIni, fFin, registroTipo] : [fIni, fFin]
-    );
-
-    const detalleMovimientos = rows
-      .filter((r) => r.accionNorm)
-      .map((r) => ({
-        fecha: new Date(r.fechaHora).toLocaleDateString("es-VE"),
-        hora: new Date(r.fechaHora).toLocaleTimeString("es-VE", {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        usuario: r.usuarioNombre || "—",
-        tipoAccion: r.accionNorm,
-        archivo: `${r.nombreArchivo || "—"}${
-          r.extension ? "." + r.extension : ""
-        }`,
-        observaciones: "",
-      }));
-
-    const html = generarHTMLEventosArchivos({
-      usuario: req.user?.nombre || "admin",
-      periodoLabel,
-      fechaInicioTexto,
-      fechaFinTexto,
-      totales,
-      detalleMovimientos,
-      logoUrl: null,
-      // si quieres ocultar el gráfico: mostrarGrafico:false
+    // 5) Generar PDF con PDFKit
+    const doc = new PDFDocument({ size: "A4", margin: 50 });
+    const chunks = [];
+    doc.on("data", (c) => chunks.push(c));
+    doc.on("end", () => {
+      const pdfBuffer = Buffer.concat(chunks);
+      res
+        .set({
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `inline; filename=reporte_movimientos_${tipoReporte}.pdf`,
+        })
+        .send(pdfBuffer);
     });
 
-    const browser = await puppeteer.launch({
-      args: chromium.args,
-      defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath(),
-      headless: chromium.headless,
-      ignoreHTTPSErrors: true,
+    // Encabezado
+    doc
+      .fontSize(16)
+      .text("REPORTE DE MOVIMIENTOS DE ARCHIVOS", { align: "left" });
+    doc.moveDown(0.3);
+    doc.fontSize(10).fillColor("#555").text(periodoLabel, { align: "left" });
+    doc.moveDown(0.8);
+    doc.fillColor("#000");
+
+    // Totales
+    doc.fontSize(12).text("Resumen", { underline: true });
+    doc.moveDown(0.3);
+    doc.fontSize(11);
+    doc.text(`Subidos: ${totales?.subidos ?? 0}`);
+    doc.text(`Reemplazados: ${totales?.reemplazados ?? 0}`);
+    doc.text(`Eliminados: ${totales?.eliminados ?? 0}`);
+    doc.text(`Borrados: ${totales?.borrados ?? 0}`);
+
+    // Detalle
+    doc.moveDown(0.8);
+    doc.fontSize(12).text("Detalle (máx. 500)", { underline: true });
+    doc.moveDown(0.3);
+    doc.fontSize(9);
+    detalle.forEach((r, i) => {
+      doc.text(
+        `${String(i + 1).padStart(3, "0")} | ${r.fecha} ${r.hora} | ${
+          r.usuario
+        } | ${r.tipoAccion} | ${r.archivo}`
+      );
     });
 
-    const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: "networkidle0" });
-
-    const pdf = await page.pdf({
-      format: "A4",
-      printBackground: true,
-      margin: { top: "14mm", bottom: "14mm", left: "12mm", right: "12mm" },
-    });
-
-    await browser.close();
-
-    res
-      .set({
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename=reporte_movimientos_${tipoReporte}.pdf`,
-      })
-      .send(pdf);
-  } catch (e) {
-    console.error("generarPdfMovimientosArchivos:", e);
-    res.status(500).json({ mensaje: "No fue posible generar el PDF" });
+    doc.end();
+  } catch (error) {
+    console.error("Error en generarPdfMovimientosArchivos:", error);
+    return res.status(500).json({ mensaje: "No se pudo generar el PDF" });
   }
 };

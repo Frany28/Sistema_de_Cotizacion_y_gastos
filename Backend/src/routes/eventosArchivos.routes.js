@@ -61,7 +61,7 @@ router.get(
 );
 
 router.get(
-  "/reporte/pdf",
+  "/reporte.pdf",
   autenticarUsuario,
   verificarPermiso("verEventosArchivos"),
   generarPdfMovimientosArchivos
