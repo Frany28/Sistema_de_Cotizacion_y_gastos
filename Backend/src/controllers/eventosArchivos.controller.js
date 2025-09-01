@@ -80,34 +80,48 @@ export const obtenerMetricasTablero = async (req, res) => {
 
 // Reemplazo de la función en src/controllers/eventosArchivos.controller.js
 export const obtenerTendenciaActividad = async (req, res) => {
-  // dias: por defecto 30, mínimo 7 y máximo 180 (igual que antes)
+  // dias: por defecto 30, mínimo 7 y máximo 180
   const dias = Math.max(7, Math.min(180, Number(req.query.dias ?? 30)));
-  const { registroTipo, accion } = req.query;
-
-  // Rango de fechas (diario, truncando a 00:00)
-  const fechaFin = new Date();
-  fechaFin.setHours(0, 0, 0, 0);
-  const fechaInicio = new Date(fechaFin);
-  fechaInicio.setDate(fechaFin.getDate() - (dias - 1));
+  const { registroTipo, accion, todo } = req.query;
 
   try {
-    // 1) Normalizamos acciones en una subconsulta para unificar histórico:
-    //    'subida' | 'subidaArchivo'           → 'subidaArchivo'
-    //    'eliminacion' | 'eliminacionArchivo' → 'eliminacionArchivo'
-    //    'sustitucion' | 'sustitucionArchivo' → 'sustitucionArchivo'
-    //    'borradoDefinitivo'                  → 'borradoDefinitivo'
-    //
-    //    Nota: descartamos acciones vacías.
-    const params = [fechaInicio, fechaFin];
+    // 1) Rango de fechas diario
+    //    - fechaFin = inicio de mañana → incluye el día actual con condición "< fechaFin"
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+
+    const fechaFin = new Date(hoy);
+    fechaFin.setDate(fechaFin.getDate() + 1); // inicio de mañana
+
+    const fechaInicio = new Date(fechaFin);
+    fechaInicio.setDate(fechaFin.getDate() - dias); // últimos "dias" incluyendo hoy
+
+    // 2) Histórico completo si ?todo=1 → tomar la menor fecha existente
+    if (String(todo) === "1") {
+      const [[minRow]] = await db.query(
+        `SELECT MIN(DATE(fechaHora)) AS fechaMin
+           FROM eventosArchivo`
+      );
+      if (minRow?.fechaMin) {
+        const fechaMinDb = new Date(minRow.fechaMin);
+        fechaMinDb.setHours(0, 0, 0, 0);
+        fechaInicio.setTime(fechaMinDb.getTime());
+      }
+    }
+
+    // 3) Armar filtros dinámicos (acción normalizada y tipo de registro)
+    const params = [];
     const filtrosEv = [];
     const filtrosJoinArch = [];
 
     if (accion) {
-      // Filtramos por la acción ya normalizada
       filtrosEv.push(`ev.accionNorm = ?`);
       params.push(accion);
     } else {
-      filtrosEv.push(`ev.accionNorm <> ''`);
+      // por defecto, descartar vacíos y usar las 4 oficiales
+      filtrosEv.push(
+        `ev.accionNorm IN ('subidaArchivo','eliminacionArchivo','sustitucionArchivo','borradoDefinitivo')`
+      );
     }
 
     if (registroTipo) {
@@ -120,6 +134,7 @@ export const obtenerTendenciaActividad = async (req, res) => {
       ? `AND ${filtrosJoinArch.join(" AND ")}`
       : "";
 
+    // 4) Consulta con calendario diario y normalización de acciones
     const [rows] = await db.query(
       `
       WITH RECURSIVE fechas AS (
@@ -130,14 +145,14 @@ export const obtenerTendenciaActividad = async (req, res) => {
       ),
       eventosNorm AS (
         SELECT
-          DATE(e.fechaHora)     AS fechaDia,
+          DATE(e.fechaHora) AS fechaDia,
           CASE
             WHEN e.accion IN ('subida','subidaArchivo')                 THEN 'subidaArchivo'
             WHEN e.accion IN ('eliminacion','eliminacionArchivo')       THEN 'eliminacionArchivo'
             WHEN e.accion IN ('sustitucion','sustitucionArchivo')       THEN 'sustitucionArchivo'
             WHEN e.accion = 'borradoDefinitivo'                         THEN 'borradoDefinitivo'
             ELSE ''
-          END                      AS accionNorm,
+          END AS accionNorm,
           e.archivoId
         FROM eventosArchivo e
         WHERE e.fechaHora >= ? AND e.fechaHora < ?
@@ -156,14 +171,20 @@ export const obtenerTendenciaActividad = async (req, res) => {
         SUM(CASE WHEN ev.accionNorm = 'borradoDefinitivo'   THEN 1 ELSE 0 END) AS borradosDefinitivos
       FROM fechas f
       LEFT JOIN ev ON ev.fechaDia = f.f
-      ${whereEv ? whereEv.replaceAll("ev.", "ev.") : ""}
+      ${whereEv}
       GROUP BY f.f
       ORDER BY f.f ASC
       `,
-      [fechaInicio, fechaFin, fechaInicio, fechaFin, ...params.slice(2)]
+      // params de fechas al inicio, luego filtros dinámicos
+      [fechaInicio, fechaFin, fechaInicio, fechaFin, ...params]
     );
 
-    return res.json({ desde: fechaInicio, hasta: fechaFin, dias, serie: rows });
+    return res.json({
+      desde: fechaInicio,
+      hasta: fechaFin,
+      dias,
+      serie: rows,
+    });
   } catch (error) {
     console.error("Error en obtenerTendenciaActividad:", error);
     return res.status(500).json({ mensaje: "Error al obtener tendencia" });
