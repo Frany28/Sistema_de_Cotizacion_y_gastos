@@ -1,3 +1,4 @@
+// ModalOpcionesReporte.jsx
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
@@ -17,7 +18,32 @@ export default function ModalOpcionesReporte({
   const [fechaInicio, setFechaInicio] = useState("");
   const [fechaFin, setFechaFin] = useState("");
 
-  // Bloqueo de scroll al abrir
+  // ===== Helpers de fecha (dd/mm/yyyy <-> yyyy-mm-dd) =====
+  const pad2 = (v) => v.toString().padStart(2, "0");
+
+  // Convierte dd/mm/yyyy -> yyyy-mm-dd (para comparar/enviar a backend si se requiere)
+  const formatearFechaGuardar = (fechaUi) => {
+    if (!fechaUi) return "";
+    const [dia, mes, anio] = fechaUi.split("/");
+    return `${anio}-${pad2(mes)}-${pad2(dia)}`;
+  };
+
+  // Enmascara mientras el usuario escribe: "dd/mm/yyyy"
+  const enmascararFechaUi = (valor) => {
+    const soloDigitos = valor.replace(/[^\d]/g, "");
+    const d = soloDigitos.slice(0, 2);
+    const m = soloDigitos.slice(2, 4);
+    const a = soloDigitos.slice(4, 8);
+    let salida = d;
+    if (m) salida += "/" + m;
+    if (a) salida += "/" + a;
+    return salida;
+  };
+
+  // Valida patrón dd/mm/yyyy (validación de formato, no del calendario real)
+  const esFechaUiValida = (valor) => /^\d{2}\/\d{2}\/\d{4}$/.test(valor);
+
+  // ===== Bloqueo de scroll al abrir =====
   useEffect(() => {
     if (!visible) return;
     const prevOverflow = document.body.style.overflow;
@@ -27,7 +53,7 @@ export default function ModalOpcionesReporte({
     };
   }, [visible]);
 
-  // Cerrar con Escape
+  // ===== Cerrar con Escape =====
   useEffect(() => {
     if (!visible) return;
     const manejarTecla = (e) => e.key === "Escape" && onClose?.();
@@ -41,6 +67,7 @@ export default function ModalOpcionesReporte({
 
   const confirmar = () => {
     const opcionesSeleccion = { tipoReporte };
+
     if (tipoReporte === "mensual") {
       Object.assign(opcionesSeleccion, { mes, anio });
     } else if (tipoReporte === "anual") {
@@ -50,16 +77,23 @@ export default function ModalOpcionesReporte({
         alert("Selecciona un rango válido (fecha fin ≥ fecha inicio).");
         return;
       }
-      const inicioISO = formatearFechaGuardar(fechaInicio);
-      const finISO = formatearFechaGuardar(fechaFin);
+      if (!esFechaUiValida(fechaInicio) || !esFechaUiValida(fechaFin)) {
+        alert("Formato de fecha inválido. Usa dd/mm/yyyy.");
+        return;
+      }
 
-      if (finISO < inicioISO) {
+      const inicioIso = formatearFechaGuardar(fechaInicio);
+      const finIso = formatearFechaGuardar(fechaFin);
+
+      if (finIso < inicioIso) {
         alert("Selecciona un rango válido (fecha fin ≥ fecha inicio).");
         return;
       }
 
+      // Si tu backend espera ISO, cambia a: { fechaInicio: inicioIso, fechaFin: finIso }
       Object.assign(opcionesSeleccion, { fechaInicio, fechaFin });
     }
+
     onConfirmar?.(opcionesSeleccion);
   };
 
@@ -71,20 +105,6 @@ export default function ModalOpcionesReporte({
   };
 
   if (!visible || typeof document === "undefined") return null;
-
-  // Convierte yyyy-mm-dd a dd/mm/yyyy
-  const formatearFechaMostrar = (fecha) => {
-    if (!fecha) return "";
-    const [anio, mes, dia] = fecha.split("-");
-    return `${dia}/${mes}/${anio}`;
-  };
-
-  // Convierte dd/mm/yyyy a yyyy-mm-dd (para el input type=date)
-  const formatearFechaGuardar = (fecha) => {
-    if (!fecha) return "";
-    const [dia, mes, anio] = fecha.split("/");
-    return `${anio}-${mes}-${dia}`;
-  };
 
   return createPortal(
     <AnimatePresence>
@@ -226,10 +246,12 @@ export default function ModalOpcionesReporte({
                       Fecha inicio
                     </label>
                     <input
-                      type="date"
-                      value={formatearFechaGuardar(fechaInicio)}
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="dd/mm/yyyy"
+                      value={fechaInicio}
                       onChange={(e) =>
-                        setFechaInicio(formatearFechaMostrar(e.target.value))
+                        setFechaInicio(enmascararFechaUi(e.target.value))
                       }
                       className="bg-gray-700/60 border border-white/10 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
@@ -237,13 +259,23 @@ export default function ModalOpcionesReporte({
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs text-gray-300">Fecha fin</label>
                     <input
-                      type="date"
-                      value={formatearFechaGuardar(fechaFin)}
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="dd/mm/yyyy"
+                      value={fechaFin}
                       onChange={(e) =>
-                        setFechaFin(formatearFechaMostrar(e.target.value))
+                        setFechaFin(enmascararFechaUi(e.target.value))
                       }
                       className="bg-gray-700/60 border border-white/10 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
+                  </div>
+
+                  {/* Ayuda visual opcional */}
+                  <div className="sm:col-span-2">
+                    <p className="text-xs text-gray-400">
+                      Selección: {fechaInicio || "--/--/----"} —{" "}
+                      {fechaFin || "--/--/----"}
+                    </p>
                   </div>
                 </div>
               )}
