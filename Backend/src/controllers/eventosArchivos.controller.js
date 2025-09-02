@@ -182,7 +182,6 @@ export const obtenerTendenciaActividad = async (req, res) => {
 
 /* =====  B) FEED DE ACTIVIDAD  ===== */
 
-// B) FEED DE ACTIVIDAD — Enum estricto y tiposDisponibles/total
 export const listarActividadReciente = async (req, res) => {
   const creadoPorUsuario = req.user.id;
   const rolId = req.user.rol_id;
