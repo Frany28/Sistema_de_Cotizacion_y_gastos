@@ -46,10 +46,18 @@ export default function ModalOpcionesReporte({
     } else if (tipoReporte === "anual") {
       Object.assign(opcionesSeleccion, { anio });
     } else if (tipoReporte === "rango") {
-      if (!fechaInicio || !fechaFin || fechaFin < fechaInicio) {
+      if (!fechaInicio || !fechaFin) {
         alert("Selecciona un rango válido (fecha fin ≥ fecha inicio).");
         return;
       }
+      const inicioISO = formatearFechaGuardar(fechaInicio);
+      const finISO = formatearFechaGuardar(fechaFin);
+
+      if (finISO < inicioISO) {
+        alert("Selecciona un rango válido (fecha fin ≥ fecha inicio).");
+        return;
+      }
+
       Object.assign(opcionesSeleccion, { fechaInicio, fechaFin });
     }
     onConfirmar?.(opcionesSeleccion);
@@ -63,6 +71,20 @@ export default function ModalOpcionesReporte({
   };
 
   if (!visible || typeof document === "undefined") return null;
+
+  // Convierte yyyy-mm-dd a dd/mm/yyyy
+  const formatearFechaMostrar = (fecha) => {
+    if (!fecha) return "";
+    const [anio, mes, dia] = fecha.split("-");
+    return `${dia}/${mes}/${anio}`;
+  };
+
+  // Convierte dd/mm/yyyy a yyyy-mm-dd (para el input type=date)
+  const formatearFechaGuardar = (fecha) => {
+    if (!fecha) return "";
+    const [dia, mes, anio] = fecha.split("/");
+    return `${anio}-${mes}-${dia}`;
+  };
 
   return createPortal(
     <AnimatePresence>
@@ -205,8 +227,10 @@ export default function ModalOpcionesReporte({
                     </label>
                     <input
                       type="date"
-                      value={fechaInicio}
-                      onChange={(e) => setFechaInicio(e.target.value)}
+                      value={formatearFechaGuardar(fechaInicio)}
+                      onChange={(e) =>
+                        setFechaInicio(formatearFechaMostrar(e.target.value))
+                      }
                       className="bg-gray-700/60 border border-white/10 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
@@ -214,8 +238,10 @@ export default function ModalOpcionesReporte({
                     <label className="text-xs text-gray-300">Fecha fin</label>
                     <input
                       type="date"
-                      value={fechaFin}
-                      onChange={(e) => setFechaFin(e.target.value)}
+                      value={formatearFechaGuardar(fechaFin)}
+                      onChange={(e) =>
+                        setFechaFin(formatearFechaMostrar(e.target.value))
+                      }
                       className="bg-gray-700/60 border border-white/10 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>

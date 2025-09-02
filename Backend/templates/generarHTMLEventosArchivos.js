@@ -1,6 +1,3 @@
-// templates/generarHTMLEventosArchivos.js
-// Versión Tailwind (CDN). Maquetado igual a la imagen de referencia.
-// Compatible con tu flujo actual que inyecta HTML para generar PDF.  (© Sistema de Cotización y Gastos)
 
 function escaparHtml(texto) {
   if (texto == null) return "";

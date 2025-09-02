@@ -25,7 +25,7 @@ const TarjetaArchivosSubidos = () => {
     <div className="w-[326px] h-[158px] bg-gray-800 rounded-xl p-2 relative shadow-md border border-gray-700">
       <div className="flex flex-col justify-center h-full gap-3">
         <FilePlus className="text-blue-500 ml-6" size={25} />
-        <p className=" text-sm text-gray-400 ml-7">Archivos Subidos</p>
+        <p className=" text-sm text-gray-400 ml-7">Archivos Subidos este mes</p>
         {cargando ? (
           <div className="h-8 bg-gray-700/50 rounded w-1/2 animate-pulse ml-7" />
         ) : (
