@@ -487,7 +487,6 @@ function rango({ tipoReporte, mes, anio, fechaInicio, fechaFin }) {
   };
 }
 
-
 export const generarPdfMovimientosArchivos = async (req, res) => {
   try {
     // 1) Leer parámetros (mismos que usa el front/modal)
@@ -556,19 +555,20 @@ export const generarPdfMovimientosArchivos = async (req, res) => {
     // 5) Detalle
     const [detalle] = await db.query(
       `
-      SELECT
-        DATE_FORMAT(e.fechaHora, '%d/%m/%Y') AS fecha,
-        DATE_FORMAT(e.fechaHora, '%H:%i')    AS hora,
-        COALESCE(u.nombre, CONCAT('Usuario #', e.creadoPor)) AS usuario,
-        e.accion    AS tipoAccion,        -- luego lo mapeamos en la plantilla
-        a.nombreOriginal AS archivo,
-        COALESCE(JSON_UNQUOTE(JSON_EXTRACT(e.metadata,'$.motivo')), '') AS observaciones
-      FROM eventosArchivo e
-      JOIN archivos a      ON a.id = e.archivoId
-      LEFT JOIN usuarios u ON u.id = e.creadoPor
-      WHERE ${filtrosEvento.join(" AND ")}
-      ORDER BY e.fechaHora DESC
-      LIMIT 500
+          SELECT
+      DATE_FORMAT(e.fechaHora, '%d/%m/%Y') AS fecha,
+      DATE_FORMAT(e.fechaHora, '%H:%i')    AS hora,
+      COALESCE(u.nombre, CONCAT('Usuario #', e.creadoPor)) AS usuario,
+      e.accion               AS tipoAccion,
+      a.nombreOriginal       AS archivo,
+      COALESCE(JSON_UNQUOTE(JSON_EXTRACT(e.detalles,'$.motivo')), '') AS observaciones
+    FROM eventosArchivo e
+    JOIN archivos a      ON a.id = e.archivoId
+    LEFT JOIN usuarios u ON u.id = e.creadoPor
+    WHERE e.fechaHora >= ? AND e.fechaHora <= ?
+    ORDER BY e.fechaHora DESC
+    LIMIT 500;
+
       `,
       paramsEvento
     );
