@@ -487,20 +487,21 @@ function rango({ tipoReporte, mes, anio, fechaInicio, fechaFin }) {
   };
 }
 
+
 export const generarPdfMovimientosArchivos = async (req, res) => {
   try {
-    // 1) Leer parámetros
+    // 1) Leer parámetros (mismos que usa el front/modal)
     const {
       tipoReporte = "mensual",
       mes,
       anio,
       fechaInicio,
       fechaFin,
-      registroTipo,
+      registroTipo, // firmas | facturasGastos | ...
     } = req.query;
 
-    // Normalizar rango de fechas
-    let desde, hasta, periodoLabel;
+    // 2) Normalizar rango (mismo criterio que ya usabas)
+    let desde, hasta, periodoLabel, fechaInicioTexto, fechaFinTexto;
     const hoy = new Date();
 
     if (tipoReporte === "mensual") {
@@ -509,108 +510,117 @@ export const generarPdfMovimientosArchivos = async (req, res) => {
       desde = new Date(y, m - 1, 1, 0, 0, 0, 0);
       hasta = new Date(y, m, 1, 0, 0, 0, 0);
       periodoLabel = `Mensual ${String(m).padStart(2, "0")}/${y}`;
+      fechaInicioTexto = desde.toLocaleDateString("es-VE");
+      fechaFinTexto = new Date(hasta - 1).toLocaleDateString("es-VE");
     } else if (tipoReporte === "anual") {
       const y = Number(anio ?? hoy.getFullYear());
       desde = new Date(y, 0, 1, 0, 0, 0, 0);
       hasta = new Date(y + 1, 0, 1, 0, 0, 0, 0);
       periodoLabel = `Anual ${y}`;
+      fechaInicioTexto = desde.toLocaleDateString("es-VE");
+      fechaFinTexto = new Date(hasta - 1).toLocaleDateString("es-VE");
     } else if (tipoReporte === "rango") {
       desde = new Date(`${fechaInicio}T00:00:00`);
       hasta = new Date(`${fechaFin}T23:59:59`);
       periodoLabel = `Rango ${fechaInicio} a ${fechaFin}`;
+      fechaInicioTexto = desde.toLocaleDateString("es-VE");
+      fechaFinTexto = hasta.toLocaleDateString("es-VE");
     } else {
       return res.status(400).json({ mensaje: "tipoReporte inválido" });
     }
 
-    // 2) Armar filtros
+    // 3) Filtros SQL
     const filtrosEvento = ["e.fechaHora >= ? AND e.fechaHora <= ?"];
     const paramsEvento = [desde, hasta];
-
     if (registroTipo) {
       filtrosEvento.push("a.registroTipo = ?");
       paramsEvento.push(registroTipo);
     }
 
-    // 3) Totales por tipo de acción (ajusta a tus enums reales)
+    // 4) Totales (alinea con tus enums reales en la tabla eventosArchivo:
+    // 'subida','sustitucion','eliminacion','borradoDefinitivo')
     const [[totales]] = await db.query(
       `
-        SELECT
-          SUM(CASE WHEN e.accion = 'subida' THEN 1 ELSE 0 END)            AS subidos,
-          SUM(CASE WHEN e.accion = 'sustitucion' THEN 1 ELSE 0 END)       AS reemplazados,
-          SUM(CASE WHEN e.accion = 'eliminacion' THEN 1 ELSE 0 END)       AS eliminados,
-          SUM(CASE WHEN e.accion = 'borradoDefinitivo' THEN 1 ELSE 0 END) AS borrados
-        FROM eventosArchivo e
-        JOIN archivos a ON a.id = e.archivoId
-        WHERE ${filtrosEvento.join(" AND ")}
+      SELECT
+        SUM(CASE WHEN e.accion = 'subida' THEN 1 ELSE 0 END)            AS subidos,
+        SUM(CASE WHEN e.accion = 'sustitucion' THEN 1 ELSE 0 END)       AS reemplazados,
+        SUM(CASE WHEN e.accion = 'eliminacion' THEN 1 ELSE 0 END)       AS eliminados,
+        SUM(CASE WHEN e.accion = 'borradoDefinitivo' THEN 1 ELSE 0 END) AS borrados
+      FROM eventosArchivo e
+      JOIN archivos a ON a.id = e.archivoId
+      WHERE ${filtrosEvento.join(" AND ")}
       `,
       paramsEvento
     );
 
-    // 4) Detalle (top N filas)
+    // 5) Detalle
     const [detalle] = await db.query(
       `
-        SELECT
-          DATE_FORMAT(e.fechaHora, '%d/%m/%Y') AS fecha,
-          DATE_FORMAT(e.fechaHora, '%H:%i')    AS hora,
-          COALESCE(u.nombre, CONCAT('Usuario #', e.creadoPor)) AS usuario,
-          e.accion    AS tipoAccion,
-          a.nombreOriginal AS archivo
-        FROM eventosArchivo e
-        JOIN archivos a      ON a.id = e.archivoId
-        LEFT JOIN usuarios u ON u.id = e.creadoPor
-        WHERE ${filtrosEvento.join(" AND ")}
-        ORDER BY e.fechaHora DESC
-        LIMIT 500
+      SELECT
+        DATE_FORMAT(e.fechaHora, '%d/%m/%Y') AS fecha,
+        DATE_FORMAT(e.fechaHora, '%H:%i')    AS hora,
+        COALESCE(u.nombre, CONCAT('Usuario #', e.creadoPor)) AS usuario,
+        e.accion    AS tipoAccion,        -- luego lo mapeamos en la plantilla
+        a.nombreOriginal AS archivo,
+        COALESCE(JSON_UNQUOTE(JSON_EXTRACT(e.metadata,'$.motivo')), '') AS observaciones
+      FROM eventosArchivo e
+      JOIN archivos a      ON a.id = e.archivoId
+      LEFT JOIN usuarios u ON u.id = e.creadoPor
+      WHERE ${filtrosEvento.join(" AND ")}
+      ORDER BY e.fechaHora DESC
+      LIMIT 500
       `,
       paramsEvento
     );
 
-    // 5) Generar PDF con PDFKit
-    const doc = new PDFDocument({ size: "A4", margin: 50 });
-    const chunks = [];
-    doc.on("data", (c) => chunks.push(c));
-    doc.on("end", () => {
-      const pdfBuffer = Buffer.concat(chunks);
-      res
-        .set({
-          "Content-Type": "application/pdf",
-          "Content-Disposition": `inline; filename=reporte_movimientos_${tipoReporte}.pdf`,
-        })
-        .send(pdfBuffer);
+    // 6) Construir HTML con la plantilla pro (Tailwind)
+    const html = generarHTMLEventosArchivos({
+      usuario: req.user?.nombre || "admin",
+      fechaInicioTexto,
+      fechaFinTexto,
+      totales: {
+        subidos: Number(totales?.subidos || 0),
+        reemplazados: Number(totales?.reemplazados || 0),
+        eliminados: Number(totales?.eliminados || 0),
+        borrados: Number(totales?.borrados || 0),
+      },
+      detalleMovimientos: detalle.map((r) => ({
+        fecha: r.fecha,
+        hora: r.hora,
+        usuario: r.usuario,
+        tipoAccion: r.tipoAccion, // la plantilla lo normaliza a texto legible
+        archivo: r.archivo,
+        observaciones: r.observaciones || "",
+      })),
+      logoUrl: null,
+      mostrarGrafico: true,
+      mostrarDetalle: true,
+      tituloReporte: "REPORTE DE MOVIMIENTOS DE ARCHIVOS",
     });
 
-    // Encabezado
-    doc
-      .fontSize(16)
-      .text("REPORTE DE MOVIMIENTOS DE ARCHIVOS", { align: "left" });
-    doc.moveDown(0.3);
-    doc.fontSize(10).fillColor("#555").text(periodoLabel, { align: "left" });
-    doc.moveDown(0.8);
-    doc.fillColor("#000");
-
-    // Totales
-    doc.fontSize(12).text("Resumen", { underline: true });
-    doc.moveDown(0.3);
-    doc.fontSize(11);
-    doc.text(`Subidos: ${totales?.subidos ?? 0}`);
-    doc.text(`Reemplazados: ${totales?.reemplazados ?? 0}`);
-    doc.text(`Eliminados: ${totales?.eliminados ?? 0}`);
-    doc.text(`Borrados: ${totales?.borrados ?? 0}`);
-
-    // Detalle
-    doc.moveDown(0.8);
-    doc.fontSize(12).text("Detalle (máx. 500)", { underline: true });
-    doc.moveDown(0.3);
-    doc.fontSize(9);
-    detalle.forEach((r, i) => {
-      doc.text(
-        `${String(i + 1).padStart(3, "0")} | ${r.fecha} ${r.hora} | ${
-          r.usuario
-        } | ${r.tipoAccion} | ${r.archivo}`
-      );
+    // 7) Renderizar con Chromium (AWS Lambda ready)
+    const browser = await puppeteer.launch({
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
     });
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: "networkidle0" });
+    const pdfBuffer = await page.pdf({
+      printBackground: true,
+      format: "A4",
+      margin: { top: "16mm", right: "14mm", bottom: "14mm", left: "14mm" },
+      preferCSSPageSize: true,
+    });
+    await browser.close();
 
-    doc.end();
+    res
+      .set({
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `inline; filename=reporte_movimientos_${tipoReporte}.pdf`,
+      })
+      .send(pdfBuffer);
   } catch (error) {
     console.error("Error en generarPdfMovimientosArchivos:", error);
     return res.status(500).json({ mensaje: "No se pudo generar el PDF" });
