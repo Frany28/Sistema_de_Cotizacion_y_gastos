@@ -13,9 +13,25 @@ function formatearNumero(n) {
   return new Intl.NumberFormat("es-VE").format(x);
 }
 
+/* === Etiquetas legibles unificadas (UI) === */
+const etiquetasResumen = {
+  subidos: "Subidos",
+  reemplazados: "Reemplazados",
+  eliminados: "Eliminados (enviados a papelera)",
+  borrados: "Borrados definitivamente (desde papelera)",
+};
+
+/* Mapa de acciones para la tabla de detalle (coherente con ENUM BD) */
+const mapaAcciones = {
+  subidaArchivo: "Subida",
+  sustitucionArchivo: "Sustitución",
+  eliminacionArchivo: "Eliminación (enviada a papelera)",
+  borradoDefinitivo: "Borrado definitivo (desde papelera)",
+};
+
 /**
  * Genera el HTML A4 del reporte de eventos de archivos.
- * ► Mantiene los mismos nombres/estructura que consumes en el controlador.  :contentReference[oaicite:3]{index=3}
+ * ► Mantiene los mismos nombres/estructura que consumes en el controlador.
  * @param {Object} opciones
  * @param {string} opciones.usuario
  * @param {string} opciones.fechaInicioTexto  dd/mm/yyyy
@@ -44,10 +60,19 @@ export function generarHTMLEventosArchivos({
 
   /* ======= Datos para el gráfico ======= */
   const barras = [
-    { etiqueta: "Subidos", valor: Number(totales.subidos || 0) },
-    { etiqueta: "Reemplazados", valor: Number(totales.reemplazados || 0) },
-    { etiqueta: "Eliminados", valor: Number(totales.eliminados || 0) },
-    { etiqueta: "Borrados", valor: Number(totales.borrados || 0) },
+    { etiqueta: etiquetasResumen.subidos, valor: Number(totales.subidos || 0) },
+    {
+      etiqueta: etiquetasResumen.reemplazados,
+      valor: Number(totales.reemplazados || 0),
+    },
+    {
+      etiqueta: etiquetasResumen.eliminados,
+      valor: Number(totales.eliminados || 0),
+    },
+    {
+      etiqueta: etiquetasResumen.borrados,
+      valor: Number(totales.borrados || 0),
+    },
   ];
   const maxValor = Math.max(1, ...barras.map((b) => b.valor));
   const svgBarras = barras
@@ -77,13 +102,6 @@ export function generarHTMLEventosArchivos({
     .join("");
 
   /* ======= Filas del detalle ======= */
-  const mapaAcciones = {
-    subidaArchivo: "Subida",
-    sustitucionArchivo: "Sustitución",
-    eliminacionArchivo: "Eliminación",
-    borradoDefinitivo: "Borrado definitivo",
-  }; // coherente con ENUM BD. :contentReference[oaicite:4]{index=4}
-
   const filasDetalle = (detalleMovimientos || [])
     .map((r) => {
       const accionLegible = mapaAcciones[r.tipoAccion] || r.tipoAccion || "";
@@ -174,7 +192,7 @@ export function generarHTMLEventosArchivos({
               <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l4 4h-3v6h-2V7H8l4-4z"></path><path d="M4 14h2v5h12v-5h2v7H4z"></path></svg>
             </div>
             <div>
-              <div class="caption">Total de archivos subidos</div>
+              <div class="caption">Total de archivos ${etiquetasResumen.subidos.toLowerCase()}</div>
               <div class="text-[22px] font-extrabold leading-6">${formatearNumero(
                 totales.subidos
               )}</div>
@@ -190,7 +208,7 @@ export function generarHTMLEventosArchivos({
               <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7 7h7l-2-2h4l3 3-3 3h-4l2-2H7V7zM17 17H10l2 2H8l-3-3 3-3h4l-2 2h7v2z"></path></svg>
             </div>
             <div>
-              <div class="caption">Total de archivos reemplazados</div>
+              <div class="caption">Total de archivos ${etiquetasResumen.reemplazados.toLowerCase()}</div>
               <div class="text-[22px] font-extrabold leading-6">${formatearNumero(
                 totales.reemplazados
               )}</div>
@@ -198,7 +216,7 @@ export function generarHTMLEventosArchivos({
           </div>
         </div>
 
-        <!-- Card Eliminados -->
+        <!-- Card Eliminados (papelera) -->
         <div class="card rounded-xl p-4 border border-slate-200 bg-white">
           <div class="flex items-center gap-3">
             <div class="shrink-0 w-9 h-9 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center">
@@ -206,7 +224,7 @@ export function generarHTMLEventosArchivos({
               <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v8h-2V9zm4 0h2v8h-2V9zM6 9h2v8H6V9z"></path></svg>
             </div>
             <div>
-              <div class="caption">Total de archivos eliminados</div>
+              <div class="caption">Total de archivos ${etiquetasResumen.eliminados.toLowerCase()}</div>
               <div class="text-[22px] font-extrabold leading-6">${formatearNumero(
                 totales.eliminados
               )}</div>
@@ -222,7 +240,7 @@ export function generarHTMLEventosArchivos({
               <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16.24 3.56l4.24 4.24-9.9 9.9H6.34L2.1 13.46l9.9-9.9a2 2 0 012.83 0zM5.62 15.9l2.83 2.83h3.18l6.36-6.36-3.18-3.18-9.19 9.19zM20 20v2H8v-2h12z"/></svg>
             </div>
             <div>
-              <div class="caption">Total de archivos borrados</div>
+              <div class="caption">Total de archivos ${etiquetasResumen.borrados.toLowerCase()}</div>
               <div class="text-[22px] font-extrabold leading-6">${formatearNumero(
                 totales.borrados
               )}</div>
@@ -295,11 +313,6 @@ export function generarHTMLEventosArchivos({
 
   <!-- MARCA DE AGUA SUAVE -->
   <div class="watermark">Point Technology</div>
-
-  <!-- PIE -->
-  <footer class="mt-4 text-[10px] caption">
-    * Fuente de datos: API Eventos de Archivos (rutas y controlador vigentes). :contentReference[oaicite:5]{index=5} :contentReference[oaicite:6]{index=6}
-  </footer>
 </body>
 </html>`;
 }
