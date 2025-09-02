@@ -489,91 +489,103 @@ function rango({ tipoReporte, mes, anio, fechaInicio, fechaFin }) {
 
 export const generarPdfMovimientosArchivos = async (req, res) => {
   try {
-    // 1) Leer parámetros (mismos que usa el front/modal)
+    // 1) Parámetros del query
     const {
       tipoReporte = "mensual",
       mes,
       anio,
       fechaInicio,
       fechaFin,
-      registroTipo, // firmas | facturasGastos | ...
+      registroTipo, // ej: 'firmas' | 'facturasGastos' | ...
     } = req.query;
 
-    // 2) Normalizar rango (mismo criterio que ya usabas)
-    let desde, hasta, periodoLabel, fechaInicioTexto, fechaFinTexto;
+    // 2) Calcular rango [desde, hasta) (half-open)
+    let desde, hasta, fechaInicioTexto, fechaFinTexto;
     const hoy = new Date();
 
     if (tipoReporte === "mensual") {
-      const m = Number(mes ?? hoy.getMonth() + 1);
-      const y = Number(anio ?? hoy.getFullYear());
-      desde = new Date(y, m - 1, 1, 0, 0, 0, 0);
-      hasta = new Date(y, m, 1, 0, 0, 0, 0);
-      periodoLabel = `Mensual ${String(m).padStart(2, "0")}/${y}`;
+      const mesNum = Number(mes ?? hoy.getMonth() + 1);
+      const anioNum = Number(anio ?? hoy.getFullYear());
+      desde = new Date(anioNum, mesNum - 1, 1, 0, 0, 0, 0);
+      hasta = new Date(anioNum, mesNum, 1, 0, 0, 0, 0);
       fechaInicioTexto = desde.toLocaleDateString("es-VE");
       fechaFinTexto = new Date(hasta - 1).toLocaleDateString("es-VE");
     } else if (tipoReporte === "anual") {
-      const y = Number(anio ?? hoy.getFullYear());
-      desde = new Date(y, 0, 1, 0, 0, 0, 0);
-      hasta = new Date(y + 1, 0, 1, 0, 0, 0, 0);
-      periodoLabel = `Anual ${y}`;
+      const anioNum = Number(anio ?? hoy.getFullYear());
+      desde = new Date(anioNum, 0, 1, 0, 0, 0, 0);
+      hasta = new Date(anioNum + 1, 0, 1, 0, 0, 0, 0);
       fechaInicioTexto = desde.toLocaleDateString("es-VE");
       fechaFinTexto = new Date(hasta - 1).toLocaleDateString("es-VE");
     } else if (tipoReporte === "rango") {
+      // rango explícito del usuario
       desde = new Date(`${fechaInicio}T00:00:00`);
-      hasta = new Date(`${fechaFin}T23:59:59`);
-      periodoLabel = `Rango ${fechaInicio} a ${fechaFin}`;
+      // usamos hasta como el INICIO del día siguiente para mantener "< hasta"
+      const finDia = new Date(`${fechaFin}T23:59:59`);
+      hasta = new Date(finDia.getTime() + 1000); // +1s para saltar al siguiente día
       fechaInicioTexto = desde.toLocaleDateString("es-VE");
-      fechaFinTexto = hasta.toLocaleDateString("es-VE");
+      // mostramos al usuario el fin inclusivo original
+      fechaFinTexto = new Date(hasta - 1).toLocaleDateString("es-VE");
     } else {
       return res.status(400).json({ mensaje: "tipoReporte inválido" });
     }
 
-    // 3) Filtros SQL
-    const filtrosEvento = ["e.fechaHora >= ? AND e.fechaHora <= ?"];
-    const paramsEvento = [desde, hasta];
+    // 3) Filtros comunes
+    const filtrosJoin = ["e.fechaHora >= ? AND e.fechaHora < ?"];
+    const paramsJoin = [desde, hasta];
     if (registroTipo) {
-      filtrosEvento.push("a.registroTipo = ?");
-      paramsEvento.push(registroTipo);
+      filtrosJoin.push("a.registroTipo = ?");
+      paramsJoin.push(registroTipo);
     }
+    const whereJoin = filtrosJoin.join(" AND ");
 
-    // 4) Totales (alinea con tus enums reales en la tabla eventosArchivo:
-    // 'subida','sustitucion','eliminacion','borradoDefinitivo')
+    // 4) Totales normalizados a los 4 ENUM oficiales de la BD
+    //    (subidaArchivo, sustitucionArchivo, eliminacionArchivo, borradoDefinitivo)
     const [[totales]] = await db.query(
       `
       SELECT
-        SUM(CASE WHEN e.accion = 'subida' THEN 1 ELSE 0 END)            AS subidos,
-        SUM(CASE WHEN e.accion = 'sustitucion' THEN 1 ELSE 0 END)       AS reemplazados,
-        SUM(CASE WHEN e.accion = 'eliminacion' THEN 1 ELSE 0 END)       AS eliminados,
-        SUM(CASE WHEN e.accion = 'borradoDefinitivo' THEN 1 ELSE 0 END) AS borrados
-      FROM eventosArchivo e
-      JOIN archivos a ON a.id = e.archivoId
-      WHERE ${filtrosEvento.join(" AND ")}
+        SUM(CASE WHEN accionNorm = 'subidaArchivo'       THEN 1 ELSE 0 END) AS subidos,
+        SUM(CASE WHEN accionNorm = 'sustitucionArchivo'  THEN 1 ELSE 0 END) AS reemplazados,
+        SUM(CASE WHEN accionNorm = 'eliminacionArchivo'  THEN 1 ELSE 0 END) AS eliminados,
+        SUM(CASE WHEN accionNorm = 'borradoDefinitivo'   THEN 1 ELSE 0 END) AS borrados
+      FROM (
+        SELECT
+          e.id,
+          CASE
+            WHEN e.accion IN ('subida','subidaArchivo')                 THEN 'subidaArchivo'
+            WHEN e.accion IN ('sustitucion','sustitucionArchivo')       THEN 'sustitucionArchivo'
+            WHEN e.accion IN ('eliminacion','eliminacionArchivo')       THEN 'eliminacionArchivo'
+            WHEN e.accion = 'borradoDefinitivo'                         THEN 'borradoDefinitivo'
+            ELSE ''
+          END AS accionNorm
+        FROM eventosArchivo e
+        JOIN archivos a ON a.id = e.archivoId
+        WHERE ${whereJoin}
+      ) t
       `,
-      paramsEvento
+      paramsJoin
     );
 
-    // 5) Detalle
+    // 5) Detalle con el mismo rango y filtro opcional por registroTipo
     const [detalle] = await db.query(
       `
-          SELECT
-      DATE_FORMAT(e.fechaHora, '%d/%m/%Y') AS fecha,
-      DATE_FORMAT(e.fechaHora, '%H:%i')    AS hora,
-      COALESCE(u.nombre, CONCAT('Usuario #', e.creadoPor)) AS usuario,
-      e.accion               AS tipoAccion,
-      a.nombreOriginal       AS archivo,
-      COALESCE(JSON_UNQUOTE(JSON_EXTRACT(e.detalles,'$.motivo')), '') AS observaciones
-    FROM eventosArchivo e
-    JOIN archivos a      ON a.id = e.archivoId
-    LEFT JOIN usuarios u ON u.id = e.creadoPor
-    WHERE e.fechaHora >= ? AND e.fechaHora <= ?
-    ORDER BY e.fechaHora DESC
-    LIMIT 500;
-
+      SELECT
+        DATE_FORMAT(e.fechaHora, '%d/%m/%Y') AS fecha,
+        DATE_FORMAT(e.fechaHora, '%H:%i')    AS hora,
+        COALESCE(u.nombre, CONCAT('Usuario #', e.creadoPor)) AS usuario,
+        e.accion               AS tipoAccion,
+        a.nombreOriginal       AS archivo,
+        COALESCE(JSON_UNQUOTE(JSON_EXTRACT(e.detalles,'$.motivo')), '') AS observaciones
+      FROM eventosArchivo e
+      JOIN archivos a      ON a.id = e.archivoId
+      LEFT JOIN usuarios u ON u.id = e.creadoPor
+      WHERE ${whereJoin}
+      ORDER BY e.fechaHora DESC
+      LIMIT 500
       `,
-      paramsEvento
+      paramsJoin
     );
 
-    // 6) Construir HTML con la plantilla pro (Tailwind)
+    // 6) HTML del reporte
     const html = generarHTMLEventosArchivos({
       usuario: req.user?.nombre || "admin",
       fechaInicioTexto,
@@ -588,17 +600,18 @@ export const generarPdfMovimientosArchivos = async (req, res) => {
         fecha: r.fecha,
         hora: r.hora,
         usuario: r.usuario,
-        tipoAccion: r.tipoAccion, // la plantilla lo normaliza a texto legible
+        tipoAccion: r.tipoAccion,
         archivo: r.archivo,
         observaciones: r.observaciones || "",
       })),
+      // En backend usa URL pública o path servido estáticamente
       logoUrl: null,
       mostrarGrafico: true,
       mostrarDetalle: true,
       tituloReporte: "REPORTE DE MOVIMIENTOS DE ARCHIVOS",
     });
 
-    // 7) Renderizar con Chromium (AWS Lambda ready)
+    // 7) Render PDF (Chromium)
     const browser = await puppeteer.launch({
       args: chromium.args,
       defaultViewport: chromium.defaultViewport,
@@ -626,3 +639,4 @@ export const generarPdfMovimientosArchivos = async (req, res) => {
     return res.status(500).json({ mensaje: "No se pudo generar el PDF" });
   }
 };
+
