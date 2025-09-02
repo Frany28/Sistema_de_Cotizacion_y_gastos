@@ -605,7 +605,7 @@ export const generarPdfMovimientosArchivos = async (req, res) => {
         observaciones: r.observaciones || "",
       })),
       // En backend usa URL pública o path servido estáticamente
-      logoUrl: null,
+      logoUrl: `${process.env.BASE_URL}/img/point-technology.png`,
       mostrarGrafico: true,
       mostrarDetalle: true,
       tituloReporte: "REPORTE DE MOVIMIENTOS DE ARCHIVOS",
@@ -639,4 +639,3 @@ export const generarPdfMovimientosArchivos = async (req, res) => {
     return res.status(500).json({ mensaje: "No se pudo generar el PDF" });
   }
 };
-

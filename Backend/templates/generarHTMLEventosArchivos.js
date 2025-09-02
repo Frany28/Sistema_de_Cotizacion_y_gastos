@@ -1,5 +1,3 @@
-// templates/generarHTMLEventosArchivos.js
-import logoUrl from "../../Frontend/src/Styles/img/Point Technology.png";
 /* Utilidades */
 function escaparHtml(texto) {
   if (texto == null) return "";
@@ -35,6 +33,7 @@ export function generarHTMLEventosArchivos({
   fechaFinTexto = "",
   totales = { subidos: 0, reemplazados: 0, eliminados: 0, borrados: 0 },
   detalleMovimientos = [],
+  logoUrl = null,
   mostrarGrafico = true,
   mostrarDetalle = true,
   tituloReporte = "REPORTE DE MOVIMIENTOS DE ARCHIVOS",
