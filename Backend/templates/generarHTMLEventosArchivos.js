@@ -60,6 +60,7 @@ export function generarHTMLEventosArchivos({
 
   /* ======= Datos para el gráfico ======= */
   /* ======= Datos para el gráfico (etiquetas en dos líneas) ======= */
+  /* ======= Datos para el gráfico (etiquetas cortas en dos líneas) ======= */
   const barras = [
     {
       etiqueta1: "Subidos",
@@ -73,12 +74,12 @@ export function generarHTMLEventosArchivos({
     },
     {
       etiqueta1: "Eliminados",
-      etiqueta2: "enviados a papelera",
+      etiqueta2: "a papelera",
       valor: Number(totales.eliminados || 0),
     },
     {
-      etiqueta1: "Borrados definitivos",
-      etiqueta2: "desde papelera",
+      etiqueta1: "Borrados",
+      etiqueta2: "definitivos",
       valor: Number(totales.borrados || 0),
     },
   ];
@@ -87,39 +88,40 @@ export function generarHTMLEventosArchivos({
 
   const svgBarras = barras
     .map((b, i) => {
-      const anchoBarra = 48;
-      const gap = 28;
+      const anchoBarra = 42; // más angosta
+      const gap = 36; // más espacio entre barras
       const baseX = 40;
       const baseY = 200;
       const altoMax = 130;
+
       const x = baseX + i * (anchoBarra + gap);
       const alto = (b.valor / maxValor) * altoMax;
       const y = baseY - alto;
 
       return `
-      <rect x="${x}" y="${y}" width="${anchoBarra}" height="${alto}" rx="8" fill="#4f46e5" opacity="0.85"/>
-      <text x="${x + anchoBarra / 2}" y="${
+    <rect x="${x}" y="${y}" width="${anchoBarra}" height="${alto}" rx="8" fill="#4f46e5" opacity="0.85"/>
+    <text x="${x + anchoBarra / 2}" y="${
         y - 6
       }" font-size="12" font-weight="700" text-anchor="middle" fill="#111827">${
         b.valor
       }</text>
 
-      <!-- Etiquetas en dos líneas -->
-      <text x="${x + anchoBarra / 2}" y="${
-        baseY + 14
-      }" font-size="11" text-anchor="middle" fill="#475569">${escaparHtml(
+    <!-- Etiquetas en dos líneas, más cortas -->
+    <text x="${x + anchoBarra / 2}" y="${
+        baseY + 12
+      }" font-size="11" text-anchor="middle" dominant-baseline="hanging" fill="#475569">${escaparHtml(
         b.etiqueta1
       )}</text>
-      ${
-        b.etiqueta2
-          ? `<text x="${x + anchoBarra / 2}" y="${
-              baseY + 28
-            }" font-size="10" text-anchor="middle" fill="#64748b">${escaparHtml(
-              b.etiqueta2
-            )}</text>`
-          : ""
-      }
-    `;
+    ${
+      b.etiqueta2
+        ? `<text x="${x + anchoBarra / 2}" y="${
+            baseY + 26
+          }" font-size="10" text-anchor="middle" dominant-baseline="hanging" fill="#64748b">${escaparHtml(
+            b.etiqueta2
+          )}</text>`
+        : ""
+    }
+  `;
     })
     .join("");
 
