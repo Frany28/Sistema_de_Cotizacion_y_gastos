@@ -13,6 +13,16 @@ function formatearNumero(n) {
   return new Intl.NumberFormat("es-VE").format(x);
 }
 
+function formatearFechaHoraLocal(fecha, zonaHoraria = "America/Caracas") {
+  const dtf = new Intl.DateTimeFormat("es-VE", {
+    dateStyle: "short",
+    timeStyle: "short",
+    hour12: false,
+    timeZone: zonaHoraria,
+  });
+  return dtf.format(fecha instanceof Date ? fecha : new Date(fecha));
+}
+
 /* === Etiquetas legibles unificadas (UI) === */
 const etiquetasResumen = {
   subidos: "Subidos",
@@ -53,6 +63,7 @@ export function generarHTMLEventosArchivos({
   mostrarGrafico = true,
   mostrarDetalle = true,
   tituloReporte = "REPORTE DE MOVIMIENTOS DE ARCHIVOS",
+  generadoEnTexto = null,
 } = {}) {
   const periodoLegible = `Movimientos entre ${escaparHtml(
     fechaInicioTexto || "-"
@@ -193,7 +204,8 @@ export function generarHTMLEventosArchivos({
           usuario
         )}</div>
         <div><span class="opacity-80">Generado:</span> ${escaparHtml(
-          new Date().toLocaleString("es-VE")
+          generadoEnTexto ??
+            formatearFechaHoraLocal(new Date(), "America/Caracas")
         )}</div>
       </div>
     </div>
