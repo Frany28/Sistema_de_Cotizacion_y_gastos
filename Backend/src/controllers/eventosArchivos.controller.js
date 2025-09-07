@@ -605,7 +605,7 @@ export const generarPdfMovimientosArchivos = async (req, res) => {
         observaciones: r.observaciones || "",
       })),
       // En backend usa URL pública o path servido estáticamente
-      logoUrl: `${process.env.BASE_URL}/img/point-technology.png`,
+      logoUrl: `../styles/Point Technology.png`,
       mostrarGrafico: true,
       mostrarDetalle: true,
       tituloReporte: "REPORTE DE MOVIMIENTOS DE ARCHIVOS",
