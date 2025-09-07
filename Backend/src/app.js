@@ -27,6 +27,7 @@ import archivosRoutes from "./routes/archivos.routes.js";
 import almacenamientoRoutes from "./routes/almacenamiento.routes.js";
 import "./jobs/purgarPapeleras.js";
 import eventosArchivosRoutes from "./routes/eventosArchivos.routes.js";
+import perfilRoutes from "./routes/perfil.routes.js";
 
 import authRoutes from "./routes/auth.routes.js";
 import usuariosRoutes from "./routes/usuarios.routes.js";
@@ -106,6 +107,7 @@ app.use("/api/solicitudes-pago", solicitudesPagoRoutes);
 app.use("/api/bancos", bancosRoutes);
 app.use("/api/archivos", archivosRoutes);
 app.use("/api/almacenamiento", almacenamientoRoutes);
+app.use("/api/perfil", perfilRoutes);
 /* ───── Rutas de seguridad ──────────────────────────────── */
 app.use("/api/auth", authRoutes);
 app.use("/api/usuarios", usuariosRoutes);
