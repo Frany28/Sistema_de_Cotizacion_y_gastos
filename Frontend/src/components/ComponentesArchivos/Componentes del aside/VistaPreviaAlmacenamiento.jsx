@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { HardDrive } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import api from "../../../api/index";
+import api from "../../api/index.js";
 
 function VistaPreviaAlmacenamiento() {
   const [datos, setDatos] = useState(null);
