@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import api from "../../../api/index.js";
+import api from "../../api/index.js";
 
 function AlmacenamientoUtilizado() {
   // estado
