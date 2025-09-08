@@ -147,7 +147,7 @@ function Navbar() {
                 <ul className="py-2" aria-labelledby="user-menu-button">
                   <li>
                     <a
-                      href="#"
+                      href="/perfil"
                       className="flex items-center gap-2 px-4 py-2 text-sm text-gray-200 hover:bg-gray-600"
                     >
                       <User size={16} /> Perfil

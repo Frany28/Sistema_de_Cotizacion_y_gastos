@@ -29,6 +29,7 @@ import {
   VistaDetalleArchivo,
   Papelera,
   GestorDeEventosPage,
+  Perfil,
 } from "./pages/pages.js";
 
 createRoot(document.getElementById("root")).render(
@@ -54,6 +55,7 @@ createRoot(document.getElementById("root")).render(
             element={<ServiciosProductosPage />}
           />
           <Route path="/administracion/clientes" element={<ClientesPage />} />
+          <Route path="/perfil" element={<Perfil />} />
           <Route
             path="/administracion/proveedores"
             element={<ProveedoresPage />}

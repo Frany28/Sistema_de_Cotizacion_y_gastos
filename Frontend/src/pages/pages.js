@@ -3,6 +3,7 @@ export { default as RutaPrivada } from "../components/RutaPrivada";
 export { default as Login } from "./Login/Login";
 export { default as Register } from "./Login/Register";
 export { default as Dashboard } from "./Dashboard";
+export { default as Perfil } from "./Perfil/Perfil";
 // Administracion
 export { default as Administracion } from "./administracion/Administracion";
 export { default as ClientesPage } from "./administracion/ClientesPage";
