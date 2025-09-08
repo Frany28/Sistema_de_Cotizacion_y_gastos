@@ -1,7 +1,9 @@
+import AlmacenamientoUtilizado from "../../components/ComponentePerfil/AlmacenamientoUtilizado";
+
 function Perfil() {
   return (
     <>
-      <div>Perfil</div>
+      <AlmacenamientoUtilizado />
     </>
   );
 }
