@@ -45,12 +45,12 @@ function AlmacenamientoUtilizado() {
     const usadoTxt = `${fmt1(usadoMb)} MB`;
     const cuotaTxt = ilimitado ? "∞" : `${fmt1(cuotaMb)} MB`;
     const leyendaArriba = ilimitado
-      ? `Used ${usadoTxt} of ∞`
-      : `Used ${usadoTxt} of ${cuotaTxt}`;
+      ? `Usado ${usadoTxt} de ∞`
+      : `Usado ${usadoTxt} de ${cuotaTxt}`;
 
     const leyendaAbajo = ilimitado
-      ? `${usadoTxt} Used / ∞ Total`
-      : `${usadoTxt} Used / ${cuotaTxt} Total`;
+      ? `${usadoTxt} Usado / ∞ Total`
+      : `${usadoTxt} Usado / ${cuotaTxt} Total`;
 
     return {
       porcentaje,
