@@ -78,7 +78,7 @@ function GraficosArchivosPorTipo({ rutaApi = "/perfil/archivos-por-tipo" }) {
   );
 
   return (
-    <div className="w-[360px] sm:w-[420px] bg-[#0f172a] rounded-[18px] p-5 shadow-lg border border-white/10 relative">
+    <div className="w-[360px] sm:w-[420px] bg-[#1f2937] rounded-[18px] p-5 shadow-lg border border-white/10 relative">
       {/* borde redondeado estilo mock */}
       <div className="absolute inset-0 rounded-[18px] pointer-events-none border border-white/10" />
 
@@ -125,7 +125,7 @@ function GraficosArchivosPorTipo({ rutaApi = "/perfil/archivos-por-tipo" }) {
                     </span>
                     <span className="text-slate-400 text-sm">{item.valor}</span>
                   </div>
-                  <div className="h-7 w-full bg-[#0b1220] rounded">
+                  <div className="h-7 w-full bg-[#1f2937] rounded">
                     <div
                       className="h-7 rounded bg-[#2563eb]"
                       style={{ width: ancho }}

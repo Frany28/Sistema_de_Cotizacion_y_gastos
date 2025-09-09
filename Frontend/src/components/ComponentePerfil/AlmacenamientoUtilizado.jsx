@@ -72,7 +72,7 @@ function AlmacenamientoUtilizado() {
   const desplazamiento = circunferencia * (1 - modelo.porcentaje / 100);
 
   return (
-    <div className="w-full max-w-3xl bg-[#0f172a] rounded-2xl p-6 shadow-lg border border-white/5">
+    <div className="w-full max-w-3xl bg-[#1f2937] rounded-2xl p-6 shadow-lg border border-white/5">
       {/* Título como en el mock (alineado a la izquierda) */}
       <h3 className="text-white text-lg font-semibold mb-6">
         Almacenamiento Utilizado
