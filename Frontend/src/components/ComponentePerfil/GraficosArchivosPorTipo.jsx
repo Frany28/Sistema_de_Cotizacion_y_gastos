@@ -2,11 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import api from "../../api/index.js";
 
 function GraficoArchivosPorTipo({ rutaApi = "/perfil/archivos-por-tipo" }) {
-
   const [datosPorTipo, setDatosPorTipo] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
-
 
   useEffect(() => {
     let cancelado = false;
@@ -72,7 +70,7 @@ function GraficoArchivosPorTipo({ rutaApi = "/perfil/archivos-por-tipo" }) {
   );
 
   return (
-    <div className="w-[360px] sm:w-[420px] bg-[#0f172a] rounded-2xl p-5 shadow-lg border border-white/10">
+    <div className="w-[360px] sm:w-[420px] bg-[#1f2937] rounded-2xl p-5 shadow-lg border border-white/10">
       <h3 className="text-white text-lg font-semibold">Archivos por Tipo</h3>
       <p className="text-slate-400 text-sm mt-1">
         Distribución de tus datos almacenados.

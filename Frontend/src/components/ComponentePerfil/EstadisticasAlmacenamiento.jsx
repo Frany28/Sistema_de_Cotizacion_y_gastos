@@ -57,7 +57,7 @@ function EstadisticasAlmacenamiento({ rutaApi = "/perfil/estadisticas" }) {
   }, [estadisticas]);
 
   return (
-    <div className="w-[360px] sm:w-[420px] bg-[#0f172a] rounded-2xl p-5 shadow-lg border border-white/10">
+    <div className="w-[360px] sm:w-[420px] bg-[#1f2937] rounded-2xl p-5 shadow-lg border border-white/10">
       <h3 className="text-white text-lg font-semibold">
         Estadísticas de Almacenamiento
       </h3>

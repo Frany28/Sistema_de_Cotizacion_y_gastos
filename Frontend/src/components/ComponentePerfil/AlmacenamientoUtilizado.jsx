@@ -7,7 +7,7 @@ function AlmacenamientoUtilizado() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
 
-  // carga
+  // carga de datos reales
   useEffect(() => {
     let cancelado = false;
     setCargando(true);
@@ -28,22 +28,24 @@ function AlmacenamientoUtilizado() {
     };
   }, []);
 
-  // helpers
-  const fmt1 = (num) =>
+  // helpers de formato
+  const formatearNumero = (num) =>
     typeof num === "number" && isFinite(num) ? num.toFixed(1) : "--";
 
+  // modelo de vista (cálculos derivados)
   const modelo = useMemo(() => {
-    const alma = datos?.almacenamiento || {};
-    const cuotaMb = alma.cuotaMb; // puede ser null => ilimitado
-    const usadoMb = typeof alma.usadoMb === "number" ? alma.usadoMb : 0;
-    const ilimitado = Boolean(alma.ilimitado);
+    const almacenamiento = datos?.almacenamiento || {};
+    const cuotaMb = almacenamiento.cuotaMb; // puede ser null => ilimitado
+    const usadoMb =
+      typeof almacenamiento.usadoMb === "number" ? almacenamiento.usadoMb : 0;
+    const ilimitado = Boolean(almacenamiento.ilimitado);
 
-    let porcentaje =
+    const porcentaje =
       !ilimitado && cuotaMb > 0 ? Math.min(100, (usadoMb / cuotaMb) * 100) : 0;
 
-    // textos
-    const usadoTxt = `${fmt1(usadoMb)} MB`;
-    const cuotaTxt = ilimitado ? "∞" : `${fmt1(cuotaMb)} MB`;
+    const usadoTxt = `${formatearNumero(usadoMb)} MB`;
+    const cuotaTxt = ilimitado ? "∞" : `${formatearNumero(cuotaMb)} MB`;
+
     const leyendaArriba = ilimitado
       ? `Usado ${usadoTxt} de ∞`
       : `Usado ${usadoTxt} de ${cuotaTxt}`;
@@ -62,81 +64,84 @@ function AlmacenamientoUtilizado() {
     };
   }, [datos]);
 
-  // donut params
-  const size = 120; // tamaño del SVG
-  const stroke = 14; // grosor
-  const radius = (size - stroke) / 2;
-  const circ = 2 * Math.PI * radius;
-  const offset = circ * (1 - modelo.porcentaje / 100);
+  // parámetros del donut
+  const tamSvg = 160; // tamaño del SVG (más grande como el mock)
+  const grosorTrazo = 18; // grosor del anillo
+  const radio = (tamSvg - grosorTrazo) / 2;
+  const circunferencia = 2 * Math.PI * radio;
+  const desplazamiento = circunferencia * (1 - modelo.porcentaje / 100);
 
   return (
-    <div className="w-[480px] max-w-full bg-[#0f172a] rounded-2xl p-6 shadow-lg">
-      <h3 className="text-white font-semibold mb-4">
+    <div className="w-full max-w-3xl bg-[#0f172a] rounded-2xl p-6 shadow-lg border border-white/5">
+      {/* Título como en el mock (alineado a la izquierda) */}
+      <h3 className="text-white text-lg font-semibold mb-6">
         Almacenamiento Utilizado
       </h3>
 
       {cargando ? (
-        <div className="animate-pulse">
-          <div className="h-[120px] w-[120px] rounded-full bg-slate-700 mb-4" />
-          <div className="h-3 w-64 bg-slate-700 rounded" />
-          <div className="h-2 w-full bg-slate-800 rounded mt-6" />
-          <div className="h-3 w-56 bg-slate-700 rounded mt-2" />
+        <div className="flex flex-col items-center">
+          <div className="h-[160px] w-[160px] rounded-full bg-slate-700/40 mb-4 animate-pulse" />
+          <div className="h-3 w-72 bg-slate-700/40 rounded mb-8 animate-pulse" />
+          <div className="h-2 w-full bg-slate-800/60 rounded animate-pulse" />
+          <div className="h-3 w-64 bg-slate-700/40 rounded mt-2 animate-pulse" />
         </div>
       ) : error ? (
         <p className="text-red-400">{error}</p>
       ) : (
         <>
-          {/* Donut */}
-          <div className="flex items-center gap-6">
-            <div className="relative" style={{ width: size, height: size }}>
-              <svg width={size} height={size}>
-                {/* track */}
+          {/* Bloque central totalmente CENTRADO */}
+          <div className="flex flex-col items-center justify-center">
+            {/* Donut */}
+            <div className="relative" style={{ width: tamSvg, height: tamSvg }}>
+              <svg width={tamSvg} height={tamSvg}>
+                {/* pista (gris claro translúcido) */}
                 <circle
-                  cx={size / 2}
-                  cy={size / 2}
-                  r={radius}
-                  stroke="#E5E7EB33"
-                  strokeWidth={stroke}
+                  cx={tamSvg / 2}
+                  cy={tamSvg / 2}
+                  r={radio}
+                  stroke="#e5e7eb26"
+                  strokeWidth={grosorTrazo}
                   fill="none"
                 />
-                {/* progress */}
+                {/* progreso (verde) */}
                 <circle
-                  cx={size / 2}
-                  cy={size / 2}
-                  r={radius}
+                  cx={tamSvg / 2}
+                  cy={tamSvg / 2}
+                  r={radio}
                   stroke="#22c55e"
-                  strokeWidth={stroke}
+                  strokeWidth={grosorTrazo}
                   fill="none"
-                  strokeDasharray={circ}
-                  strokeDashoffset={offset}
+                  strokeDasharray={circunferencia}
+                  strokeDashoffset={desplazamiento}
                   strokeLinecap="round"
-                  transform={`rotate(-90 ${size / 2} ${size / 2})`}
+                  transform={`rotate(-90 ${tamSvg / 2} ${tamSvg / 2})`}
                 />
               </svg>
-              {/* porcentaje en el centro */}
+
+              {/* porcentaje centrado dentro del círculo */}
               <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-white text-3xl font-extrabold">
+                <span className="text-white text-4xl font-extrabold tracking-tight">
                   {Math.round(modelo.porcentaje)}%
                 </span>
               </div>
             </div>
 
-            {/* leyenda derecha (exacto al ejemplo) */}
-            <div className="text-slate-300">
-              <p>{modelo.leyendaArriba}</p>
-            </div>
+            {/* Texto centrado bajo el donut */}
+            <p className="mt-4 text-slate-300 text-sm sm:text-base text-center">
+              {modelo.leyendaArriba}
+            </p>
           </div>
 
-          {/* barra inferior */}
+          {/* Barra inferior y leyenda, ambas centradas */}
           {!modelo.ilimitado && (
             <>
-              <div className="mt-6 h-2 w-full bg-[#1f2937] rounded">
+              <div className="mt-8 h-2 w-full rounded bg-[#1e293b] overflow-hidden">
                 <div
-                  className="h-2 bg-slate-300 rounded"
+                  className="h-full rounded bg-indigo-400/80"
                   style={{ width: `${modelo.porcentaje}%` }}
                 />
               </div>
-              <div className="mt-2 text-slate-400 text-sm">
+              <div className="mt-2 text-slate-400 text-sm text-center">
                 {modelo.leyendaAbajo}
               </div>
             </>
