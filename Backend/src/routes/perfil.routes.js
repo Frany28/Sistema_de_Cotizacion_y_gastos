@@ -5,6 +5,7 @@ import {
   obtenerTarjetaUsuario,
   listarArchivosRecientesUsuario,
   obtenerEstadisticasAlmacenamiento,
+  obtenerArchivosPorTipo,
 } from "../controllers/perfil.controller.js";
 
 const router = express.Router();
@@ -20,5 +21,7 @@ router.get(
   autenticarUsuario,
   obtenerEstadisticasAlmacenamiento
 );
+
+router.get("/archivos-por-tipo", autenticarUsuario, obtenerArchivosPorTipo);
 
 export default router;

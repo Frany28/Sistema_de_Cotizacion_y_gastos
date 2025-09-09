@@ -177,3 +177,75 @@ export const obtenerEstadisticasAlmacenamiento = async (req, res) => {
     });
   }
 };
+
+// Cuenta real de archivos por tipo del usuario autenticado
+export const obtenerArchivosPorTipo = async (req, res) => {
+  const usuarioId = req?.user?.id;
+  if (!usuarioId) {
+    return res.status(401).json({ ok: false, mensaje: "Sesión inválida." });
+  }
+
+  // Normalizamos extensión a minúsculas y sin punto para coincidir con tus datos (e.g., 'jpg','png')
+  const sql = `
+    SELECT
+      SUM(CASE 
+            WHEN LOWER(REPLACE(a.extension,'.','')) IN 
+                 ('pdf','doc','docx','xls','xlsx','ppt','pptx','txt')
+            THEN 1 ELSE 0 
+          END) AS documentos,
+      SUM(CASE 
+            WHEN LOWER(REPLACE(a.extension,'.','')) IN 
+                 ('jpg','jpeg','png','gif','bmp','svg','webp')
+            THEN 1 ELSE 0 
+          END) AS imagenes,
+      SUM(CASE 
+            WHEN LOWER(REPLACE(a.extension,'.','')) IN 
+                 ('mp4','avi','mov','mkv','wmv','flv')
+            THEN 1 ELSE 0 
+          END) AS videos,
+      SUM(CASE 
+            WHEN LOWER(REPLACE(a.extension,'.','')) IN 
+                 ('mp3','wav','aac','ogg','flac')
+            THEN 1 ELSE 0 
+          END) AS audio,
+      SUM(CASE 
+            WHEN LOWER(REPLACE(a.extension,'.','')) NOT IN 
+                 ('pdf','doc','docx','xls','xlsx','ppt','pptx','txt',
+                  'jpg','jpeg','png','gif','bmp','svg','webp',
+                  'mp4','avi','mov','mkv','wmv','flv',
+                  'mp3','wav','aac','ogg','flac')
+            THEN 1 ELSE 0 
+          END) AS otros
+    FROM archivos a
+    WHERE a.subidoPor = ?
+      AND a.estado IN ('activo','reemplazado','eliminado')
+  `;
+
+  try {
+    const [rows] = await db.query(sql, [usuarioId]);
+    const conteos = rows?.[0] || {
+      documentos: 0,
+      imagenes: 0,
+      videos: 0,
+      audio: 0,
+      otros: 0,
+    };
+
+    return res.json({
+      ok: true,
+      datos: {
+        documentos: Number(conteos.documentos || 0),
+        imagenes: Number(conteos.imagenes || 0),
+        videos: Number(conteos.videos || 0),
+        audio: Number(conteos.audio || 0),
+        otros: Number(conteos.otros || 0),
+      },
+    });
+  } catch (error) {
+    console.error("Error en obtenerArchivosPorTipo:", error);
+    return res.status(500).json({
+      ok: false,
+      mensaje: "Error interno al obtener archivos por tipo.",
+    });
+  }
+};

@@ -1,27 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "../../api/index.js";
 
-/**
- * GraficoArchivosPorTipo
- * - Replica el diseño del mock: barras horizontales por tipo.
- * - Textos en español: "Archivos por Tipo" / "Distribución de tus datos almacenados."
- * - Llama al backend usando el mismo patrón que AlmacenamientoUtilizado (con cookies).
- *
- * Props:
- *  - rutaApi (string): endpoint que devuelve conteos por tipo.
- *    Formato esperado (acepta ambos):
- *    { ok:true, datos:{ documentos, imagenes, videos, audio, otros } }
- *    o { documentos, imagenes, videos, audio, otros }
- */
-function GraficoArchivosPorTipo({ rutaApi = "/archivos/estadistica/tipos" }) {
-  // estado
+function GraficoArchivosPorTipo({ rutaApi = "/perfil/archivos-por-tipo" }) {
+
   const [datosPorTipo, setDatosPorTipo] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
 
-  // carga de datos (mismo patrón que tu tarjeta de perfil)
+
   useEffect(() => {
     let cancelado = false;
+
     async function cargar() {
       setCargando(true);
       setError(null);
@@ -29,7 +18,6 @@ function GraficoArchivosPorTipo({ rutaApi = "/archivos/estadistica/tipos" }) {
         const res = await api.get(rutaApi, { withCredentials: true });
         if (cancelado) return;
 
-        // soportar dos estructuras de respuesta
         const base = res?.data || {};
         const datos =
           base?.datos && typeof base.datos === "object" ? base.datos : base;
@@ -41,32 +29,27 @@ function GraficoArchivosPorTipo({ rutaApi = "/archivos/estadistica/tipos" }) {
           audio: Number(datos.audio || 0),
           otros: Number(datos.otros || 0),
         };
+
         setDatosPorTipo(normalizado);
       } catch (e) {
         if (cancelado) return;
         console.error("Error en GraficoArchivosPorTipo:", e);
         setError("No se pudieron cargar las estadísticas por tipo.");
-        // OPCIONAL: datos simulados para visualizar el layout cuando el backend aún no está listo
-        setDatosPorTipo({
-          documentos: 42,
-          imagenes: 96,
-          videos: 18,
-          audio: 5,
-          otros: 6,
-        });
+        setDatosPorTipo(null);
       } finally {
         if (!cancelado) setCargando(false);
       }
     }
+
     cargar();
     return () => {
       cancelado = true;
     };
   }, [rutaApi]);
 
-  // preparar lista con etiquetas en español y valores
+  // lista con etiquetas en español
   const lista = useMemo(() => {
-    const base = datosPorTipo || {
+    const base = datosPorTipo ?? {
       documentos: 0,
       imagenes: 0,
       videos: 0,
@@ -82,7 +65,7 @@ function GraficoArchivosPorTipo({ rutaApi = "/archivos/estadistica/tipos" }) {
     ];
   }, [datosPorTipo]);
 
-  // escalar ancho de barras respecto al mayor valor
+  // ancho relativo de barras
   const maximo = useMemo(
     () => Math.max(...lista.map((i) => i.valor), 1),
     [lista]
@@ -105,9 +88,9 @@ function GraficoArchivosPorTipo({ rutaApi = "/archivos/estadistica/tipos" }) {
             />
           ))}
         </div>
-      ) : error && !datosPorTipo ? (
+      ) : error ? (
         <p className="text-red-400 mt-4">{error}</p>
-      ) : (
+      ) : datosPorTipo ? (
         <div className="mt-5 space-y-4">
           {lista.map((item) => {
             const ancho = `${(item.valor / maximo) * 100}%`;
@@ -130,6 +113,10 @@ function GraficoArchivosPorTipo({ rutaApi = "/archivos/estadistica/tipos" }) {
             );
           })}
         </div>
+      ) : (
+        <p className="text-slate-400 mt-4">
+          No hay datos disponibles para mostrar.
+        </p>
       )}
     </div>
   );
