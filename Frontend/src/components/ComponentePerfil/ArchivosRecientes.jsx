@@ -102,7 +102,7 @@ function ArchivosRecientes({ limite = 6, rutaApi = "/perfil/recientes" }) {
   );
 
   return (
-    <div className="w-[360px] sm:w-[420px] bg-[#1f2937] rounded-[18px] p-5 shadow-lg border border-white/10">
+    <div className="w-[360px] sm:w-[420px] bg-[#1f2937] rounded-[18px] p-6 shadow-lg border border-white/10">
       {/* Título y subtítulo (en español) */}
       <h3 className="text-white text-lg font-semibold">Archivos Recientes</h3>
       <p className="text-slate-400 text-sm mt-1">

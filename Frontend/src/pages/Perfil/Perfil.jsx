@@ -6,17 +6,25 @@ import TarjetaPerfil from "../../components/ComponentePerfil/TarjetaPerfil";
 
 function Perfil() {
   return (
-    <>
-      <div className="flex md:flex-row justify-center items-center gap-6 mb-6">
-        <AlmacenamientoUtilizado />
-        <TarjetaPerfil />
+    <div className="p-6 space-y-6">
+      {/* Fila superior */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Almacenamiento ocupa 2/3 y perfil 1/3 */}
+        <div className="md:col-span-2">
+          <AlmacenamientoUtilizado />
+        </div>
+        <div className="md:col-span-1">
+          <TarjetaPerfil />
+        </div>
       </div>
-      <div className="flex flex-col md:flex-row justify-center items-start gap-6 mb-6">
+
+      {/* Fila inferior */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <GraficoArchivosPorTipo />
         <ArchivosRecientes />
         <EstadisticasAlmacenamiento />
       </div>
-    </>
+    </div>
   );
 }
 
