@@ -118,16 +118,17 @@ export const obtenerEstadisticasAlmacenamiento = async (req, res) => {
 
     const sqlEstadisticas = `
       SELECT
-        COUNT(*)                                 AS totalArchivos,
-        MAX(IFNULL(a.tamanioBytes,0))            AS archivoMasGrandeBytes,
-        MIN(IFNULL(a.tamanioBytes,0))            AS archivoMasPequenioBytes,
-        AVG(IFNULL(a.tamanioBytes,0))            AS promedioTamBytes
+        COUNT(*)                          AS totalArchivos,
+        MAX(IFNULL(a.tamanioBytes,0))     AS archivoMasGrandeBytes,
+        MIN(IFNULL(a.tamanioBytes,0))     AS archivoMasPequenioBytes,
+        AVG(IFNULL(a.tamanioBytes,0))     AS promedioTamBytes
       FROM archivos a
       WHERE a.subidoPor = ?
         AND a.estado IN ('activo','reemplazado','eliminado')
     `;
 
-    const [filas] = await pool.query(sqlEstadisticas, [usuarioId]);
+    // ⬇️ usar db.query, NO pool.query
+    const [filas] = await db.query(sqlEstadisticas, [usuarioId]);
     const estadisticas = filas?.[0] ?? {
       totalArchivos: 0,
       archivoMasGrandeBytes: 0,
@@ -135,13 +136,13 @@ export const obtenerEstadisticasAlmacenamiento = async (req, res) => {
       promedioTamBytes: 0,
     };
 
-    // Datos para el anillo/progreso (usuarios.cuotaMb y usuarios.usoStorageBytes)
     const sqlUsuario = `
       SELECT cuotaMb, usoStorageBytes
       FROM usuarios
       WHERE id = ?
     `;
-    const [filasUsuario] = await pool.query(sqlUsuario, [usuarioId]);
+    // ⬇️ usar db.query, NO pool.query
+    const [filasUsuario] = await db.query(sqlUsuario, [usuarioId]);
     const { cuotaMb = 50, usoStorageBytes = 0 } = filasUsuario?.[0] ?? {};
 
     const cuotaBytes = (cuotaMb ?? 50) * 1024 * 1024;
@@ -161,12 +162,10 @@ export const obtenerEstadisticasAlmacenamiento = async (req, res) => {
     });
   } catch (error) {
     console.error("Error en obtenerEstadisticasAlmacenamiento:", error);
-    return res
-      .status(500)
-      .json({
-        ok: false,
-        mensaje: "Error al obtener estadísticas de almacenamiento.",
-      });
+    return res.status(500).json({
+      ok: false,
+      mensaje: "Error al obtener estadísticas de almacenamiento.",
+    });
   }
 };
 
