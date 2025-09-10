@@ -115,8 +115,8 @@ export const obtenerEstadisticasAlmacenamiento = async (req, res) => {
     return res.status(401).json({ ok: false, mensaje: "Sesión inválida." });
   }
 
-  // NOTA: Ajusta el nombre del campo de grupo si en tu BD es 'carpeta_id', 'grupoId', etc.
-  const nombreColumnaGrupo = "grupo_id"; // <-- cámbialo aquí si tu columna se llama distinto
+  // En BD la columna correcta es 'grupoArchivoId'
+  const nombreColumnaGrupo = "grupoArchivoId";
 
   const sqlArchivos = `
     SELECT
@@ -129,6 +129,7 @@ export const obtenerEstadisticasAlmacenamiento = async (req, res) => {
       AND a.estado IN ('activo','reemplazado','eliminado')
   `;
 
+  // Conteo directo y eficiente de “carpetas” (grupos) usados por el usuario
   const sqlGruposPorArchivos = `
     SELECT COUNT(DISTINCT a.${nombreColumnaGrupo}) AS totalGrupos
     FROM archivos a
@@ -137,23 +138,43 @@ export const obtenerEstadisticasAlmacenamiento = async (req, res) => {
       AND a.${nombreColumnaGrupo} IS NOT NULL
   `;
 
+  // (Opcional) Conteo robusto por existencia real en archivoGrupos (fallback)
+  const sqlGruposRobustos = `
+    SELECT COUNT(*) AS totalGrupos
+    FROM archivoGrupos g
+    WHERE EXISTS (
+      SELECT 1
+      FROM archivos a
+      WHERE a.${nombreColumnaGrupo} = g.id
+        AND a.subidoPor = ?
+        AND a.estado IN ('activo','reemplazado','eliminado')
+    )
+  `;
+
   try {
     const [[filaArchivos]] = await db.query(sqlArchivos, [usuarioId]);
+
+    // intenta conteo directo; si viniera null, intenta el robusto
     const [[filaGrupos]] = await db.query(sqlGruposPorArchivos, [usuarioId]);
+    let totalGrupos = Number(filaGrupos?.totalGrupos || 0);
+
+    if (!totalGrupos) {
+      const [[filaGrupos2]] = await db.query(sqlGruposRobustos, [usuarioId]);
+      totalGrupos = Number(filaGrupos2?.totalGrupos || 0);
+    }
 
     const totalArchivos = Number(filaArchivos?.totalArchivos || 0);
 
     return res.json({
       ok: true,
       totalArchivos,
-      totalGrupos: Number(filaGrupos?.totalGrupos || 0),
+      totalGrupos,
       archivoMasGrandeBytes: totalArchivos
         ? Number(filaArchivos?.archivoMasGrandeBytes || 0)
         : 0,
       archivoMasPequenioBytes: totalArchivos
         ? Number(filaArchivos?.archivoMasPequenioBytes || 0)
         : 0,
-      // Redondeo a entero para evitar demasiados decimales en el front
       promedioTamBytes: totalArchivos
         ? Math.round(Number(filaArchivos?.promedioTamBytes || 0))
         : 0,
