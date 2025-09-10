@@ -6,7 +6,7 @@ import TarjetaPerfil from "../../components/ComponentePerfil/TarjetaPerfil";
 
 function Perfil() {
   return (
-    <div className="p-4 space-y-4 max-w-6xl mx-auto">
+    <div className="p-4 space-y-4 max-w-8xl mx-auto">
       {/* Fila superior */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 justify-items-center">
         {/* Almacenamiento ocupa 2/3 y perfil 1/3 */}
