@@ -115,59 +115,48 @@ export const obtenerEstadisticasAlmacenamiento = async (req, res) => {
     return res.status(401).json({ ok: false, mensaje: "Sesión inválida." });
   }
 
-  // Ojo: usamos COALESCE para soportar 'tamanioBytes' o 'tamanoBytes'
+  // NOTA: Ajusta el nombre del campo de grupo si en tu BD es 'carpeta_id', 'grupoId', etc.
+  const nombreColumnaGrupo = "grupo_id"; // <-- cámbialo aquí si tu columna se llama distinto
+
   const sqlArchivos = `
     SELECT
       COUNT(*) AS totalArchivos,
-      MAX(COALESCE(a.tamanioBytes, a.tamanoBytes)) AS archivoMasGrandeBytes,
-      MIN(COALESCE(a.tamanioBytes, a.tamanoBytes)) AS archivoMasPequenioBytes,
-      AVG(COALESCE(a.tamanioBytes, a.tamanoBytes)) AS promedioTamBytes
+      MAX(COALESCE(a.tamanioBytes, a.tamanoBytes, 0)) AS archivoMasGrandeBytes,
+      MIN(COALESCE(a.tamanioBytes, a.tamanoBytes, 0)) AS archivoMasPequenioBytes,
+      AVG(COALESCE(a.tamanioBytes, a.tamanoBytes, 0)) AS promedioTamBytes
     FROM archivos a
     WHERE a.subidoPor = ?
       AND a.estado IN ('activo','reemplazado','eliminado')
   `;
 
-  const sqlGrupos = `
-    SELECT COUNT(*) AS totalGrupos
-    FROM archivoGrupos
-    WHERE creadoPor = ?
+  const sqlGruposPorArchivos = `
+    SELECT COUNT(DISTINCT a.${nombreColumnaGrupo}) AS totalGrupos
+    FROM archivos a
+    WHERE a.subidoPor = ?
+      AND a.estado IN ('activo','reemplazado','eliminado')
+      AND a.${nombreColumnaGrupo} IS NOT NULL
   `;
 
   try {
-    // 1) Ejecutar en paralelo
-    const [resArchivos, resGrupos] = await Promise.all([
-      db.query(sqlArchivos, [usuarioId]), // -> [rows, fields]
-      db.query(sqlGrupos, [usuarioId]), // -> [rows, fields]
-    ]);
+    const [[filaArchivos]] = await db.query(sqlArchivos, [usuarioId]);
+    const [[filaGrupos]] = await db.query(sqlGruposPorArchivos, [usuarioId]);
 
-    // 2) Extraer 'rows' de cada resultado
-    const [rowsArchivos] = resArchivos;
-    const [rowsGrupos] = resGrupos;
-
-    // 3) Tomar la primera fila (agregados)
-    const estad = rowsArchivos?.[0] || {};
-    const grupos = rowsGrupos?.[0] || {};
-
-    // 4) Normalizar
-    const totalArchivos = Number(estad.totalArchivos || 0);
-    const totalGrupos = Number(grupos.totalGrupos || 0);
-    const archivoMasGrandeBytes = totalArchivos
-      ? Number(estad.archivoMasGrandeBytes || 0)
-      : 0;
-    const archivoMasPequenioBytes = totalArchivos
-      ? Number(estad.archivoMasPequenioBytes || 0)
-      : 0;
-    const promedioTamBytes = totalArchivos
-      ? Math.round(Number(estad.promedioTamBytes || 0))
-      : 0;
+    const totalArchivos = Number(filaArchivos?.totalArchivos || 0);
 
     return res.json({
       ok: true,
       totalArchivos,
-      totalGrupos,
-      archivoMasGrandeBytes,
-      archivoMasPequenioBytes,
-      promedioTamBytes,
+      totalGrupos: Number(filaGrupos?.totalGrupos || 0),
+      archivoMasGrandeBytes: totalArchivos
+        ? Number(filaArchivos?.archivoMasGrandeBytes || 0)
+        : 0,
+      archivoMasPequenioBytes: totalArchivos
+        ? Number(filaArchivos?.archivoMasPequenioBytes || 0)
+        : 0,
+      // Redondeo a entero para evitar demasiados decimales en el front
+      promedioTamBytes: totalArchivos
+        ? Math.round(Number(filaArchivos?.promedioTamBytes || 0))
+        : 0,
     });
   } catch (error) {
     console.error("Error en obtenerEstadisticasAlmacenamiento:", error);
