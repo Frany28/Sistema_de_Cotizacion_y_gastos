@@ -110,81 +110,63 @@ export const listarArchivosRecientesUsuario = async (req, res) => {
 };
 
 export const obtenerEstadisticasAlmacenamiento = async (req, res) => {
-  const usuarioId = req?.user?.id;
-  if (!usuarioId) {
-    return res.status(401).json({ ok: false, mensaje: "Sesión inválida." });
-  }
-
-  // En BD la columna correcta es 'grupoArchivoId'
-  const nombreColumnaGrupo = "grupoArchivoId";
-
-  const sqlArchivos = `
-    SELECT
-      COUNT(*) AS totalArchivos,
-      MAX(COALESCE(a.tamanioBytes, a.tamanoBytes, 0)) AS archivoMasGrandeBytes,
-      MIN(COALESCE(a.tamanioBytes, a.tamanoBytes, 0)) AS archivoMasPequenioBytes,
-      AVG(COALESCE(a.tamanioBytes, a.tamanoBytes, 0)) AS promedioTamBytes
-    FROM archivos a
-    WHERE a.subidoPor = ?
-      AND a.estado IN ('activo','reemplazado','eliminado')
-  `;
-
-  // Conteo directo y eficiente de “carpetas” (grupos) usados por el usuario
-  const sqlGruposPorArchivos = `
-    SELECT COUNT(DISTINCT a.${nombreColumnaGrupo}) AS totalGrupos
-    FROM archivos a
-    WHERE a.subidoPor = ?
-      AND a.estado IN ('activo','reemplazado','eliminado')
-      AND a.${nombreColumnaGrupo} IS NOT NULL
-  `;
-
-  // (Opcional) Conteo robusto por existencia real en archivoGrupos (fallback)
-  const sqlGruposRobustos = `
-    SELECT COUNT(*) AS totalGrupos
-    FROM archivoGrupos g
-    WHERE EXISTS (
-      SELECT 1
-      FROM archivos a
-      WHERE a.${nombreColumnaGrupo} = g.id
-        AND a.subidoPor = ?
-        AND a.estado IN ('activo','reemplazado','eliminado')
-    )
-  `;
-
   try {
-    const [[filaArchivos]] = await db.query(sqlArchivos, [usuarioId]);
-
-    // intenta conteo directo; si viniera null, intenta el robusto
-    const [[filaGrupos]] = await db.query(sqlGruposPorArchivos, [usuarioId]);
-    let totalGrupos = Number(filaGrupos?.totalGrupos || 0);
-
-    if (!totalGrupos) {
-      const [[filaGrupos2]] = await db.query(sqlGruposRobustos, [usuarioId]);
-      totalGrupos = Number(filaGrupos2?.totalGrupos || 0);
+    const usuarioId = req?.user?.id; // viene del middleware autenticarUsuario
+    if (!usuarioId) {
+      return res.status(401).json({ ok: false, mensaje: "Sesión inválida." });
     }
 
-    const totalArchivos = Number(filaArchivos?.totalArchivos || 0);
+    const sqlEstadisticas = `
+      SELECT
+        COUNT(*)                                 AS totalArchivos,
+        MAX(IFNULL(a.tamanioBytes,0))            AS archivoMasGrandeBytes,
+        MIN(IFNULL(a.tamanioBytes,0))            AS archivoMasPequenioBytes,
+        AVG(IFNULL(a.tamanioBytes,0))            AS promedioTamBytes
+      FROM archivos a
+      WHERE a.subidoPor = ?
+        AND a.estado IN ('activo','reemplazado','eliminado')
+    `;
+
+    const [filas] = await pool.query(sqlEstadisticas, [usuarioId]);
+    const estadisticas = filas?.[0] ?? {
+      totalArchivos: 0,
+      archivoMasGrandeBytes: 0,
+      archivoMasPequenioBytes: 0,
+      promedioTamBytes: 0,
+    };
+
+    // Datos para el anillo/progreso (usuarios.cuotaMb y usuarios.usoStorageBytes)
+    const sqlUsuario = `
+      SELECT cuotaMb, usoStorageBytes
+      FROM usuarios
+      WHERE id = ?
+    `;
+    const [filasUsuario] = await pool.query(sqlUsuario, [usuarioId]);
+    const { cuotaMb = 50, usoStorageBytes = 0 } = filasUsuario?.[0] ?? {};
+
+    const cuotaBytes = (cuotaMb ?? 50) * 1024 * 1024;
+    const porcentajeUsado =
+      cuotaBytes > 0
+        ? Math.min(100, Math.round((usoStorageBytes / cuotaBytes) * 100))
+        : 0;
 
     return res.json({
       ok: true,
-      totalArchivos,
-      totalGrupos,
-      archivoMasGrandeBytes: totalArchivos
-        ? Number(filaArchivos?.archivoMasGrandeBytes || 0)
-        : 0,
-      archivoMasPequenioBytes: totalArchivos
-        ? Number(filaArchivos?.archivoMasPequenioBytes || 0)
-        : 0,
-      promedioTamBytes: totalArchivos
-        ? Math.round(Number(filaArchivos?.promedioTamBytes || 0))
-        : 0,
+      datos: {
+        ...estadisticas,
+        cuotaMb,
+        usoStorageBytes,
+        porcentajeUsado,
+      },
     });
   } catch (error) {
     console.error("Error en obtenerEstadisticasAlmacenamiento:", error);
-    return res.status(500).json({
-      ok: false,
-      mensaje: "Error interno al obtener estadísticas de almacenamiento.",
-    });
+    return res
+      .status(500)
+      .json({
+        ok: false,
+        mensaje: "Error al obtener estadísticas de almacenamiento.",
+      });
   }
 };
 
