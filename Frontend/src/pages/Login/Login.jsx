@@ -78,15 +78,8 @@ const Login = () => {
                 onChange={(e) => setRecordar(e.target.checked)}
                 className="mr-2"
               />
-              Remember me
+              Recuerdame
             </label>
-
-            <a
-              href="#"
-              className="text-sm text-blue-500 hover:underline mb-0.5"
-            >
-              Forgot password?
-            </a>
           </div>
 
           <button
