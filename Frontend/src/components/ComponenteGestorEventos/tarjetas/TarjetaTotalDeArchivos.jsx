@@ -1,9 +1,8 @@
-// src/components/archivos/tarjetas/tarjetaTotalArchivos.jsx
 import { useEffect, useState } from "react";
 import api from "../../../api";
 import { FileText } from "lucide-react";
 
-const TarjetaTotalArchivos = () => {
+const TarjetaTotalDeArchivos = () => {
   const [valor, setValor] = useState(null);
   const [cargando, setCargando] = useState(true);
 
@@ -22,20 +21,21 @@ const TarjetaTotalArchivos = () => {
   }, []);
 
   return (
-    <div className="w-[326px] h-[158px] bg-gray-800 rounded-xl p-2 relative shadow-md border border-gray-700">
-      <div className="flex flex-col justify-center h-full gap-3">
-        <FileText className="text-blue-500 ml-6" size={25} />
-        <p className=" text-sm text-gray-400 ml-7">Total de archivos activos</p>
-        {cargando ? (
-          <div className="h-8 bg-gray-700/50 rounded w-1/2 animate-pulse ml-7" />
-        ) : (
-          <h1 className="text-white text-3xl font-bold mt-1 ml-7">
-            {valor.toLocaleString("es-VE")}
-          </h1>
-        )}
+    <div className="w-full h-full min-h-[160px] rounded-2xl border border-zinc-700/60 bg-zinc-800/60 shadow-sm overflow-hidden p-4 sm:p-5 flex flex-col justify-between">
+      <div className="flex items-center gap-2">
+        <FileText className="text-blue-500" size={22} />
+        <p className="text-sm text-zinc-300">Total de archivos activos</p>
       </div>
+
+      {cargando ? (
+        <div className="h-8 bg-zinc-700/50 rounded w-1/2 animate-pulse" />
+      ) : (
+        <h1 className="text-white text-3xl md:text-4xl font-bold leading-none">
+          {valor.toLocaleString("es-VE")}
+        </h1>
+      )}
     </div>
   );
 };
 
-export default TarjetaTotalArchivos;
+export default TarjetaTotalDeArchivos;
