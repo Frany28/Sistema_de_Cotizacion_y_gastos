@@ -153,14 +153,7 @@ function Navbar() {
                       <User size={16} /> Perfil
                     </a>
                   </li>
-                  <li>
-                    <a
-                      href="#"
-                      className="flex items-center gap-2 px-4 py-2 text-sm  text-gray-200 hover:bg-gray-600"
-                    >
-                      <Settings size={16} /> Configuración
-                    </a>
-                  </li>
+
                   <li>
                     <button
                       onClick={cerrarSesion}

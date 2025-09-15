@@ -111,7 +111,7 @@ export const listarArchivosRecientesUsuario = async (req, res) => {
 
 export const obtenerEstadisticasAlmacenamiento = async (req, res) => {
   try {
-    const usuarioId = req?.user?.id; // viene del middleware autenticarUsuario
+    const usuarioId = req?.user?.id;
     if (!usuarioId) {
       return res.status(401).json({ ok: false, mensaje: "Sesión inválida." });
     }
@@ -127,7 +127,6 @@ export const obtenerEstadisticasAlmacenamiento = async (req, res) => {
         AND a.estado IN ('activo','reemplazado','eliminado')
     `;
 
-    // ⬇️ usar db.query, NO pool.query
     const [filas] = await db.query(sqlEstadisticas, [usuarioId]);
     const estadisticas = filas?.[0] ?? {
       totalArchivos: 0,
@@ -136,12 +135,22 @@ export const obtenerEstadisticasAlmacenamiento = async (req, res) => {
       promedioTamBytes: 0,
     };
 
+    // NUEVO: total de grupos (carpetas) reales del usuario
+    const sqlTotalGrupos = `
+      SELECT COUNT(DISTINCT a.grupoArchivoId) AS totalGrupos
+      FROM archivos a
+      WHERE a.subidoPor = ?
+        AND a.estado IN ('activo','reemplazado','eliminado')
+        AND a.grupoArchivoId IS NOT NULL
+    `;
+    const [filasGrupos] = await db.query(sqlTotalGrupos, [usuarioId]);
+    const totalGrupos = Number(filasGrupos?.[0]?.totalGrupos || 0);
+
     const sqlUsuario = `
       SELECT cuotaMb, usoStorageBytes
       FROM usuarios
       WHERE id = ?
     `;
-    // ⬇️ usar db.query, NO pool.query
     const [filasUsuario] = await db.query(sqlUsuario, [usuarioId]);
     const { cuotaMb = 50, usoStorageBytes = 0 } = filasUsuario?.[0] ?? {};
 
@@ -155,6 +164,7 @@ export const obtenerEstadisticasAlmacenamiento = async (req, res) => {
       ok: true,
       datos: {
         ...estadisticas,
+        totalGrupos, // <-- clave que usará el frontend
         cuotaMb,
         usoStorageBytes,
         porcentajeUsado,

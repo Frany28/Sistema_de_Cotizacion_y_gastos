@@ -20,7 +20,8 @@ function EstadisticasAlmacenamiento({ rutaApi = "/perfil/estadisticas" }) {
       try {
         const res = await api.get(rutaApi, { withCredentials: true });
         if (cancelado) return;
-        setEstadisticas(res?.data || null);
+        const payload = res?.data?.datos ?? res?.data ?? null;
+        setEstadisticas(payload);
       } catch (e) {
         if (cancelado) return;
         console.error("Error al cargar /perfil/estadisticas:", e);
