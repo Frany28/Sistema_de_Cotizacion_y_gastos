@@ -37,12 +37,15 @@ function EstadisticasAlmacenamiento({ rutaApi = "/perfil/estadisticas" }) {
   }, [rutaApi]);
 
   // helpers
-  const bytesAMb = (bytes) =>
-    typeof bytes === "number" ? bytes / (1024 * 1024) : 0;
+  const aNumero = (valor) => {
+    const n = Number(valor);
+    return Number.isFinite(n) ? n : 0;
+  };
+  const bytesAMb = (bytes) => aNumero(bytes) / (1024 * 1024);
 
   const formatearMb = (bytes) => {
     const mb = bytesAMb(bytes);
-    const decimales = mb >= 10 ? 1 : mb < 1 ? 2 : 1;
+    const decimales = mb >= 10 ? 1 : mb < 1 ? 3 : 2;
     return `${mb.toFixed(decimales)} MB`;
   };
 

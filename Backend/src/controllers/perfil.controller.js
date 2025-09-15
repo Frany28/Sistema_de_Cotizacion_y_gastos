@@ -128,11 +128,12 @@ export const obtenerEstadisticasAlmacenamiento = async (req, res) => {
     `;
 
     const [filas] = await db.query(sqlEstadisticas, [usuarioId]);
-    const estadisticas = filas?.[0] ?? {
-      totalArchivos: 0,
-      archivoMasGrandeBytes: 0,
-      archivoMasPequenioBytes: 0,
-      promedioTamBytes: 0,
+    const brutas = filas?.[0] ?? {};
+    const estadisticas = {
+      totalArchivos: Number(brutas.totalArchivos || 0),
+      archivoMasGrandeBytes: Number(brutas.archivoMasGrandeBytes || 0),
+      archivoMasPequenioBytes: Number(brutas.archivoMasPequenioBytes || 0),
+      promedioTamBytes: Number(brutas.promedioTamBytes || 0),
     };
 
     // NUEVO: total de grupos (carpetas) reales del usuario
