@@ -19,6 +19,8 @@ const claseGridTarjetas = `
 `;
 
 function GestorDeEventosPage() {
+  const [mostrarModal, setMostrarModal] = useState(false);
+
   const abrirModal = () => {
     setMostrarModal(true);
   };
@@ -26,6 +28,11 @@ function GestorDeEventosPage() {
   const cerrarModal = () => {
     setMostrarModal(false);
   };
+
+  useEffect(() => {
+    // seguimiento simple del estado del modal
+    // console.log("mostrarModal:", mostrarModal);
+  }, [mostrarModal]);
 
   const manejarConfirmar = async (opcionesSeleccion) => {
     try {
