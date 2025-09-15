@@ -56,11 +56,21 @@ function GestorDeEventosPage() {
       />
 
       <div className="mx-auto w-full max-w-[1480px] px-6 md:px-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-6 mt-6">
-          <TarjetaArchivosSubidos />
-          <TarjetaArchivosEliminados />
-          <TarjetaTotalDeArchivos />
-          <TarjetaArchivosReemplazados />
+        <div className="mx-auto max-w-screen-2xl px-3 sm:px-6 lg:px-8 mt-6">
+          <section className={claseGridTarjetas}>
+            <div className="h-full">
+              <TarjetaArchivosSubidos />
+            </div>
+            <div className="h-full">
+              <TarjetaArchivosEliminados />
+            </div>
+            <div className="h-full">
+              <TarjetaTotalDeArchivos />
+            </div>
+            <div className="h-full">
+              <TarjetaArchivosReemplazados />
+            </div>
+          </section>
         </div>
       </div>
       <div className="mx-auto w-full max-w-[1480px] px-6 md:pt-5">
