@@ -9,6 +9,15 @@ import GraficoTendenciasActividad from "../../components/ComponenteGestorEventos
 import ActividadRecienteArchivos from "../../components/ComponenteGestorEventos/ActividadRecienteArchivos";
 import { descargarReporteEventosPdf } from "../../services/eventosArchivosApi";
 
+// Declaración en camelCase y en español
+const claseGridTarjetas = `
+  grid 
+  grid-cols-[repeat(auto-fit,minmax(220px,1fr))]
+  auto-rows-fr
+  items-stretch
+  gap-3 sm:gap-4 lg:gap-6
+`;
+
 function GestorDeEventosPage() {
   const [mostrarModal, setMostrarModal] = useState(false);
 
@@ -55,28 +64,29 @@ function GestorDeEventosPage() {
         onConfirmar={manejarConfirmar}
       />
 
-      <div className="mx-auto w-full max-w-[1480px] px-6 md:px-8">
-        <div className="mx-auto max-w-screen-2xl px-3 sm:px-6 lg:px-8 mt-6">
-          <section className={claseGridTarjetas}>
-            <div className="h-full">
-              <TarjetaArchivosSubidos />
-            </div>
-            <div className="h-full">
-              <TarjetaArchivosEliminados />
-            </div>
-            <div className="h-full">
-              <TarjetaTotalDeArchivos />
-            </div>
-            <div className="h-full">
-              <TarjetaArchivosReemplazados />
-            </div>
-          </section>
-        </div>
+      {/* Contenedor único para evitar conflictos de anchuras */}
+      <div className="mx-auto w-full max-w-[1480px] px-4 sm:px-6 lg:px-8 mt-6">
+        <section className={claseGridTarjetas}>
+          <div className="h-full">
+            <TarjetaArchivosSubidos />
+          </div>
+          <div className="h-full">
+            <TarjetaArchivosEliminados />
+          </div>
+          <div className="h-full">
+            <TarjetaTotalDeArchivos />
+          </div>
+          <div className="h-full">
+            <TarjetaArchivosReemplazados />
+          </div>
+        </section>
       </div>
-      <div className="mx-auto w-full max-w-[1480px] px-6 md:pt-5">
+
+      <div className="mx-auto w-full max-w-[1480px] px-4 sm:px-6 lg:px-8 md:pt-5">
         <GraficoTendenciasActividad alturaPx={420} />
       </div>
-      <div className="mx-auto w-full max-w-[1480px] px-6 md:pt-5">
+
+      <div className="mx-auto w-full max-w-[1480px] px-4 sm:px-6 lg:px-8 md:pt-5">
         <ActividadRecienteArchivos />
       </div>
     </div>
