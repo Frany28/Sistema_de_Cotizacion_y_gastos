@@ -1,3 +1,4 @@
+// src/components/archivos/tarjetas/tarjetaArchivosReemplazados.jsx
 import { useEffect, useState } from "react";
 import api from "../../../api";
 import { GitCompare } from "lucide-react";
@@ -21,14 +22,14 @@ const TarjetaArchivosReemplazados = () => {
   }, []);
 
   return (
-    <div className="w-full h-full min-h-[160px] rounded-2xl border border-zinc-700/60 bg-zinc-800/60 shadow-sm overflow-hidden p-4 sm:p-5 flex flex-col justify-between">
+    <div className="w-full h-full min-h-[160px] rounded-xl border border-gray-700 bg-gray-800 shadow-md p-4 sm:p-5 flex flex-col justify-between">
       <div className="flex items-center gap-2">
-        <GitCompare className="text-blue-500" size={22} />
-        <p className="text-sm text-zinc-300">Archivos reemplazados este mes</p>
+        <GitCompare size={20} className="text-blue-500" />
+        <p className="text-sm text-gray-300">Archivos reemplazados este mes</p>
       </div>
 
       {cargando ? (
-        <div className="h-8 bg-zinc-700/50 rounded w-1/2 animate-pulse" />
+        <div className="h-8 bg-gray-700/50 rounded w-1/2 animate-pulse" />
       ) : (
         <h1 className="text-white text-3xl md:text-4xl font-bold leading-none">
           {valor.toLocaleString("es-VE")}

@@ -9,31 +9,23 @@ import GraficoTendenciasActividad from "../../components/ComponenteGestorEventos
 import ActividadRecienteArchivos from "../../components/ComponenteGestorEventos/ActividadRecienteArchivos";
 import { descargarReporteEventosPdf } from "../../services/eventosArchivosApi";
 
-// Declaración en camelCase y en español
+// clases del grid (camelCase y en español)
 const claseGridTarjetas = `
-  grid 
+  grid
   grid-cols-[repeat(auto-fit,minmax(220px,1fr))]
   auto-rows-fr
   items-stretch
-  gap-3 sm:gap-4 lg:gap-6
+  gap-x-4 gap-y-6
 `;
 
 function GestorDeEventosPage() {
-  const [mostrarModal, setMostrarModal] = useState(false);
-
   const abrirModal = () => {
-    console.log("abrirModal");
     setMostrarModal(true);
   };
 
   const cerrarModal = () => {
-    console.log("cerrarModal");
     setMostrarModal(false);
   };
-
-  useEffect(() => {
-    console.log("mostrarModal:", mostrarModal);
-  }, [mostrarModal]);
 
   const manejarConfirmar = async (opcionesSeleccion) => {
     try {
@@ -45,7 +37,7 @@ function GestorDeEventosPage() {
       enlaceDescarga.click();
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error(error);
+      console.error("Error al generar PDF:", error);
       alert("No se pudo generar el PDF");
     } finally {
       cerrarModal();
@@ -54,18 +46,18 @@ function GestorDeEventosPage() {
 
   return (
     <div className="pt-5">
-      {/* Header con el botón de generar reporte */}
+      {/* Encabezado con botón para generar reporte */}
       <GenerarReporte onGenerarReporte={abrirModal} />
 
-      {/* Modal de opciones */}
+      {/* Modal de opciones para el reporte */}
       <ModalOpcionesReporte
         visible={mostrarModal}
         onClose={cerrarModal}
         onConfirmar={manejarConfirmar}
       />
 
-      {/* Contenedor único para evitar conflictos de anchuras */}
-      <div className="mx-auto w-full max-w-[1480px] px-4 sm:px-6 lg:px-8 mt-6">
+      {/* GRID de tarjetas - margen inferior para no chocar con Tendencias */}
+      <div className="mx-auto w-full max-w-[1480px] px-4 sm:px-6 lg:px-8 mt-6 mb-8">
         <section className={claseGridTarjetas}>
           <div className="h-full">
             <TarjetaArchivosSubidos />
@@ -82,10 +74,12 @@ function GestorDeEventosPage() {
         </section>
       </div>
 
-      <div className="mx-auto w-full max-w-[1480px] px-4 sm:px-6 lg:px-8 md:pt-5">
+      {/* Tendencias de actividad */}
+      <div className="mx-auto w-full max-w-[1480px] px-4 sm:px-6 lg:px-8">
         <GraficoTendenciasActividad alturaPx={420} />
       </div>
 
+      {/* Actividad reciente */}
       <div className="mx-auto w-full max-w-[1480px] px-4 sm:px-6 lg:px-8 md:pt-5">
         <ActividadRecienteArchivos />
       </div>
