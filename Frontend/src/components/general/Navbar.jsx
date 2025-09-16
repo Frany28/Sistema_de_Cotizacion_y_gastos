@@ -1,6 +1,7 @@
+// Navbar.jsx
 import { useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
-import { LogOut, User, Settings } from "lucide-react";
+import { LogOut, User } from "lucide-react";
 import imagenEmpresa from "../../Styles/img/Point Technology.png";
 
 function Navbar() {
@@ -15,6 +16,18 @@ function Navbar() {
   const usuario =
     JSON.parse(localStorage.getItem("usuario")) ||
     JSON.parse(sessionStorage.getItem("usuario"));
+
+  const esAdminOSupervisor = () => {
+    const rolId = usuario?.rol_id ?? usuario?.rolId;
+    const rolSlug = (usuario?.rolSlug || usuario?.rol || "")
+      .toString()
+      .toLowerCase();
+    const porId = rolId === 1 || rolId === 2;
+    const porSlug = rolSlug === "admin" || rolSlug === "supervisor";
+    return Boolean(porId || porSlug);
+  };
+
+  const puedeVerGestorEventos = esAdminOSupervisor();
 
   const toggleDropdown = (dropdownName) => {
     setOpenDropdown(openDropdown === dropdownName ? null : dropdownName);
@@ -63,11 +76,7 @@ function Navbar() {
   }, []);
 
   const navItems = [
-    {
-      path: "/Dashboard",
-      label: "Principal",
-      type: "link",
-    },
+    { path: "/Dashboard", label: "Principal", type: "link" },
     {
       label: "Administración",
       type: "dropdown",
@@ -89,10 +98,7 @@ function Navbar() {
       items: [
         { path: "/operaciones/cotizaciones", label: "Cotizaciones" },
         { path: "/operaciones/gastos", label: "Gastos" },
-        {
-          path: "/operaciones/solicitudes-pago",
-          label: "Solicitudes de Pago",
-        },
+        { path: "/operaciones/solicitudes-pago", label: "Solicitudes de Pago" },
         { path: "/operaciones/cxc", label: "CxC" },
       ],
     },
@@ -101,14 +107,13 @@ function Navbar() {
       type: "dropdown",
       items: [
         { path: "/archivos", label: "Administrador de Archivos" },
-        { path: "/gestor-eventos", label: "Gestor de Eventos" },
+        // Mostrar Gestor de Eventos solo a admin/supervisor
+        ...(puedeVerGestorEventos
+          ? [{ path: "/gestor-eventos", label: "Gestor de Eventos" }]
+          : []),
       ],
     },
-    {
-      label: "Crear Registro",
-      path: "/crearRegistro",
-      type: "link",
-    },
+    { label: "Crear Registro", path: "/crearRegistro", type: "link" },
   ];
 
   return (
