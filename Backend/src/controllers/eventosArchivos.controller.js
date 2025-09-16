@@ -3,23 +3,115 @@ import db from "../config/database.js";
 import puppeteer from "puppeteer-core";
 import chromium from "@sparticuz/chromium";
 import { generarHTMLEventosArchivos } from "../../templates/generarHTMLEventosArchivos.js";
-
 import PDFDocument from "pdfkit";
+import cacheMemoria from "../utils/cacheMemoria.js"; // 🧠 cache en memoria
 
 export const rolAdmin = 1;
 export const rolSupervisor = 2;
 export const rolEmpleado = 3;
 
-/* Util: validación y sanitización simple */
-const toPosInt = (v, def) => {
-  const n = Number(v);
-  return Number.isInteger(n) && n >= 0 ? n : def;
+/* ===========================
+ * Utilidades comunes (camelCase)
+ * =========================== */
+
+/** Convierte a entero positivo o devuelve default */
+const toPosInt = (valor, defecto) => {
+  const numero = Number(valor);
+  return Number.isInteger(numero) && numero >= 0 ? numero : defecto;
 };
-const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+
+/** Restringe un número entre [min, max] */
+const clamp = (numero, min, max) => Math.max(min, Math.min(max, numero));
+
+/** Normaliza un valor JS a string estable para claves de cache */
+const normalizarParaClave = (valor) => {
+  if (valor === undefined || valor === null) return "null";
+  if (valor instanceof Date) return valor.toISOString();
+  if (Array.isArray(valor))
+    return `[${valor.map(normalizarParaClave).join(",")}]`;
+  if (typeof valor === "object") {
+    const entradasOrdenadas = Object.entries(valor).sort(([a], [b]) =>
+      a.localeCompare(b)
+    );
+    return `{${entradasOrdenadas
+      .map(([k, v]) => `${k}:${normalizarParaClave(v)}`)
+      .join("|")}}`;
+  }
+  return String(valor);
+};
+
+/** Construye clave determinística: prefijo_param=valor|... */
+const construirClaveCache = (prefijo, objetoParams = {}) => {
+  const entradas = Object.entries(objetoParams).sort(([a], [b]) =>
+    a.localeCompare(b)
+  );
+  const partes = entradas.map(([k, v]) => `${k}=${normalizarParaClave(v)}`);
+  return `${prefijo}_${partes.join("|")}`;
+};
+
+/** Borra todas las claves del cache que comiencen por 'prefijo' */
+const borrarPorPrefijo = (prefijo) => {
+  for (const clave of cacheMemoria.keys()) {
+    if (clave.startsWith(prefijo)) cacheMemoria.del(clave);
+  }
+};
+
+/** Prefijos que usa ESTE controlador (para limpieza selectiva) */
+const prefijosEventos = {
+  metricas: "ev_metricas_",
+  tendencia: "ev_tendencia_",
+  feed: "ev_feed_",
+  versionesMes: "ev_versionesMes_",
+  almacenamientoDoc: "ev_almaPorDoc_",
+  tarjetas: "ev_tarjetas_",
+  pdfDatos: "ev_pdfDatos_",
+};
+
+/** API pública para limpieza (para que otros controladores la llamen) */
+export const limpiarCacheEventos = (prefijo = null) => {
+  const lista = Object.values(prefijosEventos);
+  if (prefijo && typeof prefijo === "string") {
+    const coincide = lista.find(
+      (p) => p.startsWith(prefijo) || prefijo.startsWith(p)
+    );
+    if (coincide) {
+      borrarPorPrefijo(coincide);
+      return { ok: true, limpiado: coincide };
+    }
+    // Si envían un prefijo no listado, limpiamos exactamente ese
+    borrarPorPrefijo(prefijo);
+    return { ok: true, limpiado: prefijo };
+  }
+  // Limpia todos los prefijos de este controlador
+  for (const p of lista) borrarPorPrefijo(p);
+  return { ok: true, limpiado: "todos" };
+};
+
+/** Handler opcional (exponlo por ruta /eventos/limpiar-cache?prefijo=ev_tendencia_) */
+export const limpiarCacheEventosHandler = async (req, res) => {
+  try {
+    // Opcional: permitir solo admin/supervisor
+    const rolId = req.user?.rol_id;
+    if (![rolAdmin, rolSupervisor].includes(rolId)) {
+      return res.status(403).json({ ok: false, mensaje: "No autorizado" });
+    }
+    const { prefijo } = req.query;
+    const resultado = limpiarCacheEventos(prefijo ?? null);
+    return res.json({ ok: true, ...resultado });
+  } catch (error) {
+    console.error("Error en limpiarCacheEventosHandler:", error);
+    return res
+      .status(500)
+      .json({ ok: false, mensaje: "Error al limpiar cache" });
+  }
+};
 
 /* =====  A) MÉTRICAS DEL TABLERO  ===== */
 
-// A) MÉTRICAS DEL TABLERO
+/**
+ * Métricas del tablero (mes en curso).
+ * Cache TTL: 60s. Bypass con ?refresh=1
+ */
 export const obtenerMetricasTablero = async (req, res) => {
   const { registroTipo } = req.query;
 
@@ -30,9 +122,19 @@ export const obtenerMetricasTablero = async (req, res) => {
   const fechaFin = new Date(fechaInicio);
   fechaFin.setMonth(fechaFin.getMonth() + 1);
 
-  // ✅ usar cadena vacía, no []
   const filtroTipoSql = registroTipo ? "AND a.registroTipo = ?" : "";
   const paramsTipo = registroTipo ? [registroTipo] : [];
+
+  const claveCache = construirClaveCache(prefijosEventos.metricas, {
+    registroTipo: registroTipo ?? "all",
+    mes: fechaInicio.toISOString().slice(0, 7),
+  });
+
+  const forzarRefresh = String(req.query.refresh) === "1";
+  if (!forzarRefresh) {
+    const hit = cacheMemoria.get(claveCache);
+    if (hit) return res.json(hit);
+  }
 
   try {
     const [[mActivos]] = await db.query(
@@ -49,7 +151,6 @@ export const obtenerMetricasTablero = async (req, res) => {
       [fechaInicio, fechaFin]
     );
 
-    // ✅ corregir params (eliminar ".")
     const [[mVersiones]] = await db.query(
       `SELECT COUNT(*) AS totalVersionesMes
          FROM versionesArchivo v
@@ -66,35 +167,52 @@ export const obtenerMetricasTablero = async (req, res) => {
       paramsTipo
     );
 
-    return res.json({
+    const respuesta = {
       totalArchivosActivos: mActivos.totalArchivosActivos,
       totalEventosMes: mEventos.totalEventosMes,
       totalVersionesMes: mVersiones.totalVersionesMes,
       totalAlmacenamientoBytes: mAlmacen.totalAlmacenamientoBytes,
-    });
+    };
+
+    cacheMemoria.set(claveCache, respuesta, 60);
+    return res.json(respuesta);
   } catch (error) {
     console.error("Error en obtenerMetricasTablero:", error);
     return res.status(500).json({ mensaje: "Error al obtener métricas" });
   }
 };
 
+/**
+ * Tendencia de actividad (diaria).
+ * Cache TTL: 300s. Bypass con ?refresh=1
+ */
 export const obtenerTendenciaActividad = async (req, res) => {
-  // dias: por defecto 30, mínimo 7 y máximo 180
-  const dias = Math.max(7, Math.min(180, Number(req.query.dias ?? 30)));
+  const dias = clamp(Number(req.query.dias ?? 30), 7, 180);
   const { registroTipo, accion, todo } = req.query;
 
+  const claveCache = construirClaveCache(prefijosEventos.tendencia, {
+    dias,
+    registroTipo: registroTipo ?? "all",
+    accion: accion ?? "all",
+    todo: String(todo ?? "0"),
+  });
+
+  const forzarRefresh = String(req.query.refresh) === "1";
+  if (!forzarRefresh) {
+    const hit = cacheMemoria.get(claveCache);
+    if (hit) return res.json(hit);
+  }
+
   try {
-    // 1) Rango de fechas diario: fin = inicio de MAÑANA → incluye HOY con "< fechaFin"
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
 
     const fechaFin = new Date(hoy);
-    fechaFin.setDate(fechaFin.getDate() + 1); // inicio de mañana ✅
+    fechaFin.setDate(fechaFin.getDate() + 1);
 
     const fechaInicio = new Date(fechaFin);
-    fechaInicio.setDate(fechaFin.getDate() - dias); // últimos "dias" incluyendo hoy
+    fechaInicio.setDate(fechaFin.getDate() - dias);
 
-    // 2) Histórico completo si ?todo=1 → usamos el mínimo histórico
     if (String(todo) === "1") {
       const [[minRow]] = await db.query(
         `SELECT MIN(DATE(fechaHora)) AS fechaMin FROM eventosArchivo`
@@ -106,7 +224,6 @@ export const obtenerTendenciaActividad = async (req, res) => {
       }
     }
 
-    // 3) Filtros dinámicos
     const params = [];
     const filtrosEv = [];
     const filtrosJoinArch = [];
@@ -129,7 +246,6 @@ export const obtenerTendenciaActividad = async (req, res) => {
       ? `AND ${filtrosJoinArch.join(" AND ")}`
       : "";
 
-    // 4) Calendario diario + normalización de acciones
     const [rows] = await db.query(
       `
       WITH RECURSIVE fechas AS (
@@ -173,7 +289,14 @@ export const obtenerTendenciaActividad = async (req, res) => {
       [fechaInicio, fechaFin, fechaInicio, fechaFin, ...params]
     );
 
-    return res.json({ desde: fechaInicio, hasta: fechaFin, dias, serie: rows });
+    const respuesta = {
+      desde: fechaInicio,
+      hasta: fechaFin,
+      dias,
+      serie: rows,
+    };
+    cacheMemoria.set(claveCache, respuesta, 300);
+    return res.json(respuesta);
   } catch (error) {
     console.error("Error en obtenerTendenciaActividad:", error);
     return res.status(500).json({ mensaje: "Error al obtener tendencia" });
@@ -182,19 +305,22 @@ export const obtenerTendenciaActividad = async (req, res) => {
 
 /* =====  B) FEED DE ACTIVIDAD  ===== */
 
+/**
+ * Feed de actividad (paginado, sensible a rol/usuario).
+ * Cache TTL: 45s. Bypass con ?refresh=1
+ */
 export const listarActividadReciente = async (req, res) => {
   const creadoPorUsuario = req.user.id;
   const rolId = req.user.rol_id;
-  const esVistaCompleta = rolId === 1 || rolId === 2; // admin o supervisor
+  const esVistaCompleta = rolId === rolAdmin || rolId === rolSupervisor;
 
-  const limit = Math.max(1, Math.min(100, Number(req.query.limit ?? 10)));
+  const limit = clamp(Number(req.query.limit ?? 10), 1, 100);
   const offset = Math.max(0, Number(req.query.offset ?? 0));
   const { q, accion, registroTipo, desde, hasta } = req.query;
 
   const filtros = [];
   const params = [];
 
-  // Rango de fechas (opcional)
   if (desde) {
     filtros.push("en.fechaHora >= ?");
     params.push(new Date(`${desde}T00:00:00`));
@@ -203,28 +329,20 @@ export const listarActividadReciente = async (req, res) => {
     filtros.push("en.fechaHora < ?");
     params.push(new Date(`${hasta}T23:59:59`));
   }
-
-  // Filtro por acción (sobre acción normalizada al ENUM oficial)
   if (accion) {
     filtros.push("en.accionNorm = ?");
     params.push(accion);
   } else {
     filtros.push("en.accionNorm <> ''");
   }
-
-  // Filtro por tipo de registro (opcional)
   if (registroTipo) {
     filtros.push("a.registroTipo = ?");
     params.push(registroTipo);
   }
-
-  // Búsqueda por nombre de archivo (opcional)
   if (q) {
     filtros.push("a.nombreOriginal LIKE ?");
     params.push(`%${q}%`);
   }
-
-  // Visibilidad para empleados
   if (!esVistaCompleta) {
     filtros.push("(a.subidoPor = ? OR en.creadoPor = ?)");
     params.push(creadoPorUsuario, creadoPorUsuario);
@@ -232,8 +350,25 @@ export const listarActividadReciente = async (req, res) => {
 
   const whereSql = filtros.length ? `WHERE ${filtros.join(" AND ")}` : "";
 
+  const claveCache = construirClaveCache(prefijosEventos.feed, {
+    usuarioId: creadoPorUsuario,
+    rolId,
+    limit,
+    offset,
+    q: q ?? "",
+    accion: accion ?? "all",
+    registroTipo: registroTipo ?? "all",
+    desde: desde ?? "",
+    hasta: hasta ?? "",
+  });
+
+  const forzarRefresh = String(req.query.refresh) === "1";
+  if (!forzarRefresh) {
+    const hit = cacheMemoria.get(claveCache);
+    if (hit) return res.json(hit);
+  }
+
   try {
-    // Normalizamos a los 4 valores del ENUM
     const baseSql = `
       WITH eventosNorm AS (
         SELECT
@@ -268,13 +403,11 @@ export const listarActividadReciente = async (req, res) => {
       ${whereSql}
     `;
 
-    // total para paginación
     const [[{ total }]] = await db.query(
       `SELECT COUNT(*) AS total FROM (${baseSql}) AS t`,
       params
     );
 
-    // tiposDisponibles (DISTINCT), solo de los 4 oficiales
     const [tiposRows] = await db.query(
       `SELECT DISTINCT tipoEvento FROM (${baseSql}) AS t
        WHERE tipoEvento IN ('subidaArchivo','eliminacionArchivo','sustitucionArchivo','borradoDefinitivo')
@@ -283,7 +416,6 @@ export const listarActividadReciente = async (req, res) => {
     );
     const tiposDisponibles = tiposRows.map((r) => r.tipoEvento);
 
-    // página de eventos
     const [eventos] = await db.query(
       `${baseSql}
        ORDER BY fechaEvento DESC
@@ -291,20 +423,21 @@ export const listarActividadReciente = async (req, res) => {
       [...params, limit, offset]
     );
 
-    return res.json({
-      eventos,
-      limit,
-      offset,
-      total,
-      tiposDisponibles,
-    });
+    const respuesta = { eventos, limit, offset, total, tiposDisponibles };
+    cacheMemoria.set(claveCache, respuesta, 45);
+    return res.json(respuesta);
   } catch (error) {
     console.error("Error en listarActividadReciente:", error);
     return res.status(500).json({ mensaje: "Error al listar eventos" });
   }
 };
 
-// D) VERSIONES DEL MES (ahora desde versionesArchivo)
+/* =====  C) VERSIONES DEL MES POR ARCHIVO  ===== */
+
+/**
+ * Cuenta versiones del mes para un archivo.
+ * Cache TTL: 300s. Bypass con ?refresh=1
+ */
 export const contarVersionesDelMesPorArchivo = async (req, res) => {
   const archivoId = Number(req.params.id);
 
@@ -315,6 +448,17 @@ export const contarVersionesDelMesPorArchivo = async (req, res) => {
   const fechaFin = new Date(fechaInicio);
   fechaFin.setMonth(fechaFin.getMonth() + 1);
 
+  const claveCache = construirClaveCache(prefijosEventos.versionesMes, {
+    archivoId,
+    mes: fechaInicio.toISOString().slice(0, 7),
+  });
+
+  const forzarRefresh = String(req.query.refresh) === "1";
+  if (!forzarRefresh) {
+    const hit = cacheMemoria.get(claveCache);
+    if (hit) return res.json(hit);
+  }
+
   try {
     const [[existe]] = await db.query(`SELECT id FROM archivos WHERE id = ?`, [
       archivoId,
@@ -323,7 +467,6 @@ export const contarVersionesDelMesPorArchivo = async (req, res) => {
       return res.status(404).json({ mensaje: "Archivo no encontrado" });
     }
 
-    //  cuenta en versionesArchivo por archivoId
     const [[fila]] = await db.query(
       `SELECT COUNT(*) AS totalDelMes
          FROM versionesArchivo
@@ -332,7 +475,9 @@ export const contarVersionesDelMesPorArchivo = async (req, res) => {
       [archivoId, fechaInicio, fechaFin]
     );
 
-    return res.json({ totalDelMes: fila.totalDelMes });
+    const respuesta = { totalDelMes: fila.totalDelMes };
+    cacheMemoria.set(claveCache, respuesta, 300);
+    return res.json(respuesta);
   } catch (error) {
     console.error("Error al contar versiones del mes:", error);
     return res
@@ -341,8 +486,25 @@ export const contarVersionesDelMesPorArchivo = async (req, res) => {
   }
 };
 
+/* =====  D) ALMACENAMIENTO TOTAL POR DOCUMENTO  ===== */
+
+/**
+ * Suma de bytes por documento (registroTipo + registroId del archivo base).
+ * Cache TTL: 300s. Bypass con ?refresh=1
+ */
 export const obtenerAlmacenamientoTotalPorDocumento = async (req, res) => {
   const archivoId = req.params.id;
+
+  const claveCache = construirClaveCache(prefijosEventos.almacenamientoDoc, {
+    archivoId,
+  });
+
+  const forzarRefresh = String(req.query.refresh) === "1";
+  if (!forzarRefresh) {
+    const hit = cacheMemoria.get(claveCache);
+    if (hit) return res.json(hit);
+  }
+
   try {
     const [[base]] = await db.query(
       `SELECT registroTipo, registroId
@@ -360,7 +522,9 @@ export const obtenerAlmacenamientoTotalPorDocumento = async (req, res) => {
       [base.registroTipo, base.registroId]
     );
 
-    return res.json({ totalBytes: suma.totalBytes });
+    const respuesta = { totalBytes: suma.totalBytes };
+    cacheMemoria.set(claveCache, respuesta, 300);
+    return res.json(respuesta);
   } catch (error) {
     console.error("Error al calcular almacenamiento total:", error);
     return res
@@ -369,12 +533,16 @@ export const obtenerAlmacenamientoTotalPorDocumento = async (req, res) => {
   }
 };
 
-// === NUEVO: CONTADORES PARA TARJETAS (mes actual por defecto) ===
+/* =====  E) CONTADORES PARA TARJETAS (por rango)  ===== */
+
+/**
+ * Contadores para tarjetas (rango: mensual por defecto o ?desde/?hasta).
+ * Cache TTL: 120s. Bypass con ?refresh=1
+ */
 export const obtenerContadoresTarjetas = async (req, res) => {
   try {
     const { desde, hasta, registroTipo } = req.query;
 
-    // Rango por defecto: mes en curso (incluye hora inicio y fin)
     const fechaInicio = desde
       ? new Date(`${desde}T00:00:00`)
       : (() => {
@@ -392,11 +560,21 @@ export const obtenerContadoresTarjetas = async (req, res) => {
           return f;
         })();
 
-    // Filtro opcional por tipo de registro (firmas, facturasGastos, etc.)
+    const claveCache = construirClaveCache(prefijosEventos.tarjetas, {
+      registroTipo: registroTipo ?? "all",
+      desde: fechaInicio,
+      hasta: fechaFin,
+    });
+
+    const forzarRefresh = String(req.query.refresh) === "1";
+    if (!forzarRefresh) {
+      const hit = cacheMemoria.get(claveCache);
+      if (hit) return res.json(hit);
+    }
+
     const filtroTipoSql = registroTipo ? "AND a.registroTipo = ?" : "";
     const paramsTipo = registroTipo ? [registroTipo] : [];
 
-    // 1) Total de archivos activos hoy (no cuenta reemplazados/eliminados/borrados)
     const [[mActivos]] = await db.query(
       `SELECT COUNT(*) AS totalArchivosActivos
          FROM archivos a
@@ -404,7 +582,6 @@ export const obtenerContadoresTarjetas = async (req, res) => {
       paramsTipo
     );
 
-    // 2) Acciones por periodo (excluye acciones vacías)
     const baseParams = [fechaInicio, fechaFin, ...paramsTipo];
 
     const [[mSubidos]] = await db.query(
@@ -434,7 +611,7 @@ export const obtenerContadoresTarjetas = async (req, res) => {
       baseParams
     );
 
-    return res.json({
+    const respuesta = {
       totalArchivosActivos: mActivos.totalArchivosActivos,
       totalSubidos: mSubidos.totalSubidos,
       totalEliminados: mEliminados.totalEliminados,
@@ -442,13 +619,22 @@ export const obtenerContadoresTarjetas = async (req, res) => {
       desde: fechaInicio,
       hasta: fechaFin,
       registroTipo: registroTipo ?? null,
-    });
+    };
+
+    cacheMemoria.set(claveCache, respuesta, 120);
+    return res.json(respuesta);
   } catch (error) {
     console.error("Error en obtenerContadoresTarjetas:", error);
     return res.status(500).json({ mensaje: "Error al obtener contadores" });
   }
 };
 
+/* =====  F) PDF DE MOVIMIENTOS (cache de datos, no del PDF)  ===== */
+
+/**
+ * Genera PDF de movimientos. Cacheo SOLO los datos (totales + detalle) 180s
+ * para reducir carga de BD en reportes repetidos. El PDF se renderiza siempre.
+ */
 function rango({ tipoReporte, mes, anio, fechaInicio, fechaFin }) {
   const ahora = new Date();
   if (tipoReporte === "mensual") {
@@ -489,17 +675,15 @@ function rango({ tipoReporte, mes, anio, fechaInicio, fechaFin }) {
 
 export const generarPdfMovimientosArchivos = async (req, res) => {
   try {
-    // 1) Parámetros del query
     const {
       tipoReporte = "mensual",
       mes,
       anio,
       fechaInicio,
       fechaFin,
-      registroTipo, // ej: 'firmas' | 'facturasGastos' | ...
+      registroTipo,
     } = req.query;
 
-    // 2) Calcular rango [desde, hasta) (half-open)
     let desde, hasta, fechaInicioTexto, fechaFinTexto;
     const hoy = new Date();
 
@@ -517,101 +701,115 @@ export const generarPdfMovimientosArchivos = async (req, res) => {
       fechaInicioTexto = desde.toLocaleDateString("es-VE");
       fechaFinTexto = new Date(hasta - 1).toLocaleDateString("es-VE");
     } else if (tipoReporte === "rango") {
-      // rango explícito del usuario
       desde = new Date(`${fechaInicio}T00:00:00`);
-      // usamos hasta como el INICIO del día siguiente para mantener "< hasta"
       const finDia = new Date(`${fechaFin}T23:59:59`);
-      hasta = new Date(finDia.getTime() + 1000); // +1s para saltar al siguiente día
+      hasta = new Date(finDia.getTime() + 1000);
       fechaInicioTexto = desde.toLocaleDateString("es-VE");
-      // mostramos al usuario el fin inclusivo original
       fechaFinTexto = new Date(hasta - 1).toLocaleDateString("es-VE");
     } else {
       return res.status(400).json({ mensaje: "tipoReporte inválido" });
     }
 
-    // 3) Filtros comunes
-    const filtrosJoin = ["e.fechaHora >= ? AND e.fechaHora < ?"];
-    const paramsJoin = [desde, hasta];
-    if (registroTipo) {
-      filtrosJoin.push("a.registroTipo = ?");
-      paramsJoin.push(registroTipo);
-    }
-    const whereJoin = filtrosJoin.join(" AND ");
+    // Clave de cache para los DATOS del PDF (no el buffer)
+    const claveDatos = construirClaveCache(prefijosEventos.pdfDatos, {
+      tipoReporte,
+      mes: mes ?? "",
+      anio: anio ?? "",
+      fechaInicio: fechaInicio ?? "",
+      fechaFin: fechaFin ?? "",
+      registroTipo: registroTipo ?? "all",
+    });
 
-    // 4) Totales normalizados a los 4 ENUM oficiales de la BD
-    //    (subidaArchivo, sustitucionArchivo, eliminacionArchivo, borradoDefinitivo)
-    const [[totales]] = await db.query(
-      `
-      SELECT
-        SUM(CASE WHEN accionNorm = 'subidaArchivo'       THEN 1 ELSE 0 END) AS subidos,
-        SUM(CASE WHEN accionNorm = 'sustitucionArchivo'  THEN 1 ELSE 0 END) AS reemplazados,
-        SUM(CASE WHEN accionNorm = 'eliminacionArchivo'  THEN 1 ELSE 0 END) AS eliminados,
-        SUM(CASE WHEN accionNorm = 'borradoDefinitivo'   THEN 1 ELSE 0 END) AS borrados
-      FROM (
+    const forzarRefresh = String(req.query.refresh) === "1";
+    let datosPdf = !forzarRefresh ? cacheMemoria.get(claveDatos) : null;
+
+    if (!datosPdf) {
+      const filtrosJoin = ["e.fechaHora >= ? AND e.fechaHora < ?"];
+      const paramsJoin = [desde, hasta];
+      if (registroTipo) {
+        filtrosJoin.push("a.registroTipo = ?");
+        paramsJoin.push(registroTipo);
+      }
+      const whereJoin = filtrosJoin.join(" AND ");
+
+      const [[totales]] = await db.query(
+        `
         SELECT
-          e.id,
-          CASE
-            WHEN e.accion IN ('subida','subidaArchivo')                 THEN 'subidaArchivo'
-            WHEN e.accion IN ('sustitucion','sustitucionArchivo')       THEN 'sustitucionArchivo'
-            WHEN e.accion IN ('eliminacion','eliminacionArchivo')       THEN 'eliminacionArchivo'
-            WHEN e.accion = 'borradoDefinitivo'                         THEN 'borradoDefinitivo'
-            ELSE ''
-          END AS accionNorm
+          SUM(CASE WHEN accionNorm = 'subidaArchivo'       THEN 1 ELSE 0 END) AS subidos,
+          SUM(CASE WHEN accionNorm = 'sustitucionArchivo'  THEN 1 ELSE 0 END) AS reemplazados,
+          SUM(CASE WHEN accionNorm = 'eliminacionArchivo'  THEN 1 ELSE 0 END) AS eliminados,
+          SUM(CASE WHEN accionNorm = 'borradoDefinitivo'   THEN 1 ELSE 0 END) AS borrados
+        FROM (
+          SELECT
+            e.id,
+            CASE
+              WHEN e.accion IN ('subida','subidaArchivo')                 THEN 'subidaArchivo'
+              WHEN e.accion IN ('sustitucion','sustitucionArchivo')       THEN 'sustitucionArchivo'
+              WHEN e.accion IN ('eliminacion','eliminacionArchivo')       THEN 'eliminacionArchivo'
+              WHEN e.accion = 'borradoDefinitivo'                         THEN 'borradoDefinitivo'
+              ELSE ''
+            END AS accionNorm
+          FROM eventosArchivo e
+          JOIN archivos a ON a.id = e.archivoId
+          WHERE ${whereJoin}
+        ) t
+        `,
+        paramsJoin
+      );
+
+      const [detalle] = await db.query(
+        `
+        SELECT
+          DATE_FORMAT(e.fechaHora, '%d/%m/%Y') AS fecha,
+          DATE_FORMAT(e.fechaHora, '%H:%i')    AS hora,
+          COALESCE(u.nombre, CONCAT('Usuario #', e.creadoPor)) AS usuario,
+          e.accion               AS tipoAccion,
+          a.nombreOriginal       AS archivo,
+          COALESCE(JSON_UNQUOTE(JSON_EXTRACT(e.detalles,'$.motivo')), '') AS observaciones
         FROM eventosArchivo e
-        JOIN archivos a ON a.id = e.archivoId
+        JOIN archivos a      ON a.id = e.archivoId
+        LEFT JOIN usuarios u ON u.id = e.creadoPor
         WHERE ${whereJoin}
-      ) t
-      `,
-      paramsJoin
-    );
+        ORDER BY e.fechaHora DESC
+        LIMIT 500
+        `,
+        paramsJoin
+      );
 
-    // 5) Detalle con el mismo rango y filtro opcional por registroTipo
-    const [detalle] = await db.query(
-      `
-      SELECT
-        DATE_FORMAT(e.fechaHora, '%d/%m/%Y') AS fecha,
-        DATE_FORMAT(e.fechaHora, '%H:%i')    AS hora,
-        COALESCE(u.nombre, CONCAT('Usuario #', e.creadoPor)) AS usuario,
-        e.accion               AS tipoAccion,
-        a.nombreOriginal       AS archivo,
-        COALESCE(JSON_UNQUOTE(JSON_EXTRACT(e.detalles,'$.motivo')), '') AS observaciones
-      FROM eventosArchivo e
-      JOIN archivos a      ON a.id = e.archivoId
-      LEFT JOIN usuarios u ON u.id = e.creadoPor
-      WHERE ${whereJoin}
-      ORDER BY e.fechaHora DESC
-      LIMIT 500
-      `,
-      paramsJoin
-    );
+      datosPdf = {
+        fechaInicioTexto,
+        fechaFinTexto,
+        totales: {
+          subidos: Number(totales?.subidos || 0),
+          reemplazados: Number(totales?.reemplazados || 0),
+          eliminados: Number(totales?.eliminados || 0),
+          borrados: Number(totales?.borrados || 0),
+        },
+        detalleMovimientos: detalle.map((r) => ({
+          fecha: r.fecha,
+          hora: r.hora,
+          usuario: r.usuario,
+          tipoAccion: r.tipoAccion,
+          archivo: r.archivo,
+          observaciones: r.observaciones || "",
+        })),
+      };
 
-    // 6) HTML del reporte
+      cacheMemoria.set(claveDatos, datosPdf, 180);
+    }
+
     const html = generarHTMLEventosArchivos({
       usuario: req.user?.nombre || "admin",
-      fechaInicioTexto,
-      fechaFinTexto,
-      totales: {
-        subidos: Number(totales?.subidos || 0),
-        reemplazados: Number(totales?.reemplazados || 0),
-        eliminados: Number(totales?.eliminados || 0),
-        borrados: Number(totales?.borrados || 0),
-      },
-      detalleMovimientos: detalle.map((r) => ({
-        fecha: r.fecha,
-        hora: r.hora,
-        usuario: r.usuario,
-        tipoAccion: r.tipoAccion,
-        archivo: r.archivo,
-        observaciones: r.observaciones || "",
-      })),
-      // En backend usa URL pública o path servido estáticamente
+      fechaInicioTexto: datosPdf.fechaInicioTexto,
+      fechaFinTexto: datosPdf.fechaFinTexto,
+      totales: datosPdf.totales,
+      detalleMovimientos: datosPdf.detalleMovimientos,
       logoUrl: `../styles/Point Technology.png`,
       mostrarGrafico: true,
       mostrarDetalle: true,
       tituloReporte: "REPORTE DE MOVIMIENTOS DE ARCHIVOS",
     });
 
-    // 7) Render PDF (Chromium)
     const browser = await puppeteer.launch({
       args: chromium.args,
       defaultViewport: chromium.defaultViewport,
