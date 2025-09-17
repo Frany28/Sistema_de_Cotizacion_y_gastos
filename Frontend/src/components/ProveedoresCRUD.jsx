@@ -2,14 +2,14 @@
 import React, { useEffect, useState, useCallback } from "react";
 import api from "../api/index";
 import BotonIcono from "./general/BotonIcono";
-import BotonAgregar from "./general/BotonAgregar";
-import ModalConfirmacion from "./Modals/ModalConfirmacion";
-import ModalExito from "./Modals/ModalExito";
-import ModalError from "./Modals/ModalError";
-import Paginacion from "./general/Paginacion";
+import BotonAgregar from "../components/general/BotonAgregar";
+import ModalConfirmacion from "../components/Modals/ModalConfirmacion";
+import ModalExito from "../components/Modals/ModalExito";
+import ModalError from "../components/Modals/ModalError";
+import Paginacion from "../components/general/Paginacion";
 import Loader from "./general/Loader";
-import ModalAñadirProveedor from "./Modals/ModalAñadirProveedor";
-import ModalEditar from "./Modals/ModalEditar";
+import ModalAñadirProveedor from "../components/Modals/ModalAñadirProveedor";
+import ModalEditar from "../components/Modals/ModalEditar";
 import { verificarPermisoFront } from "../../utils/verificarPermisoFront";
 
 function ListaProveedores() {
@@ -155,30 +155,32 @@ function ListaProveedores() {
     setEditandoProveedor(null);
   };
 
-  const eliminarProveedor = async (proveedorId) => {
+  // ⬇⬇⬇ CORREGIDO: ahora devuelve booleano y muestra mensajes del backend
+  const eliminarProveedor = async (id) => {
     try {
-      await api.delete(`/proveedores/${proveedorId}`);
-      await fetchProveedores(); // refresca la lista
-      return true; // ✅ éxito
+      await api.delete(`/proveedores/${id}`);
+      await fetchProveedores();
+      return true; // éxito
     } catch (error) {
       if (error.response?.status === 409) {
         const data = error.response.data;
-        const detalle =
+        const mensaje =
           Array.isArray(data?.mensajes) && data.mensajes.length
             ? data.mensajes.map((m) => `• ${m}`).join("\n")
             : data?.message || "No puedes eliminar este proveedor.";
         mostrarError({
           titulo: data?.error || "No permitido",
-          mensaje: detalle,
+          mensaje,
         });
+        return false;
       } else {
         console.error("Error al eliminar proveedor:", error);
         mostrarError({
           titulo: "Error al eliminar proveedor",
           mensaje: "No se pudo eliminar el proveedor. Intenta nuevamente.",
         });
+        return false;
       }
-      return false; // ❌ fallo
     }
   };
 
@@ -524,18 +526,17 @@ function ListaProveedores() {
         visible={!!proveedorAEliminar}
         onClose={() => setProveedorAEliminar(null)}
         onConfirmar={async () => {
-          const id = proveedorAEliminar?.id;
-
+          const ok = await eliminarProveedor(proveedorAEliminar.id);
+          // Cerrar SIEMPRE el modal de confirmación
           setProveedorAEliminar(null);
-
-          const ok = await eliminarProveedor(id);
-
+          // Si hubo éxito, mostrar modal de éxito
           if (ok) {
             mostrarMensajeExito({
               titulo: "Proveedor eliminado",
               mensaje: "El proveedor ha sido eliminado correctamente.",
             });
           }
+          // Si hubo error, el ModalError ya fue mostrado en eliminarProveedor
         }}
         titulo="¿Eliminar proveedor?"
         mensaje={`¿Seguro que deseas eliminar a ${proveedorAEliminar?.nombre}? Esta acción no se puede deshacer.`}
