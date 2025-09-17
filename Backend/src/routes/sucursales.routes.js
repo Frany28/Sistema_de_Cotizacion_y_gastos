@@ -7,7 +7,7 @@ import {
   actualizarSucursal,
   eliminarSucursal,
   obtenerSucursalesDropdown,
-} from "../controllers/sucursales.controller.js";
+} from "../controllers/sucurlales.controller.js";
 
 import { validarSucursal } from "../Middleware/validarSucursal.js";
 import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
