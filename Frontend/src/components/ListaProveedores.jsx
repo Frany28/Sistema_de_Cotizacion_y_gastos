@@ -2,19 +2,18 @@
 import React, { useEffect, useState, useCallback } from "react";
 import api from "../api/index";
 import BotonIcono from "./general/BotonIcono";
-import BotonAgregar from "../components/general/BotonAgregar";
-import ModalConfirmacion from "../components/Modals/ModalConfirmacion";
-import ModalExito from "../components/Modals/ModalExito";
-import ModalError from "../components/Modals/ModalError";
-import Paginacion from "../components/general/Paginacion";
+import BotonAgregar from "./general/BotonAgregar";
+import ModalConfirmacion from "./Modals/ModalConfirmacion";
+import ModalExito from "./Modals/ModalExito";
+import ModalError from "./Modals/ModalError";
+import Paginacion from "./general/Paginacion";
 import Loader from "./general/Loader";
-import ModalAñadirProveedor from "../components/Modals/ModalAñadirProveedor";
-import ModalEditar from "../components/Modals/ModalEditar";
+import ModalAñadirProveedor from "./Modals/ModalAñadirProveedor";
+import ModalEditar from "./Modals/ModalEditar";
 import { verificarPermisoFront } from "../../utils/verificarPermisoFront";
 
 function ListaProveedores() {
   const [proveedores, setProveedores] = useState([]);
-  const [modalError, setModalError] = useState({ visible: false, mensaje: "" });
   const [busqueda, setBusqueda] = useState("");
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(() => {
@@ -31,18 +30,21 @@ function ListaProveedores() {
   const [mostrarModalEditar, setMostrarModalEditar] = useState(false);
   const [mostrarModal, setMostrarModal] = useState(false);
   const [total, setTotal] = useState(0);
+
   const [modalExitoData, setModalExitoData] = useState({
     visible: false,
     titulo: "",
     mensaje: "",
     textoBoton: "Entendido",
   });
+
   const [modalErrorData, setModalErrorData] = useState({
     visible: false,
     titulo: "",
     mensaje: "",
     textoBoton: "Cerrar",
   });
+
   const [proveedorEditado, setProveedorEditado] = useState({
     nombre: "",
     email: "",
@@ -70,7 +72,10 @@ function ListaProveedores() {
       const { data } = await api.get("/proveedores");
       if (data && Array.isArray(data.proveedores)) {
         setProveedores(data.proveedores);
-        setTotal(data.proveedores.length);
+        // Usa total del backend si viene, si no, calcula
+        setTotal(
+          Number.isFinite(data.total) ? data.total : data.proveedores.length
+        );
       } else {
         console.warn("Respuesta inesperada:", data);
         throw new Error("Formato de respuesta no válido");
@@ -150,39 +155,38 @@ function ListaProveedores() {
     setEditandoProveedor(null);
   };
 
+  // ⬇⬇⬇ CORREGIDO: ahora devuelve booleano y muestra mensajes del backend
   const eliminarProveedor = async (id) => {
     try {
       await api.delete(`/proveedores/${id}`);
-
-      // Opcional: refrescar desde servidor para mantener paginación/total consistentes
       await fetchProveedores();
-
-      // (El modal de éxito lo dispara ModalConfirmacion.onConfirmar)
+      return true; // éxito
     } catch (error) {
       if (error.response?.status === 409) {
+        const data = error.response.data;
+        const mensaje =
+          Array.isArray(data?.mensajes) && data.mensajes.length
+            ? data.mensajes.map((m) => `• ${m}`).join("\n")
+            : data?.message || "No puedes eliminar este proveedor.";
         mostrarError({
-          titulo: error.response.data?.error || "No permitido",
-          mensaje:
-            error.response.data?.message ||
-            "No puedes eliminar este proveedor.",
+          titulo: data?.error || "No permitido",
+          mensaje,
         });
+        return false;
       } else {
         console.error("Error al eliminar proveedor:", error);
         mostrarError({
           titulo: "Error al eliminar proveedor",
           mensaje: "No se pudo eliminar el proveedor. Intenta nuevamente.",
         });
+        return false;
       }
     }
   };
 
   const guardarProveedorEditado = async (datos) => {
     try {
-      const response = await api.put(
-        `/proveedores/${editandoProveedor.id}`,
-        datos
-      );
-      const actualizado = response.data;
+      await api.put(`/proveedores/${editandoProveedor.id}`, datos);
       const nuevosProveedores = proveedores.map((p) =>
         p.id === editandoProveedor.id ? { ...p, ...datos } : p
       );
@@ -212,14 +216,11 @@ function ListaProveedores() {
   const prevalidarEliminacionProveedor = async (proveedor) => {
     const razones = [];
 
-    // Regla 1: Debe estar INACTIVO
     if (proveedor.estado !== "inactivo") {
       razones.push("El proveedor debe estar INACTIVO para poder eliminarlo.");
     }
 
-    // Regla 2: No debe tener pagos pendientes (por_pagar)
     try {
-      // Ajusta la ruta si tu API usa otro path para solicitudes de pago
       const { data } = await api.get("/solicitudes-pago", {
         params: { proveedorId: proveedor.id, estado: "por_pagar", limit: 1 },
       });
@@ -243,7 +244,6 @@ function ListaProveedores() {
         );
       }
     } catch (e) {
-      // Si falla la prevalidación remota, no bloquees aquí: el DELETE hará la validación definitiva.
       console.warn(
         "No se pudo prevalidar pagos pendientes. Se validará en el backend al eliminar.",
         e
@@ -334,7 +334,7 @@ function ListaProveedores() {
         resultados
       </div>
 
-      {/* Vista de tabla para pantallas grandes */}
+      {/* Tabla desktop */}
       <div className="hidden lg:block">
         <table className="w-full text-sm text-left text-gray-400">
           <thead className="text-xs uppercase bg-gray-700 text-gray-400">
@@ -394,7 +394,7 @@ function ListaProveedores() {
         </table>
       </div>
 
-      {/* Vista de tarjetas para tablets */}
+      {/* Tarjetas tablet */}
       <div className="hidden sm:block lg:hidden">
         <div className="grid grid-cols-1 gap-4 p-2">
           {proveedoresPaginados.map((p) => (
@@ -456,7 +456,7 @@ function ListaProveedores() {
         </div>
       </div>
 
-      {/* Vista de tarjetas para móviles */}
+      {/* Tarjetas móvil */}
       <div className="sm:hidden space-y-3 p-2">
         {proveedoresPaginados.map((p) => (
           <div key={p.id} className="bg-gray-800 rounded-lg p-4 shadow">
@@ -521,19 +521,22 @@ function ListaProveedores() {
         totalPaginas={totalPaginas}
         onCambiarPagina={setPage}
       />
+
       <ModalConfirmacion
         visible={!!proveedorAEliminar}
         onClose={() => setProveedorAEliminar(null)}
         onConfirmar={async () => {
           const ok = await eliminarProveedor(proveedorAEliminar.id);
+          // Cerrar SIEMPRE el modal de confirmación
+          setProveedorAEliminar(null);
+          // Si hubo éxito, mostrar modal de éxito
           if (ok) {
-            setProveedorAEliminar(null);
             mostrarMensajeExito({
               titulo: "Proveedor eliminado",
               mensaje: "El proveedor ha sido eliminado correctamente.",
             });
           }
-          // si NO ok, ya mostramos el error y dejamos el modal abierto
+          // Si hubo error, el ModalError ya fue mostrado en eliminarProveedor
         }}
         titulo="¿Eliminar proveedor?"
         mensaje={`¿Seguro que deseas eliminar a ${proveedorAEliminar?.nombre}? Esta acción no se puede deshacer.`}
