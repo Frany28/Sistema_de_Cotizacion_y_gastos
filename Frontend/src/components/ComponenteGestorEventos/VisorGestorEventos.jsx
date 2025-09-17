@@ -1,24 +1,11 @@
 // src/components/ComponenteGestorEventos/VisorGestorEventos.jsx
-import { useEffect, useState } from "react";
+
 import GenerarReporte from "../GenerarReporte";
 import ModalOpcionesReporte from "./ModalOpcionesReporte";
 import { descargarReporteEventosPdf } from "../../services/eventosArchivosApi";
 
 export default function VisorGestorEventos() {
   const [mostrarModal, setMostrarModal] = useState(false);
-
-  const abrirModal = () => {
-    console.log("abrirModal");
-    setMostrarModal(true);
-  };
-  const cerrarModal = () => {
-    console.log("cerrarModal");
-    setMostrarModal(false);
-  };
-
-  useEffect(() => {
-    console.log("mostrarModal:", mostrarModal);
-  }, [mostrarModal]);
 
   const manejarConfirmar = async (opcionesSeleccion) => {
     try {
