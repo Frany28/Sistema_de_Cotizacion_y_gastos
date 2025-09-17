@@ -155,32 +155,30 @@ function ListaProveedores() {
     setEditandoProveedor(null);
   };
 
-  // ⬇⬇⬇ CORREGIDO: ahora devuelve booleano y muestra mensajes del backend
-  const eliminarProveedor = async (id) => {
+  const eliminarProveedor = async (proveedorId) => {
     try {
-      await api.delete(`/proveedores/${id}`);
-      await fetchProveedores();
-      return true; // éxito
+      await api.delete(`/proveedores/${proveedorId}`);
+      await fetchProveedores(); // refresca la lista
+      return true; // ✅ éxito
     } catch (error) {
       if (error.response?.status === 409) {
         const data = error.response.data;
-        const mensaje =
+        const detalle =
           Array.isArray(data?.mensajes) && data.mensajes.length
             ? data.mensajes.map((m) => `• ${m}`).join("\n")
             : data?.message || "No puedes eliminar este proveedor.";
         mostrarError({
           titulo: data?.error || "No permitido",
-          mensaje,
+          mensaje: detalle,
         });
-        return false;
       } else {
         console.error("Error al eliminar proveedor:", error);
         mostrarError({
           titulo: "Error al eliminar proveedor",
           mensaje: "No se pudo eliminar el proveedor. Intenta nuevamente.",
         });
-        return false;
       }
+      return false; // ❌ fallo
     }
   };
 
@@ -526,17 +524,18 @@ function ListaProveedores() {
         visible={!!proveedorAEliminar}
         onClose={() => setProveedorAEliminar(null)}
         onConfirmar={async () => {
-          const ok = await eliminarProveedor(proveedorAEliminar.id);
-          // Cerrar SIEMPRE el modal de confirmación
+          const id = proveedorAEliminar?.id;
+
           setProveedorAEliminar(null);
-          // Si hubo éxito, mostrar modal de éxito
+
+          const ok = await eliminarProveedor(id);
+
           if (ok) {
             mostrarMensajeExito({
               titulo: "Proveedor eliminado",
               mensaje: "El proveedor ha sido eliminado correctamente.",
             });
           }
-          // Si hubo error, el ModalError ya fue mostrado en eliminarProveedor
         }}
         titulo="¿Eliminar proveedor?"
         mensaje={`¿Seguro que deseas eliminar a ${proveedorAEliminar?.nombre}? Esta acción no se puede deshacer.`}
