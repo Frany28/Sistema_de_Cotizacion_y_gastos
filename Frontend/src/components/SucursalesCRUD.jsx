@@ -85,8 +85,7 @@ export default function SucursalesCRUD() {
   // Handlers
   const manejarBusqueda = (evento) => {
     setBusqueda(evento.target.value);
-    // OJO: búsqueda local sobre la página actual
-    // Si quieres búsqueda global, ver notas al final para llevarla al servidor.
+    // Búsqueda local sobre la página actual
   };
 
   const cambiarLimite = (nuevoLimite) => {
@@ -95,12 +94,39 @@ export default function SucursalesCRUD() {
     setPagina(1);
   };
 
-  const abrirModalEditar = async (id) => {
+  /**
+   * Abrir modal Editar de forma optimista:
+   * - Si recibo el objeto sucursal -> abrir YA con esos datos y refrescar en segundo plano.
+   * - Si recibo un id (fallback) -> voy al backend y luego abro.
+   */
+  const abrirModalEditar = async (entrada) => {
+    // Caso 1: me pasan el objeto directamente (recomendado)
+    if (entrada && typeof entrada === "object") {
+      setSucursalEditar(entrada);
+      setMostrarModalEditar(true);
+
+      // Refresco silencioso desde backend (si está disponible)
+      try {
+        const { data } = await api.get(`/sucursales/${entrada.id}`, {
+          withCredentials: true,
+        });
+        // Soportar posibles formas de respuesta
+        const detalle = data?.sucursal || data || entrada;
+        setSucursalEditar(detalle);
+      } catch (e) {
+        console.warn(
+          "No se pudo refrescar la sucursal; se usan datos locales."
+        );
+      }
+      return;
+    }
+
+    // Caso 2: me pasan un id (compatibilidad)
     try {
-      const { data } = await api.get(`/sucursales/${id}`, {
+      const { data } = await api.get(`/sucursales/${entrada}`, {
         withCredentials: true,
       });
-      setSucursalEditar(data);
+      setSucursalEditar(data?.sucursal || data || null);
       setMostrarModalEditar(true);
     } catch (error) {
       console.error("Error abriendo modal editar:", error);
@@ -303,7 +329,7 @@ export default function SucursalesCRUD() {
                   {puedeEditar && (
                     <BotonIcono
                       tipo="editar"
-                      onClick={() => abrirModalEditar(s.id)}
+                      onClick={() => abrirModalEditar(s)}
                       titulo="Editar sucursal"
                     />
                   )}
@@ -368,7 +394,7 @@ export default function SucursalesCRUD() {
                   <BotonIcono
                     tipo="editar"
                     small
-                    onClick={() => abrirModalEditar(s.id)}
+                    onClick={() => abrirModalEditar(s)}
                     titulo="Editar sucursal"
                   />
                 )}
@@ -434,7 +460,7 @@ export default function SucursalesCRUD() {
                 <BotonIcono
                   tipo="editar"
                   small
-                  onClick={() => abrirModalEditar(s.id)}
+                  onClick={() => abrirModalEditar(s)}
                   titulo="Editar sucursal"
                 />
               )}
