@@ -29,14 +29,15 @@ function BancosCRUD() {
   const [puedeEditar, setPuedeEditar] = useState(false);
   const [puedeEliminar, setPuedeEliminar] = useState(false);
 
+  // Permisos de usuario (usar snake_case para alinear con backend)
   useEffect(() => {
     const fetchPermisos = async () => {
       try {
-        const [crear, editar, eliminar, _] = await Promise.all([
-          verificarPermisoFront("crearBanco"),
-          verificarPermisoFront("editarBanco"),
-          verificarPermisoFront("eliminarBanco"),
-          verificarPermisoFront("verBancos"),
+        const [crear, editar, eliminar, ver] = await Promise.all([
+          verificarPermisoFront("crear_banco"),
+          verificarPermisoFront("editar_banco"),
+          verificarPermisoFront("eliminar_banco"),
+          verificarPermisoFront("ver_bancos"),
         ]);
         setPuedeCrear(crear);
         setPuedeEditar(editar);
@@ -166,17 +167,34 @@ function BancosCRUD() {
       });
     } catch (err) {
       console.error(err);
-      if (err.response?.status === 403) {
+      const status = err.response?.status;
+      const mensajeServer = err.response?.data?.message;
+
+      if (status === 401) {
+        mostrarMensajeError({
+          titulo: "Sesión inválida o expirada",
+          mensaje: mensajeServer || "Vuelve a iniciar sesión para continuar.",
+          textoBoton: "Entendido",
+        });
+      } else if (status === 403) {
         mostrarMensajeError({
           titulo: "Permiso denegado",
-          mensaje: err.response.data.message,
+          mensaje: mensajeServer || "No tienes permisos para editar bancos.",
+          textoBoton: "Cerrar",
         });
-        return;
+      } else if (status === 400) {
+        mostrarMensajeError({
+          titulo: "Datos inválidos",
+          mensaje: mensajeServer || "Revisa los campos del formulario.",
+          textoBoton: "Corregir",
+        });
+      } else {
+        mostrarMensajeError({
+          titulo: "Error al actualizar",
+          mensaje: "No se pudo actualizar el banco.",
+          textoBoton: "Cerrar",
+        });
       }
-      mostrarMensajeError({
-        titulo: "Error al actualizar",
-        mensaje: "No se pudo actualizar el banco.",
-      });
     } finally {
       setMostrarModalEditar(false);
       setEditandoBanco(null);
@@ -465,12 +483,12 @@ function BancosCRUD() {
                       ? "No se puede eliminar un banco activo"
                       : "Eliminar banco"
                   }
-                  small 
+                  small
                 />
               )}
             </div>
           </div>
-        ))} 
+        ))}
       </div>
 
       {/* Paginación */}

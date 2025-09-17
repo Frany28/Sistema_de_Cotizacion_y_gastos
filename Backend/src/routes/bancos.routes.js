@@ -1,3 +1,4 @@
+// bancos.routes.js
 import express from "express";
 import {
   crearBanco,
@@ -12,24 +13,24 @@ import { verificarPermiso } from "../Middleware/verificarPermiso.js";
 
 const router = express.Router();
 
-// Listar → sólo autenticado
-router.get("/", verificarPermiso("verBancos"), obtenerBancos);
+// Listar → permiso 'ver_bancos'
+router.get("/", verificarPermiso("ver_bancos"), obtenerBancos);
 
 // Crear → permiso 'crear_banco'
-router.post("/", verificarPermiso("crearBanco"), validarBanco, crearBanco);
+router.post("/", verificarPermiso("crear_banco"), validarBanco, crearBanco);
 
-// Detalle → sólo autenticado
-router.get("/:id", verificarPermiso(), obtenerBancoPorId);
+// Detalle → permiso 'ver_bancos' (o solo autenticado si así lo prefieres)
+router.get("/:id", verificarPermiso("ver_bancos"), obtenerBancoPorId);
 
 // Editar → permiso 'editar_banco'
 router.put(
   "/:id",
-  verificarPermiso("editarBanco"),
+  verificarPermiso("editar_banco"),
   validarBanco,
   actualizarBanco
 );
 
 // Borrar → permiso 'eliminar_banco'
-router.delete("/:id", verificarPermiso("eliminarBanco"), eliminarBanco);
+router.delete("/:id", verificarPermiso("eliminar_banco"), eliminarBanco);
 
 export default router;
