@@ -7,7 +7,8 @@ import {
   actualizarSucursal,
   eliminarSucursal,
   obtenerSucursalesDropdown,
-} from "../controllers/sucurlales.controller.js";
+} from "../controllers/sucursales.controller.js";
+
 import { validarSucursal } from "../Middleware/validarSucursal.js";
 import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
 import { verificarPermiso } from "../Middleware/verificarPermiso.js";
@@ -21,13 +22,13 @@ router.post(
   crearSucursal
 );
 
+// routes/sucursales.routes.js
 router.get(
   "/",
-  obtenerSucursales,
   autenticarUsuario,
-  verificarPermiso("verSucursales")
-); // Obtener todas las sucursales (paginadas)
-router.get("/:id", obtenerSucursal); // Obtener una sucursal específica
+  verificarPermiso("verSucursales"),
+  obtenerSucursales
+);
 
 router.patch(
   "/:id",
