@@ -5,14 +5,11 @@ import { UserPlus } from "lucide-react";
 import ModalExito from "./ModalExito";
 import Loader from "../general/Loader";
 
-// Mantener naming en español y camelCase para coherencia con el proyecto
 const regexEmail = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
 
 export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
-  // Permisos
+  // Permisos y catálogos
   const [permisoConcedido, setPermisoConcedido] = useState(null);
-
-  // Catálogos
   const [roles, setRoles] = useState([]);
 
   // Formulario
@@ -25,35 +22,29 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
   });
   const [archivoFirma, setArchivoFirma] = useState(null);
 
-  // Validación y envío
+  // Validación / UX
   const [errores, setErrores] = useState({});
   const [enviando, setEnviando] = useState(false);
-
-  // UX
   const [mostrarExito, setMostrarExito] = useState(false);
   const [errorServidor, setErrorServidor] = useState("");
 
-  // Carga inicial al abrir
   useEffect(() => {
     if (!visible) return;
     setPermisoConcedido(null);
     setErrorServidor("");
     setErrores({});
 
-    // 1) Permisos
     api
-      .get("usuarios/permisos/crear_usuario", { withCredentials: true })
+      .get("usuarios/permisos/crearUsuario", { withCredentials: true })
       .then(({ data }) => setPermisoConcedido(Boolean(data.tienePermiso)))
       .catch(() => setPermisoConcedido(false));
 
-    // 2) Roles
     api
       .get("roles", { withCredentials: true })
       .then(({ data }) => setRoles(Array.isArray(data) ? data : []))
       .catch(() => setRoles([]));
   }, [visible]);
 
-  // Handlers
   const manejarCambio = (e) => {
     const { name, value } = e.target;
     setFormulario((f) => ({ ...f, [name]: value }));
@@ -67,52 +58,55 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
     if (errorServidor) setErrorServidor("");
   };
 
-  // Validación cliente
-  const validar = () => {
+  const validarCliente = () => {
     const nuevosErrores = {};
-
-    if (!formulario.nombre.trim()) {
-      nuevosErrores.nombre = "Nombre es requerido";
-    }
-
-    if (!formulario.email.trim()) {
-      nuevosErrores.email = "Email es requerido";
-    } else if (!regexEmail.test(formulario.email)) {
+    if (!formulario.nombre.trim()) nuevosErrores.nombre = "Nombre es requerido";
+    if (!formulario.email.trim()) nuevosErrores.email = "Email es requerido";
+    else if (!regexEmail.test(formulario.email))
       nuevosErrores.email = "Email inválido";
-    }
-
-    if (!formulario.password) {
+    if (!formulario.password)
       nuevosErrores.password = "Contraseña es requerida";
-    } else if (formulario.password.length < 6) {
+    else if (formulario.password.length < 6)
       nuevosErrores.password = "Mínimo 6 caracteres";
-    }
-
-    if (!formulario.rol_id) {
-      nuevosErrores.rol_id = "Seleccione un rol";
-    }
-
+    if (!formulario.rol_id) nuevosErrores.rol_id = "Seleccione un rol";
     setErrores(nuevosErrores);
     return Object.keys(nuevosErrores).length === 0;
   };
 
-  const manejarSubmit = (e) => {
-    e.preventDefault();
-    setErrorServidor("");
-    if (!validar()) return;
-
-    setEnviando(true);
-    const formData = new FormData();
-    Object.entries(formulario).forEach(([k, v]) => formData.append(k, v));
-    if (archivoFirma) formData.append("firma", archivoFirma);
-
-    enviarSolicitud(formData);
+  // Pre-chequeo en backend: /usuarios/check?nombre=..&email=..
+  const verificarDuplicados = async () => {
+    const params = {
+      nombre: formulario.nombre.trim(),
+      email: formulario.email.trim(),
+    };
+    const { data } = await api.get("/usuarios/check", {
+      params,
+      withCredentials: true,
+      validateStatus: (s) => s < 500,
+    });
+    // { exists:boolean, campos:{nombre:boolean, email:boolean} }
+    if (data?.exists) {
+      const nuevosErrores = { ...errores };
+      let mensaje = "Ya existe un usuario con los datos ingresados:\n";
+      if (data.campos?.nombre) {
+        nuevosErrores.nombre = "Este nombre ya está en uso.";
+        mensaje += "- Nombre duplicado\n";
+      }
+      if (data.campos?.email) {
+        nuevosErrores.email = "Este correo ya está en uso.";
+        mensaje += "- Email duplicado";
+      }
+      setErrores(nuevosErrores);
+      setErrorServidor(mensaje.trim());
+      return false;
+    }
+    return true;
   };
 
-  // Parser de errores del backend (incluye duplicados)
+  // Parser de errores POST (incluye ER_DUP_ENTRY)
   const construirMensajeError = (err) => {
-    // Prioridad: lista de errores -> message -> códigos/duplicados -> conexión
     const data = err?.response?.data;
-    const respuestaTexto =
+    const texto =
       data?.message ||
       data?.error ||
       (typeof data === "string" ? data : "") ||
@@ -125,37 +119,42 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
       ].join("\n");
     }
 
-    // Duplicados MySQL (ER_DUP_ENTRY) o mensajes que contengan 'duplicado'
     const esDuplicado =
+      err?.response?.status === 409 ||
       data?.code === "ER_DUP_ENTRY" ||
-      /duplicad/i.test(respuestaTexto) ||
-      /Duplicate entry/i.test(respuestaTexto);
+      /duplicad/i.test(texto) ||
+      /Duplicate entry/i.test(texto);
 
     if (esDuplicado) {
-      // Intento de detectar el campo por el texto del error
-      const campo =
-        respuestaTexto.match(/for key '(.+?)'/i)?.[1] ||
-        respuestaTexto.match(/'(.+?)' duplicad/i)?.[1] ||
-        "";
-
-      if (/email/i.test(campo) || /correo/i.test(campo)) {
+      // Backend ya intenta decir qué campo es; si no, damos uno neutral.
+      if (/email/i.test(texto))
         return "El correo ya existe. Por favor, usa otro.";
-      }
-      if (/nombre/i.test(campo)) {
+      if (/nombre/i.test(texto))
         return "El nombre ya existe. Por favor, usa otro.";
-      }
       return "Registro duplicado: ya existe un usuario con esos datos.";
     }
 
-    if (respuestaTexto) return respuestaTexto;
-
+    if (texto) return texto;
     if (!err?.response) return "Error de conexión con el servidor.";
-
     return "Ocurrió un error al crear el usuario.";
   };
 
-  const enviarSolicitud = async (formData) => {
+  const manejarSubmit = async (e) => {
+    e.preventDefault();
+    setErrorServidor("");
+    if (!validarCliente()) return;
+
+    setEnviando(true);
     try {
+      // 1) Pre-chequeo duplicados
+      const ok = await verificarDuplicados();
+      if (!ok) return;
+
+      // 2) Envío
+      const formData = new FormData();
+      Object.entries(formulario).forEach(([k, v]) => formData.append(k, v));
+      if (archivoFirma) formData.append("firma", archivoFirma);
+
       await api.post("usuarios", formData, {
         withCredentials: true,
         headers: { "Content-Type": "multipart/form-data" },
@@ -174,7 +173,6 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
     onSuccess?.();
   };
 
-  // Loader mientras se resuelve el permiso
   if (visible && permisoConcedido === null) {
     return (
       <div className="fixed inset-0 z-40 flex items-center justify-center backdrop-blur-sm bg-black/40">
@@ -233,7 +231,6 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                 </div>
 
                 <form onSubmit={manejarSubmit} className="p-4 grid gap-4">
-                  {/* Avisos inline (permiso/servidor) */}
                   {(permisoConcedido === false || errorServidor) && (
                     <div className="col-span-2 p-4 bg-red-100 border border-red-400 text-red-700 rounded whitespace-pre-line">
                       {permisoConcedido === false
@@ -242,7 +239,6 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                     </div>
                   )}
 
-                  {/* Nombre */}
                   <div>
                     <label className="block mb-1 text-sm font-medium text-white">
                       Nombre
@@ -254,14 +250,15 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                       value={formulario.nombre}
                       onChange={manejarCambio}
                       disabled={deshabilitado}
-                      className="block w-full p-2.5 border rounded-lg bg-gray-700 border-gray-500 text-white disabled:opacity-60"
+                      className={`block w-full p-2.5 border rounded-lg bg-gray-700 border-gray-500 text-white disabled:opacity-60 ${
+                        errores.nombre ? "ring-1 ring-red-500" : ""
+                      }`}
                     />
                     {errores.nombre && (
                       <p className="text-red-500 text-sm">{errores.nombre}</p>
                     )}
                   </div>
 
-                  {/* Email */}
                   <div>
                     <label className="block mb-1 text-sm font-medium text-white">
                       Email
@@ -273,14 +270,15 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                       value={formulario.email}
                       onChange={manejarCambio}
                       disabled={deshabilitado}
-                      className="block w-full p-2.5 border rounded-lg bg-gray-700 border-gray-500 text-white disabled:opacity-60"
+                      className={`block w-full p-2.5 border rounded-lg bg-gray-700 border-gray-500 text-white disabled:opacity-60 ${
+                        errores.email ? "ring-1 ring-red-500" : ""
+                      }`}
                     />
                     {errores.email && (
                       <p className="text-red-500 text-sm">{errores.email}</p>
                     )}
                   </div>
 
-                  {/* Password */}
                   <div>
                     <label className="block mb-1 text-sm font-medium text-white">
                       Contraseña
@@ -292,14 +290,15 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                       onChange={manejarCambio}
                       placeholder="Mínimo 6 caracteres"
                       disabled={deshabilitado}
-                      className="block w-full p-2.5 border rounded-lg bg-gray-700 border-gray-500 text-white disabled:opacity-60"
+                      className={`block w-full p-2.5 border rounded-lg bg-gray-700 border-gray-500 text-white disabled:opacity-60 ${
+                        errores.password ? "ring-1 ring-red-500" : ""
+                      }`}
                     />
                     {errores.password && (
                       <p className="text-red-500 text-sm">{errores.password}</p>
                     )}
                   </div>
 
-                  {/* Rol */}
                   <div>
                     <label className="block mb-1 text-sm font-medium text-white">
                       Rol
@@ -309,7 +308,9 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                       value={formulario.rol_id}
                       onChange={manejarCambio}
                       disabled={deshabilitado}
-                      className="cursor-pointer block w-full p-2.5 border rounded-lg bg-gray-700 border-gray-500 text-white disabled:opacity-60"
+                      className={`cursor-pointer block w-full p-2.5 border rounded-lg bg-gray-700 border-gray-500 text-white disabled:opacity-60 ${
+                        errores.rol_id ? "ring-1 ring-red-500" : ""
+                      }`}
                     >
                       <option value="">Seleccione un rol</option>
                       {roles.map((r) => (
@@ -323,7 +324,6 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                     )}
                   </div>
 
-                  {/* Firma (opcional) */}
                   <div className="col-span-2">
                     <label className="block mb-1 text-sm font-medium text-white">
                       Firma (imagen)
@@ -343,7 +343,6 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                     )}
                   </div>
 
-                  {/* Submit */}
                   <button
                     type="submit"
                     disabled={deshabilitado}
