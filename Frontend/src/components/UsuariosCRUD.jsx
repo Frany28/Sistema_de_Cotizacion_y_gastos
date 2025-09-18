@@ -291,7 +291,18 @@ export default function UsuariosCRUD() {
                 <td className="px-4 py-3">{u.nombre}</td>
                 <td className="px-4 py-3">{u.email}</td>
                 <td className="px-4 py-3">{u.rol}</td>
-                <td className="px-4 py-3 capitalize">{u.estado}</td>
+                <td className="px-4 py-3 capitalize">
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs ${
+                      u.estado === "activo"
+                        ? "bg-green-100 text-green-800"
+                        : "bg-yellow-100 text-yellow-800"
+                    }`}
+                  >
+                    {u.estado || "-"}
+                  </span>
+                </td>
+
                 <td className="px-4 py-3">{formatearFecha(u.fechaCreacion)}</td>
                 <td className="px-4 py-3 flex space-x-2">
                   {puedeEditar && (

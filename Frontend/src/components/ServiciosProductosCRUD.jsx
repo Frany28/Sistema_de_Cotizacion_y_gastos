@@ -359,7 +359,18 @@ function ListaServiciosProductos() {
                 <td className="px-4 py-3">{item.descripcion}</td>
                 <td className="px-4 py-3">${Number(item.precio).toFixed(2)}</td>
                 <td className="px-4 py-3 capitalize">{item.tipo}</td>
-                <td className="px-4 py-3 capitalize">{item.estado}</td>
+                <td className="px-4 py-3 capitalize">
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs ${
+                      item.estado === "activo"
+                        ? "bg-green-100 text-green-800"
+                        : "bg-yellow-100 text-yellow-800"
+                    }`}
+                  >
+                    {item.estado || "-"}
+                  </span>
+                </td>
+
                 <td className="px-4 py-3">{item.cantidad_actual || "—"}</td>
                 <td className="px-4 py-3">{item.cantidad_anterior || "—"}</td>
                 <td className="px-4 py-3 flex space-x-2">
@@ -398,13 +409,13 @@ function ListaServiciosProductos() {
                   <p className="text-sm text-gray-400">{item.descripcion}</p>
                 </div>
                 <span
-                  className={`px-2 py-1 rounded-full text-xs capitalize ${
+                  className={`px-2 py-1 rounded-full text-xs mt-1 ${
                     item.estado === "activo"
                       ? "bg-green-100 text-green-800"
-                      : "bg-red-100 text-red-800"
+                      : "bg-yellow-100 text-yellow-800"
                   }`}
                 >
-                  {item.estado}
+                  {item.estado || "-"}
                 </span>
               </div>
 
@@ -483,13 +494,13 @@ function ListaServiciosProductos() {
                   ${Number(item.precio).toFixed(2)}
                 </span>
                 <span
-                  className={`px-2 py-0.5 rounded-full text-xs capitalize mt-1 ${
+                  className={`px-2 py-1 rounded-full text-xs mt-1 ${
                     item.estado === "activo"
                       ? "bg-green-100 text-green-800"
-                      : "bg-red-100 text-red-800"
+                      : "bg-yellow-100 text-yellow-800"
                   }`}
                 >
-                  {item.estado}
+                  {item.estado || "-"}
                 </span>
               </div>
             </div>
