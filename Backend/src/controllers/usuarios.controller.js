@@ -11,23 +11,69 @@ import { obtenerOcrearGrupoFirma } from "../utils/gruposArchivos.js";
 
 const EMAIL_REGEX = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
 
-// Crear usuario (incluye registro de firma en S3, tabla archivos y eventosArchivo)
+// ✅ NUEVO: verificación rápida de duplicados por nombre/email
+export const verificarUsuarioDuplicado = async (req, res) => {
+  try {
+    const nombre = (req.query?.nombre || "").trim();
+    const email = (req.query?.email || "").trim();
+
+    if (!nombre && !email) {
+      return res.json({
+        exists: false,
+        campos: { nombre: false, email: false },
+      });
+    }
+
+    const [[row]] = await db.query(
+      `
+      SELECT
+        MAX(CASE WHEN nombre = ? THEN 1 ELSE 0 END) AS nombreExiste,
+        MAX(CASE WHEN email  = ? THEN 1 ELSE 0 END) AS emailExiste
+      FROM usuarios
+      WHERE (nombre = ? AND ? <> '')
+         OR (email  = ? AND ? <> '')
+      `,
+      [nombre, email, nombre, nombre, email, email]
+    );
+
+    const nombreExiste = row?.nombreExiste === 1;
+    const emailExiste = row?.emailExiste === 1;
+
+    return res.json({
+      exists: nombreExiste || emailExiste,
+      campos: { nombre: nombreExiste, email: emailExiste },
+    });
+  } catch (error) {
+    console.error("Error verificarUsuarioDuplicado:", error);
+    return res.status(500).json({ message: "Error al verificar duplicados" });
+  }
+};
+
+// Crear usuario
 export const crearUsuario = async (req, res) => {
   const conexion = await db.getConnection();
   try {
     await conexion.beginTransaction();
 
-    // 1) Datos de entrada
     const { nombre, email, password, rol_id, estado = "activo" } = req.body;
-    const firmaKey = req.file?.key ?? null; // key S3
+    const firmaKey = req.file?.key ?? null;
     const nombreOriginal = req.file?.originalname ?? null;
     const extension = nombreOriginal?.split(".").pop() ?? null;
     const tamanioBytes = req.file?.size ?? null;
-    const rutaS3 = firmaKey;
     const hashed = await bcrypt.hash(password, 10);
 
-    // 2) Insertar en usuarios
-    const usuarioCreador = req.user.id; // ID del usuario autenticado
+    // (Opcional) Validaciones mínimas
+    if (!nombre?.trim())
+      return res.status(400).json({ message: "El nombre es obligatorio" });
+    if (!email?.trim() || !EMAIL_REGEX.test(email.trim()))
+      return res
+        .status(400)
+        .json({ message: "El email tiene un formato inválido" });
+    if (!rol_id)
+      return res.status(400).json({ message: "El rol es obligatorio" });
+
+    // Insert
+    const usuarioCreador = req.user.id;
     const [uResult] = await conexion.query(
       `INSERT INTO usuarios
          (nombre, email, password, rol_id, estado, firma, creadoPor)
@@ -42,17 +88,16 @@ export const crearUsuario = async (req, res) => {
         usuarioCreador,
       ]
     );
+    const nuevoUsuarioId = uResult.insertId;
 
-    const nuevoUsuarioId = uResult.insertId; // ✅ ID recién creado
-
-    // 3) Generar y guardar código de usuario
+    // Código
     const codigo = `USR${String(nuevoUsuarioId).padStart(4, "0")}`;
     await conexion.query(`UPDATE usuarios SET codigo = ? WHERE id = ?`, [
       codigo,
       nuevoUsuarioId,
     ]);
 
-    // 4) Si hay firma, registrar circuito de archivos + auditoría
+    // Firma → archivos + auditoría
     if (firmaKey) {
       const grupoId = await obtenerOcrearGrupoFirma(
         conexion,
@@ -60,7 +105,6 @@ export const crearUsuario = async (req, res) => {
         req.user.id
       );
 
-      // 4.1) tabla archivos
       const [aRes] = await conexion.query(
         `INSERT INTO archivos
            (registroTipo, registroId, grupoArchivoId,
@@ -74,13 +118,12 @@ export const crearUsuario = async (req, res) => {
           nombreOriginal,
           extension,
           tamanioBytes,
-          rutaS3,
+          firmaKey,
           req.user.id,
         ]
       );
       const archivoId = aRes.insertId;
 
-      // 4.2) snapshot de versión (v1)
       const [vRes] = await conexion.query(
         `INSERT INTO versionesArchivo
            (archivoId, numeroVersion, nombreOriginal, extension,
@@ -91,13 +134,12 @@ export const crearUsuario = async (req, res) => {
           nombreOriginal,
           extension,
           tamanioBytes,
-          rutaS3,
+          firmaKey,
           req.user.id,
         ]
       );
       const versionId = vRes.insertId;
 
-      // 4.3) evento: subidaArchivo
       await conexion.query(
         `INSERT INTO eventosArchivo
            (archivoId, versionId, accion, creadoPor, ip, userAgent, detalles)
@@ -108,30 +150,43 @@ export const crearUsuario = async (req, res) => {
           req.user.id,
           req.ip,
           req.get("user-agent"),
-          JSON.stringify({ ruta: rutaS3, nombre: nombreOriginal, extension }),
+          JSON.stringify({ ruta: firmaKey, nombre: nombreOriginal, extension }),
         ]
       );
 
-      // 4.4) actualizar cuota del dueño
       await conexion.query(
-        `UPDATE usuarios
-            SET usoStorageBytes = usoStorageBytes + ?
-          WHERE id = ?`,
+        `UPDATE usuarios SET usoStorageBytes = usoStorageBytes + ? WHERE id = ?`,
         [tamanioBytes, nuevoUsuarioId]
       );
     }
 
     await conexion.commit();
-    res.status(201).json({ id: nuevoUsuarioId, firma: firmaKey }); // ✅ devolver el nuevo ID
+    return res.status(201).json({ id: nuevoUsuarioId, firma: firmaKey });
   } catch (err) {
     await conexion.rollback();
     console.error("Error al crear usuario:", err);
-    res.status(500).json({ error: "Error al crear usuario" });
+
+    // ✅ Mensajes claros ante duplicados
+    if (err?.code === "ER_DUP_ENTRY") {
+      const msg = (err.sqlMessage || "").toLowerCase();
+      if (msg.includes("email")) {
+        return res
+          .status(409)
+          .json({ message: "El email ya está registrado." });
+      }
+      if (msg.includes("nombre")) {
+        return res
+          .status(409)
+          .json({ message: "El nombre ya está registrado." });
+      }
+      return res.status(409).json({ message: "Usuario duplicado." });
+    }
+
+    return res.status(500).json({ error: "Error al crear usuario" });
   } finally {
     conexion.release();
   }
 };
-
 export const actualizarUsuario = async (req, res) => {
   const conexion = await db.getConnection();
   let firmaKeyNueva = null;
