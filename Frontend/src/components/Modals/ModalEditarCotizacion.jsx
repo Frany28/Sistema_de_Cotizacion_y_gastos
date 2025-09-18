@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from "react";
+// src/components/Modals/ModalEditarCotizacion.jsx
+import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Pencil, Search, ChevronDown } from "lucide-react";
+import { X, Pencil, Search, ChevronDown, Trash2, Plus } from "lucide-react";
 import ModalExito from "../Modals/ModalExito";
-import ModalError from "../Modals/ModalError";
-import Loader from "../general/Loader";
+// Eliminado ModalError: usaremos aviso inline
+// import ModalError from "../Modals/ModalError";
 
 export default function ModalEditarCotizacion({
   titulo = "Editar Cotización",
@@ -15,7 +16,7 @@ export default function ModalEditarCotizacion({
   serviciosProductos = [],
   clientes = [],
 }) {
-  const [form, setForm] = useState({
+  const [formulario, setFormulario] = useState({
     cliente_id: "",
     sucursal_id: "",
     estado: "pendiente",
@@ -29,46 +30,107 @@ export default function ModalEditarCotizacion({
     detalle: [],
   });
 
-  const [modalExitoVisible, setModalExitoVisible] = useState(false);
-  const [modalErrorVisible, setModalErrorVisible] = useState(false);
+  // UI / feedback
+  const [enviando, setEnviando] = useState(false);
+  const [mostrarExito, setMostrarExito] = useState(false);
   const [mensajeExito, setMensajeExito] = useState("");
-  const [mensajeError, setMensajeError] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [busquedaCliente, setBusquedaCliente] = useState("");
-  const [busquedaSucursal, setBusquedaSucursal] = useState("");
-  const [busquedaServicio, setBusquedaServicio] = useState("");
-  const [showClientes, setShowClientes] = useState(false);
-  const [showSucursales, setShowSucursales] = useState(false);
-  const [showServicios, setShowServicios] = useState(false);
+  const [errorServidor, setErrorServidor] = useState("");
 
+  // Dropdowns por fila (servicios) + búsquedas por fila
+  const [serviciosAbiertos, setServiciosAbiertos] = useState({}); // { [index]: boolean }
+  const [busquedaServicioFila, setBusquedaServicioFila] = useState({}); // { [index]: string }
+
+  // Dropdowns simples para clientes y sucursales
+  const [buscarCliente, setBuscarCliente] = useState("");
+  const [buscarSucursal, setBuscarSucursal] = useState("");
+  const [clientesAbierto, setClientesAbierto] = useState(false);
+  const [sucursalesAbierto, setSucursalesAbierto] = useState(false);
+
+  // Cargar datos de la cotización
   useEffect(() => {
-    if (cotizacion) {
-      setForm({
-        cliente_id: cotizacion.cliente_id?.toString() || "", // ← aquí guardas “5”
-        sucursal_id: cotizacion.sucursal_id?.toString() || "",
-        estado: cotizacion.estado || "pendiente",
-        confirmacion_cliente: cotizacion.confirmacion_cliente ? "1" : "0",
-        observaciones: cotizacion.observaciones || "",
-        operacion: cotizacion.operacion || "",
-        mercancia: cotizacion.mercancia || "",
-        bl: cotizacion.bl || "",
-        contenedor: cotizacion.contenedor || "",
-        puerto: cotizacion.puerto || "",
-        detalle: Array.isArray(cotizacion.detalle) ? cotizacion.detalle : [],
-      });
-    }
-  }, [cotizacion]);
+    if (!cotizacion) return;
+    setFormulario({
+      cliente_id: cotizacion.cliente_id?.toString() || "",
+      sucursal_id: cotizacion.sucursal_id?.toString() || "",
+      estado: cotizacion.estado || "pendiente",
+      confirmacion_cliente: cotizacion.confirmacion_cliente ? "1" : "0",
+      observaciones: cotizacion.observaciones || "",
+      operacion: cotizacion.operacion || "",
+      mercancia: cotizacion.mercancia || "",
+      bl: cotizacion.bl || "",
+      contenedor: cotizacion.contenedor || "",
+      puerto: cotizacion.puerto || "",
+      detalle: Array.isArray(cotizacion.detalle)
+        ? cotizacion.detalle.map((d) => ({
+            servicio_productos_id: d.servicio_productos_id?.toString() || "",
+            cantidad: Number(d.cantidad || 1),
+            precio_unitario: Number(d.precio_unitario || 0),
+            porcentaje_iva: Number(
+              d.porcentaje_iva === "" || d.porcentaje_iva == null
+                ? 16
+                : d.porcentaje_iva
+            ),
+            subtotal: Number(d.subtotal || 0),
+            impuesto: Number(d.impuesto || 0),
+            total: Number(d.total || 0),
+          }))
+        : [],
+    });
+    // limpiar visibilidad de dropdowns de servicios al abrir
+    setServiciosAbiertos({});
+    setBusquedaServicioFila({});
+    setErrorServidor("");
+  }, [cotizacion, visible]);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+  // Helpers de UI
+  const obtenerNombre = (id, lista, campo = "nombre") => {
+    if (!id) return "";
+    const it = (lista || []).find((x) => x.id?.toString() === id?.toString());
+    return it ? it[campo] : "";
   };
 
-  const addLinea = () => {
-    setForm((prev) => ({
-      ...prev,
+  const filtrarPorTexto = (lista, texto, campo = "nombre") => {
+    if (!Array.isArray(lista)) return [];
+    const q = (texto || "").toLowerCase();
+    return lista.filter((x) =>
+      (x[campo] || "").toString().toLowerCase().includes(q)
+    );
+  };
+
+  // Servicios ya seleccionados (para excluir en otros ítems)
+  const serviciosSeleccionados = useMemo(() => {
+    return new Set(
+      (formulario.detalle || [])
+        .map((d) => d.servicio_productos_id?.toString())
+        .filter(Boolean)
+    );
+  }, [formulario.detalle]);
+
+  // Servicios disponibles para una fila (excluye los usados en otras filas, pero permite el actual)
+  const serviciosDisponiblesParaFila = (index) => {
+    const actualId =
+      formulario.detalle[index]?.servicio_productos_id?.toString();
+    return (serviciosProductos || []).filter((sp) => {
+      const idSp = sp.id?.toString();
+      // si ya está usado en otra fila, lo excluimos
+      if (serviciosSeleccionados.has(idSp) && idSp !== actualId) return false;
+      return true;
+    });
+  };
+
+  // Cambiar campos simples
+  const manejarCambio = (e) => {
+    const { name, value } = e.target;
+    setFormulario((f) => ({ ...f, [name]: value }));
+    if (errorServidor) setErrorServidor("");
+  };
+
+  // Añadir / eliminar líneas
+  const agregarLinea = () => {
+    setFormulario((f) => ({
+      ...f,
       detalle: [
-        ...(Array.isArray(prev.detalle) ? prev.detalle : []),
+        ...(Array.isArray(f.detalle) ? f.detalle : []),
         {
           servicio_productos_id: "",
           cantidad: 1,
@@ -82,106 +144,171 @@ export default function ModalEditarCotizacion({
     }));
   };
 
-  const removeLinea = (index) => {
-    setForm((prev) => ({
-      ...prev,
-      detalle: prev.detalle.filter((_, i) => i !== index),
+  const eliminarLinea = (index) => {
+    setFormulario((f) => ({
+      ...f,
+      detalle: (f.detalle || []).filter((_, i) => i !== index),
     }));
+    // cerrar dropdown y limpiar búsqueda de esa fila
+    setServiciosAbiertos((s) => ({ ...s, [index]: false }));
+    setBusquedaServicioFila((s) => ({ ...s, [index]: "" }));
   };
 
-  const handleDetalleChange = (index, field, value) => {
-    setForm((prev) => {
-      const newDetalle = [...prev.detalle];
-      const item = { ...newDetalle[index] };
-      item[field] = value;
-      if (field === "servicio_productos_id") {
-        const servicioSeleccionado = serviciosProductos.find(
-          (serv) => serv.id.toString() === value.toString()
+  // Recalcular importes de una fila
+  const recalcularFila = (item) => {
+    const cantidad = Math.max(0, Number(item.cantidad) || 0);
+    const precio = Math.max(0, Number(item.precio_unitario) || 0);
+    const iva = Math.max(0, Number(item.porcentaje_iva) || 0);
+
+    const subtotal = cantidad * precio;
+    const impuesto = subtotal * (iva / 100);
+    const total = subtotal + impuesto;
+
+    return {
+      ...item,
+      cantidad,
+      precio_unitario: precio,
+      porcentaje_iva: iva,
+      subtotal,
+      impuesto,
+      total,
+    };
+  };
+
+  const manejarDetalleCambio = (index, campo, valor) => {
+    setFormulario((f) => {
+      const nuevoDetalle = [...(f.detalle || [])];
+      let item = { ...nuevoDetalle[index] };
+
+      if (campo === "servicio_productos_id") {
+        item.servicio_productos_id = valor?.toString() || "";
+
+        const servSel = (serviciosProductos || []).find(
+          (sp) => sp.id?.toString() === item.servicio_productos_id
         );
 
-        if (servicioSeleccionado) {
-          const precioBase = isNaN(Number(servicioSeleccionado.precio))
-            ? 0
-            : Number(servicioSeleccionado.precio);
-          const ivaBase = isNaN(Number(servicioSeleccionado.porcentaje_iva))
-            ? 0
-            : Number(servicioSeleccionado.porcentaje_iva);
+        const precioBase = Number(servSel?.precio) || 0;
+        const ivaBase = Number(servSel?.porcentaje_iva ?? 16) || 0;
 
-          item.precio_unitario = precioBase;
-          item.porcentaje_iva = ivaBase;
-        } else {
-          item.precio_unitario = 0;
-          item.porcentaje_iva = 0;
-        }
-
-        const cantidadActual = Number(item.cantidad) || 0;
-        const precioActual = Number(item.precio_unitario) || 0;
-        const ivaActual = Number(item.porcentaje_iva) || 0;
-
-        item.subtotal = cantidadActual * precioActual;
-        item.impuesto = item.subtotal * (ivaActual / 100);
-        item.total = item.subtotal + item.impuesto;
-      }
-
-      if (
-        field === "cantidad" ||
-        field === "precio_unitario" ||
-        field === "porcentaje_iva"
+        item.precio_unitario = precioBase;
+        item.porcentaje_iva = ivaBase;
+        item = recalcularFila(item);
+      } else if (
+        campo === "cantidad" ||
+        campo === "precio_unitario" ||
+        campo === "porcentaje_iva"
       ) {
-        const cantidad = Number(item.cantidad) || 0;
-        const precio = Number(item.precio_unitario) || 0;
-        const iva = Number(item.porcentaje_iva) || 0;
-
-        item.subtotal = cantidad * precio;
-        item.impuesto = item.subtotal * (iva / 100);
-        item.total = item.subtotal + item.impuesto;
+        item[campo] = valor;
+        item = recalcularFila(item);
       }
 
-      newDetalle[index] = item;
-      return { ...prev, detalle: newDetalle };
+      nuevoDetalle[index] = item;
+      return { ...f, detalle: nuevoDetalle };
     });
+    if (errorServidor) setErrorServidor("");
   };
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsSubmitting(true);
 
-    try {
-      if (!form.cliente_id) {
-        throw new Error("Debe seleccionar un cliente");
-      }
+  // Totales de la cotización
+  const totales = useMemo(() => {
+    const detalle = formulario.detalle || [];
+    const subtotal = detalle.reduce(
+      (acc, it) => acc + (Number(it.subtotal) || 0),
+      0
+    );
+    const impuesto = detalle.reduce(
+      (acc, it) => acc + (Number(it.impuesto) || 0),
+      0
+    );
+    const total = detalle.reduce((acc, it) => acc + (Number(it.total) || 0), 0);
+    return {
+      subtotal: subtotal.toFixed(2),
+      impuesto: impuesto.toFixed(2),
+      total: total.toFixed(2),
+    };
+  }, [formulario.detalle]);
 
-      if (form.detalle.length === 0) {
-        throw new Error("Debe agregar al menos un ítem al detalle");
-      }
+  // Validación del formulario (mensajes claros)
+  const validar = () => {
+    const errores = [];
 
-      await onSubmit(form);
-      setMensajeExito("La cotización se actualizó correctamente.");
-      setModalExitoVisible(true);
-    } catch (error) {
-      console.error("Error al guardar:", error);
-      console.error(" Error al guardar en ModalEditarCotizacion:", error);
-      setMensajeError(
-        error.message || "Hubo un error al actualizar la cotización."
+    if (!formulario.cliente_id) {
+      errores.push("Debe seleccionar un cliente.");
+    }
+
+    if (!Array.isArray(formulario.detalle) || formulario.detalle.length === 0) {
+      errores.push("Debe agregar al menos un ítem al detalle.");
+    } else {
+      formulario.detalle.forEach((it, idx) => {
+        const etiqueta = `Ítem #${idx + 1}`;
+        if (!it.servicio_productos_id) {
+          errores.push(`${etiqueta}: seleccione un servicio/producto.`);
+        }
+        if (Number(it.cantidad) < 1) {
+          errores.push(`${etiqueta}: la cantidad debe ser al menos 1.`);
+        }
+        if (Number(it.precio_unitario) < 0) {
+          errores.push(
+            `${etiqueta}: el precio unitario no puede ser negativo.`
+          );
+        }
+      });
+    }
+
+    if (errores.length > 0) {
+      setErrorServidor(
+        ["Se encontraron errores de validación:", ...errores].join("\n")
       );
-      setModalErrorVisible(true);
+      return false;
+    }
+    setErrorServidor("");
+    return true;
+  };
+
+  // Enviar
+  const manejarSubmit = async (e) => {
+    e.preventDefault();
+    if (!validar()) return;
+
+    setEnviando(true);
+    try {
+      // Enviar con números normalizados
+      const payload = {
+        ...formulario,
+        cliente_id: formulario.cliente_id?.toString(),
+        sucursal_id: formulario.sucursal_id
+          ? formulario.sucursal_id.toString()
+          : "",
+        confirmacion_cliente:
+          formulario.confirmacion_cliente === "1" ? "1" : "0",
+        detalle: (formulario.detalle || []).map((it) => ({
+          servicio_productos_id: it.servicio_productos_id?.toString(),
+          cantidad: Number(it.cantidad) || 0,
+          precio_unitario: Number(it.precio_unitario) || 0,
+          porcentaje_iva: Number(it.porcentaje_iva) || 0,
+          subtotal: Number(it.subtotal) || 0,
+          impuesto: Number(it.impuesto) || 0,
+          total: Number(it.total) || 0,
+        })),
+      };
+
+      await onSubmit(payload);
+      setMensajeExito("La cotización se actualizó correctamente.");
+      setMostrarExito(true);
+    } catch (err) {
+      // Mostrar siempre como aviso inline legible
+      const data = err?.response?.data;
+      const plano =
+        data?.message ||
+        data?.error ||
+        (typeof data === "string" ? data : "") ||
+        "Hubo un error al actualizar la cotización.";
+      setErrorServidor(plano);
     } finally {
-      setIsSubmitting(false);
+      setEnviando(false);
     }
   };
 
-  const getNombreSeleccionado = (id, lista, campo = "nombre") => {
-    if (!id || !lista || !Array.isArray(lista)) return "";
-    const item = lista.find((item) => item.id.toString() === id.toString());
-    return item ? item[campo] : "";
-  };
-
-  const filtrarOpciones = (lista, busqueda, campo = "nombre") => {
-    if (!lista || !Array.isArray(lista)) return [];
-    return lista.filter((item) =>
-      item[campo]?.toString().toLowerCase().includes(busqueda.toLowerCase())
-    );
-  };
-
+  // Render
   return (
     <AnimatePresence>
       {visible && (
@@ -199,8 +326,9 @@ export default function ModalEditarCotizacion({
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
           >
+            {/* Header */}
             <div className="sticky top-0 bg-gray-800 p-6 border-b border-gray-700 z-10">
-              <div className="flex justify-between items-center mb-4">
+              <div className="flex justify-between items-center">
                 <div className="flex items-center gap-3">
                   <Pencil className="w-6 h-6 text-blue-500" />
                   <h2 className="text-xl font-semibold">{titulo}</h2>
@@ -214,8 +342,15 @@ export default function ModalEditarCotizacion({
               </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-6">
-              {/* Sección de información básica */}
+            <form onSubmit={manejarSubmit} className="p-6 space-y-6">
+              {/* Aviso inline de validación/errores backend */}
+              {errorServidor && (
+                <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded whitespace-pre-line">
+                  {errorServidor}
+                </div>
+              )}
+
+              {/* Datos generales */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Cliente */}
                 <div className="relative">
@@ -225,55 +360,55 @@ export default function ModalEditarCotizacion({
                   <div className="relative">
                     <input
                       type="text"
-                      value={getNombreSeleccionado(form.cliente_id, clientes)}
+                      value={obtenerNombre(formulario.cliente_id, clientes)}
                       readOnly
-                      onClick={() => setShowClientes(!showClientes)}
+                      onClick={() => {
+                        setClientesAbierto((v) => !v);
+                        setSucursalesAbierto(false);
+                      }}
                       className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white cursor-pointer"
                       placeholder="Seleccione cliente"
                     />
-                    <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    {showClientes && (
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    {clientesAbierto && (
                       <div className="absolute z-10 mt-1 w-full bg-gray-700 rounded-md shadow-lg border border-gray-600 max-h-60 overflow-y-auto">
                         <div className="p-2 border-b border-gray-600 sticky top-0 bg-gray-700">
                           <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                             <input
                               type="text"
-                              value={busquedaCliente}
-                              onChange={(e) =>
-                                setBusquedaCliente(e.target.value)
-                              }
+                              value={buscarCliente}
+                              onChange={(e) => setBuscarCliente(e.target.value)}
                               className="w-full pl-10 pr-4 py-2 bg-gray-800 text-white rounded focus:outline-none"
                               placeholder="Buscar cliente..."
                               autoFocus
                             />
                           </div>
                         </div>
-                        {filtrarOpciones(clientes, busquedaCliente).length >
-                        0 ? (
-                          filtrarOpciones(clientes, busquedaCliente).map(
-                            (cli) => (
-                              <div
-                                key={cli.id}
-                                className={`px-4 py-2 hover:bg-gray-600 cursor-pointer ${
-                                  form.cliente_id === cli.id.toString()
-                                    ? "bg-blue-600"
-                                    : ""
-                                }`}
-                                onClick={() => {
-                                  setForm((prev) => ({
-                                    ...prev,
-                                    cliente_id: cli.id.toString(),
-                                  }));
-                                  setShowClientes(false);
-                                  setBusquedaCliente("");
-                                }}
-                              >
-                                {cli.nombre}
-                              </div>
-                            )
+                        {(filtrarPorTexto(clientes, buscarCliente) || []).map(
+                          (cli) => (
+                            <div
+                              key={cli.id}
+                              className={`px-4 py-2 hover:bg-gray-600 cursor-pointer ${
+                                formulario.cliente_id === cli.id?.toString()
+                                  ? "bg-blue-600"
+                                  : ""
+                              }`}
+                              onClick={() => {
+                                setFormulario((f) => ({
+                                  ...f,
+                                  cliente_id: cli.id?.toString(),
+                                }));
+                                setClientesAbierto(false);
+                                setBuscarCliente("");
+                              }}
+                            >
+                              {cli.nombre}
+                            </div>
                           )
-                        ) : (
+                        )}
+                        {filtrarPorTexto(clientes, buscarCliente).length ===
+                          0 && (
                           <div className="px-4 py-2 text-gray-400">
                             No hay resultados
                           </div>
@@ -291,26 +426,26 @@ export default function ModalEditarCotizacion({
                   <div className="relative">
                     <input
                       type="text"
-                      value={getNombreSeleccionado(
-                        form.sucursal_id,
-                        sucursales
-                      )}
+                      value={obtenerNombre(formulario.sucursal_id, sucursales)}
                       readOnly
-                      onClick={() => setShowSucursales(!showSucursales)}
+                      onClick={() => {
+                        setSucursalesAbierto((v) => !v);
+                        setClientesAbierto(false);
+                      }}
                       className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white cursor-pointer"
                       placeholder="Seleccione sucursal"
                     />
-                    <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    {showSucursales && (
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    {sucursalesAbierto && (
                       <div className="absolute z-10 mt-1 w-full bg-gray-700 rounded-md shadow-lg border border-gray-600 max-h-60 overflow-y-auto">
                         <div className="p-2 border-b border-gray-600 sticky top-0 bg-gray-700">
                           <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                             <input
                               type="text"
-                              value={busquedaSucursal}
+                              value={buscarSucursal}
                               onChange={(e) =>
-                                setBusquedaSucursal(e.target.value)
+                                setBuscarSucursal(e.target.value)
                               }
                               className="w-full pl-10 pr-4 py-2 bg-gray-800 text-white rounded focus:outline-none"
                               placeholder="Buscar sucursal..."
@@ -318,31 +453,30 @@ export default function ModalEditarCotizacion({
                             />
                           </div>
                         </div>
-                        {filtrarOpciones(sucursales, busquedaSucursal).length >
-                        0 ? (
-                          filtrarOpciones(sucursales, busquedaSucursal).map(
-                            (suc) => (
-                              <div
-                                key={suc.id}
-                                className={`px-4 py-2 hover:bg-gray-600 cursor-pointer ${
-                                  form.sucursal_id === suc.id.toString()
-                                    ? "bg-blue-600"
-                                    : ""
-                                }`}
-                                onClick={() => {
-                                  setForm((prev) => ({
-                                    ...prev,
-                                    sucursal_id: suc.id.toString(),
-                                  }));
-                                  setShowSucursales(false);
-                                  setBusquedaSucursal("");
-                                }}
-                              >
-                                {suc.nombre}
-                              </div>
-                            )
-                          )
-                        ) : (
+                        {(
+                          filtrarPorTexto(sucursales, buscarSucursal) || []
+                        ).map((suc) => (
+                          <div
+                            key={suc.id}
+                            className={`px-4 py-2 hover:bg-gray-600 cursor-pointer ${
+                              formulario.sucursal_id === suc.id?.toString()
+                                ? "bg-blue-600"
+                                : ""
+                            }`}
+                            onClick={() => {
+                              setFormulario((f) => ({
+                                ...f,
+                                sucursal_id: suc.id?.toString(),
+                              }));
+                              setSucursalesAbierto(false);
+                              setBuscarSucursal("");
+                            }}
+                          >
+                            {suc.nombre}
+                          </div>
+                        ))}
+                        {filtrarPorTexto(sucursales, buscarSucursal).length ===
+                          0 && (
                           <div className="px-4 py-2 text-gray-400">
                             No hay resultados
                           </div>
@@ -359,8 +493,8 @@ export default function ModalEditarCotizacion({
                   </label>
                   <select
                     name="estado"
-                    value={form.estado}
-                    onChange={handleChange}
+                    value={formulario.estado}
+                    onChange={manejarCambio}
                     className="cursor-pointer w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
                   >
                     <option value="pendiente">Pendiente</option>
@@ -369,15 +503,15 @@ export default function ModalEditarCotizacion({
                   </select>
                 </div>
 
-                {/* Confirmación Cliente */}
+                {/* Confirmación cliente */}
                 <div>
                   <label className="block text-sm font-medium mb-1">
                     Confirmación Cliente
                   </label>
                   <select
                     name="confirmacion_cliente"
-                    value={form.confirmacion_cliente}
-                    onChange={handleChange}
+                    value={formulario.confirmacion_cliente}
+                    onChange={manejarCambio}
                     className="cursor-pointer w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
                   >
                     <option value="0">No confirmado</option>
@@ -385,7 +519,7 @@ export default function ModalEditarCotizacion({
                   </select>
                 </div>
 
-                {/* Operación */}
+                {/* Metadatos adicionales */}
                 <div>
                   <label className="block text-sm font-medium mb-1">
                     Operación
@@ -393,13 +527,12 @@ export default function ModalEditarCotizacion({
                   <input
                     type="text"
                     name="operacion"
-                    value={form.operacion}
-                    onChange={handleChange}
+                    value={formulario.operacion}
+                    onChange={manejarCambio}
                     className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
                   />
                 </div>
 
-                {/* Mercancía */}
                 <div>
                   <label className="block text-sm font-medium mb-1">
                     Mercancía
@@ -407,25 +540,23 @@ export default function ModalEditarCotizacion({
                   <input
                     type="text"
                     name="mercancia"
-                    value={form.mercancia}
-                    onChange={handleChange}
+                    value={formulario.mercancia}
+                    onChange={manejarCambio}
                     className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
                   />
                 </div>
 
-                {/* BL */}
                 <div>
                   <label className="block text-sm font-medium mb-1">BL</label>
                   <input
                     type="text"
                     name="bl"
-                    value={form.bl}
-                    onChange={handleChange}
+                    value={formulario.bl}
+                    onChange={manejarCambio}
                     className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
                   />
                 </div>
 
-                {/* Contenedor */}
                 <div>
                   <label className="block text-sm font-medium mb-1">
                     Contenedor
@@ -433,13 +564,12 @@ export default function ModalEditarCotizacion({
                   <input
                     type="text"
                     name="contenedor"
-                    value={form.contenedor}
-                    onChange={handleChange}
+                    value={formulario.contenedor}
+                    onChange={manejarCambio}
                     className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
                   />
                 </div>
 
-                {/* Puerto */}
                 <div>
                   <label className="block text-sm font-medium mb-1">
                     Puerto
@@ -447,8 +577,8 @@ export default function ModalEditarCotizacion({
                   <input
                     type="text"
                     name="puerto"
-                    value={form.puerto}
-                    onChange={handleChange}
+                    value={formulario.puerto}
+                    onChange={manejarCambio}
                     className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
                   />
                 </div>
@@ -461,196 +591,222 @@ export default function ModalEditarCotizacion({
                 </label>
                 <textarea
                   name="observaciones"
-                  value={form.observaciones}
-                  onChange={handleChange}
+                  value={formulario.observaciones}
+                  onChange={manejarCambio}
                   className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
                   rows={3}
                 />
               </div>
 
-              {/* Detalle de ítems */}
+              {/* Detalle de Ítems */}
               <div>
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg font-medium">Detalle de Ítems</h3>
                   <button
                     type="button"
-                    onClick={addLinea}
-                    className="cursor-pointer flex items-center gap-2 px-3 py-1 bg-green-600 hover:bg-green-500 text-white rounded text-sm"
+                    onClick={agregarLinea}
+                    className="cursor-pointer inline-flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-500 text-white rounded text-sm"
                   >
-                    <span>+</span>
-                    <span>Agregar Línea</span>
+                    <Plus className="w-4 h-4" />
+                    Agregar línea
                   </button>
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm text-left text-gray-400">
-                    <thead className="bg-gray-700">
+                  <table className="w-full text-sm text-left text-gray-300">
+                    <thead className="bg-gray-700 text-gray-100">
                       <tr>
                         <th className="px-4 py-2">Servicio/Producto</th>
-                        <th className="px-4 py-2">Cantidad</th>
-                        <th className="px-4 py-2">Precio Unitario</th>
-                        <th className="px-4 py-2">% IVA</th>
-                        <th className="px-4 py-2">Subtotal</th>
-                        <th className="px-4 py-2">Impuesto</th>
-                        <th className="px-4 py-2">Total</th>
+                        <th className="px-4 py-2 text-right">Cantidad</th>
+                        <th className="px-4 py-2 text-right">
+                          Precio Unitario
+                        </th>
+                        <th className="px-4 py-2 text-right">% IVA</th>
+                        <th className="px-4 py-2 text-right">Subtotal</th>
+                        <th className="px-4 py-2 text-right">Impuesto</th>
+                        <th className="px-4 py-2 text-right">Total</th>
                         <th className="px-4 py-2">Acciones</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {form.detalle.map((item, index) => (
-                        <tr key={index} className="border-b border-gray-700">
-                          {/* Servicio/Producto */}
-                          <td className="px-4 py-2">
-                            <div className="relative">
-                              <input
-                                type="text"
-                                value={getNombreSeleccionado(
-                                  item.servicio_productos_id,
-                                  serviciosProductos
-                                )}
-                                readOnly
-                                onClick={() => setShowServicios(!showServicios)}
-                                className="w-full px-3 py-1 border rounded bg-gray-700 text-white cursor-pointer"
-                                placeholder="Seleccione servicio"
-                              />
-                              <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                              {showServicios && (
-                                <div className="absolute z-10 mt-1 w-full bg-gray-700 rounded-md shadow-lg border border-gray-600 max-h-60 overflow-y-auto">
-                                  <div className="p-2 border-b border-gray-600 sticky top-0 bg-gray-700">
-                                    <div className="relative">
-                                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                      <input
-                                        type="text"
-                                        value={busquedaServicio}
-                                        onChange={(e) =>
-                                          setBusquedaServicio(e.target.value)
-                                        }
-                                        className="w-full pl-10 pr-4 py-2 bg-gray-800 text-white rounded focus:outline-none"
-                                        placeholder="Buscar servicio..."
-                                        autoFocus
-                                      />
-                                    </div>
-                                  </div>
-                                  {filtrarOpciones(
-                                    serviciosProductos,
-                                    busquedaServicio
-                                  ).length > 0 ? (
-                                    filtrarOpciones(
-                                      serviciosProductos,
-                                      busquedaServicio
-                                    ).map((serv) => (
-                                      <div
-                                        key={serv.id}
-                                        className={`px-4 py-2 hover:bg-gray-600 cursor-pointer ${
-                                          item.servicio_productos_id ===
-                                          serv.id.toString()
-                                            ? "bg-blue-600"
-                                            : ""
-                                        }`}
-                                        onClick={() => {
-                                          handleDetalleChange(
-                                            index,
-                                            "servicio_productos_id",
-                                            serv.id.toString()
-                                          );
-                                          setShowServicios(false);
-                                          setBusquedaServicio("");
-                                        }}
-                                      >
-                                        {serv.nombre}
-                                      </div>
-                                    ))
-                                  ) : (
-                                    <div className="px-4 py-2 text-gray-400">
-                                      No hay resultados
-                                    </div>
+                      {(formulario.detalle || []).map((item, index) => {
+                        const abierto = !!serviciosAbiertos[index];
+                        const textoBusqueda = busquedaServicioFila[index] || "";
+                        // Lista filtrada para ESTA fila (sin duplicar lo ya elegido en otras filas)
+                        const listaBase = serviciosDisponiblesParaFila(index);
+                        const listaFiltrada = filtrarPorTexto(
+                          listaBase,
+                          textoBusqueda,
+                          "nombre"
+                        );
+
+                        return (
+                          <tr key={index} className="border-b border-gray-700">
+                            {/* Servicio/Producto */}
+                            <td className="px-4 py-2 align-top">
+                              <div className="relative">
+                                <input
+                                  type="text"
+                                  value={obtenerNombre(
+                                    item.servicio_productos_id,
+                                    serviciosProductos
                                   )}
-                                </div>
-                              )}
-                            </div>
-                          </td>
+                                  readOnly
+                                  onClick={() =>
+                                    setServiciosAbiertos((s) => ({
+                                      ...s,
+                                      [index]: !s[index],
+                                    }))
+                                  }
+                                  className="w-full px-3 py-2 border rounded bg-gray-700 text-white cursor-pointer"
+                                  placeholder="Seleccione servicio"
+                                />
+                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
 
-                          {/* Cantidad */}
-                          <td className="px-4 py-2">
-                            <input
-                              type="number"
-                              className="w-full px-3 py-1 border rounded bg-gray-700 text-white"
-                              value={item.cantidad}
-                              onChange={(e) =>
-                                handleDetalleChange(
-                                  index,
-                                  "cantidad",
-                                  e.target.value
-                                )
-                              }
-                              min="1"
-                            />
-                          </td>
+                                {abierto && (
+                                  <div className="absolute z-20 mt-1 w-full bg-gray-700 rounded-md shadow-lg border border-gray-600 max-h-60 overflow-y-auto">
+                                    <div className="p-2 border-b border-gray-600 sticky top-0 bg-gray-700">
+                                      <div className="relative">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                        <input
+                                          type="text"
+                                          value={textoBusqueda}
+                                          onChange={(e) =>
+                                            setBusquedaServicioFila((b) => ({
+                                              ...b,
+                                              [index]: e.target.value,
+                                            }))
+                                          }
+                                          className="w-full pl-10 pr-4 py-2 bg-gray-800 text-white rounded focus:outline-none"
+                                          placeholder="Buscar servicio..."
+                                          autoFocus
+                                        />
+                                      </div>
+                                    </div>
 
-                          {/* Precio Unitario */}
-                          <td className="px-4 py-2">
-                            <input
-                              type="number"
-                              className="w-full px-3 py-1 border rounded bg-gray-700 text-white"
-                              value={item.precio_unitario}
-                              onChange={(e) =>
-                                handleDetalleChange(
-                                  index,
-                                  "precio_unitario",
-                                  e.target.value
-                                )
-                              }
-                              min="0"
-                              step="0.01"
-                            />
-                          </td>
+                                    {listaFiltrada.length > 0 ? (
+                                      listaFiltrada.map((serv) => (
+                                        <div
+                                          key={serv.id}
+                                          className={`px-4 py-2 hover:bg-gray-600 cursor-pointer ${
+                                            item.servicio_productos_id ===
+                                            serv.id?.toString()
+                                              ? "bg-blue-600"
+                                              : ""
+                                          }`}
+                                          onClick={() => {
+                                            manejarDetalleCambio(
+                                              index,
+                                              "servicio_productos_id",
+                                              serv.id?.toString()
+                                            );
+                                            setServiciosAbiertos((s) => ({
+                                              ...s,
+                                              [index]: false,
+                                            }));
+                                            setBusquedaServicioFila((b) => ({
+                                              ...b,
+                                              [index]: "",
+                                            }));
+                                          }}
+                                        >
+                                          {serv.nombre}
+                                        </div>
+                                      ))
+                                    ) : (
+                                      <div className="px-4 py-2 text-gray-400">
+                                        No hay resultados
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
 
-                          {/* % IVA */}
-                          <td className="px-4 py-2">
-                            <select
-                              className="cursor-pointer w-full px-3 py-1 border rounded bg-gray-700 text-white"
-                              value={item.porcentaje_iva}
-                              onChange={(e) =>
-                                handleDetalleChange(
-                                  index,
-                                  "porcentaje_iva",
-                                  e.target.value
-                                )
-                              }
-                            >
-                              <option value="0">0%</option>
-                              <option value="8">8%</option>
-                              <option value="16">16%</option>
-                            </select>
-                          </td>
+                            {/* Cantidad */}
+                            <td className="px-4 py-2 align-top">
+                              <input
+                                type="number"
+                                className="w-full px-3 py-2 border rounded bg-gray-700 text-white text-right"
+                                value={item.cantidad}
+                                min={1}
+                                onChange={(e) =>
+                                  manejarDetalleCambio(
+                                    index,
+                                    "cantidad",
+                                    Number(e.target.value)
+                                  )
+                                }
+                              />
+                            </td>
 
-                          {/* Subtotal */}
-                          <td className="px-4 py-2 text-right">
-                            {Number(item.subtotal).toFixed(2)}
-                          </td>
+                            {/* Precio Unitario */}
+                            <td className="px-4 py-2 align-top">
+                              <input
+                                type="number"
+                                className="w-full px-3 py-2 border rounded bg-gray-700 text-white text-right"
+                                value={item.precio_unitario}
+                                min={0}
+                                step="0.01"
+                                onChange={(e) =>
+                                  manejarDetalleCambio(
+                                    index,
+                                    "precio_unitario",
+                                    Number(e.target.value)
+                                  )
+                                }
+                              />
+                            </td>
 
-                          {/* Impuesto */}
-                          <td className="px-4 py-2 text-right">
-                            {Number(item.impuesto).toFixed(2)}
-                          </td>
+                            {/* % IVA */}
+                            <td className="px-4 py-2 align-top">
+                              <select
+                                className="cursor-pointer w-full px-3 py-2 border rounded bg-gray-700 text-white text-right"
+                                value={item.porcentaje_iva}
+                                onChange={(e) =>
+                                  manejarDetalleCambio(
+                                    index,
+                                    "porcentaje_iva",
+                                    Number(e.target.value)
+                                  )
+                                }
+                              >
+                                <option value={0}>0%</option>
+                                <option value={8}>8%</option>
+                                <option value={16}>16%</option>
+                              </select>
+                            </td>
 
-                          {/* Total */}
-                          <td className="px-4 py-2 text-right">
-                            {Number(item.total).toFixed(2)}
-                          </td>
+                            {/* Subtotal */}
+                            <td className="px-4 py-2 align-top text-right">
+                              {Number(item.subtotal || 0).toFixed(2)}
+                            </td>
 
-                          {/* Acciones */}
-                          <td className="px-4 py-2">
-                            <button
-                              type="button"
-                              onClick={() => removeLinea(index)}
-                              className="cursor-pointer text-red-500 hover:text-red-300"
-                            >
-                              Eliminar
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
+                            {/* Impuesto */}
+                            <td className="px-4 py-2 align-top text-right">
+                              {Number(item.impuesto || 0).toFixed(2)}
+                            </td>
+
+                            {/* Total */}
+                            <td className="px-4 py-2 align-top text-right font-semibold">
+                              {Number(item.total || 0).toFixed(2)}
+                            </td>
+
+                            {/* Acciones */}
+                            <td className="px-4 py-2 align-top">
+                              <button
+                                type="button"
+                                onClick={() => eliminarLinea(index)}
+                                className="cursor-pointer inline-flex items-center gap-1 text-red-400 hover:text-red-300"
+                                title="Eliminar línea"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                                Eliminar
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -660,25 +816,18 @@ export default function ModalEditarCotizacion({
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-gray-700 p-4 rounded">
                 <div className="text-right">
                   <span className="font-medium">Subtotal:</span>{" "}
-                  {form.detalle
-                    .reduce((sum, item) => sum + Number(item.subtotal || 0), 0)
-                    .toFixed(2)}
+                  {totales.subtotal}
                 </div>
                 <div className="text-right">
                   <span className="font-medium">Impuesto:</span>{" "}
-                  {form.detalle
-                    .reduce((sum, item) => sum + Number(item.impuesto || 0), 0)
-                    .toFixed(2)}
+                  {totales.impuesto}
                 </div>
                 <div className="text-right font-bold">
-                  <span className="font-medium">Total:</span>{" "}
-                  {form.detalle
-                    .reduce((sum, item) => sum + Number(item.total || 0), 0)
-                    .toFixed(2)}
+                  <span className="font-medium">Total:</span> {totales.total}
                 </div>
               </div>
 
-              {/* Botones de acción */}
+              {/* Acciones */}
               <div className="flex justify-end gap-4 pt-6">
                 <button
                   type="button"
@@ -689,34 +838,22 @@ export default function ModalEditarCotizacion({
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={enviando}
                   className="cursor-pointer flex items-center gap-2 px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isSubmitting ? (
-                    <p className="text-white ">Guardando Cambios...</p>
-                  ) : form.id ? (
-                    <p>Guardar Cambios</p>
-                  ) : (
-                    <>
-                      <span>Guardar Cambios</span>
-                    </>
-                  )}
+                  {enviando ? "Guardando cambios..." : "Guardar cambios"}
                 </button>
               </div>
             </form>
 
+            {/* Éxito */}
             <ModalExito
-              visible={modalExitoVisible}
-              onClose={() => setModalExitoVisible(false)}
+              visible={mostrarExito}
+              onClose={() => setMostrarExito(false)}
               titulo="¡Éxito!"
               mensaje={mensajeExito}
             />
-            <ModalError
-              visible={modalErrorVisible}
-              onClose={() => setModalErrorVisible(false)}
-              titulo="Error al actualizar"
-              mensaje={mensajeError}
-            />
+            {/* Sin ModalError: errores se muestran arriba como aviso inline */}
           </motion.div>
         </motion.div>
       )}

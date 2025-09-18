@@ -5,73 +5,145 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const regexNombre = /^[A-Za-zÁÉÍÓÚáéíóúÜüÑñ\s]+$/;
 const regexEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const regexCuenta = /^[0-9-]+$/;
+
+// Helpers para máscara de número de cuenta (20 dígitos => 4-4-2-10)
+const limpiarNoDigitos = (texto) => (texto || "").replace(/\D/g, "");
+const formatearNumeroCuentaEs = (soloDigitos) => {
+  const d = (soloDigitos || "").slice(0, 20);
+  const partes = [];
+  if (d.length > 0) partes.push(d.slice(0, 4));
+  if (d.length > 4) partes.push(d.slice(4, 8));
+  if (d.length > 8) partes.push(d.slice(8, 10));
+  if (d.length > 10) partes.push(d.slice(10, 20));
+  return partes.join("-");
+};
+
+// Traductor de errores del backend a mensajes amigables
+const construirMensajeError = (err) => {
+  const data = err?.response?.data;
+  const plano =
+    data?.message ||
+    data?.error ||
+    (typeof data === "string" ? data : "") ||
+    "";
+
+  if (Array.isArray(data?.errores) && data.errores.length > 0) {
+    return [
+      data.message || "Error de validación.",
+      ...data.errores.map((e) => `- ${e}`),
+    ].join("\n");
+  }
+
+  const esDuplicado =
+    data?.code === "ER_DUP_ENTRY" ||
+    /duplicad/i.test(plano) ||
+    /Duplicate entry/i.test(plano);
+
+  if (esDuplicado) {
+    return "Ya existe un banco con ese nombre o identificador.";
+  }
+
+  if (plano) return plano;
+  if (!err?.response) return "Error de conexión con el servidor.";
+  return "Ocurrió un error al crear el banco.";
+};
 
 export default function ModalAñadirBanco({ onCancel, onSubmit }) {
-  const [form, setForm] = useState({
+  const [formulario, setFormulario] = useState({
     nombre: "",
     moneda: "VES",
-    tipo_identificador: "nro_cuenta",
+    tipoIdentificador: "nro_cuenta", // camelCase en español
     identificador: "",
   });
-  const [errors, setErrors] = useState({});
-  const [serverError, setServerError] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errores, setErrores] = useState({});
+  const [errorServidor, setErrorServidor] = useState("");
+  const [enviando, setEnviando] = useState(false);
 
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-    if (errors[e.target.name]) {
-      setErrors({ ...errors, [e.target.name]: "" });
+  const manejarCambio = (e) => {
+    const { name, value } = e.target;
+
+    // Máscara automática para número de cuenta
+    if (
+      name === "identificador" &&
+      formulario.tipoIdentificador === "nro_cuenta"
+    ) {
+      const soloDigitos = limpiarNoDigitos(value);
+      const conGuiones = formatearNumeroCuentaEs(soloDigitos);
+      setFormulario((f) => ({ ...f, identificador: conGuiones }));
+    } else if (name === "tipoIdentificador") {
+      // Al cambiar el tipo, limpiamos el campo para evitar residuos del formato
+      setFormulario((f) => ({
+        ...f,
+        tipoIdentificador: value,
+        identificador: "",
+      }));
+    } else {
+      setFormulario((f) => ({ ...f, [name]: value }));
     }
-    if (serverError) setServerError("");
+
+    if (errores[name]) setErrores((prev) => ({ ...prev, [name]: "" }));
+    if (errorServidor) setErrorServidor("");
   };
 
-  const validateForm = () => {
-    const newErrors = {};
+  const validarFormulario = () => {
+    const nuevosErrores = {};
 
-    if (!form.nombre.trim()) {
-      newErrors.nombre = "El nombre es requerido";
-    } else if (!regexNombre.test(form.nombre)) {
-      newErrors.nombre = "Sólo letras y espacios permitidos";
+    // Nombre
+    if (!formulario.nombre.trim()) {
+      nuevosErrores.nombre = "El nombre es requerido.";
+    } else if (!regexNombre.test(formulario.nombre)) {
+      nuevosErrores.nombre = "Sólo letras y espacios permitidos.";
     }
 
-    if (!form.identificador.trim()) {
-      newErrors.identificador = "El identificador es requerido";
+    // Identificador
+    if (!formulario.identificador.trim()) {
+      nuevosErrores.identificador = "El identificador es requerido.";
     } else {
-      if (form.tipo_identificador === "email") {
-        if (!regexEmail.test(form.identificador.trim())) {
-          newErrors.identificador = "Debe ser un email válido";
+      if (formulario.tipoIdentificador === "email") {
+        if (!regexEmail.test(formulario.identificador.trim())) {
+          nuevosErrores.identificador = "Debe ser un email válido.";
         }
       } else {
-        if (!regexCuenta.test(form.identificador.trim())) {
-          newErrors.identificador = "Sólo dígitos numéricos permitidos";
+        // nro_cuenta => 20 dígitos (los guiones se agregan solos)
+        const soloDigitos = limpiarNoDigitos(formulario.identificador);
+        if (soloDigitos.length !== 20) {
+          nuevosErrores.identificador =
+            "El número de cuenta debe tener 20 dígitos (los guiones se agregan automáticamente).";
         }
       }
     }
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    setErrores(nuevosErrores);
+    return Object.keys(nuevosErrores).length === 0;
   };
 
-  const handleSubmit = async (e) => {
+  const manejarSubmit = async (e) => {
     e.preventDefault();
-    setServerError("");
-    if (!validateForm()) return;
+    setErrorServidor("");
+    if (!validarFormulario()) return;
 
-    setIsSubmitting(true);
+    setEnviando(true);
     try {
-      // Llamamos al callback que envía el POST al backend
-      await onSubmit({
-        nombre: form.nombre.trim(),
-        moneda: form.moneda,
-        tipo_identificador: form.tipo_identificador,
-        identificador: form.identificador.trim(),
-      });
+      // Para nro_cuenta enviamos sólo dígitos (sin guiones) al backend
+      const payload = {
+        nombre: formulario.nombre.trim(),
+        moneda: formulario.moneda,
+        tipo_identificador:
+          formulario.tipoIdentificador === "nro_cuenta"
+            ? "nro_cuenta"
+            : "email",
+        identificador:
+          formulario.tipoIdentificador === "nro_cuenta"
+            ? limpiarNoDigitos(formulario.identificador)
+            : formulario.identificador.trim(),
+      };
+
+      await onSubmit(payload);
     } catch (error) {
       console.error("Error en ModalAñadirBanco:", error);
-      setServerError(error?.message || "Ocurrió un error al crear el banco");
+      setErrorServidor(construirMensajeError(error));
     } finally {
-      setIsSubmitting(false);
+      setEnviando(false);
     }
   };
 
@@ -113,11 +185,11 @@ export default function ModalAñadirBanco({ onCancel, onSubmit }) {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-4 md:p-5">
+            <form onSubmit={manejarSubmit} className="p-4 md:p-5">
               <div className="grid gap-4 mb-4 grid-cols-2">
-                {serverError && (
-                  <div className="col-span-2 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-                    {serverError}
+                {errorServidor && (
+                  <div className="col-span-2 p-3 bg-red-100 border border-red-400 text-red-700 rounded whitespace-pre-line">
+                    {errorServidor}
                   </div>
                 )}
 
@@ -129,14 +201,14 @@ export default function ModalAñadirBanco({ onCancel, onSubmit }) {
                   <input
                     type="text"
                     name="nombre"
-                    value={form.nombre}
-                    onChange={handleChange}
+                    value={formulario.nombre}
+                    onChange={manejarCambio}
                     className="border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                     placeholder="Nombre del banco"
                     required
                   />
-                  {errors.nombre && (
-                    <p className="text-red-500 text-sm">{errors.nombre}</p>
+                  {errores.nombre && (
+                    <p className="text-red-500 text-sm">{errores.nombre}</p>
                   )}
                 </div>
 
@@ -147,8 +219,8 @@ export default function ModalAñadirBanco({ onCancel, onSubmit }) {
                   </label>
                   <select
                     name="moneda"
-                    value={form.moneda}
-                    onChange={handleChange}
+                    value={formulario.moneda}
+                    onChange={manejarCambio}
                     className="cursor-pointer border text-sm rounded-lg block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                   >
                     <option value="VES">VES</option>
@@ -159,12 +231,12 @@ export default function ModalAñadirBanco({ onCancel, onSubmit }) {
                 {/* Tipo Identificador */}
                 <div>
                   <label className="block mb-2 text-sm font-medium text-white">
-                    Tipo Identificador
+                    Tipo de identificador
                   </label>
                   <select
-                    name="tipo_identificador"
-                    value={form.tipo_identificador}
-                    onChange={handleChange}
+                    name="tipoIdentificador"
+                    value={formulario.tipoIdentificador}
+                    onChange={manejarCambio}
                     className="cursor-pointer border text-sm rounded-lg block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                   >
                     <option value="nro_cuenta">Número de cuenta</option>
@@ -175,24 +247,31 @@ export default function ModalAñadirBanco({ onCancel, onSubmit }) {
                 {/* Identificador */}
                 <div className="col-span-2">
                   <label className="block mb-2 text-sm font-medium text-white">
-                    Identificador
+                    {formulario.tipoIdentificador === "email"
+                      ? "Email"
+                      : "Número de cuenta"}
                   </label>
                   <input
                     type="text"
                     name="identificador"
-                    value={form.identificador}
-                    onChange={handleChange}
+                    value={formulario.identificador}
+                    onChange={manejarCambio}
+                    inputMode={
+                      formulario.tipoIdentificador === "email"
+                        ? "email"
+                        : "numeric"
+                    }
                     className="border text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                     placeholder={
-                      form.tipo_identificador === "email"
+                      formulario.tipoIdentificador === "email"
                         ? "correo@dominio.com"
                         : "0000-0000-00-0000000000"
                     }
                     required
                   />
-                  {errors.identificador && (
+                  {errores.identificador && (
                     <p className="text-red-500 text-sm">
-                      {errors.identificador}
+                      {errores.identificador}
                     </p>
                   )}
                 </div>
@@ -201,9 +280,9 @@ export default function ModalAñadirBanco({ onCancel, onSubmit }) {
               {/* Botón Guardar */}
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={enviando}
                 className={`cursor-pointer text-white inline-flex items-center font-medium rounded-lg text-sm px-5 py-2.5 text-center ${
-                  isSubmitting
+                  enviando
                     ? "bg-gray-400 cursor-not-allowed"
                     : "bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-800"
                 }`}
@@ -220,7 +299,7 @@ export default function ModalAñadirBanco({ onCancel, onSubmit }) {
                     clipRule="evenodd"
                   />
                 </svg>
-                {isSubmitting ? "Guardando..." : "Guardar Banco"}
+                {enviando ? "Guardando..." : "Guardar Banco"}
               </button>
             </form>
           </div>
