@@ -2,139 +2,201 @@ import React, { useState, useEffect } from "react";
 import api from "../../api/index";
 import { motion, AnimatePresence } from "framer-motion";
 import { UserPlus } from "lucide-react";
-import ModalError from "./ModalError";
 import ModalExito from "./ModalExito";
 import Loader from "../general/Loader";
 
-const EMAIL_REGEX = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+// Mantener naming en español y camelCase para coherencia con el proyecto
+const regexEmail = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
 
 export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
-  const [permitted, setPermitted] = useState(null);
+  // Permisos
+  const [permisoConcedido, setPermisoConcedido] = useState(null);
+
+  // Catálogos
   const [roles, setRoles] = useState([]);
-  const [form, setForm] = useState({
+
+  // Formulario
+  const [formulario, setFormulario] = useState({
     nombre: "",
     email: "",
     password: "",
     rol_id: "",
     estado: "activo",
   });
-  const [signatureFile, setSignatureFile] = useState(null);
-  const [errors, setErrors] = useState({});
-  const [submitting, setSubmitting] = useState(false);
-  const [showExito, setShowExito] = useState(false);
-  const [showErrorModal, setShowErrorModal] = useState(false);
-  const [errorModalMessage, setErrorModalMessage] = useState("");
+  const [archivoFirma, setArchivoFirma] = useState(null);
 
+  // Validación y envío
+  const [errores, setErrores] = useState({});
+  const [enviando, setEnviando] = useState(false);
+
+  // UX
+  const [mostrarExito, setMostrarExito] = useState(false);
+  const [errorServidor, setErrorServidor] = useState("");
+
+  // Carga inicial al abrir
   useEffect(() => {
-    if (visible) {
-      setPermitted(null);
-      api
-        .get("usuarios/permisos/crear_usuario", {
-          withCredentials: true,
-        })
-        .then(({ data }) => setPermitted(data.tienePermiso))
-        .catch(() => setPermitted(false));
-      api
-        .get("roles", { withCredentials: true })
-        .then(({ data }) => setRoles(data))
-        .catch(() => setRoles([]));
-    }
+    if (!visible) return;
+    setPermisoConcedido(null);
+    setErrorServidor("");
+    setErrores({});
+
+    // 1) Permisos
+    api
+      .get("usuarios/permisos/crear_usuario", { withCredentials: true })
+      .then(({ data }) => setPermisoConcedido(Boolean(data.tienePermiso)))
+      .catch(() => setPermisoConcedido(false));
+
+    // 2) Roles
+    api
+      .get("roles", { withCredentials: true })
+      .then(({ data }) => setRoles(Array.isArray(data) ? data : []))
+      .catch(() => setRoles([]));
   }, [visible]);
 
-  const handleChange = (e) => {
+  // Handlers
+  const manejarCambio = (e) => {
     const { name, value } = e.target;
-    setForm((f) => ({ ...f, [name]: value }));
-    setErrors((e) => ({ ...e, [name]: "" }));
+    setFormulario((f) => ({ ...f, [name]: value }));
+    if (errores[name]) setErrores((prev) => ({ ...prev, [name]: "" }));
+    if (errorServidor) setErrorServidor("");
   };
 
-  const handleFileChange = (e) => {
-    setSignatureFile(e.target.files[0] || null);
-    setErrors((err) => ({ ...err, firma: "" }));
+  const manejarArchivo = (e) => {
+    setArchivoFirma(e.target.files[0] || null);
+    if (errores.firma) setErrores((prev) => ({ ...prev, firma: "" }));
+    if (errorServidor) setErrorServidor("");
   };
 
-  const validate = () => {
-    const newErrors = {};
-    if (!form.nombre.trim()) newErrors.nombre = "Nombre es requerido";
-    if (!form.email.trim()) newErrors.email = "Email es requerido";
-    else if (!EMAIL_REGEX.test(form.email)) newErrors.email = "Email inválido";
-    if (!form.password) newErrors.password = "Contraseña es requerida";
-    else if (form.password.length < 6)
-      newErrors.password = "Mínimo 6 caracteres";
-    if (!form.rol_id) newErrors.rol_id = "Seleccione un rol";
+  // Validación cliente
+  const validar = () => {
+    const nuevosErrores = {};
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!validate()) return;
-    setSubmitting(true);
-    const data = new FormData();
-    Object.entries(form).forEach(([k, v]) => data.append(k, v));
-    if (signatureFile) {
-      data.append("firma", signatureFile);
+    if (!formulario.nombre.trim()) {
+      nuevosErrores.nombre = "Nombre es requerido";
     }
-    sendRequest(data);
+
+    if (!formulario.email.trim()) {
+      nuevosErrores.email = "Email es requerido";
+    } else if (!regexEmail.test(formulario.email)) {
+      nuevosErrores.email = "Email inválido";
+    }
+
+    if (!formulario.password) {
+      nuevosErrores.password = "Contraseña es requerida";
+    } else if (formulario.password.length < 6) {
+      nuevosErrores.password = "Mínimo 6 caracteres";
+    }
+
+    if (!formulario.rol_id) {
+      nuevosErrores.rol_id = "Seleccione un rol";
+    }
+
+    setErrores(nuevosErrores);
+    return Object.keys(nuevosErrores).length === 0;
   };
 
-  const sendRequest = async (data) => {
+  const manejarSubmit = (e) => {
+    e.preventDefault();
+    setErrorServidor("");
+    if (!validar()) return;
+
+    setEnviando(true);
+    const formData = new FormData();
+    Object.entries(formulario).forEach(([k, v]) => formData.append(k, v));
+    if (archivoFirma) formData.append("firma", archivoFirma);
+
+    enviarSolicitud(formData);
+  };
+
+  // Parser de errores del backend (incluye duplicados)
+  const construirMensajeError = (err) => {
+    // Prioridad: lista de errores -> message -> códigos/duplicados -> conexión
+    const data = err?.response?.data;
+    const respuestaTexto =
+      data?.message ||
+      data?.error ||
+      (typeof data === "string" ? data : "") ||
+      "";
+
+    if (Array.isArray(data?.errores) && data.errores.length > 0) {
+      return [
+        data.message || "Error de validación.",
+        ...data.errores.map((e) => `- ${e}`),
+      ].join("\n");
+    }
+
+    // Duplicados MySQL (ER_DUP_ENTRY) o mensajes que contengan 'duplicado'
+    const esDuplicado =
+      data?.code === "ER_DUP_ENTRY" ||
+      /duplicad/i.test(respuestaTexto) ||
+      /Duplicate entry/i.test(respuestaTexto);
+
+    if (esDuplicado) {
+      // Intento de detectar el campo por el texto del error
+      const campo =
+        respuestaTexto.match(/for key '(.+?)'/i)?.[1] ||
+        respuestaTexto.match(/'(.+?)' duplicad/i)?.[1] ||
+        "";
+
+      if (/email/i.test(campo) || /correo/i.test(campo)) {
+        return "El correo ya existe. Por favor, usa otro.";
+      }
+      if (/nombre/i.test(campo)) {
+        return "El nombre ya existe. Por favor, usa otro.";
+      }
+      return "Registro duplicado: ya existe un usuario con esos datos.";
+    }
+
+    if (respuestaTexto) return respuestaTexto;
+
+    if (!err?.response) return "Error de conexión con el servidor.";
+
+    return "Ocurrió un error al crear el usuario.";
+  };
+
+  const enviarSolicitud = async (formData) => {
     try {
-      await api.post("usuarios", data, {
+      await api.post("usuarios", formData, {
         withCredentials: true,
         headers: { "Content-Type": "multipart/form-data" },
       });
-      setShowExito(true);
+      setMostrarExito(true);
     } catch (err) {
-      setErrorModalMessage(
-        err.response?.data?.message || "Error al crear usuario"
-      );
-      setShowErrorModal(true);
+      setErrorServidor(construirMensajeError(err));
     } finally {
-      setSubmitting(false);
+      setEnviando(false);
     }
   };
 
-  const handleExitoClose = () => {
-    setShowExito(false);
-    onCancel();
-    onSuccess();
+  const cerrarExito = () => {
+    setMostrarExito(false);
+    onCancel?.();
+    onSuccess?.();
   };
 
-  const handleErrorClose = () => {
-    setShowErrorModal(false);
-    if (permitted === false) onCancel();
-  };
+  // Loader mientras se resuelve el permiso
+  if (visible && permisoConcedido === null) {
+    return (
+      <div className="fixed inset-0 z-40 flex items-center justify-center backdrop-blur-sm bg-black/40">
+        <Loader />
+      </div>
+    );
+  }
+
+  const deshabilitado = permisoConcedido === false || enviando;
 
   return (
     <>
-      <ModalError
-        visible={permitted === false || showErrorModal}
-        onClose={handleErrorClose}
-        titulo={
-          permitted === false ? "Permiso denegado" : "¡Ha ocurrido un error!"
-        }
-        mensaje={
-          permitted === false
-            ? "No tienes permiso para crear usuarios."
-            : errorModalMessage
-        }
-        textoBoton="Entendido"
-      />
       <ModalExito
-        visible={showExito}
-        onClose={handleExitoClose}
+        visible={mostrarExito}
+        onClose={cerrarExito}
         titulo="Usuario creado"
         mensaje="El usuario se ha creado exitosamente."
         textoBoton="Continuar"
       />
-      {visible && permitted === null && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center backdrop-blur-sm bg-black/40">
-          <Loader />
-        </div>
-      )}
+
       <AnimatePresence>
-        {visible && !showExito && (
+        {visible && !mostrarExito && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -142,16 +204,16 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
             className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/40"
           >
             <div className="relative p-4 w-full max-w-md max-h-full">
-              <div className="relative  rounded-lg shadow bg-gray-800">
+              <div className="relative rounded-lg shadow bg-gray-800">
                 <div className="flex flex-col items-center pt-6">
                   <UserPlus className="w-8 h-8 text-blue-500 mb-1" />
-                  <h3 className="text-lg font-semibold  text-white">
+                  <h3 className="text-lg font-semibold text-white">
                     Crear Usuario
                   </h3>
                   <button
                     type="button"
                     onClick={onCancel}
-                    className="cursor-pointer absolute right-4 top-4 text-gray-400  rounded-lg w-8 h-8 flex justify-center items-center hover:bg-gray-700"
+                    className="cursor-pointer absolute right-4 top-4 text-gray-400 rounded-lg w-8 h-8 flex justify-center items-center hover:bg-gray-700"
                   >
                     <svg
                       className="w-3 h-3"
@@ -169,71 +231,85 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                     </svg>
                   </button>
                 </div>
-                <form onSubmit={handleSubmit} className="p-4 grid gap-4">
+
+                <form onSubmit={manejarSubmit} className="p-4 grid gap-4">
+                  {/* Avisos inline (permiso/servidor) */}
+                  {(permisoConcedido === false || errorServidor) && (
+                    <div className="col-span-2 p-4 bg-red-100 border border-red-400 text-red-700 rounded whitespace-pre-line">
+                      {permisoConcedido === false
+                        ? "Permiso denegado: no tienes permiso para crear usuarios."
+                        : errorServidor}
+                    </div>
+                  )}
+
                   {/* Nombre */}
                   <div>
-                    <label className="block mb-1 text-sm font-medium  text-white">
+                    <label className="block mb-1 text-sm font-medium text-white">
                       Nombre
                     </label>
                     <input
                       type="text"
                       name="nombre"
                       placeholder="Nombre del usuario"
-                      value={form.nombre}
-                      onChange={handleChange}
-                      className="block w-full p-2.5  border rounded-lg bg-gray-700 border-gray-500 text-white"
+                      value={formulario.nombre}
+                      onChange={manejarCambio}
+                      disabled={deshabilitado}
+                      className="block w-full p-2.5 border rounded-lg bg-gray-700 border-gray-500 text-white disabled:opacity-60"
                     />
-                    {errors.nombre && (
-                      <p className="text-red-500 text-sm">{errors.nombre}</p>
+                    {errores.nombre && (
+                      <p className="text-red-500 text-sm">{errores.nombre}</p>
                     )}
                   </div>
 
                   {/* Email */}
                   <div>
-                    <label className="block mb-1 text-sm font-medium  text-white">
+                    <label className="block mb-1 text-sm font-medium text-white">
                       Email
                     </label>
                     <input
                       type="email"
                       name="email"
                       placeholder="correo@email.com"
-                      value={form.email}
-                      onChange={handleChange}
-                      className="block w-full p-2.5  border rounded-lg bg-gray-700 border-gray-500 text-white"
+                      value={formulario.email}
+                      onChange={manejarCambio}
+                      disabled={deshabilitado}
+                      className="block w-full p-2.5 border rounded-lg bg-gray-700 border-gray-500 text-white disabled:opacity-60"
                     />
-                    {errors.email && (
-                      <p className="text-red-500 text-sm">{errors.email}</p>
+                    {errores.email && (
+                      <p className="text-red-500 text-sm">{errores.email}</p>
                     )}
                   </div>
 
                   {/* Password */}
                   <div>
-                    <label className="block mb-1 text-sm font-medium  text-white">
+                    <label className="block mb-1 text-sm font-medium text-white">
                       Contraseña
                     </label>
                     <input
                       type="password"
                       name="password"
-                      value={form.password}
-                      onChange={handleChange}
+                      value={formulario.password}
+                      onChange={manejarCambio}
                       placeholder="Mínimo 6 caracteres"
-                      className="block w-full p-2.5  border rounded-lg bg-gray-700 border-gray-500 text-white"
+                      disabled={deshabilitado}
+                      className="block w-full p-2.5 border rounded-lg bg-gray-700 border-gray-500 text-white disabled:opacity-60"
                     />
-                    {errors.password && (
-                      <p className="text-red-500 text-sm">{errors.password}</p>
+                    {errores.password && (
+                      <p className="text-red-500 text-sm">{errores.password}</p>
                     )}
                   </div>
 
                   {/* Rol */}
                   <div>
-                    <label className="block mb-1 text-sm font-medium  text-white">
+                    <label className="block mb-1 text-sm font-medium text-white">
                       Rol
                     </label>
                     <select
                       name="rol_id"
-                      value={form.rol_id}
-                      onChange={handleChange}
-                      className="cursor-pointer block w-full p-2.5  border rounded-lg bg-gray-700 border-gray-500 text-white"
+                      value={formulario.rol_id}
+                      onChange={manejarCambio}
+                      disabled={deshabilitado}
+                      className="cursor-pointer block w-full p-2.5 border rounded-lg bg-gray-700 border-gray-500 text-white disabled:opacity-60"
                     >
                       <option value="">Seleccione un rol</option>
                       {roles.map((r) => (
@@ -242,12 +318,12 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                         </option>
                       ))}
                     </select>
-                    {errors.rol_id && (
-                      <p className="text-red-500 text-sm">{errors.rol_id}</p>
+                    {errores.rol_id && (
+                      <p className="text-red-500 text-sm">{errores.rol_id}</p>
                     )}
                   </div>
 
-                  {/* Firma */}
+                  {/* Firma (opcional) */}
                   <div className="col-span-2">
                     <label className="block mb-1 text-sm font-medium text-white">
                       Firma (imagen)
@@ -256,21 +332,13 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                       type="file"
                       accept="image/*"
                       name="firma"
-                      onChange={handleFileChange}
-                      className="
-                      block w-full p-2.5  text-gray-200 rounded
-                      file:px-4 file:py-2
-                      file:bg-gray-700
-                       file:text-gray-200
-                      file:border  file:border-gray-500
-                      file:rounded file:cursor-pointer
-                    file:hover:bg-gray-500
-                      transition
-                      duration-200 ease-in-out"
+                      onChange={manejarArchivo}
+                      disabled={deshabilitado}
+                      className="block w-full p-2.5 text-gray-200 rounded file:px-4 file:py-2 file:bg-gray-700 file:text-gray-200 file:border file:border-gray-500 file:rounded file:cursor-pointer file:hover:bg-gray-500 transition duration-200 ease-in-out disabled:opacity-60"
                     />
-                    {errors.firma && (
+                    {errores.firma && (
                       <p className="text-red-500 text-sm mt-1">
-                        {errors.firma}
+                        {errores.firma}
                       </p>
                     )}
                   </div>
@@ -278,14 +346,14 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                   {/* Submit */}
                   <button
                     type="submit"
-                    disabled={submitting}
+                    disabled={deshabilitado}
                     className={`cursor-pointer col-span-2 w-full text-white font-medium rounded-lg p-2.5 text-center ${
-                      submitting
+                      enviando
                         ? "bg-gray-400 cursor-not-allowed"
-                        : " focus:ring-4  bg-blue-600 hover:bg-blue-700 focus:ring-blue-800"
+                        : "focus:ring-4 bg-blue-600 hover:bg-blue-700 focus:ring-blue-800"
                     }`}
                   >
-                    {submitting ? "Creando..." : "Crear Usuario"}
+                    {enviando ? "Creando..." : "Crear Usuario"}
                   </button>
                 </form>
               </div>
