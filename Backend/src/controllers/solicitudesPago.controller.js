@@ -532,7 +532,7 @@ export const pagarSolicitudPago = async (req, res) => {
       /* 6.5. eventosArchivo */
       await db.query(
         `INSERT INTO eventosArchivo
-       (archivoId, versionId, accion, usuarioId,
+       (archivoId, versionId, accion, creadoPor,
         ip, userAgent, detalles)
      VALUES (?, ?, 'subidaArchivo', ?, ?, ?, ?)`,
         [
