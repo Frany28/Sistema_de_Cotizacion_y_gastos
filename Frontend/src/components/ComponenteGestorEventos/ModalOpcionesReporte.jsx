@@ -9,6 +9,7 @@ export default function ModalOpcionesReporte({
   onConfirmar,
   titulo = "Generar reporte de eventos",
   mensaje = "Selecciona el tipo de periodo para el informe en PDF:",
+  estaCargando = false,
 }) {
   // Estado del selector
   const [tipoReporte, setTipoReporte] = useState("mensual"); // mensual | anual | rango

@@ -17,6 +17,7 @@ export default function VisorGestorEventos() {
   // Confirmación del modal (genera y descarga el PDF)
   const manejarConfirmar = async (opcionesSeleccion) => {
     try {
+      setGenerandoReporte(true);
       const blob = await descargarReporteEventosPdf(opcionesSeleccion);
       const url = URL.createObjectURL(blob);
       const enlaceDescarga = document.createElement("a");
@@ -42,6 +43,7 @@ export default function VisorGestorEventos() {
         visible={mostrarModal}
         onClose={cerrarModal}
         onConfirmar={manejarConfirmar}
+        estaCargando={generandoReporte}
       />
     </>
   );
