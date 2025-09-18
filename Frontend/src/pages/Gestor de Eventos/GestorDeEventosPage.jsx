@@ -1,3 +1,4 @@
+import React, { useState } from "react";
 import GenerarReporte from "../../components/ComponenteGestorEventos/GenerarReporte";
 import ModalOpcionesReporte from "../../components/ComponenteGestorEventos/ModalOpcionesReporte";
 import TarjetaArchivosSubidos from "../../components/ComponenteGestorEventos/tarjetas/TarjetaArchivosSubidos";
@@ -18,6 +19,9 @@ const claseGridTarjetas = `
 `;
 
 function GestorDeEventosPage() {
+  // ✅ Estado que faltaba: controla la visibilidad del modal
+  const [mostrarModal, setMostrarModal] = useState(false);
+
   const abrirModal = () => {
     setMostrarModal(true);
   };
