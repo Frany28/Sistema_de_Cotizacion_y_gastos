@@ -168,7 +168,7 @@ const DetalleArchivo = () => {
                 <FileText className="text-blue-400 mt-1" size={20} />
                 <div>
                   <p className="break-words text-sm sm:text-base text-gray-400">
-                    Type
+                    Tipo
                   </p>
                   <p className="text-white break-words text-sm sm:text-base">
                     {obtenerDescripcionTipoArchivo(archivo.extension)}

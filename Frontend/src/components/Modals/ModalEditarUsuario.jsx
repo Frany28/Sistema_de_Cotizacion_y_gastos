@@ -1,363 +1,340 @@
 import React, { useState, useEffect } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { X, Pencil } from "lucide-react";
 import api from "../../api/index";
-import { motion, AnimatePresence } from "framer-motion";
-import { UserPlus } from "lucide-react";
 import ModalExito from "./ModalExito";
-import Loader from "../general/Loader";
+import ModalError from "./ModalError";
 
-// Mantener naming en español y camelCase para coherencia con el proyecto
-const regexEmail = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+// Regex para validar email
+const EMAIL_REGEX = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
 
-export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
-  // Permisos
-  const [permisoConcedido, setPermisoConcedido] = useState(null);
-
-  // Catálogos
-  const [roles, setRoles] = useState([]);
-
-  // Formulario
-  const [formulario, setFormulario] = useState({
+export default function ModalEditarUsuario({
+  visible,
+  onClose,
+  usuario,
+  roles = [],
+  onUsuarioActualizado,
+}) {
+  const [form, setForm] = useState({
     nombre: "",
     email: "",
     password: "",
     rol_id: "",
-    estado: "activo",
+    estado: "",
+    firma: null,
   });
-  const [archivoFirma, setArchivoFirma] = useState(null);
+  const [firmaArchivo, setFirmaArchivo] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showExito, setShowExito] = useState(false);
+  const [showError, setShowError] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
-  // Validación y envío
-  const [errores, setErrores] = useState({});
-  const [enviando, setEnviando] = useState(false);
-
-  // UX
-  const [mostrarExito, setMostrarExito] = useState(false);
-  const [errorServidor, setErrorServidor] = useState("");
-
-  // Carga inicial al abrir
+  // Carga inicial de datos en el formulario
   useEffect(() => {
-    if (!visible) return;
-    setPermisoConcedido(null);
-    setErrorServidor("");
-    setErrores({});
-
-    // 1) Permisos
-    api
-      .get("usuarios/permisos/crear_usuario", { withCredentials: true })
-      .then(({ data }) => setPermisoConcedido(Boolean(data.tienePermiso)))
-      .catch(() => setPermisoConcedido(false));
-
-    // 2) Roles
-    api
-      .get("roles", { withCredentials: true })
-      .then(({ data }) => setRoles(Array.isArray(data) ? data : []))
-      .catch(() => setRoles([]));
-  }, [visible]);
-
-  // Handlers
-  const manejarCambio = (e) => {
-    const { name, value } = e.target;
-    setFormulario((f) => ({ ...f, [name]: value }));
-    if (errores[name]) setErrores((prev) => ({ ...prev, [name]: "" }));
-    if (errorServidor) setErrorServidor("");
-  };
-
-  const manejarArchivo = (e) => {
-    setArchivoFirma(e.target.files[0] || null);
-    if (errores.firma) setErrores((prev) => ({ ...prev, firma: "" }));
-    if (errorServidor) setErrorServidor("");
-  };
-
-  // Validación cliente
-  const validar = () => {
-    const nuevosErrores = {};
-
-    if (!formulario.nombre.trim()) {
-      nuevosErrores.nombre = "Nombre es requerido";
-    }
-
-    if (!formulario.email.trim()) {
-      nuevosErrores.email = "Email es requerido";
-    } else if (!regexEmail.test(formulario.email)) {
-      nuevosErrores.email = "Email inválido";
-    }
-
-    if (!formulario.password) {
-      nuevosErrores.password = "Contraseña es requerida";
-    } else if (formulario.password.length < 6) {
-      nuevosErrores.password = "Mínimo 6 caracteres";
-    }
-
-    if (!formulario.rol_id) {
-      nuevosErrores.rol_id = "Seleccione un rol";
-    }
-
-    setErrores(nuevosErrores);
-    return Object.keys(nuevosErrores).length === 0;
-  };
-
-  const manejarSubmit = (e) => {
-    e.preventDefault();
-    setErrorServidor("");
-    if (!validar()) return;
-
-    setEnviando(true);
-    const formData = new FormData();
-    Object.entries(formulario).forEach(([k, v]) => formData.append(k, v));
-    if (archivoFirma) formData.append("firma", archivoFirma);
-
-    enviarSolicitud(formData);
-  };
-
-  // Parser de errores del backend (incluye duplicados)
-  const construirMensajeError = (err) => {
-    // Prioridad: lista de errores -> message -> códigos/duplicados -> conexión
-    const data = err?.response?.data;
-    const respuestaTexto =
-      data?.message ||
-      data?.error ||
-      (typeof data === "string" ? data : "") ||
-      "";
-
-    if (Array.isArray(data?.errores) && data.errores.length > 0) {
-      return [
-        data.message || "Error de validación.",
-        ...data.errores.map((e) => `- ${e}`),
-      ].join("\n");
-    }
-
-    // Duplicados MySQL (ER_DUP_ENTRY) o mensajes que contengan 'duplicado'
-    const esDuplicado =
-      data?.code === "ER_DUP_ENTRY" ||
-      /duplicad/i.test(respuestaTexto) ||
-      /Duplicate entry/i.test(respuestaTexto);
-
-    if (esDuplicado) {
-      // Intento de detectar el campo por el texto del error
-      const campo =
-        respuestaTexto.match(/for key '(.+?)'/i)?.[1] ||
-        respuestaTexto.match(/'(.+?)' duplicad/i)?.[1] ||
-        "";
-
-      if (/email/i.test(campo) || /correo/i.test(campo)) {
-        return "El correo ya existe. Por favor, usa otro.";
-      }
-      if (/nombre/i.test(campo)) {
-        return "El nombre ya existe. Por favor, usa otro.";
-      }
-      return "Registro duplicado: ya existe un usuario con esos datos.";
-    }
-
-    if (respuestaTexto) return respuestaTexto;
-
-    if (!err?.response) return "Error de conexión con el servidor.";
-
-    return "Ocurrió un error al crear el usuario.";
-  };
-
-  const enviarSolicitud = async (formData) => {
-    try {
-      await api.post("usuarios", formData, {
-        withCredentials: true,
-        headers: { "Content-Type": "multipart/form-data" },
+    if (usuario) {
+      setForm({
+        nombre: usuario.nombre || "",
+        email: usuario.email || "",
+        password: "", // nunca cargamos la contraseña actual
+        rol_id: usuario.rolId ? String(usuario.rolId) : "",
+        estado: usuario.estado || "activo",
+        firma: usuario.firma || null,
       });
-      setMostrarExito(true);
+      setFirmaArchivo(null);
+    }
+  }, [usuario]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleFileChange = (e) => {
+    setFirmaArchivo(e.target.files[0] || null);
+  };
+
+  // Validaciones antes de enviar
+  const validarFormulario = () => {
+    if (!form.nombre.trim()) {
+      setErrorMsg("El nombre es obligatorio");
+      return false;
+    }
+    if (!form.email.trim() || !EMAIL_REGEX.test(form.email.trim())) {
+      setErrorMsg("El email es obligatorio o tiene formato inválido");
+      return false;
+    }
+    if (form.rol_id !== "" && Number.isNaN(Number(form.rol_id))) {
+      setErrorMsg("El rol seleccionado no es válido");
+      return false;
+    }
+    if (form.password && form.password.length < 6) {
+      setErrorMsg("La contraseña debe tener al menos 6 caracteres");
+      return false;
+    }
+    return true;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    // 1) Validación en cliente
+    if (!validarFormulario()) {
+      setShowError(true);
+      onClose(); // cerrar modal de edición
+      return;
+    }
+
+    setIsSubmitting(true);
+    const data = new FormData();
+    let cambios = false;
+
+    // Nombre
+    if (form.nombre !== usuario.nombre) {
+      data.append("nombre", form.nombre);
+      cambios = true;
+    }
+    // Email
+    if (form.email !== usuario.email) {
+      data.append("email", form.email);
+      cambios = true;
+    }
+    // Contraseña (solo si escribe algo)
+    if (form.password) {
+      data.append("password", form.password);
+      cambios = true;
+    }
+    // Rol
+    if (form.rol_id !== String(usuario.rolId)) {
+      data.append("rol_id", form.rol_id);
+      cambios = true;
+    }
+    // Estado
+    if (form.estado !== usuario.estado) {
+      data.append("estado", form.estado);
+      cambios = true;
+    }
+    // Nueva firma
+    if (firmaArchivo) {
+      data.append("firma", firmaArchivo);
+      cambios = true;
+    }
+
+    if (!cambios) {
+      setErrorMsg("No se detectaron cambios para guardar");
+      setShowError(true);
+      onClose(); // cerrar modal de edición
+      setIsSubmitting(false);
+      return;
+    }
+
+    try {
+      await api.put(`/usuarios/${usuario.id}`, data, { withCredentials: true });
+      setShowExito(true);
+      onClose(); // cerrar modal de edición
     } catch (err) {
-      setErrorServidor(construirMensajeError(err));
+      setErrorMsg(
+        err.response?.data?.message ||
+          err.response?.data?.error ||
+          "Error al actualizar usuario"
+      );
+      setShowError(true);
+      onClose(); // cerrar modal de edición
     } finally {
-      setEnviando(false);
+      setIsSubmitting(false);
     }
   };
 
-  const cerrarExito = () => {
-    setMostrarExito(false);
-    onCancel?.();
-    onSuccess?.();
+  const handleExitoClose = () => {
+    setShowExito(false);
+    onUsuarioActualizado();
   };
-
-  // Loader mientras se resuelve el permiso
-  if (visible && permisoConcedido === null) {
-    return (
-      <div className="fixed inset-0 z-40 flex items-center justify-center backdrop-blur-sm bg-black/40">
-        <Loader />
-      </div>
-    );
-  }
-
-  const deshabilitado = permisoConcedido === false || enviando;
+  const handleErrorClose = () => setShowError(false);
 
   return (
     <>
+      <ModalError
+        visible={showError}
+        onClose={handleErrorClose}
+        titulo="Error"
+        mensaje={errorMsg}
+        textoBoton="Entendido"
+      />
       <ModalExito
-        visible={mostrarExito}
-        onClose={cerrarExito}
-        titulo="Usuario creado"
-        mensaje="El usuario se ha creado exitosamente."
+        visible={showExito}
+        onClose={handleExitoClose}
+        titulo="Usuario actualizado"
+        mensaje="Los cambios se guardaron correctamente"
         textoBoton="Continuar"
       />
 
       <AnimatePresence>
-        {visible && !mostrarExito && (
+        {visible && !showExito && !showError && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
             className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/40"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => !isSubmitting && onClose()}
           >
-            <div className="relative p-4 w-full max-w-md max-h-full">
-              <div className="relative rounded-lg shadow bg-gray-800">
-                <div className="flex flex-col items-center pt-6">
-                  <UserPlus className="w-8 h-8 text-blue-500 mb-1" />
-                  <h3 className="text-lg font-semibold text-white">
-                    Crear Usuario
-                  </h3>
-                  <button
-                    type="button"
-                    onClick={onCancel}
-                    className="cursor-pointer absolute right-4 top-4 text-gray-400 rounded-lg w-8 h-8 flex justify-center items-center hover:bg-gray-700"
-                  >
-                    <svg
-                      className="w-3 h-3"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 14 14"
-                    >
-                      <path
-                        stroke="currentColor"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"
-                      />
-                    </svg>
-                  </button>
+            <motion.div
+              className="relative w-full max-w-lg p-6 bg-gray-800 rounded-lg shadow"
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() => !isSubmitting && onClose()}
+                disabled={isSubmitting}
+                className="absolute top-3 right-3 text-gray-400 hover:text-white disabled:opacity-50"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <div className="text-center mb-4">
+                <Pencil className="mx-auto mb-2 text-blue-600 w-10 h-10" />
+                <h3 className="text-lg font-semibold text-white">
+                  Editar Usuario
+                </h3>
+              </div>
+
+              <form
+                onSubmit={handleSubmit}
+                encType="multipart/form-data"
+                className="grid grid-cols-2 gap-4"
+              >
+                {/* Nombre */}
+                <div>
+                  <label className="block mb-1 text-sm font-medium text-white">
+                    Nombre
+                  </label>
+                  <input
+                    type="text"
+                    name="nombre"
+                    value={form.nombre}
+                    onChange={handleChange}
+                    disabled={isSubmitting}
+                    className="block w-full p-2.5 border rounded-lg bg-gray-600 border-gray-500 text-white"
+                  />
                 </div>
 
-                <form onSubmit={manejarSubmit} className="p-4 grid gap-4">
-                  {/* Avisos inline (permiso/servidor) */}
-                  {(permisoConcedido === false || errorServidor) && (
-                    <div className="col-span-2 p-4 bg-red-100 border border-red-400 text-red-700 rounded whitespace-pre-line">
-                      {permisoConcedido === false
-                        ? "Permiso denegado: no tienes permiso para crear usuarios."
-                        : errorServidor}
-                    </div>
-                  )}
+                {/* Email */}
+                <div>
+                  <label className="block mb-1 text-sm font-medium text-white">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={form.email}
+                    onChange={handleChange}
+                    disabled={isSubmitting}
+                    className="block w-full p-2.5 border rounded-lg bg-gray-600 border-gray-500 text-white"
+                  />
+                </div>
 
-                  {/* Nombre */}
-                  <div>
-                    <label className="block mb-1 text-sm font-medium text-white">
-                      Nombre
-                    </label>
-                    <input
-                      type="text"
-                      name="nombre"
-                      placeholder="Nombre del usuario"
-                      value={formulario.nombre}
-                      onChange={manejarCambio}
-                      disabled={deshabilitado}
-                      className="block w-full p-2.5 border rounded-lg bg-gray-700 border-gray-500 text-white disabled:opacity-60"
-                    />
-                    {errores.nombre && (
-                      <p className="text-red-500 text-sm">{errores.nombre}</p>
-                    )}
-                  </div>
+                {/* Contraseña */}
+                <div className="col-span-2">
+                  <label className="block mb-1 text-sm font-medium text-white">
+                    Contraseña
+                  </label>
+                  <input
+                    type="password"
+                    name="password"
+                    value={form.password}
+                    onChange={handleChange}
+                    disabled={isSubmitting}
+                    placeholder="Dejar vacío para no cambiar"
+                    className="block w-full p-2.5 border rounded-lg bg-gray-600 border-gray-500 text-white"
+                  />
+                </div>
 
-                  {/* Email */}
-                  <div>
-                    <label className="block mb-1 text-sm font-medium text-white">
-                      Email
-                    </label>
-                    <input
-                      type="email"
-                      name="email"
-                      placeholder="correo@email.com"
-                      value={formulario.email}
-                      onChange={manejarCambio}
-                      disabled={deshabilitado}
-                      className="block w-full p-2.5 border rounded-lg bg-gray-700 border-gray-500 text-white disabled:opacity-60"
-                    />
-                    {errores.email && (
-                      <p className="text-red-500 text-sm">{errores.email}</p>
-                    )}
-                  </div>
+                {/* Rol */}
+                <div>
+                  <label className="block mb-1 text-sm font-medium text-white">
+                    Rol
+                  </label>
+                  <select
+                    name="rol_id"
+                    value={form.rol_id}
+                    onChange={handleChange}
+                    disabled={isSubmitting}
+                    className="block w-full p-2.5 border rounded-lg bg-gray-600 border-gray-500 text-white"
+                  >
+                    <option value="">Seleccione rol</option>
+                    {roles.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-                  {/* Password */}
-                  <div>
-                    <label className="block mb-1 text-sm font-medium text-white">
-                      Contraseña
-                    </label>
-                    <input
-                      type="password"
-                      name="password"
-                      value={formulario.password}
-                      onChange={manejarCambio}
-                      placeholder="Mínimo 6 caracteres"
-                      disabled={deshabilitado}
-                      className="block w-full p-2.5 border rounded-lg bg-gray-700 border-gray-500 text-white disabled:opacity-60"
-                    />
-                    {errores.password && (
-                      <p className="text-red-500 text-sm">{errores.password}</p>
-                    )}
-                  </div>
+                {/* Estado */}
+                <div>
+                  <label className="block mb-1 text-sm font-medium text-white">
+                    Estado
+                  </label>
+                  <select
+                    name="estado"
+                    value={form.estado}
+                    onChange={handleChange}
+                    disabled={isSubmitting}
+                    className="block w-full p-2.5 border rounded-lg bg-gray-600 border-gray-500 text-white"
+                  >
+                    <option value="activo">Activo</option>
+                    <option value="inactivo">Inactivo</option>
+                  </select>
+                </div>
 
-                  {/* Rol */}
-                  <div>
-                    <label className="block mb-1 text-sm font-medium text-white">
-                      Rol
-                    </label>
-                    <select
-                      name="rol_id"
-                      value={formulario.rol_id}
-                      onChange={manejarCambio}
-                      disabled={deshabilitado}
-                      className="cursor-pointer block w-full p-2.5 border rounded-lg bg-gray-700 border-gray-500 text-white disabled:opacity-60"
-                    >
-                      <option value="">Seleccione un rol</option>
-                      {roles.map((r) => (
-                        <option key={r.id} value={r.id}>
-                          {r.nombre}
-                        </option>
-                      ))}
-                    </select>
-                    {errores.rol_id && (
-                      <p className="text-red-500 text-sm">{errores.rol_id}</p>
-                    )}
-                  </div>
-
-                  {/* Firma (opcional) */}
+                {/* Firma previa (si existe) */}
+                {form.firma && !firmaArchivo && (
                   <div className="col-span-2">
                     <label className="block mb-1 text-sm font-medium text-white">
-                      Firma (imagen)
+                      Firma previa
                     </label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      name="firma"
-                      onChange={manejarArchivo}
-                      disabled={deshabilitado}
-                      className="block w-full p-2.5 text-gray-200 rounded file:px-4 file:py-2 file:bg-gray-700 file:text-gray-200 file:border file:border-gray-500 file:rounded file:cursor-pointer file:hover:bg-gray-500 transition duration-200 ease-in-out disabled:opacity-60"
-                    />
-                    {errores.firma && (
-                      <p className="text-red-500 text-sm mt-1">
-                        {errores.firma}
-                      </p>
-                    )}
+                    <a
+                      href={form.firma}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block underline text-blue-600 mb-2"
+                    >
+                      {form.firma.split("/").pop()}
+                    </a>
                   </div>
+                )}
 
-                  {/* Submit */}
+                {/* Input para subir/cambiar firma */}
+                <div className="col-span-2">
+                  <label className="block mb-1 text-sm font-medium text-white">
+                    {form.firma && !firmaArchivo
+                      ? "Cambiar firma (imagen)"
+                      : "Firma (imagen)"}
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    disabled={isSubmitting}
+                    className="block w-full p-2.5 text-gray-200 rounded file:px-4 file:py-2 file:bg-gray-700 file:text-gray-200 file:border file:border-gray-500 file:rounded file:cursor-pointer file:hover:bg-gray-500 transition duration-200 ease-in-out"
+                  />
+                </div>
+
+                {/* Botón Guardar */}
+                <div className="col-span-2 flex justify-center pt-4">
                   <button
                     type="submit"
-                    disabled={deshabilitado}
-                    className={`cursor-pointer col-span-2 w-full text-white font-medium rounded-lg p-2.5 text-center ${
-                      enviando
+                    disabled={isSubmitting}
+                    className={`w-full p-2.5 text-white font-medium rounded-lg ${
+                      isSubmitting
                         ? "bg-gray-400 cursor-not-allowed"
-                        : "focus:ring-4 bg-blue-600 hover:bg-blue-700 focus:ring-blue-800"
+                        : "bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-800"
                     }`}
                   >
-                    {enviando ? "Creando..." : "Crear Usuario"}
+                    {isSubmitting ? "Guardando..." : "Guardar cambios"}
                   </button>
-                </form>
-              </div>
-            </div>
+                </div>
+              </form>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
