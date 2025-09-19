@@ -1,37 +1,44 @@
-/* === NUEVO: imports para cargar el logo por defecto desde /styles === */
+// === CARGA DE LOGO CON DOBLE ESTRATEGIA: file:// ABSOLUTO o data:base64 ===
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
 
-/* === NUEVO: utilidades de ruta para este módulo === */
+/* === Utilidades de ruta para este módulo === */
 const nombreArchivoActual = fileURLToPath(import.meta.url);
 const directorioActual = path.dirname(nombreArchivoActual);
 
-/* === NUEVO: cache del data URI del logo (se calcula una vez) === */
+/* === Cache de logo (evitar relecturas) === */
+let cacheLogoFileUrl = null;
 let cacheLogoDataUri = null;
 
-/* === NUEVO: función para obtener el logo por defecto desde /styles === */
-function obtenerLogoDataUri() {
-  if (cacheLogoDataUri) return cacheLogoDataUri;
-
-  // Ruta al logo: este archivo está en src/templates → subimos 2 niveles hasta el root del BackEnd
-  // y luego entramos a /styles/Point Technology.png
+/**
+ * Resuelve la ruta del logo dentro de /styles y devuelve:
+ *  - logoFileUrl: "file:///..." absoluto (mejor compatibilidad con wkhtmltopdf/html-pdf)
+ *  - logoDataUri: "data:image/png;base64,..." (ideal en Puppeteer/Chromium)
+ */
+function obtenerLogoLocales() {
+  // este archivo está en src/templates → subimos 2 niveles hasta /Backend y entramos a /styles
   const rutaLogo = path.resolve(
     directorioActual,
-    "../styles/Point Technology.png"
+    "../../styles/Point Technology.png"
   );
 
-  if (fs.existsSync(rutaLogo)) {
-    const bufferLogo = fs.readFileSync(rutaLogo);
-    cacheLogoDataUri = `data:image/png;base64,${bufferLogo.toString("base64")}`;
-    return cacheLogoDataUri;
+  if (!fs.existsSync(rutaLogo)) {
+    return { logoFileUrl: null, logoDataUri: null };
   }
 
-  // Si no se encuentra, dejamos null para que muestre el “LOGO” de relleno
-  return null;
+  if (!cacheLogoFileUrl) {
+    cacheLogoFileUrl = pathToFileURL(rutaLogo).href; // e.g., file:///home/.../styles/Point%20Technology.png
+  }
+  if (!cacheLogoDataUri) {
+    const bufferLogo = fs.readFileSync(rutaLogo);
+    cacheLogoDataUri = `data:image/png;base64,${bufferLogo.toString("base64")}`;
+  }
+
+  return { logoFileUrl: cacheLogoFileUrl, logoDataUri: cacheLogoDataUri };
 }
 
-/* Utilidades */
+/* === Utilidades === */
 function escaparHtml(texto) {
   if (texto == null) return "";
   return String(texto)
@@ -45,7 +52,6 @@ function formatearNumero(n) {
   const x = Number(n || 0);
   return new Intl.NumberFormat("es-VE").format(x);
 }
-
 function formatearFechaHoraLocal(fecha, zonaHoraria = "America/Caracas") {
   const dtf = new Intl.DateTimeFormat("es-VE", {
     dateStyle: "short",
@@ -64,7 +70,7 @@ const etiquetasResumen = {
   borrados: "Borrados definitivamente (desde papelera)",
 };
 
-/* Mapa de acciones para la tabla de detalle (coherente con ENUM BD) */
+/* Mapa de acciones para la tabla de detalle */
 const mapaAcciones = {
   subidaArchivo: "Subida",
   sustitucionArchivo: "Sustitución",
@@ -74,17 +80,18 @@ const mapaAcciones = {
 
 /**
  * Genera el HTML A4 del reporte de eventos de archivos.
- * ► Mantiene los mismos nombres/estructura que consumes en el controlador.
  * @param {Object} opciones
  * @param {string} opciones.usuario
- * @param {string} opciones.fechaInicioTexto  dd/mm/yyyy
- * @param {string} opciones.fechaFinTexto     dd/mm/yyyy
- * @param {Object} opciones.totales           { subidos, reemplazados, eliminados, borrados }
- * @param {Array}  opciones.detalleMovimientos [{fecha, hora, usuario, tipoAccion, archivo, observaciones}]
- * @param {string|null} opciones.logoUrl
+ * @param {string} opciones.fechaInicioTexto
+ * @param {string} opciones.fechaFinTexto
+ * @param {Object} opciones.totales
+ * @param {Array}  opciones.detalleMovimientos
+ * @param {string|null} opciones.logoUrl         // si lo pasas, se usa tal cual
+ * @param {boolean} [opciones.forzarDataUriLogo] // si true, usa data: aun si hay file://
  * @param {boolean} [opciones.mostrarGrafico=true]
  * @param {boolean} [opciones.mostrarDetalle=true]
  * @param {string}  [opciones.tituloReporte="REPORTE DE MOVIMIENTOS DE ARCHIVOS"]
+ * @param {string}  [opciones.generadoEnTexto]
  */
 export function generarHTMLEventosArchivos({
   usuario = "admin",
@@ -93,6 +100,7 @@ export function generarHTMLEventosArchivos({
   totales = { subidos: 0, reemplazados: 0, eliminados: 0, borrados: 0 },
   detalleMovimientos = [],
   logoUrl = null,
+  forzarDataUriLogo = false,
   mostrarGrafico = true,
   mostrarDetalle = true,
   tituloReporte = "REPORTE DE MOVIMIENTOS DE ARCHIVOS",
@@ -102,10 +110,18 @@ export function generarHTMLEventosArchivos({
     fechaInicioTexto || "-"
   )} y ${escaparHtml(fechaFinTexto || "-")}`;
 
-  /* === NUEVO: decidir qué logo usar (prioriza el que llega por prop, si no, el del /styles) === */
-  const logoParaUsar = logoUrl || obtenerLogoDataUri();
+  // === Decidir el logo a usar ===
+  // Prioridad:
+  //  1) logoUrl proporcionado por quien llama (puede ser http/https/file/data)
+  //  2) si no hay, usar el del /styles
+  let logoParaUsar = logoUrl || null;
+  if (!logoParaUsar) {
+    const { logoFileUrl, logoDataUri } = obtenerLogoLocales();
+    // Por compatibilidad con wkhtmltopdf/html-pdf, preferimos file://
+    logoParaUsar = forzarDataUriLogo ? logoDataUri : logoFileUrl || logoDataUri;
+  }
 
-  /* ======= Datos para el gráfico (etiquetas cortas en dos líneas) ======= */
+  // === Datos para el gráfico ===
   const barras = [
     {
       etiqueta1: "Subidos",
@@ -128,7 +144,6 @@ export function generarHTMLEventosArchivos({
       valor: Number(totales.borrados || 0),
     },
   ];
-
   const maxValor = Math.max(1, ...barras.map((b) => b.valor));
 
   const svgBarras = barras
@@ -144,27 +159,27 @@ export function generarHTMLEventosArchivos({
       const y = baseY - alto;
 
       return `
-    <rect x="${x}" y="${y}" width="${anchoBarra}" height="${alto}" rx="8" fill="#4f46e5" opacity="0.85"/>
-    <text x="${x + anchoBarra / 2}" y="${
+      <rect x="${x}" y="${y}" width="${anchoBarra}" height="${alto}" rx="8" fill="#4f46e5" opacity="0.85"/>
+      <text x="${x + anchoBarra / 2}" y="${
         y - 6
       }" font-size="12" font-weight="700" text-anchor="middle" fill="#111827">${
         b.valor
       }</text>
-    <text x="${x + anchoBarra / 2}" y="${
+      <text x="${x + anchoBarra / 2}" y="${
         baseY + 12
       }" font-size="11" text-anchor="middle" dominant-baseline="hanging" fill="#475569">${escaparHtml(
         b.etiqueta1
       )}</text>
-    ${
-      b.etiqueta2
-        ? `<text x="${x + anchoBarra / 2}" y="${
-            baseY + 26
-          }" font-size="10" text-anchor="middle" dominant-baseline="hanging" fill="#64748b">${escaparHtml(
-            b.etiqueta2
-          )}</text>`
-        : ""
-    }
-  `;
+      ${
+        b.etiqueta2
+          ? `<text x="${x + anchoBarra / 2}" y="${
+              baseY + 26
+            }" font-size="10" text-anchor="middle" dominant-baseline="hanging" fill="#64748b">${escaparHtml(
+              b.etiqueta2
+            )}</text>`
+          : ""
+      }
+    `;
     })
     .join("");
 
@@ -203,6 +218,7 @@ export function generarHTMLEventosArchivos({
     .tabla   { border:1px solid #cbd5e1; }
     .tabla th{ background:#f1f5f9; color:#0f172a; }
     .watermark { position: fixed; inset: 40% auto auto 50%; transform: translate(-50%, -50%); font-size: 72px; color:#e2e8f0; opacity:.12; font-weight:800; letter-spacing:.08em; pointer-events:none;}
+    img.logoCabecera { width: 48px; height: 48px; object-fit: contain; border-radius: 9999px; background: #fff; box-shadow: inset 0 0 0 2px rgba(199,210,254,.9); }
   </style>
 </head>
 <body class="text-[12px]">
@@ -214,7 +230,7 @@ export function generarHTMLEventosArchivos({
           logoParaUsar
             ? `<img src="${escaparHtml(
                 logoParaUsar
-              )}" alt="logo" class="w-12 h-12 object-contain rounded-full ring-2 ring-indigo-200 bg-white">`
+              )}" alt="logo" class="logoCabecera">`
             : `<div class="w-12 h-12 rounded-full ring-2 ring-indigo-200 bg-white text-slate-700 flex items-center justify-center text-[10px] font-semibold">LOGO</div>`
         }
         <div>
@@ -247,9 +263,7 @@ export function generarHTMLEventosArchivos({
     <!-- Tarjetas resumen -->
     <div class="space-y-3">
       <h2 class="text-[13px] font-extrabold">RESUMEN GENERAL</h2>
-
       <div class="grid grid-cols-2 gap-3">
-        <!-- Card Subidos -->
         <div class="card rounded-xl p-4 border border-slate-200 bg-white">
           <div class="flex items-center gap-3">
             <div class="shrink-0 w-9 h-9 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center">
@@ -263,8 +277,6 @@ export function generarHTMLEventosArchivos({
             </div>
           </div>
         </div>
-
-        <!-- Card Reemplazados -->
         <div class="card rounded-xl p-4 border border-slate-200 bg-white">
           <div class="flex items-center gap-3">
             <div class="shrink-0 w-9 h-9 rounded-lg bg-violet-50 text-violet-700 flex items-center justify-center">
@@ -278,8 +290,6 @@ export function generarHTMLEventosArchivos({
             </div>
           </div>
         </div>
-
-        <!-- Card Eliminados (papelera) -->
         <div class="card rounded-xl p-4 border border-slate-200 bg-white">
           <div class="flex items-center gap-3">
             <div class="shrink-0 w-9 h-9 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center">
@@ -293,8 +303,6 @@ export function generarHTMLEventosArchivos({
             </div>
           </div>
         </div>
-
-        <!-- Card Borrados definitivos -->
         <div class="card rounded-xl p-4 border border-slate-200 bg-white">
           <div class="flex items-center gap-3">
             <div class="shrink-0 w-9 h-9 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center">
@@ -311,7 +319,6 @@ export function generarHTMLEventosArchivos({
       </div>
     </div>
 
-    <!-- Gráfico -->
     ${
       mostrarGrafico
         ? `
@@ -319,13 +326,7 @@ export function generarHTMLEventosArchivos({
       <h2 class="text-[13px] font-extrabold mb-2">Distribución de acciones</h2>
       <div class="rounded-lg border border-slate-200 p-3">
         <svg width="100%" height="240" viewBox="0 0 380 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Gráfico de barras">
-          <defs>
-            <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#93c5fd" />
-              <stop offset="100%" stop-color="#dbeafe" />
-            </linearGradient>
-          </defs>
-          <rect x="24" y="22" width="332" height="176" fill="url(#g1)" opacity="0.35" stroke="#cbd5e1"/>
+          <rect x="24" y="22" width="332" height="176" fill="#dbeafe" opacity="0.35" stroke="#cbd5e1"/>
           ${[0, 1, 2, 3, 4]
             .map((i) => {
               const y = 198 - i * 35;
@@ -345,7 +346,6 @@ export function generarHTMLEventosArchivos({
 
   <div class="h-4"></div>
 
-  <!-- DETALLE POR MOVIMIENTO -->
   ${
     mostrarDetalle
       ? `

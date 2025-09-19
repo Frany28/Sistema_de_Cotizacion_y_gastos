@@ -804,10 +804,10 @@ export const generarPdfMovimientosArchivos = async (req, res) => {
       fechaFinTexto: datosPdf.fechaFinTexto,
       totales: datosPdf.totales,
       detalleMovimientos: datosPdf.detalleMovimientos,
-      logoUrl: `../styles/Point Technology.png`,
       mostrarGrafico: true,
       mostrarDetalle: true,
       tituloReporte: "REPORTE DE MOVIMIENTOS DE ARCHIVOS",
+      forzarDataUriLogo: true,
     });
 
     const browser = await puppeteer.launch({
