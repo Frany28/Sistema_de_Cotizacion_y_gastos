@@ -1,3 +1,36 @@
+/* === NUEVO: imports para cargar el logo por defecto desde /styles === */
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+/* === NUEVO: utilidades de ruta para este módulo === */
+const nombreArchivoActual = fileURLToPath(import.meta.url);
+const directorioActual = path.dirname(nombreArchivoActual);
+
+/* === NUEVO: cache del data URI del logo (se calcula una vez) === */
+let cacheLogoDataUri = null;
+
+/* === NUEVO: función para obtener el logo por defecto desde /styles === */
+function obtenerLogoDataUri() {
+  if (cacheLogoDataUri) return cacheLogoDataUri;
+
+  // Ruta al logo: este archivo está en src/templates → subimos 2 niveles hasta el root del BackEnd
+  // y luego entramos a /styles/Point Technology.png
+  const rutaLogo = path.resolve(
+    directorioActual,
+    "../../styles/Point Technology.png"
+  );
+
+  if (fs.existsSync(rutaLogo)) {
+    const bufferLogo = fs.readFileSync(rutaLogo);
+    cacheLogoDataUri = `data:image/png;base64,${bufferLogo.toString("base64")}`;
+    return cacheLogoDataUri;
+  }
+
+  // Si no se encuentra, dejamos null para que muestre el “LOGO” de relleno
+  return null;
+}
+
 /* Utilidades */
 function escaparHtml(texto) {
   if (texto == null) return "";
@@ -69,8 +102,9 @@ export function generarHTMLEventosArchivos({
     fechaInicioTexto || "-"
   )} y ${escaparHtml(fechaFinTexto || "-")}`;
 
-  /* ======= Datos para el gráfico ======= */
-  /* ======= Datos para el gráfico (etiquetas en dos líneas) ======= */
+  /* === NUEVO: decidir qué logo usar (prioriza el que llega por prop, si no, el del /styles) === */
+  const logoParaUsar = logoUrl || obtenerLogoDataUri();
+
   /* ======= Datos para el gráfico (etiquetas cortas en dos líneas) ======= */
   const barras = [
     {
@@ -99,8 +133,8 @@ export function generarHTMLEventosArchivos({
 
   const svgBarras = barras
     .map((b, i) => {
-      const anchoBarra = 42; // más angosta
-      const gap = 36; // más espacio entre barras
+      const anchoBarra = 42;
+      const gap = 36;
       const baseX = 40;
       const baseY = 200;
       const altoMax = 130;
@@ -116,8 +150,6 @@ export function generarHTMLEventosArchivos({
       }" font-size="12" font-weight="700" text-anchor="middle" fill="#111827">${
         b.valor
       }</text>
-
-    <!-- Etiquetas en dos líneas, más cortas -->
     <text x="${x + anchoBarra / 2}" y="${
         baseY + 12
       }" font-size="11" text-anchor="middle" dominant-baseline="hanging" fill="#475569">${escaparHtml(
@@ -136,7 +168,6 @@ export function generarHTMLEventosArchivos({
     })
     .join("");
 
-  /* ======= Filas del detalle ======= */
   const filasDetalle = (detalleMovimientos || [])
     .map((r) => {
       const accionLegible = mapaAcciones[r.tipoAccion] || r.tipoAccion || "";
@@ -153,14 +184,12 @@ export function generarHTMLEventosArchivos({
     })
     .join("");
 
-  /* ======= HTML ======= */
   return `<!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>${escaparHtml(tituloReporte)}</title>
-  <!-- Tailwind CDN para maquetado -->
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @page { size: A4; margin: 14mm 14mm; }
@@ -182,9 +211,9 @@ export function generarHTMLEventosArchivos({
     <div class="flex items-center justify-between px-6 py-4">
       <div class="flex items-center gap-4">
         ${
-          logoUrl
+          logoParaUsar
             ? `<img src="${escaparHtml(
-                logoUrl
+                logoParaUsar
               )}" alt="logo" class="w-12 h-12 object-contain rounded-full ring-2 ring-indigo-200 bg-white">`
             : `<div class="w-12 h-12 rounded-full ring-2 ring-indigo-200 bg-white text-slate-700 flex items-center justify-center text-[10px] font-semibold">LOGO</div>`
         }
@@ -224,11 +253,10 @@ export function generarHTMLEventosArchivos({
         <div class="card rounded-xl p-4 border border-slate-200 bg-white">
           <div class="flex items-center gap-3">
             <div class="shrink-0 w-9 h-9 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center">
-              <!-- icon upload -->
               <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l4 4h-3v6h-2V7H8l4-4z"></path><path d="M4 14h2v5h12v-5h2v7H4z"></path></svg>
             </div>
             <div>
-              <div class="caption">Total de archivos ${etiquetasResumen.subidos.toLowerCase()}</div>
+              <div class="caption">Total de archivos subidos</div>
               <div class="text-[22px] font-extrabold leading-6">${formatearNumero(
                 totales.subidos
               )}</div>
@@ -240,11 +268,10 @@ export function generarHTMLEventosArchivos({
         <div class="card rounded-xl p-4 border border-slate-200 bg-white">
           <div class="flex items-center gap-3">
             <div class="shrink-0 w-9 h-9 rounded-lg bg-violet-50 text-violet-700 flex items-center justify-center">
-              <!-- icon replace -->
               <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7 7h7l-2-2h4l3 3-3 3h-4l2-2H7V7zM17 17H10l2 2H8l-3-3 3-3h4l-2 2h7v2z"></path></svg>
             </div>
             <div>
-              <div class="caption">Total de archivos ${etiquetasResumen.reemplazados.toLowerCase()}</div>
+              <div class="caption">Total de archivos reemplazados</div>
               <div class="text-[22px] font-extrabold leading-6">${formatearNumero(
                 totales.reemplazados
               )}</div>
@@ -256,11 +283,10 @@ export function generarHTMLEventosArchivos({
         <div class="card rounded-xl p-4 border border-slate-200 bg-white">
           <div class="flex items-center gap-3">
             <div class="shrink-0 w-9 h-9 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center">
-              <!-- icon trash -->
               <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v8h-2V9zm4 0h2v8h-2V9zM6 9h2v8H6V9z"></path></svg>
             </div>
             <div>
-              <div class="caption">Total de archivos ${etiquetasResumen.eliminados.toLowerCase()}</div>
+              <div class="caption">Total de archivos eliminados (a papelera)</div>
               <div class="text-[22px] font-extrabold leading-6">${formatearNumero(
                 totales.eliminados
               )}</div>
@@ -272,11 +298,10 @@ export function generarHTMLEventosArchivos({
         <div class="card rounded-xl p-4 border border-slate-200 bg-white">
           <div class="flex items-center gap-3">
             <div class="shrink-0 w-9 h-9 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center">
-              <!-- icon eraser -->
               <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16.24 3.56l4.24 4.24-9.9 9.9H6.34L2.1 13.46l9.9-9.9a2 2 0 012.83 0zM5.62 15.9l2.83 2.83h3.18l6.36-6.36-3.18-3.18-9.19 9.19zM20 20v2H8v-2h12z"/></svg>
             </div>
             <div>
-              <div class="caption">Total de archivos ${etiquetasResumen.borrados.toLowerCase()}</div>
+              <div class="caption">Total de archivos borrados definitivos</div>
               <div class="text-[22px] font-extrabold leading-6">${formatearNumero(
                 totales.borrados
               )}</div>
@@ -300,9 +325,7 @@ export function generarHTMLEventosArchivos({
               <stop offset="100%" stop-color="#dbeafe" />
             </linearGradient>
           </defs>
-          <!-- marco -->
           <rect x="24" y="22" width="332" height="176" fill="url(#g1)" opacity="0.35" stroke="#cbd5e1"/>
-          <!-- líneas horizontales -->
           ${[0, 1, 2, 3, 4]
             .map((i) => {
               const y = 198 - i * 35;
@@ -347,7 +370,6 @@ export function generarHTMLEventosArchivos({
       : ``
   }
 
-  <!-- MARCA DE AGUA SUAVE -->
   <div class="watermark">Point Technology</div>
 </body>
 </html>`;
