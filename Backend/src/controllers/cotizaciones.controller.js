@@ -302,8 +302,9 @@ export const buscarCotizaciones = async (req, res) => {
 };
 
 // En cotizaciones.controller.js
+
 export const editarCotizacion = async (req, res) => {
-  const { id } = req.params; // ← Esto es esencial
+  const { id } = req.params;
 
   const {
     cliente_id,
@@ -323,7 +324,7 @@ export const editarCotizacion = async (req, res) => {
   try {
     await conn.beginTransaction();
 
-    // 1) Leer el estado actual
+    // 1) Validar estado actual
     const [rowsEstado] = await conn.query(
       `SELECT estado FROM cotizaciones WHERE id = ?`,
       [id]
@@ -341,21 +342,22 @@ export const editarCotizacion = async (req, res) => {
       });
     }
 
-    // 2) Actualizar cabecera y forzar estado a 'pendiente'
+    // 2) Actualizar cabecera (IMPORTANTE: usar fechaActualizacion, no updated_at)
+    const confirmacionClienteVal = confirmacion_cliente ? 1 : 0;
     await conn.query(
       `UPDATE cotizaciones
-        SET cliente_id          = ?,
-            sucursal_id         = ?,
-            operacion           = ?,
-            mercancia           = ?,
-            bl                  = ?,
-            contenedor          = ?,
-            puerto              = ?,
-            confirmacion_cliente= ?,
-            observaciones       = ?,
-            estado              = 'pendiente',
-            updated_at          = NOW()
-      WHERE id = ?`,
+          SET cliente_id           = ?,
+              sucursal_id          = ?,
+              operacion            = ?,
+              mercancia            = ?,
+              bl                   = ?,
+              contenedor           = ?,
+              puerto               = ?,
+              confirmacion_cliente = ?,
+              observaciones        = ?,
+              estado               = 'pendiente',
+              fechaActualizacion   = NOW()
+        WHERE id = ?`,
       [
         cliente_id,
         sucursal_id,
@@ -364,48 +366,46 @@ export const editarCotizacion = async (req, res) => {
         bl,
         contenedor,
         puerto,
-        confirmacion_cliente,
+        confirmacionClienteVal,
         observaciones,
         id,
       ]
     );
 
-    // 3) Leer líneas actuales (detalle viejo)
+    // 3) Leer detalle actual (viejo)
     const [detalleOldRows] = await conn.query(
       `SELECT id, servicio_productos_id, cantidad, precio_unitario, porcentaje_iva
-        FROM detalle_cotizacion
+         FROM detalle_cotizacion
         WHERE cotizacion_id = ?`,
       [id]
     );
     const viejoPorId = new Map(detalleOldRows.map((r) => [r.id, r]));
 
-    // 4) Determinar qué eliminar, actualizar e insertar
+    // 4) Determinar operaciones en detalle
     const idsAEliminar = [];
     const lineasAActualizar = [];
     const lineasAInsertar = [];
 
-    // a) Marcar eliminaciones: id viejos que no están en detalle[]
+    // a) Eliminar: ids viejos que no estén en el arreglo nuevo
     detalleOldRows.forEach(({ id: oldId }) => {
       if (!detalle.some((n) => n.id === oldId)) {
         idsAEliminar.push(oldId);
       }
     });
 
-    // b) Clasificar inserciones y actualizaciones
+    // b) Clasificar inserciones/actualizaciones
     detalle.forEach((item) => {
       if (item.id) {
-        // posible actualización
-        const vie = viejoPorId.get(item.id);
+        const viejo = viejoPorId.get(item.id);
         if (
-          vie.servicio_productos_id !== item.servicio_productos_id ||
-          vie.cantidad !== Number(item.cantidad) ||
-          vie.precio_unitario !== Number(item.precio_unitario) ||
-          vie.porcentaje_iva !== Number(item.porcentaje_iva)
+          viejo.servicio_productos_id !== item.servicio_productos_id ||
+          viejo.cantidad !== Number(item.cantidad) ||
+          viejo.precio_unitario !== Number(item.precio_unitario) ||
+          viejo.porcentaje_iva !== Number(item.porcentaje_iva)
         ) {
           lineasAActualizar.push(item);
         }
       } else {
-        // nueva línea
         lineasAInsertar.push(item);
       }
     });
@@ -417,24 +417,21 @@ export const editarCotizacion = async (req, res) => {
       ]);
     }
 
-    let subtotal = 0,
-      impuesto = 0;
-
-    // 6) Ejecutar actualizaciones
+    // 6) Ejecutar actualizaciones (recalcula importes por línea)
     for (const {
-      id: linId,
+      id: lineaId,
       servicio_productos_id,
       cantidad,
       precio_unitario,
       porcentaje_iva,
     } of lineasAActualizar) {
-      const cant = Number(cantidad),
-        precio = Number(precio_unitario),
-        iva = Number(porcentaje_iva);
+      const cant = Number(cantidad);
+      const precio = Number(precio_unitario);
+      const iva = Number(
+        typeof porcentaje_iva === "number" ? porcentaje_iva : 16
+      );
       const sub = cant * precio;
       const imp = sub * (iva / 100);
-      subtotal += sub;
-      impuesto += imp;
       await conn.query(
         `UPDATE detalle_cotizacion
             SET servicio_productos_id = ?,
@@ -445,24 +442,22 @@ export const editarCotizacion = async (req, res) => {
                 impuesto              = ?,
                 total                 = ?
           WHERE id = ?`,
-        [servicio_productos_id, cant, precio, iva, sub, imp, sub + imp, linId]
+        [servicio_productos_id, cant, precio, iva, sub, imp, sub + imp, lineaId]
       );
     }
 
-    // 7) Ejecutar inserciones
+    // 7) Ejecutar inserciones (recalcula importes por línea)
     for (const {
       servicio_productos_id,
       cantidad,
       precio_unitario,
       porcentaje_iva = 16,
     } of lineasAInsertar) {
-      const cant = Number(cantidad),
-        precio = Number(precio_unitario),
-        iva = Number(porcentaje_iva);
+      const cant = Number(cantidad);
+      const precio = Number(precio_unitario);
+      const iva = Number(porcentaje_iva);
       const sub = cant * precio;
       const imp = sub * (iva / 100);
-      subtotal += sub;
-      impuesto += imp;
       await conn.query(
         `INSERT INTO detalle_cotizacion
            (cotizacion_id, servicio_productos_id, cantidad, precio_unitario, porcentaje_iva, subtotal, impuesto, total)
@@ -471,20 +466,38 @@ export const editarCotizacion = async (req, res) => {
       );
     }
 
-    // 8) Recalcular totales en la cabecera
-    const total = subtotal + impuesto;
+    // 8) Recalcular totales desde BD (fiable y consistente)
+    const [[totales]] = await conn.query(
+      `SELECT 
+         IFNULL(SUM(subtotal), 0) AS subtotal,
+         IFNULL(SUM(impuesto), 0) AS impuesto
+       FROM detalle_cotizacion
+      WHERE cotizacion_id = ?`,
+      [id]
+    );
+
+    const subtotalCalc = Number(totales.subtotal || 0);
+    const impuestoCalc = Number(totales.impuesto || 0);
+    const totalCalc = subtotalCalc + impuestoCalc;
+
     await conn.query(
       `UPDATE cotizaciones
-         SET subtotal = ?, impuesto = ?, total = ?
-       WHERE id = ?`,
-      [subtotal, impuesto, total, id]
+          SET subtotal = ?, 
+              impuesto = ?, 
+              total    = ?,
+              fechaActualizacion = NOW()
+        WHERE id = ?`,
+      [subtotalCalc, impuestoCalc, totalCalc, id]
     );
 
     await conn.commit();
+
+    // 9) Limpiar caches relacionadas
     cacheMemoria.del(`cotizacion_${id}`);
     for (const k of cacheMemoria.keys()) {
       if (k.startsWith("cotizaciones_")) cacheMemoria.del(k);
     }
+
     return res.json({
       message: "Cotización actualizada y reabierta como 'pendiente'.",
     });
@@ -498,6 +511,7 @@ export const editarCotizacion = async (req, res) => {
     conn.release();
   }
 };
+
 
 export const deleteCotizacion = async (req, res) => {
   const { id } = req.params;
