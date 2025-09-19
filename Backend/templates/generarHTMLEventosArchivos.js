@@ -20,7 +20,7 @@ function obtenerLogoLocales() {
   // este archivo está en src/templates → subimos 2 niveles hasta /Backend y entramos a /styles
   const rutaLogo = path.resolve(
     directorioActual,
-    "../../styles/Point Technology.png"
+    "../styles/Point Technology.png"
   );
 
   if (!fs.existsSync(rutaLogo)) {
