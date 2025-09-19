@@ -18,7 +18,7 @@ function obtenerLogoDataUri() {
   // y luego entramos a /styles/Point Technology.png
   const rutaLogo = path.resolve(
     directorioActual,
-    "../../styles/Point Technology.png"
+    "../styles/Point Technology.png"
   );
 
   if (fs.existsSync(rutaLogo)) {
