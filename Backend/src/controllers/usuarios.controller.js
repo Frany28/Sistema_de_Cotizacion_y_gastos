@@ -501,31 +501,31 @@ export const obtenerUsuarioPorId = async (req, res) => {
   }
 };
 
-// Eliminar usuario y archivos/eventos asociados (versión robusta)
+// Eliminar usuario y mover sus firmas a papelera con auditoría
 export const eliminarUsuario = async (req, res) => {
   const { id } = req.params;
-  const idEliminar = Number(id);
-  const idActor = Number(req.user?.id || 0); // quien ejecuta la acción
+  const usuarioIdEliminar = Number(id);
+  const usuarioActorId = Number(req.user?.id || 0);
 
   const conexion = await db.getConnection();
   try {
     await conexion.beginTransaction();
 
-    // 0) Validaciones de existencia, sesión y reglas de negocio
-    if (!idActor) {
+    // Validaciones básicas
+    if (!usuarioActorId) {
       await conexion.rollback();
       return res.status(401).json({ error: "Sesión no válida." });
     }
 
     const [[usuario]] = await conexion.query(
       `SELECT id, estado FROM usuarios WHERE id = ?`,
-      [idEliminar]
+      [usuarioIdEliminar]
     );
     if (!usuario) {
       await conexion.rollback();
       return res.status(404).json({ error: "Usuario no encontrado" });
     }
-    if (idActor === idEliminar) {
+    if (usuarioActorId === usuarioIdEliminar) {
       await conexion.rollback();
       return res
         .status(400)
@@ -538,37 +538,41 @@ export const eliminarUsuario = async (req, res) => {
         .json({ error: "Solo pueden eliminarse usuarios inactivos." });
     }
 
-    // 1) Recuperar archivos de firma asociados
-    const [listaArchivos] = await conexion.query(
+    // 1) Traer todos los archivos de firmas del usuario
+    const [archivosFirma] = await conexion.query(
       `SELECT id, rutaS3
          FROM archivos
         WHERE registroTipo = 'firmas'
           AND registroId   = ?`,
-      [idEliminar]
+      [usuarioIdEliminar]
     );
 
-    // 2) Mover a papelera en S3 con verificación estricta + auditoría
-    for (const archivo of listaArchivos) {
-      let nuevaRutaS3;
-      try {
-        nuevaRutaS3 = await moverArchivoAPapelera(
-          archivo.rutaS3,
-          "firmas",
-          idEliminar
+    // 2) Mover cada firma a /papelera/... en S3 y auditar
+    for (const archivo of archivosFirma) {
+      const nuevaRutaS3 = await moverArchivoAPapelera(archivo.rutaS3); // <= solo 1 parámetro
+
+      // Si el objeto original no existe, moverArchivoAPapelera devuelve null; evitamos romper BD
+      if (!nuevaRutaS3) {
+        // Dejar constancia del intento fallido
+        await conexion.query(
+          `INSERT INTO eventosArchivo
+             (archivoId, accion, creadoPor, ip, userAgent, detalles)
+           VALUES (?, 'eliminacionArchivo', ?, ?, ?, ?)`,
+          [
+            archivo.id,
+            usuarioActorId,
+            req.ip || null,
+            req.get("user-agent") || null,
+            JSON.stringify({
+              motivo: "Eliminación de usuario (objeto no encontrado en S3)",
+              rutaAnterior: archivo.rutaS3,
+            }),
+          ]
         );
-      } catch (e) {
-        throw new Error(
-          `No se pudo mover el archivo en S3 (${archivo.rutaS3}): ${e.message}`
-        );
+        continue;
       }
 
-      if (!nuevaRutaS3 || typeof nuevaRutaS3 !== "string") {
-        throw new Error(
-          `No se obtuvo nueva clave S3 al mover a papelera: ${archivo.rutaS3}`
-        );
-      }
-
-      // Actualizar registro archivo
+      // Actualizar estado y ruta a papelera
       await conexion.query(
         `UPDATE archivos
             SET estado = 'eliminado',
@@ -578,14 +582,14 @@ export const eliminarUsuario = async (req, res) => {
         [nuevaRutaS3, archivo.id]
       );
 
-      // Evento de auditoría (archivo movido a papelera)
+      // Auditoría del movimiento a papelera
       await conexion.query(
         `INSERT INTO eventosArchivo
            (archivoId, accion, creadoPor, ip, userAgent, detalles)
          VALUES (?, 'eliminacionArchivo', ?, ?, ?, ?)`,
         [
           archivo.id,
-          idActor,
+          usuarioActorId,
           req.ip || null,
           req.get("user-agent") || null,
           JSON.stringify({
@@ -596,34 +600,34 @@ export const eliminarUsuario = async (req, res) => {
       );
     }
 
-    // 3) Romper FKs internas antes del DELETE
+    // 3) Romper referencias que apunten al usuario a eliminar (seguridad FK)
     await conexion.query(
       `UPDATE usuarios
           SET creadoPor = ?, actualizadoPor = NULL
         WHERE id = ?`,
-      [idActor, idEliminar]
+      [usuarioActorId, usuarioIdEliminar]
     );
-
     await conexion.query(
       `UPDATE usuarios
-          SET creadoPor = ?, 
+          SET creadoPor = ?,
               actualizadoPor = CASE WHEN actualizadoPor = ? THEN NULL ELSE actualizadoPor END
         WHERE creadoPor = ? OR actualizadoPor = ?`,
-      [idActor, idEliminar, idEliminar, idEliminar]
+      [usuarioActorId, usuarioIdEliminar, usuarioIdEliminar, usuarioIdEliminar]
     );
 
-    // 4) Borrar usuario
-    const [delRes] = await conexion.query(`DELETE FROM usuarios WHERE id = ?`, [
-      idEliminar,
-    ]);
-    if (!delRes.affectedRows) {
+    // 4) Eliminar usuario
+    const [resultado] = await conexion.query(
+      `DELETE FROM usuarios WHERE id = ?`,
+      [usuarioIdEliminar]
+    );
+    if (!resultado.affectedRows) {
       throw new Error("No se pudo eliminar el usuario (sin filas afectadas).");
     }
 
     await conexion.commit();
     return res.json({
-      message: "Usuario eliminado y archivos movidos a papelera correctamente.",
-      idEliminado: idEliminar,
+      message: "Usuario eliminado y firmas movidas a papelera correctamente.",
+      idEliminado: usuarioIdEliminar,
     });
   } catch (error) {
     await conexion.rollback();

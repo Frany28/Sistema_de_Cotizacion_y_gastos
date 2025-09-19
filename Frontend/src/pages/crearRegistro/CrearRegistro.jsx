@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import api from "../../api/index.js";
 import AgregarGasto from "../../components/AgregarGasto";
 import AgregarCotizacion from "../../components/AgregarCotizacion";
@@ -42,18 +42,22 @@ const CrearRegistro = () => {
     }
   }, []);
 
-  useEffect(() => {
-    const obtenerCotizaciones = async () => {
-      try {
-        const { data } = await api.get("/cotizaciones?page=1&limit=1000");
-        setCotizaciones(data.cotizaciones);
-      } catch (error) {
-        console.error("Error al cargar cotizaciones:", error);
-      }
-    };
-
-    obtenerCotizaciones();
+  // NUEVO: función reutilizable para recargar cotizaciones bajo demanda
+  const recargarCotizaciones = useCallback(async () => {
+    try {
+      const { data } = await api.get("/cotizaciones?page=1&limit=1000");
+      setCotizaciones(
+        Array.isArray(data?.cotizaciones) ? data.cotizaciones : []
+      );
+    } catch (error) {
+      console.error("Error al cargar cotizaciones:", error);
+    }
   }, []);
+
+  // Cargar cotizaciones al montar (usando la función reutilizable)
+  useEffect(() => {
+    recargarCotizaciones();
+  }, [recargarCotizaciones]);
 
   const [form, setForm] = useState({
     fecha: new Date().toISOString().split("T")[0],
@@ -116,6 +120,7 @@ const CrearRegistro = () => {
         console.error("Error cargando sucursales dropdown:", err)
       );
   }, []);
+
   const crearCotizacion = async (datosGenerales) => {
     try {
       setLoading(true);
@@ -217,6 +222,10 @@ const CrearRegistro = () => {
       await api.post("/registros", datosCotizacion, {
         withCredentials: true,
       });
+
+      // NUEVO: refrescar la lista para que la nueva cotización aparezca inmediatamente
+      await recargarCotizaciones();
+
       setMensajeExito("¡Cotización registrada correctamente!");
       setModalExito(true);
       setItemsAgregados([]);
@@ -346,6 +355,7 @@ const CrearRegistro = () => {
       </div>
     );
   }
+
   const crearGasto = async (datosGasto) => {
     try {
       setLoading(true);
@@ -398,7 +408,7 @@ const CrearRegistro = () => {
         formData.append("tasa_cambio", datosGasto.tasa_cambio);
       }
 
-      const response = await api.post("/registros", formData, {
+      await api.post("/registros", formData, {
         withCredentials: true,
       });
 
@@ -475,6 +485,8 @@ const CrearRegistro = () => {
                   });
                   return;
                 }
+                // NUEVO: refrescamos cotizaciones justo al entrar a “Gasto”
+                await recargarCotizaciones();
               }
 
               setTipoRegistro(tipo);
