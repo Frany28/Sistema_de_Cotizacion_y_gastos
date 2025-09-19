@@ -11,57 +11,146 @@ import { obtenerOcrearGrupoFirma } from "../utils/gruposArchivos.js";
 
 const EMAIL_REGEX = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
 
-// Crear usuario (incluye registro de firma en S3, tabla archivos y eventosArchivo)
+/*─────────────────────────────────────────────────────────────
+  Crear usuario (y firma opcional en `firmas/`)
+──────────────────────────────────────────────────────────────*/
+// ✅ Reemplaza SOLO esta función dentro de controllers/usuarios.controller.js
+
 export const crearUsuario = async (req, res) => {
   const conexion = await db.getConnection();
+  let firmaKeyNueva = null;
+
   try {
     await conexion.beginTransaction();
 
-    // 1) Datos de entrada
-    const { nombre, email, password, rol_id, estado = "activo" } = req.body;
-    const firmaKey = req.file?.key ?? null; // key S3
+    // ── 1) Normalizo/valido entradas
+    const nombre = (req.body?.nombre || "").trim();
+    const email = (req.body?.email || "").trim();
+    const passwordPlano = req.body?.password || "";
+    const rolId = req.body?.rol_id;
+    const estado = (req.body?.estado || "activo").trim();
+
+    // Campos opcionales que podrían existir en la BD
+    const numero = (req.body?.numero ?? "").toString().trim();
+    const telefono = (req.body?.telefono ?? "").toString().trim();
+
+    const errores = [];
+    const regexEmail = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+
+    if (!nombre) errores.push("El nombre es requerido.");
+    if (!email) errores.push("El email es requerido.");
+    else if (!regexEmail.test(email))
+      errores.push("El email no tiene un formato válido.");
+    if (!passwordPlano) errores.push("La contraseña es requerida.");
+    else if (passwordPlano.length < 6)
+      errores.push("La contraseña debe tener al menos 6 caracteres.");
+    if (!rolId) errores.push("El rol es requerido.");
+
+    if (errores.length) {
+      await conexion.rollback();
+      return res.status(400).json({ message: "Error de validación.", errores });
+    }
+
+    // ── 2) Verificación de duplicados (nombre, email, y si existen: numero/telefono)
+    const camposDuplicados = {
+      nombre: false,
+      email: false,
+      numero: false,
+      telefono: false,
+    };
+
+    // nombre (case-insensitive)
+    const [[dupNombre]] = await conexion.query(
+      `SELECT id FROM usuarios WHERE LOWER(nombre) = LOWER(?) LIMIT 1`,
+      [nombre]
+    );
+    if (dupNombre) camposDuplicados.nombre = true;
+
+    // email (case-insensitive)
+    const [[dupEmail]] = await conexion.query(
+      `SELECT id FROM usuarios WHERE LOWER(email) = LOWER(?) LIMIT 1`,
+      [email]
+    );
+    if (dupEmail) camposDuplicados.email = true;
+
+    // Detecto columnas opcionales
+    const [colNumero] = await conexion.query(
+      `SHOW COLUMNS FROM usuarios LIKE 'numero'`
+    );
+    const [colTelefono] = await conexion.query(
+      `SHOW COLUMNS FROM usuarios LIKE 'telefono'`
+    );
+
+    if (colNumero.length && numero) {
+      const [[dupNumero]] = await conexion.query(
+        `SELECT id FROM usuarios WHERE numero = ? LIMIT 1`,
+        [numero]
+      );
+      if (dupNumero) camposDuplicados.numero = true;
+    }
+
+    if (colTelefono.length && telefono) {
+      const [[dupTelefono]] = await conexion.query(
+        `SELECT id FROM usuarios WHERE telefono = ? LIMIT 1`,
+        [telefono]
+      );
+      if (dupTelefono) camposDuplicados.telefono = true;
+    }
+
+    if (
+      camposDuplicados.nombre ||
+      camposDuplicados.email ||
+      camposDuplicados.numero ||
+      camposDuplicados.telefono
+    ) {
+      await conexion.rollback();
+      const mensajes = [];
+      if (camposDuplicados.nombre) mensajes.push("El nombre ya existe.");
+      if (camposDuplicados.email) mensajes.push("El correo ya existe.");
+      if (camposDuplicados.numero) mensajes.push("El número ya existe.");
+      if (camposDuplicados.telefono) mensajes.push("El teléfono ya existe.");
+      return res.status(409).json({
+        message: mensajes.join(" "),
+        campos: camposDuplicados,
+      });
+    }
+
+    // ── 3) Preparar datos de firma (middleware uploadFirma.single('firma'))
+    const firmaKey = req.file?.key ?? null;
     const nombreOriginal = req.file?.originalname ?? null;
     const extension = nombreOriginal?.split(".").pop() ?? null;
     const tamanioBytes = req.file?.size ?? null;
-    const rutaS3 = firmaKey;
-    const hashed = await bcrypt.hash(password, 10);
+    firmaKeyNueva = firmaKey;
 
-    // 2) Insertar en usuarios
-    const usuarioCreador = req.user.id; // ID del usuario autenticado
-    const [uResult] = await conexion.query(
+    // ── 4) Insertar usuario base
+    const hashPassword = await bcrypt.hash(passwordPlano, 10);
+    const usuarioCreadorId = req.user.id;
+
+    const [resultadoUsuario] = await conexion.query(
       `INSERT INTO usuarios
          (nombre, email, password, rol_id, estado, firma, creadoPor)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [
-        nombre.trim(),
-        email.trim(),
-        hashed,
-        rol_id,
-        estado,
-        firmaKey,
-        usuarioCreador,
-      ]
+      [nombre, email, hashPassword, rolId, estado, firmaKey, usuarioCreadorId]
     );
 
-    const nuevoUsuarioId = uResult.insertId; // ✅ ID recién creado
+    const nuevoUsuarioId = resultadoUsuario.insertId;
 
-    // 3) Generar y guardar código de usuario
-    const codigo = `USR${String(nuevoUsuarioId).padStart(4, "0")}`;
+    // Código USR0001
+    const codigoUsuario = `USR${String(nuevoUsuarioId).padStart(4, "0")}`;
     await conexion.query(`UPDATE usuarios SET codigo = ? WHERE id = ?`, [
-      codigo,
+      codigoUsuario,
       nuevoUsuarioId,
     ]);
 
-    // 4) Si hay firma, registrar circuito de archivos + auditoría
+    // ── 5) Registrar archivo/versión/evento si llegó firma
     if (firmaKey) {
-      const grupoId = await obtenerOcrearGrupoFirma(
+      const grupoArchivoId = await obtenerOcrearGrupoFirma(
         conexion,
         nuevoUsuarioId,
-        req.user.id
+        usuarioCreadorId
       );
 
-      // 4.1) tabla archivos
-      const [aRes] = await conexion.query(
+      const [resArchivo] = await conexion.query(
         `INSERT INTO archivos
            (registroTipo, registroId, grupoArchivoId,
             nombreOriginal, extension, tamanioBytes,
@@ -70,68 +159,87 @@ export const crearUsuario = async (req, res) => {
          VALUES ('firmas', ?, ?, ?, ?, ?, ?, 1, 'activo', ?, NOW(), NOW())`,
         [
           nuevoUsuarioId,
-          grupoId,
+          grupoArchivoId,
           nombreOriginal,
           extension,
           tamanioBytes,
-          rutaS3,
-          req.user.id,
+          firmaKey,
+          usuarioCreadorId,
         ]
       );
-      const archivoId = aRes.insertId;
+      const archivoId = resArchivo.insertId;
 
-      // 4.2) snapshot de versión (v1)
-      const [vRes] = await conexion.query(
+      await conexion.query(
         `INSERT INTO versionesArchivo
            (archivoId, numeroVersion, nombreOriginal, extension,
-            tamanioBytes, rutaS3, subidoPor)
-         VALUES (?, 1, ?, ?, ?, ?, ?)`,
+            tamanioBytes, rutaS3, subidoPor, creadoEn)
+         VALUES (?, 1, ?, ?, ?, ?, ?, NOW())`,
         [
           archivoId,
           nombreOriginal,
           extension,
           tamanioBytes,
-          rutaS3,
-          req.user.id,
+          firmaKey,
+          usuarioCreadorId,
         ]
       );
-      const versionId = vRes.insertId;
 
-      // 4.3) auditoría
       await conexion.query(
         `INSERT INTO eventosArchivo
-           (archivoId, versionId, accion, creadoPor, ip, userAgent, detalles)
-         VALUES (?, ?, 'subida', ?, ?, ?, ?)`,
+           (archivoId, accion, creadoPor, fechaHora, ip, userAgent, detalles)
+         VALUES (?, 'subidaArchivo', ?, NOW(), ?, ?, ?)`,
         [
           archivoId,
-          versionId,
-          req.user.id,
+          usuarioCreadorId,
           req.ip,
           req.get("user-agent"),
-          JSON.stringify({ ruta: rutaS3, nombre: nombreOriginal, extension }),
+          JSON.stringify({ ruta: firmaKey, nombre: nombreOriginal, extension }),
         ]
       );
 
-      // 4.4) actualizar cuota del dueño
+      // actualizar cuota del dueño del archivo
       await conexion.query(
-        `UPDATE usuarios
-            SET usoStorageBytes = usoStorageBytes + ?
-          WHERE id = ?`,
+        `UPDATE usuarios SET usoStorageBytes = usoStorageBytes + ? WHERE id = ?`,
         [tamanioBytes, nuevoUsuarioId]
       );
     }
 
     await conexion.commit();
-    res.status(201).json({ id: nuevoUsuarioId, firma: firmaKey }); // ✅ devolver el nuevo ID
-  } catch (err) {
+    return res.status(201).json({ id: nuevoUsuarioId, firma: firmaKey });
+  } catch (error) {
     await conexion.rollback();
-    console.error("Error al crear usuario:", err);
-    res.status(500).json({ error: "Error al crear usuario" });
+
+    // Limpieza de archivo subido si algo falla después de subir
+    if (firmaKeyNueva) {
+      try {
+        await s3.send(
+          new DeleteObjectCommand({
+            Bucket: process.env.S3_BUCKET,
+            Key: firmaKeyNueva,
+          })
+        );
+      } catch (e) {
+        console.error("Error borrando firma tras rollback:", e);
+      }
+    }
+
+    console.error("Error al crear usuario:", error);
+    // Si el error viene por unique index en BD, estandarizo la respuesta
+    const texto = String(error?.message || "");
+    if (/duplicate entry/i.test(texto) || error?.code === "ER_DUP_ENTRY") {
+      return res.status(409).json({
+        message: "Registro duplicado: ya existe un usuario con esos datos.",
+      });
+    }
+    return res.status(500).json({ error: "Error al crear usuario" });
   } finally {
     conexion.release();
   }
 };
 
+/*─────────────────────────────────────────────────────────────
+  Actualizar usuario (incluye reemplazo de firma)
+──────────────────────────────────────────────────────────────*/
 export const actualizarUsuario = async (req, res) => {
   const conexion = await db.getConnection();
   let firmaKeyNueva = null;
@@ -141,23 +249,27 @@ export const actualizarUsuario = async (req, res) => {
 
     const { id } = req.params;
     const { nombre, email, password, rol_id, estado } = req.body;
+
+    // Datos de archivo (si viene nueva firma)
     const firmaKey = req.file?.key ?? null;
     const nombreOriginal = req.file?.originalname ?? null;
     const extension = nombreOriginal?.split(".").pop() ?? null;
     const tamanioBytes = req.file?.size ?? null;
 
-    // 1) Obtener hash actual
-    const [[{ password: hashActual } = {}] = []] = await conexion.query(
-      `SELECT password FROM usuarios WHERE id = ?`,
+    // Verificar usuario
+    const [[filaUsuario]] = await conexion.query(
+      `SELECT id, password FROM usuarios WHERE id = ?`,
       [id]
     );
-    if (!hashActual) {
+    if (!filaUsuario) {
+      await conexion.rollback();
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
-    // 2) Validaciones mínimas
+    // Validaciones
     if (email !== undefined) {
       if (!email.trim() || !EMAIL_REGEX.test(email.trim())) {
+        await conexion.rollback();
         return res
           .status(400)
           .json({ message: "El email tiene un formato inválido" });
@@ -165,24 +277,27 @@ export const actualizarUsuario = async (req, res) => {
     }
     if (password !== undefined) {
       if (password.length < 6) {
+        await conexion.rollback();
         return res
           .status(400)
           .json({ message: "La contraseña debe tener al menos 6 caracteres" });
       }
-      const coincide = await bcrypt.compare(password, hashActual);
+      const coincide = await bcrypt.compare(password, filaUsuario.password);
       if (coincide) {
+        await conexion.rollback();
         return res.status(400).json({
           message: "La nueva contraseña debe ser diferente a la actual.",
         });
       }
     }
     if (rol_id !== undefined && !rol_id) {
+      await conexion.rollback();
       return res
         .status(400)
         .json({ message: "Si envías rol_id, debe ser un valor válido" });
     }
 
-    // 3) UPDATE dinámico
+    // Build de actualización dinámica
     const campos = [];
     const valores = [];
 
@@ -195,9 +310,9 @@ export const actualizarUsuario = async (req, res) => {
       valores.push(email.trim());
     }
     if (password !== undefined) {
-      const hashed = await bcrypt.hash(password, 10);
+      const nuevoHash = await bcrypt.hash(password, 10);
       campos.push("password = ?");
-      valores.push(hashed);
+      valores.push(nuevoHash);
     }
     if (rol_id !== undefined) {
       campos.push("rol_id = ?");
@@ -210,10 +325,11 @@ export const actualizarUsuario = async (req, res) => {
     if (firmaKey) {
       campos.push("firma = ?");
       valores.push(firmaKey);
-      firmaKeyNueva = firmaKey;
+      firmaKeyNueva = firmaKey; // por si falla luego
     }
 
     if (campos.length === 0) {
+      await conexion.rollback();
       return res
         .status(400)
         .json({ message: "No se enviaron campos para actualizar." });
@@ -228,20 +344,25 @@ export const actualizarUsuario = async (req, res) => {
       valores
     );
 
-    // 4) Nueva firma → crear archivo, versión y auditoría
+    // Si hay nueva firma, creamos archivo/versión/eventos y movemos anterior a papelera
     if (firmaKey) {
-      const grupoId = await obtenerOcrearGrupoFirma(conexion, id, req.user.id);
+      const grupoArchivoId = await obtenerOcrearGrupoFirma(
+        conexion,
+        id,
+        req.user.id
+      );
 
+      // Calcular número de versión
       const [[{ maxVer }]] = await conexion.query(
         `SELECT IFNULL(MAX(numeroVersion),0) AS maxVer
            FROM archivos
           WHERE registroTipo='firmas' AND registroId = ?`,
         [id]
       );
-      const numeroVersion = maxVer + 1;
+      const numeroVersion = (maxVer || 0) + 1;
 
-      // 4.1) Archivo
-      const [aRes] = await conexion.query(
+      // Registrar nuevo archivo (activo)
+      const [resArchivo] = await conexion.query(
         `INSERT INTO archivos
            (registroTipo, registroId, grupoArchivoId,
             nombreOriginal, extension, tamanioBytes,
@@ -250,7 +371,7 @@ export const actualizarUsuario = async (req, res) => {
          VALUES ('firmas', ?, ?, ?, ?, ?, ?, ?, 'activo', ?, NOW(), NOW())`,
         [
           id,
-          grupoId,
+          grupoArchivoId,
           nombreOriginal,
           extension,
           tamanioBytes,
@@ -259,14 +380,13 @@ export const actualizarUsuario = async (req, res) => {
           req.user.id,
         ]
       );
-      const archivoId = aRes.insertId;
+      const archivoId = resArchivo.insertId;
 
-      // 4.2) Versión
-      const [vRes] = await conexion.query(
+      await conexion.query(
         `INSERT INTO versionesArchivo
            (archivoId, numeroVersion, nombreOriginal, extension,
-            tamanioBytes, rutaS3, subidoPor)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            tamanioBytes, rutaS3, subidoPor, creadoEn)
+         VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
         [
           archivoId,
           numeroVersion,
@@ -277,16 +397,14 @@ export const actualizarUsuario = async (req, res) => {
           req.user.id,
         ]
       );
-      const versionId = vRes.insertId;
 
-      // 4.3) Evento de sustitución (valor válido del ENUM)
+      // Evento consistente con gastos: 'sustitucionArchivo'
       await conexion.query(
         `INSERT INTO eventosArchivo
-           (archivoId, versionId, accion, creadoPor, ip, userAgent, detalles)
-         VALUES (?, ?, 'sustitucion', ?, ?, ?, ?)`,
+           (archivoId, accion, creadoPor, fechaHora, ip, userAgent, detalles)
+         VALUES (?, 'sustitucionArchivo', ?, NOW(), ?, ?, ?)`,
         [
           archivoId,
-          versionId,
           req.user.id,
           req.ip,
           req.get("user-agent"),
@@ -294,45 +412,49 @@ export const actualizarUsuario = async (req, res) => {
         ]
       );
 
-      // 4.4) Marcar anterior como reemplazado y mover a papelera (si existe)
-      const [anteriores] = await conexion.query(
+      // Buscar la anterior firma activa para marcar 'reemplazado' y mover a papelera
+      const [anteriorActiva] = await conexion.query(
         `SELECT id, rutaS3
            FROM archivos
           WHERE registroTipo='firmas'
-            AND registroId = ? AND id <> ? AND estado='activo'
+            AND registroId = ?
+            AND estado = 'activo'
+            AND id <> ?
           ORDER BY numeroVersion DESC
           LIMIT 1`,
         [id, archivoId]
       );
 
-      if (anteriores.length) {
-        const antId = anteriores[0].id;
-        const nuevaRuta = await moverArchivoAPapelera(
-          anteriores[0].rutaS3,
-          "firmas",
-          id
-        );
+      if (anteriorActiva.length) {
+        const archivoAnteriorId = anteriorActiva[0].id;
+        const rutaAnterior = anteriorActiva[0].rutaS3;
+
+        const nuevaRutaPapelera = await moverArchivoAPapelera(rutaAnterior);
 
         await conexion.query(
           `UPDATE archivos SET estado='reemplazado', rutaS3=? WHERE id=?`,
-          [nuevaRuta, antId]
+          [nuevaRutaPapelera, archivoAnteriorId]
         );
 
+        // Evento consistente con gastos: 'eliminacionArchivo' (por sustitución)
         await conexion.query(
           `INSERT INTO eventosArchivo
-             (archivoId, accion, creadoPor, ip, userAgent, detalles)
-           VALUES (?, 'eliminacion', ?, ?, ?, ?)`,
+             (archivoId, accion, creadoPor, fechaHora, ip, userAgent, detalles)
+           VALUES (?, 'eliminacionArchivo', ?, NOW(), ?, ?, ?)`,
           [
-            antId,
+            archivoAnteriorId,
             req.user.id,
             req.ip,
             req.get("user-agent"),
-            JSON.stringify({ motivo: "Sustitución de firma", nuevaRuta }),
+            JSON.stringify({
+              motivo: "Sustitución de firma",
+              nuevaRuta: nuevaRutaPapelera,
+            }),
           ]
         );
       }
 
-      // 4.5) Aumentar cuota
+      // Aumentar cuota del usuario dueño de la firma (el propio usuario)
       await conexion.query(
         `UPDATE usuarios SET usoStorageBytes = usoStorageBytes + ? WHERE id = ?`,
         [tamanioBytes, id]
@@ -340,11 +462,10 @@ export const actualizarUsuario = async (req, res) => {
     }
 
     await conexion.commit();
-    res.json({ id, firma: firmaKey });
-  } catch (err) {
+    return res.json({ id, firma: firmaKey || null });
+  } catch (error) {
     await conexion.rollback();
 
-    // Si subió la firma y falló, borrar el objeto de S3 para no dejar basura
     if (firmaKeyNueva) {
       try {
         await s3.send(
@@ -354,22 +475,24 @@ export const actualizarUsuario = async (req, res) => {
           })
         );
       } catch (e) {
-        console.error("Error borrando firma tras rollback:", e);
+        console.error("Error borrando firma tras fallo:", e);
       }
     }
 
-    console.error("Error al actualizar usuario:", err);
-    res.status(500).json({ error: "Error al actualizar usuario" });
+    console.error("Error al actualizar usuario:", error);
+    return res.status(500).json({ error: "Error al actualizar usuario" });
   } finally {
     conexion.release();
   }
 };
 
-// Obtener todos los usuarios (incluye código y rol)
+/*─────────────────────────────────────────────────────────────
+  Listado de usuarios
+──────────────────────────────────────────────────────────────*/
 export const obtenerUsuarios = async (req, res) => {
   try {
     const [filasUsuarios] = await db.query(`
-     SELECT
+      SELECT
         u.id,
         u.codigo,
         u.nombre,
@@ -380,18 +503,20 @@ export const obtenerUsuarios = async (req, res) => {
         u.creadoPor,
         u.actualizadoPor,
         r.nombre             AS rol
-       FROM usuarios u
-       LEFT JOIN roles r ON u.rol_id = r.id
-       ORDER BY u.id DESC
+      FROM usuarios u
+      LEFT JOIN roles r ON u.rol_id = r.id
+      ORDER BY u.id DESC
     `);
-    res.json(filasUsuarios);
+    return res.json(filasUsuarios);
   } catch (error) {
     console.error("Error al obtener usuarios:", error);
-    res.status(500).json({ message: "Error al obtener usuarios" });
+    return res.status(500).json({ message: "Error al obtener usuarios" });
   }
 };
 
-// Obtener un usuario por ID (incluye la URL de la firma)
+/*─────────────────────────────────────────────────────────────
+  Detalle de usuario (incluye URL prefirmada de firma activa)
+──────────────────────────────────────────────────────────────*/
 export const obtenerUsuarioPorId = async (req, res) => {
   const { id } = req.params;
   try {
@@ -408,8 +533,7 @@ export const obtenerUsuarioPorId = async (req, res) => {
         u.fechaCreacion        AS fechaCreacion,
         u.fechaActualizacion   AS fechaActualizacion
       FROM usuarios u
-      LEFT JOIN roles r
-        ON u.rol_id = r.id
+      LEFT JOIN roles r ON u.rol_id = r.id
       WHERE u.id = ?
       `,
       [id]
@@ -418,6 +542,7 @@ export const obtenerUsuarioPorId = async (req, res) => {
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
+    // Buscar la firma activa en archivos (registroTipo='firmas')
     const [archivos] = await db.query(
       `
       SELECT rutaS3
@@ -430,28 +555,28 @@ export const obtenerUsuarioPorId = async (req, res) => {
       `,
       [id]
     );
+
     const urlFirma = archivos.length
-      ? generarUrlPrefirmadaLectura(archivos[0].rutaS3)
+      ? await generarUrlPrefirmadaLectura(archivos[0].rutaS3)
       : null;
 
-    res.json({
-      ...usuario,
-      urlFirma,
-    });
+    return res.json({ ...usuario, urlFirma });
   } catch (error) {
     console.error("Error al obtener usuario por ID:", error);
-    res.status(500).json({ message: "Error al obtener usuario" });
+    return res.status(500).json({ message: "Error al obtener usuario" });
   }
 };
 
-// Eliminar usuario y archivos/eventos asociados
+/*─────────────────────────────────────────────────────────────
+  Eliminar usuario (mover firmas a papelera + auditoría)
+──────────────────────────────────────────────────────────────*/
 export const eliminarUsuario = async (req, res) => {
   const { id } = req.params;
   const conexion = await db.getConnection();
+
   try {
     await conexion.beginTransaction();
 
-    // 1) Verificar existencia
     const [[usuario]] = await conexion.query(
       `SELECT id FROM usuarios WHERE id = ?`,
       [id]
@@ -461,38 +586,28 @@ export const eliminarUsuario = async (req, res) => {
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
-    // 2) Recuperar archivos de firma asociados
-    const [archivos] = await conexion.query(
-      `SELECT id, rutaS3 
-         FROM archivos 
-        WHERE registroTipo = ? 
-          AND registroId   = ?`,
-      ["firmas", id]
+    // Recuperar todos los archivos de firmas del usuario
+    const [archivosFirma] = await conexion.query(
+      `SELECT id, rutaS3 FROM archivos WHERE registroTipo='firmas' AND registroId = ?`,
+      [id]
     );
 
-    // 3) Mover cada archivo a papelera
-    for (const archivo of archivos) {
-      // 3.1) Mover a papelera en S3
-      const nuevaClave = await moverArchivoAPapelera(
-        archivo.rutaS3,
-        "firmas",
-        id
-      );
+    // Mover cada archivo a papelera en S3 + actualizar BD a estado 'papelera' + evento
+    for (const archivo of archivosFirma) {
+      const nuevaRutaPapelera = await moverArchivoAPapelera(archivo.rutaS3);
 
-      // 3.2) Actualizar registro archivo
       await conexion.query(
         `UPDATE archivos
-            SET estado = 'eliminado',
-                rutaS3 = ?
-          WHERE id = ?`,
-        [nuevaClave, archivo.id]
+            SET estado='papelera',
+                rutaS3=?
+          WHERE id=?`,
+        [nuevaRutaPapelera, archivo.id]
       );
 
-      // 3.3) Insertar evento de auditoría
       await conexion.query(
         `INSERT INTO eventosArchivo
-             (archivoId, versionId, accion, creadoPor, ip, userAgent, detalles)
-           VALUES (?, NULL,'eliminacion' , ?, ?, ?, ?)`,
+           (archivoId, accion, creadoPor, fechaHora, ip, userAgent, detalles)
+         VALUES (?, 'eliminacionArchivo', ?, NOW(), ?, ?, ?)`,
         [
           archivo.id,
           req.user?.id || null,
@@ -500,23 +615,25 @@ export const eliminarUsuario = async (req, res) => {
           req.get("user-agent") || null,
           JSON.stringify({
             motivo: "Eliminación de usuario",
-            nuevaRuta: nuevaClave,
+            nuevaRuta: nuevaRutaPapelera,
           }),
         ]
       );
     }
 
-    // 4) Borrar usuario
+    // Borrar usuario
     await conexion.query(`DELETE FROM usuarios WHERE id = ?`, [id]);
 
     await conexion.commit();
-    res.json({
-      message: "Usuario eliminado y archivos movidos a papelera correctamente.",
+    return res.json({
+      message: "Usuario eliminado y firmas movidas a papelera correctamente.",
     });
   } catch (error) {
     await conexion.rollback();
     console.error("Error al eliminar usuario:", error);
-    res.status(500).json({ message: "Error interno al eliminar usuario." });
+    return res
+      .status(500)
+      .json({ message: "Error interno al eliminar usuario." });
   } finally {
     conexion.release();
   }

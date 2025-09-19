@@ -1,7 +1,8 @@
-import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
-import db from "../config/database.js";
+// routes/usuarios.routes.js
 import express from "express";
-import { uploadComprobante } from "../utils/s3.js";
+import db from "../config/database.js";
+import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
+import { uploadFirma } from "../utils/s3.js"; // ⬅️ usar el uploader correcto para firmas
 import {
   obtenerUsuarios,
   obtenerUsuarioPorId,
@@ -12,26 +13,30 @@ import {
 
 const router = express.Router();
 
+// Listado y detalle
 router.get("/", autenticarUsuario, obtenerUsuarios);
-router.get("/permisos/:permiso", autenticarUsuario);
+router.get("/permisos/:permiso", autenticarUsuario); // (si no se usa, puedes eliminarla)
 router.get("/:id", autenticarUsuario, obtenerUsuarioPorId);
 
+// Crear y actualizar (ahora usando uploadFirma -> carpeta "firmas/")
 router.post(
   "/",
   autenticarUsuario,
-  uploadComprobante.single("firma"),
+  uploadFirma.single("firma"), // ⬅️ antes: uploadComprobante
   crearUsuario
 );
 
 router.put(
   "/:id",
   autenticarUsuario,
-  uploadComprobante.single("firma"),
+  uploadFirma.single("firma"), // ⬅️ antes: uploadComprobante
   actualizarUsuario
 );
 
+// Eliminar
 router.delete("/:id", autenticarUsuario, eliminarUsuario);
 
+// Verificar permiso por clave (esta sí tiene handler)
 router.get("/permisos/:clave", autenticarUsuario, async (req, res) => {
   const { clave } = req.params;
   const usuario = req.user;
@@ -45,8 +50,8 @@ router.get("/permisos/:clave", autenticarUsuario, async (req, res) => {
       `SELECT 1
          FROM roles_permisos rp
          JOIN permisos p ON p.id = rp.permiso_id
-         WHERE rp.rol_id = ? AND p.nombre = ?
-         LIMIT 1`,
+        WHERE rp.rol_id = ? AND p.nombre = ?
+        LIMIT 1`,
       [usuario.rol_id, clave]
     );
 
