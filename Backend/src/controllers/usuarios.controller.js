@@ -501,22 +501,20 @@ export const obtenerUsuarioPorId = async (req, res) => {
   }
 };
 
-// Eliminar usuario y mover sus firmas a papelera con auditoría
+
 export const eliminarUsuario = async (req, res) => {
   const { id } = req.params;
   const usuarioIdEliminar = Number(id);
   const usuarioActorId = Number(req.user?.id || 0);
 
+  // Activar borrado físico en BD con ?borradoDb=true
+  const borradoDb = String(req.query?.borradoDb || "").toLowerCase() === "true";
+
   const conexion = await db.getConnection();
   try {
     await conexion.beginTransaction();
 
-    // Validaciones básicas
-    if (!usuarioActorId) {
-      await conexion.rollback();
-      return res.status(401).json({ error: "Sesión no válida." });
-    }
-
+    // 0) Validaciones básicas
     const [[usuario]] = await conexion.query(
       `SELECT id, estado FROM usuarios WHERE id = ?`,
       [usuarioIdEliminar]
@@ -531,6 +529,7 @@ export const eliminarUsuario = async (req, res) => {
         .status(400)
         .json({ error: "No puedes eliminar tu propio usuario." });
     }
+    // (opcional) Sólo permitir si está inactivo
     if (usuario.estado !== "inactivo") {
       await conexion.rollback();
       return res
@@ -538,95 +537,76 @@ export const eliminarUsuario = async (req, res) => {
         .json({ error: "Solo pueden eliminarse usuarios inactivos." });
     }
 
-    // 1) Traer todos los archivos de firmas del usuario
+    // 1) Obtener firmas del usuario
     const [archivosFirma] = await conexion.query(
-      `SELECT id, rutaS3
-         FROM archivos
-        WHERE registroTipo = 'firmas'
-          AND registroId   = ?`,
+      `SELECT id, rutaS3 FROM archivos
+        WHERE registroTipo = 'firmas' AND registroId = ?`,
       [usuarioIdEliminar]
     );
 
-    // 2) Mover cada firma a /papelera/... en S3 y auditar
+    // 2) Mover cada firma a papelera + auditar
     for (const archivo of archivosFirma) {
-      const nuevaRutaS3 = await moverArchivoAPapelera(archivo.rutaS3); // <= solo 1 parámetro
+      // mover a papelera en S3 (retorna nueva ruta o null si no existe)
+      const nuevaRutaS3 = await moverArchivoAPapelera(archivo.rutaS3);
 
-      // Si el objeto original no existe, moverArchivoAPapelera devuelve null; evitamos romper BD
-      if (!nuevaRutaS3) {
-        // Dejar constancia del intento fallido
-        await conexion.query(
-          `INSERT INTO eventosArchivo
-             (archivoId, accion, creadoPor, ip, userAgent, detalles)
-           VALUES (?, 'eliminacionArchivo', ?, ?, ?, ?)`,
-          [
-            archivo.id,
-            usuarioActorId,
-            req.ip || null,
-            req.get("user-agent") || null,
-            JSON.stringify({
-              motivo: "Eliminación de usuario (objeto no encontrado en S3)",
-              rutaAnterior: archivo.rutaS3,
-            }),
-          ]
-        );
-        continue;
-      }
-
-      // Actualizar estado y ruta a papelera
-      await conexion.query(
-        `UPDATE archivos
-            SET estado = 'eliminado',
-                rutaS3 = ?,
-                actualizadoEn = NOW()
-          WHERE id = ?`,
-        [nuevaRutaS3, archivo.id]
-      );
-
-      // Auditoría del movimiento a papelera
+      // registrar evento de eliminación (aunque luego lo borremos en modo duro,
+      // esto deja constancia si ocurre un fallo antes del delete)
       await conexion.query(
         `INSERT INTO eventosArchivo
            (archivoId, accion, creadoPor, ip, userAgent, detalles)
          VALUES (?, 'eliminacionArchivo', ?, ?, ?, ?)`,
         [
           archivo.id,
-          usuarioActorId,
+          usuarioActorId || null,
           req.ip || null,
           req.get("user-agent") || null,
           JSON.stringify({
             motivo: "Eliminación de usuario",
+            rutaAnterior: archivo.rutaS3,
             nuevaRuta: nuevaRutaS3,
           }),
         ]
       );
+
+      if (borradoDb) {
+        // 3A) BORRADO DURO EN BD (por FK RESTRICT en eventosArchivo)
+        await conexion.query(`DELETE FROM eventosArchivo WHERE archivoId = ?`, [
+          archivo.id,
+        ]);
+        // versionesArchivo tiene ON DELETE CASCADE con archivos → no hace falta tocarlo
+        await conexion.query(`DELETE FROM archivos WHERE id = ?`, [archivo.id]);
+      } else {
+        // 3B) SOFT DELETE: marcar como eliminado, actualizar ruta y timestamp
+        await conexion.query(
+          `UPDATE archivos
+              SET estado = 'eliminado',
+                  rutaS3 = ?,
+                  eliminadoEn = NOW(),
+                  actualizadoEn = NOW()
+            WHERE id = ?`,
+          [nuevaRutaS3 || archivo.rutaS3, archivo.id]
+        );
+      }
     }
 
-    // 3) Romper referencias que apunten al usuario a eliminar (seguridad FK)
+    // 4) Limpieza de referencias triviales (opcional y segura)
     await conexion.query(
       `UPDATE usuarios
           SET creadoPor = ?, actualizadoPor = NULL
         WHERE id = ?`,
-      [usuarioActorId, usuarioIdEliminar]
-    );
-    await conexion.query(
-      `UPDATE usuarios
-          SET creadoPor = ?,
-              actualizadoPor = CASE WHEN actualizadoPor = ? THEN NULL ELSE actualizadoPor END
-        WHERE creadoPor = ? OR actualizadoPor = ?`,
-      [usuarioActorId, usuarioIdEliminar, usuarioIdEliminar, usuarioIdEliminar]
+      [usuarioActorId || null, usuarioIdEliminar]
     );
 
-    // 4) Eliminar usuario
-    const [resultado] = await conexion.query(
-      `DELETE FROM usuarios WHERE id = ?`,
-      [usuarioIdEliminar]
-    );
-    if (!resultado.affectedRows) {
-      throw new Error("No se pudo eliminar el usuario (sin filas afectadas).");
-    }
+    // 5) Eliminar usuario
+    await conexion.query(`DELETE FROM usuarios WHERE id = ?`, [
+      usuarioIdEliminar,
+    ]);
 
     await conexion.commit();
     return res.json({
-      message: "Usuario eliminado y firmas movidas a papelera correctamente.",
+      message: borradoDb
+        ? "Usuario eliminado. Firmas movidas a papelera y eliminadas en BD."
+        : "Usuario eliminado. Firmas movidas a papelera (soft-delete en BD).",
       idEliminado: usuarioIdEliminar,
     });
   } catch (error) {
