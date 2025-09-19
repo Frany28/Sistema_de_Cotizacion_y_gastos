@@ -97,11 +97,11 @@ export const crearUsuario = async (req, res) => {
       );
       const versionId = vRes.insertId;
 
-      // 4.3) evento: subidaArchivo
+      // 4.3) auditoría
       await conexion.query(
         `INSERT INTO eventosArchivo
            (archivoId, versionId, accion, creadoPor, ip, userAgent, detalles)
-         VALUES (?, ?, 'subidaArchivo', ?, ?, ?, ?)`,
+         VALUES (?, ?, 'subida', ?, ?, ?, ?)`,
         [
           archivoId,
           versionId,
@@ -279,11 +279,11 @@ export const actualizarUsuario = async (req, res) => {
       );
       const versionId = vRes.insertId;
 
-      // 4.3) Evento del archivo NUEVO: sustitucionArchivo
+      // 4.3) Evento de sustitución (valor válido del ENUM)
       await conexion.query(
         `INSERT INTO eventosArchivo
            (archivoId, versionId, accion, creadoPor, ip, userAgent, detalles)
-         VALUES (?, ?, 'sustitucionArchivo', ?, ?, ?, ?)`,
+         VALUES (?, ?, 'sustitucion', ?, ?, ?, ?)`,
         [
           archivoId,
           versionId,
@@ -313,17 +313,15 @@ export const actualizarUsuario = async (req, res) => {
           id
         );
 
-        // Estado correcto del archivo anterior
         await conexion.query(
           `UPDATE archivos SET estado='reemplazado', rutaS3=? WHERE id=?`,
           [nuevaRuta, antId]
         );
 
-        // Evento sobre el archivo anterior: eliminacionArchivo (se movió a papelera)
         await conexion.query(
           `INSERT INTO eventosArchivo
              (archivoId, accion, creadoPor, ip, userAgent, detalles)
-           VALUES (?, 'eliminacionArchivo', ?, ?, ?, ?)`,
+           VALUES (?, 'eliminacion', ?, ?, ?, ?)`,
           [
             antId,
             req.user.id,
@@ -433,7 +431,7 @@ export const obtenerUsuarioPorId = async (req, res) => {
       [id]
     );
     const urlFirma = archivos.length
-      ? await generarUrlPrefirmadaLectura(archivos[0].rutaS3)
+      ? generarUrlPrefirmadaLectura(archivos[0].rutaS3)
       : null;
 
     res.json({
@@ -446,137 +444,79 @@ export const obtenerUsuarioPorId = async (req, res) => {
   }
 };
 
-// Eliminar usuario y archivos/eventos asociados (versión robusta)
+// Eliminar usuario y archivos/eventos asociados
 export const eliminarUsuario = async (req, res) => {
   const { id } = req.params;
-  const idEliminar = Number(id);
-  const idActor = Number(req.user?.id || 0); // quien ejecuta la acción
-
   const conexion = await db.getConnection();
   try {
     await conexion.beginTransaction();
 
-    // 0) Validaciones de existencia, sesión y reglas de negocio
-    if (!idActor) {
-      await conexion.rollback();
-      return res.status(401).json({ error: "Sesión no válida." });
-    }
-
+    // 1) Verificar existencia
     const [[usuario]] = await conexion.query(
-      `SELECT id, estado FROM usuarios WHERE id = ?`,
-      [idEliminar]
+      `SELECT id FROM usuarios WHERE id = ?`,
+      [id]
     );
     if (!usuario) {
       await conexion.rollback();
-      return res.status(404).json({ error: "Usuario no encontrado" });
-    }
-    if (idActor === idEliminar) {
-      await conexion.rollback();
-      return res
-        .status(400)
-        .json({ error: "No puedes eliminar tu propio usuario." });
-    }
-    if (usuario.estado !== "inactivo") {
-      await conexion.rollback();
-      return res
-        .status(400)
-        .json({ error: "Solo pueden eliminarse usuarios inactivos." });
+      return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
-    // 1) Recuperar archivos de firma asociados
-    const [listaArchivos] = await conexion.query(
-      `SELECT id, rutaS3
-         FROM archivos
-        WHERE registroTipo = 'firmas'
+    // 2) Recuperar archivos de firma asociados
+    const [archivos] = await conexion.query(
+      `SELECT id, rutaS3 
+         FROM archivos 
+        WHERE registroTipo = ? 
           AND registroId   = ?`,
-      [idEliminar]
+      ["firmas", id]
     );
 
-    // 2) Mover a papelera en S3 con verificación estricta + auditoría
-    for (const archivo of listaArchivos) {
-      let nuevaRutaS3;
-      try {
-        nuevaRutaS3 = await moverArchivoAPapelera(
-          archivo.rutaS3,
-          "firmas",
-          idEliminar
-        );
-      } catch (e) {
-        throw new Error(
-          `No se pudo mover el archivo en S3 (${archivo.rutaS3}): ${e.message}`
-        );
-      }
+    // 3) Mover cada archivo a papelera
+    for (const archivo of archivos) {
+      // 3.1) Mover a papelera en S3
+      const nuevaClave = await moverArchivoAPapelera(
+        archivo.rutaS3,
+        "firmas",
+        id
+      );
 
-      if (!nuevaRutaS3 || typeof nuevaRutaS3 !== "string") {
-        throw new Error(
-          `No se obtuvo nueva clave S3 al mover a papelera: ${archivo.rutaS3}`
-        );
-      }
-
-      // Actualizar registro archivo
+      // 3.2) Actualizar registro archivo
       await conexion.query(
         `UPDATE archivos
             SET estado = 'eliminado',
-                rutaS3 = ?,
-                actualizadoEn = NOW()
+                rutaS3 = ?
           WHERE id = ?`,
-        [nuevaRutaS3, archivo.id]
+        [nuevaClave, archivo.id]
       );
 
-      // Evento de auditoría (archivo movido a papelera)
+      // 3.3) Insertar evento de auditoría
       await conexion.query(
         `INSERT INTO eventosArchivo
-           (archivoId, accion, creadoPor, ip, userAgent, detalles)
-         VALUES (?, 'eliminacionArchivo', ?, ?, ?, ?)`,
+             (archivoId, versionId, accion, creadoPor, ip, userAgent, detalles)
+           VALUES (?, NULL,'eliminacion' , ?, ?, ?, ?)`,
         [
           archivo.id,
-          idActor,
+          req.user?.id || null,
           req.ip || null,
           req.get("user-agent") || null,
           JSON.stringify({
             motivo: "Eliminación de usuario",
-            nuevaRuta: nuevaRutaS3,
+            nuevaRuta: nuevaClave,
           }),
         ]
       );
     }
 
-    // 3) Romper FKs internas antes del DELETE
-    await conexion.query(
-      `UPDATE usuarios
-          SET creadoPor = ?, actualizadoPor = NULL
-        WHERE id = ?`,
-      [idActor, idEliminar]
-    );
-
-    await conexion.query(
-      `UPDATE usuarios
-          SET creadoPor = ?, 
-              actualizadoPor = CASE WHEN actualizadoPor = ? THEN NULL ELSE actualizadoPor END
-        WHERE creadoPor = ? OR actualizadoPor = ?`,
-      [idActor, idEliminar, idEliminar, idEliminar]
-    );
-
     // 4) Borrar usuario
-    const [delRes] = await conexion.query(`DELETE FROM usuarios WHERE id = ?`, [
-      idEliminar,
-    ]);
-    if (!delRes.affectedRows) {
-      throw new Error("No se pudo eliminar el usuario (sin filas afectadas).");
-    }
+    await conexion.query(`DELETE FROM usuarios WHERE id = ?`, [id]);
 
     await conexion.commit();
-    return res.json({
+    res.json({
       message: "Usuario eliminado y archivos movidos a papelera correctamente.",
-      idEliminado: idEliminar,
     });
   } catch (error) {
     await conexion.rollback();
     console.error("Error al eliminar usuario:", error);
-    return res.status(500).json({
-      error: "Error interno al eliminar usuario.",
-      detalle: error.message,
-    });
+    res.status(500).json({ message: "Error interno al eliminar usuario." });
   } finally {
     conexion.release();
   }
