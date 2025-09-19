@@ -154,6 +154,7 @@ export const crearUsuario = async (req, res) => {
         ]
       );
 
+      // 🔸 Nota: en tu sistema la cuota la lleva el propietario del registro (el nuevo usuario)
       await conexion.query(
         `UPDATE usuarios SET usoStorageBytes = usoStorageBytes + ? WHERE id = ?`,
         [tamanioBytes, nuevoUsuarioId]
@@ -187,6 +188,7 @@ export const crearUsuario = async (req, res) => {
     conexion.release();
   }
 };
+
 export const actualizarUsuario = async (req, res) => {
   const conexion = await db.getConnection();
   let firmaKeyNueva = null;
@@ -351,7 +353,7 @@ export const actualizarUsuario = async (req, res) => {
 
       // 4.4) Marcar anterior como reemplazado y mover a papelera (si existe)
       const [anteriores] = await conexion.query(
-        `SELECT id, rutaS3
+        `SELECT id, rutaS3, tamanioBytes
            FROM archivos
           WHERE registroTipo='firmas'
             AND registroId = ? AND id <> ? AND estado='activo'
@@ -370,29 +372,38 @@ export const actualizarUsuario = async (req, res) => {
 
         // Estado correcto del archivo anterior
         await conexion.query(
-          `UPDATE archivos SET estado='reemplazado', rutaS3=? WHERE id=?`,
+          `UPDATE archivos SET estado='reemplazado', rutaS3=?, actualizadoEn=NOW() WHERE id=?`,
           [nuevaRuta, antId]
         );
 
         // Evento sobre el archivo anterior: eliminacionArchivo (se movió a papelera)
         await conexion.query(
           `INSERT INTO eventosArchivo
-             (archivoId, accion, creadoPor, ip, userAgent, detalles)
-           VALUES (?, 'eliminacionArchivo', ?, ?, ?, ?)`,
+             (archivoId, accion, creadoPor, fechaHora, ip, userAgent, detalles)
+           VALUES (?, 'eliminacionArchivo', ?, NOW(), ?, ?, ?)`,
           [
             antId,
             req.user.id,
             req.ip,
             req.get("user-agent"),
-            JSON.stringify({ motivo: "Sustitución de firma", nuevaRuta }),
+            JSON.stringify({
+              motivo: "Sustitución de firma",
+              nuevaRuta: nuevaRuta,
+            }),
           ]
+        );
+
+        // ⚖️ Ajustar cuota del dueño del registro (usuario id)
+        await conexion.query(
+          `UPDATE usuarios SET usoStorageBytes = GREATEST(usoStorageBytes - ?, 0) WHERE id = ?`,
+          [anteriores[0].tamanioBytes || 0, id]
         );
       }
 
-      // 4.5) Aumentar cuota
+      // 4.5) Aumentar cuota del nuevo archivo al propietario
       await conexion.query(
         `UPDATE usuarios SET usoStorageBytes = usoStorageBytes + ? WHERE id = ?`,
-        [tamanioBytes, id]
+        [tamanioBytes || 0, id]
       );
     }
 
@@ -501,35 +512,44 @@ export const obtenerUsuarioPorId = async (req, res) => {
   }
 };
 
-
+/**
+ * 🔥 ELIMINAR USUARIO (flujo espejo a deleteGasto)
+ * - Mueve todas las firmas a papelera (S3 y BD).
+ * - Registra evento 'eliminacionArchivo' con fechaHora NOW().
+ * - Ajusta usoStorageBytes del propietario (el propio usuario eliminado).
+ * - Luego elimina el usuario.
+ * Basado en tu deleteGasto (mismo patrón de eventos y moverArchivoAPapelera).  :contentReference[oaicite:2]{index=2}
+ * Y siguiendo convenciones ya vistas en archivos.controller para papelera.       :contentReference[oaicite:3]{index=3}
+ */
 export const eliminarUsuario = async (req, res) => {
   const { id } = req.params;
-  const usuarioIdEliminar = Number(id);
-  const usuarioActorId = Number(req.user?.id || 0);
-
-  // Activar borrado físico en BD con ?borradoDb=true
-  const borradoDb = String(req.query?.borradoDb || "").toLowerCase() === "true";
+  const idEliminar = Number(id);
+  const idActor = Number(req.user?.id || 0); // quien ejecuta la acción
 
   const conexion = await db.getConnection();
   try {
     await conexion.beginTransaction();
 
-    // 0) Validaciones básicas
+    // 0) Validaciones
+    if (!idActor) {
+      await conexion.rollback();
+      return res.status(401).json({ error: "Sesión no válida." });
+    }
+
     const [[usuario]] = await conexion.query(
       `SELECT id, estado FROM usuarios WHERE id = ?`,
-      [usuarioIdEliminar]
+      [idEliminar]
     );
     if (!usuario) {
       await conexion.rollback();
       return res.status(404).json({ error: "Usuario no encontrado" });
     }
-    if (usuarioActorId === usuarioIdEliminar) {
+    if (idActor === idEliminar) {
       await conexion.rollback();
       return res
         .status(400)
         .json({ error: "No puedes eliminar tu propio usuario." });
     }
-    // (opcional) Sólo permitir si está inactivo
     if (usuario.estado !== "inactivo") {
       await conexion.rollback();
       return res
@@ -537,77 +557,89 @@ export const eliminarUsuario = async (req, res) => {
         .json({ error: "Solo pueden eliminarse usuarios inactivos." });
     }
 
-    // 1) Obtener firmas del usuario
-    const [archivosFirma] = await conexion.query(
-      `SELECT id, rutaS3 FROM archivos
-        WHERE registroTipo = 'firmas' AND registroId = ?`,
-      [usuarioIdEliminar]
+    // 1) Recuperar archivos de firma asociados (cualquier estado no-borrado)
+    const [listaArchivos] = await conexion.query(
+      `SELECT id, rutaS3, tamanioBytes
+         FROM archivos
+        WHERE registroTipo = 'firmas'
+          AND registroId   = ?
+          AND estado IN ('activo','reemplazado')`,
+      [idEliminar]
     );
 
-    // 2) Mover cada firma a papelera + auditar
-    for (const archivo of archivosFirma) {
-      // mover a papelera en S3 (retorna nueva ruta o null si no existe)
-      const nuevaRutaS3 = await moverArchivoAPapelera(archivo.rutaS3);
+    // 2) Mover a papelera en S3 + actualizar BD + auditar + ajustar cuota del propietario
+    for (const archivo of listaArchivos) {
+      const nuevaRutaS3 = await moverArchivoAPapelera(
+        archivo.rutaS3,
+        "firmas",
+        idEliminar
+      );
 
-      // registrar evento de eliminación (aunque luego lo borremos en modo duro,
-      // esto deja constancia si ocurre un fallo antes del delete)
+      await conexion.query(
+        `UPDATE archivos
+            SET estado = 'eliminado',
+                rutaS3 = ?,
+                eliminadoEn = NOW(),
+                actualizadoEn = NOW()
+          WHERE id = ?`,
+        [nuevaRutaS3, archivo.id]
+      );
+
+      // 👇 Evento con fechaHora, igual que en deleteGasto
       await conexion.query(
         `INSERT INTO eventosArchivo
-           (archivoId, accion, creadoPor, ip, userAgent, detalles)
-         VALUES (?, 'eliminacionArchivo', ?, ?, ?, ?)`,
+           (archivoId, accion, creadoPor, fechaHora, ip, userAgent, detalles)
+         VALUES (?, 'eliminacionArchivo', ?, NOW(), ?, ?, ?)`,
         [
           archivo.id,
-          usuarioActorId || null,
+          idActor,
           req.ip || null,
           req.get("user-agent") || null,
           JSON.stringify({
             motivo: "Eliminación de usuario",
-            rutaAnterior: archivo.rutaS3,
             nuevaRuta: nuevaRutaS3,
           }),
         ]
       );
 
-      if (borradoDb) {
-        // 3A) BORRADO DURO EN BD (por FK RESTRICT en eventosArchivo)
-        await conexion.query(`DELETE FROM eventosArchivo WHERE archivoId = ?`, [
-          archivo.id,
-        ]);
-        // versionesArchivo tiene ON DELETE CASCADE con archivos → no hace falta tocarlo
-        await conexion.query(`DELETE FROM archivos WHERE id = ?`, [archivo.id]);
-      } else {
-        // 3B) SOFT DELETE: marcar como eliminado, actualizar ruta y timestamp
-        await conexion.query(
-          `UPDATE archivos
-              SET estado = 'eliminado',
-                  rutaS3 = ?,
-                  eliminadoEn = NOW(),
-                  actualizadoEn = NOW()
-            WHERE id = ?`,
-          [nuevaRutaS3 || archivo.rutaS3, archivo.id]
-        );
-      }
+      // ⚖️ Ajustar la cuota del propietario del registro (el usuario eliminado)
+      await conexion.query(
+        `UPDATE usuarios
+           SET usoStorageBytes = GREATEST(usoStorageBytes - ?, 0)
+         WHERE id = ?`,
+        [archivo.tamanioBytes || 0, idEliminar]
+      );
     }
 
-    // 4) Limpieza de referencias triviales (opcional y segura)
+    // 3) Romper referencias “inocuas” para no chocar con FKs internas
     await conexion.query(
       `UPDATE usuarios
           SET creadoPor = ?, actualizadoPor = NULL
         WHERE id = ?`,
-      [usuarioActorId || null, usuarioIdEliminar]
+      [idActor, idEliminar]
     );
 
-    // 5) Eliminar usuario
-    await conexion.query(`DELETE FROM usuarios WHERE id = ?`, [
-      usuarioIdEliminar,
+    await conexion.query(
+      `UPDATE usuarios
+          SET creadoPor = ?, 
+              actualizadoPor = CASE WHEN actualizadoPor = ? THEN NULL ELSE actualizadoPor END
+        WHERE creadoPor = ? OR actualizadoPor = ?`,
+      [idActor, idEliminar, idEliminar, idEliminar]
+    );
+
+    // 4) Borrar usuario (físico)
+    const [delRes] = await conexion.query(`DELETE FROM usuarios WHERE id = ?`, [
+      idEliminar,
     ]);
+    if (!delRes.affectedRows) {
+      throw new Error("No se pudo eliminar el usuario (sin filas afectadas).");
+    }
 
     await conexion.commit();
     return res.json({
-      message: borradoDb
-        ? "Usuario eliminado. Firmas movidas a papelera y eliminadas en BD."
-        : "Usuario eliminado. Firmas movidas a papelera (soft-delete en BD).",
-      idEliminado: usuarioIdEliminar,
+      message:
+        "Usuario eliminado y archivos de firma movidos a papelera correctamente.",
+      idEliminado: idEliminar,
     });
   } catch (error) {
     await conexion.rollback();
