@@ -68,7 +68,7 @@ function VistaPreviaAlmacenamiento() {
                   {restantesTexto} restantes
                 </span>
                 <button
-                  onClick={() => navigate("/almacenamiento")}
+                  onClick={() => navigate("/perfil")}
                   className="text-[#1A56DB] hover:underline"
                 >
                   Ver más

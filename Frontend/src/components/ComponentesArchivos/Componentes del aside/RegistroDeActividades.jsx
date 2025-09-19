@@ -87,7 +87,7 @@ function RegistroDeActividades() {
 
       <button
         type="button"
-        onClick={() => window.location.assign("/gestor-archivos")}
+        onClick={() => window.location.assign("/gestor-eventos")}
         className="text-center text-sm font-medium text-[#1A56DB] hover:underline"
       >
         Ver Actividad Reciente
