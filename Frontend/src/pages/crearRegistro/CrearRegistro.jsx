@@ -21,6 +21,7 @@ const CrearRegistro = () => {
   const [sucursales, setSucursales] = useState([]);
   const [cotizaciones, setCotizaciones] = useState([]);
   const [usuarioId, setUsuarioId] = useState(null);
+  const [vistaPreviaCargando, setVistaPreviaCargando] = useState(false);
 
   const [mensajeExito, setMensajeExito] = useState(
     "Registro creado exitosamente."
@@ -264,6 +265,7 @@ const CrearRegistro = () => {
 
   const verVistaPrevia = async (datosGenerales) => {
     try {
+      setVistaPreviaCargando(true);
       const usuarioGuardado =
         JSON.parse(localStorage.getItem("usuario")) ||
         JSON.parse(sessionStorage.getItem("usuario"));
@@ -345,6 +347,8 @@ const CrearRegistro = () => {
       window.open(pdfUrl, "_blank");
     } catch (error) {
       console.error("Error generando vista previa:", error);
+    } finally {
+      setVistaPreviaCargando(false);
     }
   };
 
@@ -523,9 +527,15 @@ const CrearRegistro = () => {
               <div className="mt-6">
                 <button
                   onClick={() => verVistaPrevia(datosGeneralesPreview)}
-                  className="cursor-pointer bg-green-600 hover:bg-green-700 px-4 py-2 rounded text-white"
+                  disabled={vistaPreviaCargando}
+                  className={`cursor-pointer px-4 py-2 rounded text-white transition-colors
+                  ${
+                    vistaPreviaCargando
+                      ? "bg-yellow-500 hover:bg-yellow-500 cursor-wait"
+                      : "bg-green-600 hover:bg-green-700"
+                  }`}
                 >
-                  Ver Vista Previa (PDF)
+                  {vistaPreviaCargando ? "Cargando…" : "Ver Vista Previa (PDF)"}
                 </button>
               </div>
             )}
