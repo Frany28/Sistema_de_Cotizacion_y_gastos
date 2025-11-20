@@ -367,7 +367,7 @@ function ListaArchivosPapelera() {
                   <div className="p-3 bg-gray-700/60 rounded-full ring-1 ring-gray-600/40 group-hover:ring-indigo-500/50 transition-all">
                     {iconoPorExtension(archivo.extension)}
                   </div>
-                  <h3 className="font-semibold text-lg leading-tight line-clamp-2 break-words group-hover:text-indigo-400 transition-colors">
+                  <h3 className="font-semibold text-base leading-tight line-clamp-2 break-all max-w-full group-hover:text-indigo-400 transition-colors">
                     {archivo.nombreOriginal}
                   </h3>
                   <div className="w-full space-y-1 mt-2 text-sm text-gray-300">
