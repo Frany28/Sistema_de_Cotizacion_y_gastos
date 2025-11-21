@@ -41,7 +41,7 @@ const TablaHistorialVersiones = ({ grupoId, archivoActualId }) => {
       .includes(busqueda.toLowerCase())
   );
 
-  const totalPaginas = Math.ceil(versionesFiltradas.length / limite);
+  const totalPaginas = Math.ceil(versionesFiltradas.length / limite) || 1;
   const versionesPaginadas = versionesFiltradas.slice(
     (pagina - 1) * limite,
     pagina * limite
@@ -72,75 +72,91 @@ const TablaHistorialVersiones = ({ grupoId, archivoActualId }) => {
   /*──────────────────────────── Render ─────────────────────────────*/
   return (
     <>
-      <div className="hidden lg:block">
-        <div className="mt-10 w-full bg-gray-800 rounded-xl shadow-xl border border-gray-700 overflow-hidden">
-          {/* Barra de búsqueda y selector de límite */}
-          <div className="flex flex-col md:flex-row md:justify-between md:items-center px-4 py-4 gap-2 border-b border-gray-700">
-            <h3 className="text-white text-lg font-semibold">
-              Historial de Versiones
-            </h3>
-            <div className="flex flex-col md:flex-row gap-2 items-center">
-              <input
-                type="text"
-                placeholder="Buscar..."
-                value={busqueda}
-                onChange={(e) => {
-                  setBusqueda(e.target.value);
-                  setPagina(1);
-                }}
-                className="px-3 py-2 rounded-md bg-gray-700 border border-gray-600 text-white text-sm"
-              />
-              <select
-                value={limite}
-                onChange={(e) => {
-                  setLimite(Number(e.target.value));
-                  setPagina(1);
-                }}
-                className="px-2 py-2 rounded-md bg-gray-700 border border-gray-600 text-white text-sm"
-              >
-                {[5, 10, 25].map((n) => (
-                  <option key={n} value={n}>
-                    {n} por página
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+      <div className="mt-10 w-full bg-gray-800 rounded-xl shadow-xl border border-gray-700 overflow-hidden">
+        {/* Barra de búsqueda y selector de límite */}
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center px-4 py-4 gap-3 border-b border-gray-700">
+          <h3 className="text-white text-lg font-semibold">
+            Historial de Versiones
+          </h3>
 
-          {/* Tabla cargando */}
-          {cargando ? (
-            <div className="p-4 animate-pulse bg-gray-900">
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
-                  <thead className="bg-gray-800">
-                    <tr>
-                      {[...Array(7)].map((_, i) => (
-                        <th
-                          key={i}
-                          className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase"
-                        >
-                          <div className="h-3 bg-gray-700/50 rounded w-3/4" />
-                        </th>
+          <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center w-full md:w-auto">
+            <input
+              type="text"
+              placeholder="Buscar..."
+              value={busqueda}
+              onChange={(e) => {
+                setBusqueda(e.target.value);
+                setPagina(1);
+              }}
+              className="w-full sm:w-56 px-3 py-2 rounded-md bg-gray-700 border border-gray-600 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            <select
+              value={limite}
+              onChange={(e) => {
+                setLimite(Number(e.target.value));
+                setPagina(1);
+              }}
+              className="w-full sm:w-auto px-2 py-2 rounded-md bg-gray-700 border border-gray-600 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              {[5, 10, 25].map((n) => (
+                <option key={n} value={n}>
+                  {n} por página
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Contenido principal */}
+        {cargando ? (
+          <div className="p-4 bg-gray-900">
+            {/* Skeleton escritorio */}
+            <div className="hidden lg:block overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="bg-gray-800">
+                  <tr>
+                    {[...Array(7)].map((_, i) => (
+                      <th
+                        key={i}
+                        className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase"
+                      >
+                        <div className="h-3 bg-gray-700/50 rounded w-3/4 animate-pulse" />
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...Array(5)].map((_, row) => (
+                    <tr key={row} className="border-t border-gray-800">
+                      {[...Array(7)].map((_, col) => (
+                        <td key={col} className="px-4 py-3">
+                          <div className="h-4 bg-gray-700/50 rounded w-full animate-pulse" />
+                        </td>
                       ))}
                     </tr>
-                  </thead>
-                  <tbody>
-                    {[...Array(5)].map((_, row) => (
-                      <tr key={row} className="border-t border-gray-800">
-                        {[...Array(7)].map((_, col) => (
-                          <td key={col} className="px-4 py-3">
-                            <div className="h-4 bg-gray-700/50 rounded w-full" />
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          ) : (
-            <>
-              {/* Tabla de versiones */}
+
+            {/* Skeleton móvil / tablet */}
+            <div className="space-y-3 lg:hidden">
+              {[...Array(3)].map((_, i) => (
+                <div
+                  key={i}
+                  className="bg-gray-800 rounded-lg border border-gray-700 p-4 animate-pulse space-y-2"
+                >
+                  <div className="h-4 bg-gray-700/60 rounded w-1/3" />
+                  <div className="h-3 bg-gray-700/60 rounded w-2/3" />
+                  <div className="h-3 bg-gray-700/60 rounded w-1/2" />
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <>
+            {/*────────────── Vista escritorio: tabla ──────────────*/}
+            <div className="hidden lg:block">
               <div className="overflow-x-auto">
                 <table className="min-w-full text-sm text-gray-400">
                   <thead className="bg-gray-700 text-xs uppercase text-gray-400">
@@ -168,7 +184,7 @@ const TablaHistorialVersiones = ({ grupoId, archivoActualId }) => {
                               : ""
                           }`}
                         >
-                          <td className="px-4 py-2 font-bold text-white text-center">
+                          <td className="px-4 py-2 font-bold text-white text-center whitespace-nowrap">
                             {v.numeroVersion}
                             {esActiva && (
                               <span className="ml-2 inline-block bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded-full">
@@ -177,16 +193,37 @@ const TablaHistorialVersiones = ({ grupoId, archivoActualId }) => {
                             )}
                           </td>
 
-                          <td className="px-4 py-2">
+                          <td className="px-4 py-2 whitespace-nowrap">
                             {formatearFecha(v.subidoEn)}
                           </td>
 
-                          <td className="px-4 py-2">{v.nombreUsuario}</td>
-                          <td className="px-4 py-2 capitalize">{v.estado}</td>
-                          <td className="px-4 py-2">
+                          <td className="px-4 py-2 whitespace-nowrap">
+                            {v.nombreUsuario}
+                          </td>
+
+                          <td className="px-4 py-2 capitalize">
+                            <span
+                              className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
+                                v.estado === "activo"
+                                  ? "bg-green-800/60 text-green-300"
+                                  : v.estado === "reemplazado"
+                                  ? "bg-yellow-800/60 text-yellow-200"
+                                  : "bg-gray-700 text-gray-200"
+                              }`}
+                            >
+                              {v.estado}
+                            </span>
+                          </td>
+
+                          <td className="px-4 py-2 whitespace-nowrap">
                             {formatearTamano(v.tamanioBytes)}
                           </td>
-                          <td className="px-4 py-2">{v.nombreOriginal}</td>
+
+                          <td className="px-4 py-2 max-w-xs">
+                            <span className="block text-sm text-gray-200 truncate">
+                              {v.nombreOriginal}
+                            </span>
+                          </td>
 
                           {/* Acciones */}
                           <td className="px-4 py-2 text-center">
@@ -196,7 +233,7 @@ const TablaHistorialVersiones = ({ grupoId, archivoActualId }) => {
                                 titulo="Ver detalle"
                                 onClick={() => {
                                   if (esVersionActual) {
-                                    setMostrarError(true); // Ya la estamos viendo
+                                    setMostrarError(true);
                                   } else {
                                     navigate(
                                       `/gestor-archivos/archivo/${v.id}`
@@ -236,152 +273,111 @@ const TablaHistorialVersiones = ({ grupoId, archivoActualId }) => {
                   </tbody>
                 </table>
               </div>
+            </div>
 
-              {/*──────────────── Vistas responsivas (cards) ────────────────*/}
-              {/* Tablet */}
-              <div className="hidden md:block lg:hidden space-y-4">
-                {versiones.map((v) => {
-                  const esVersionActual = v.id === archivoActualId;
+            {/*──────────── Tablet / móvil: cards ────────────*/}
+            <div className="lg:hidden px-4 py-4 space-y-4">
+              {versionesPaginadas.length === 0 && (
+                <p className="text-center text-gray-400 text-sm">
+                  No hay resultados.
+                </p>
+              )}
 
-                  return (
-                    <div
-                      key={v.id}
-                      className={`bg-gray-800 p-4 rounded-lg shadow border border-gray-700 ${
-                        esVersionActual ? "ring-2 ring-blue-500" : ""
-                      }`}
-                    >
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <p className="text-sm text-gray-400">Versión</p>
-                          <p className="text-white font-semibold">
-                            v{v.numeroVersion}
-                          </p>
-                        </div>
-                        <span
-                          className={`text-xs px-2 py-0.5 rounded ${
-                            v.estado === "activo"
-                              ? "bg-green-700 text-green-300"
-                              : "bg-gray-700 text-gray-300"
-                          }`}
-                        >
-                          {v.estado}
-                        </span>
-                      </div>
+              {versionesPaginadas.map((v) => {
+                const esVersionActual = v.id === archivoActualId;
 
-                      <div className="mt-2 text-sm text-gray-400">
-                        <p>
-                          <span className="text-white">
-                            {v.extension.toUpperCase()}
-                          </span>{" "}
-                          - {v.nombreOriginal}
+                return (
+                  <div
+                    key={v.id}
+                    className={`bg-gray-800 p-4 rounded-lg shadow border border-gray-700 ${
+                      esVersionActual ? "ring-2 ring-blue-500" : ""
+                    }`}
+                  >
+                    <div className="flex justify-between items-start gap-3">
+                      <div>
+                        <p className="text-white font-semibold text-sm">
+                          v{v.numeroVersion}{" "}
+                          <span className="text-xs text-gray-400">
+                            ({v.extension?.toUpperCase()})
+                          </span>
                         </p>
-                        <p>
-                          {formatearFecha(v.subidoEn)} -{" "}
-                          {formatearTamano(v.tamanioBytes)}
-                        </p>
-                        <p>
-                          Por:{" "}
-                          <span className="text-white">{v.nombreUsuario}</span>
+                        <p className="text-xs text-gray-400 mt-1 break-words">
+                          {v.nombreOriginal}
                         </p>
                       </div>
 
-                      <div className="mt-3 flex gap-2">
-                        <BotonIcono
-                          tipo="ver"
-                          titulo="Ver detalle"
-                          onClick={() => {
-                            if (esVersionActual) {
-                              setMostrarError(true);
-                            } else {
-                              navigate(`/gestor-archivos/archivo/${v.id}`);
-                            }
-                          }}
-                        />
-                        <BotonIcono
-                          tipo="descargar"
-                          titulo="Descargar"
-                          onClick={() => window.open(v.urlTemporal, "_blank")}
-                        />
-                      </div>
+                      <span
+                        className={`text-[11px] px-2 py-0.5 rounded-full whitespace-nowrap ${
+                          v.estado === "activo"
+                            ? "bg-green-800/60 text-green-300"
+                            : v.estado === "reemplazado"
+                            ? "bg-yellow-800/60 text-yellow-200"
+                            : "bg-gray-700 text-gray-200"
+                        }`}
+                      >
+                        {v.estado}
+                      </span>
                     </div>
-                  );
-                })}
-              </div>
 
-              {/* Mobile */}
-              <div className="md:hidden space-y-4">
-                {versiones.map((v) => {
-                  const esVersionActual = v.id === archivoActualId;
-
-                  return (
-                    <div
-                      key={v.id}
-                      className={`bg-gray-800 p-4 rounded-lg shadow border border-gray-700 ${
-                        esVersionActual ? "ring-2 ring-blue-500" : ""
-                      }`}
-                    >
-                      <p className="text-white font-medium mb-1">
-                        v{v.numeroVersion}
+                    <div className="mt-2 text-[11px] text-gray-400 space-y-1">
+                      <p>
+                        {formatearFecha(v.subidoEn)} ·{" "}
+                        {formatearTamano(v.tamanioBytes)}
                       </p>
-                      <p className="text-xs text-gray-400">
-                        {v.extension.toUpperCase()} - {v.nombreOriginal}
+                      <p>
+                        Por:{" "}
+                        <span className="text-white">{v.nombreUsuario}</span>
                       </p>
-                      <p className="text-xs text-gray-400">
-                        {formatearFecha(v.subidoEn)}
-                      </p>
-
-                      <div className="mt-2 flex justify-between items-center">
-                        <span
-                          className={`text-xs px-2 py-0.5 rounded ${
-                            v.estado === "activo"
-                              ? "bg-green-700 text-green-300"
-                              : "bg-gray-700 text-gray-300"
-                          }`}
-                        >
-                          {v.estado}
-                        </span>
-                        <div className="flex gap-2">
-                          <BotonIcono
-                            tipo="ver"
-                            titulo="Ver detalle"
-                            onClick={() => {
-                              if (esVersionActual) {
-                                setMostrarError(true);
-                              } else {
-                                navigate(`/gestor-archivos/archivo/${v.id}`);
-                              }
-                            }}
-                          />
-                          <BotonIcono
-                            tipo="descargar"
-                            titulo="Descargar"
-                            onClick={() => window.open(v.urlTemporal, "_blank")}
-                          />
-                        </div>
-                      </div>
                     </div>
-                  );
-                })}
-              </div>
 
-              {/*──────────────────── Modal de error ────────────────────*/}
-              <ModalError
-                visible={mostrarError}
-                onClose={() => setMostrarError(false)}
-                titulo="Ya estás viendo este archivo"
-                mensaje="Actualmente estás visualizando esta misma versión."
-                textoBoton="Entendido"
-              />
+                    <div className="mt-3 flex justify-end gap-2">
+                      <BotonIcono
+                        tipo="ver"
+                        titulo="Ver detalle"
+                        onClick={() => {
+                          if (esVersionActual) {
+                            setMostrarError(true);
+                          } else {
+                            navigate(`/gestor-archivos/archivo/${v.id}`);
+                          }
+                        }}
+                      />
+                      <BotonIcono
+                        tipo="descargar"
+                        titulo="Descargar"
+                        onClick={() => {
+                          if (v.urlTemporal) {
+                            window.open(v.urlTemporal, "_blank");
+                          } else {
+                            alert("No se pudo obtener el enlace de descarga.");
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
 
-              {/* Paginación */}
+            {/* Modal de error */}
+            <ModalError
+              visible={mostrarError}
+              onClose={() => setMostrarError(false)}
+              titulo="Ya estás viendo este archivo"
+              mensaje="Actualmente estás visualizando esta misma versión."
+              textoBoton="Entendido"
+            />
+
+            {/* Paginación (común a todas las vistas) */}
+            <div className="px-4 pb-4">
               <Paginacion
                 paginaActual={pagina}
                 totalPaginas={totalPaginas}
                 onCambiarPagina={setPagina}
               />
-            </>
-          )}
-        </div>
+            </div>
+          </>
+        )}
       </div>
     </>
   );
