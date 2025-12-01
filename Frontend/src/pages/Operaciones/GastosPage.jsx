@@ -9,7 +9,7 @@ function GastosPage() {
         <h1 className="text-2xl font-bold text-white mb-4 md:pl-25 pl-0">
           Lista de Gastos
         </h1>
-        <section className="max-w-7xl mx-auto w-full">
+        <section className="max-w-full mx-auto w-full">
           <div className="bg-gray-800 shadow-lg rounded-xl overflow-x-auto overflow-y-hidden p-4 sm:p-6">
             {/* Tabla de Gastos */}
             <ListaGastos />
