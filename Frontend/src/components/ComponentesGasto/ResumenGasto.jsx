@@ -1,26 +1,33 @@
 import React from "react";
 
 export default function ResumenGasto({ gasto = {}, onRegistrar }) {
-  const safeValue = (val) => (isNaN(val) ? "0.00" : parseFloat(val).toFixed(2));
-
   const subtotal = parseFloat(gasto.subtotal) || 0;
   const porcentaje_iva = parseFloat(gasto.porcentaje_iva) || 0;
   const tasaCambio = parseFloat(gasto.tasa_cambio) || 0;
 
   const impuesto =
-    gasto.impuesto !== undefined
+    gasto.impuesto !== undefined && gasto.impuesto !== null
       ? parseFloat(gasto.impuesto)
       : subtotal * (porcentaje_iva / 100);
 
   const total =
-    gasto.total !== undefined ? parseFloat(gasto.total) : subtotal + impuesto;
+    gasto.total !== undefined && gasto.total !== null
+      ? parseFloat(gasto.total)
+      : subtotal + impuesto;
 
   const totalBs =
     gasto.moneda === "USD" && tasaCambio > 0 ? total * tasaCambio : null;
 
   const obtenerSimbolo = (moneda) => (moneda === "VES" ? "Bs" : "$");
 
- 
+  const formatearLatam = (val) => {
+    const num = Number(val);
+    if (isNaN(num)) return "0,00";
+    return num.toLocaleString("es-VE", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
 
   return (
     <div className="w-full bg-gray-800 rounded-xl p-6 shadow-md">
@@ -32,28 +39,28 @@ export default function ResumenGasto({ gasto = {}, onRegistrar }) {
         <div className="flex justify-between">
           <span>Subtotal</span>
           <span>
-            {obtenerSimbolo(gasto.moneda)} {safeValue(subtotal)}
+            {obtenerSimbolo(gasto.moneda)} {formatearLatam(subtotal)}
           </span>
         </div>
 
         <div className="flex justify-between">
           <span>IVA ({porcentaje_iva}%)</span>
           <span>
-            {obtenerSimbolo(gasto.moneda)} {safeValue(impuesto)}
+            {obtenerSimbolo(gasto.moneda)} {formatearLatam(impuesto)}
           </span>
         </div>
 
         <div className="flex justify-between font-bold text-white border-t border-gray-700 pt-3">
           <span>Total</span>
           <span>
-            {obtenerSimbolo(gasto.moneda)} {safeValue(total)}
+            {obtenerSimbolo(gasto.moneda)} {formatearLatam(total)}
           </span>
         </div>
 
         {totalBs && (
           <div className="flex justify-between text-green-400">
             <span>Total en Bolívares (VES)</span>
-            <span>Bs. {safeValue(totalBs)}</span>
+            <span>Bs. {formatearLatam(totalBs)}</span>
           </div>
         )}
       </div>
