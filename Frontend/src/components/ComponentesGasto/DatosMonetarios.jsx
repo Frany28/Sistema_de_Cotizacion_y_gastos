@@ -5,6 +5,7 @@ const DatosMonetarios = ({ gasto, setGasto }) => {
   const [tasaCambio, setTasaCambio] = useState("");
   const [montoUSD, setMontoUSD] = useState("");
   const [subtotalTexto, setSubtotalTexto] = useState("");
+  const inputSubtotalRef = useRef(null);
 
   // ───── Helpers de formato LATAM ──────────────────────────────
   // Formatea para mostrar: 1234,5 -> "1.234,50"
@@ -49,24 +50,39 @@ const DatosMonetarios = ({ gasto, setGasto }) => {
   };
 
   // ───── Manejo de cambios de inputs ───────────────────────────
-  const handleChange = (e) => {
-    const { name, value } = e.target;
+  if (name === "subtotal") {
+    const input = inputSubtotalRef.current;
 
-    if (name === "subtotal") {
-      // Formatear visualmente en LATAM
-      const formateado = formatearMontoLatamInput(value);
-      setSubtotalTexto(formateado);
+    // Guardamos la posición actual del cursor ANTES de formatear
+    const cursorPos = input.selectionStart;
 
-      // Guardar versión "pura" con punto decimal
-      const numeroString = convertirLatamANumeroString(formateado);
-      setGasto((prev) => ({
-        ...prev,
-        subtotal: numeroString === "" ? "" : numeroString,
-      }));
-    } else {
-      setGasto((prev) => ({ ...prev, [name]: value }));
-    }
-  };
+    // Formateo visual latam
+    const formateado = formatearMontoLatamInput(value);
+
+    // Actualizamos el texto formateado
+    setSubtotalTexto(formateado);
+
+    // Guardamos valor “puro” (con punto decimal)
+    const numeroString = convertirLatamANumeroString(formateado);
+    setGasto((prev) => ({
+      ...prev,
+      subtotal: numeroString === "" ? "" : numeroString,
+    }));
+
+    // Restaurar posición del cursor en el siguiente ciclo de render
+    setTimeout(() => {
+      const inputActual = inputSubtotalRef.current;
+      if (inputActual) {
+        const nuevaLongitud = formateado.length;
+        const compensacion = nuevaLongitud - value.length;
+
+        inputActual.selectionEnd = inputActual.selectionStart =
+          cursorPos + compensacion;
+      }
+    }, 0);
+
+    return;
+  }
 
   // Sincronizar subtotalTexto cuando venga un valor inicial o edición
   useEffect(() => {
@@ -149,17 +165,13 @@ const DatosMonetarios = ({ gasto, setGasto }) => {
       <div>
         <label className="text-sm mb-1 block text-white">Subtotal</label>
         <input
+          ref={inputSubtotalRef}
           type="text"
           name="subtotal"
           value={subtotalTexto}
           onChange={handleChange}
           placeholder="0,00"
           className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600"
-          onFocus={(e) => {
-            if (e.target.value === "0,00" || e.target.value === "0") {
-              e.target.select();
-            }
-          }}
         />
       </div>
 
