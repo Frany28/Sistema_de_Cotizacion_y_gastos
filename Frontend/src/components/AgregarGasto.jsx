@@ -28,6 +28,7 @@ export default function AgregarGasto({
     moneda: "USD",
     documento: null,
   });
+
   const [tipoGastoSeleccionado, setTipoGastoSeleccionado] = useState(null);
   const [cotizacionSeleccionada, setCotizacionSeleccionada] = useState(null);
 
@@ -42,9 +43,16 @@ export default function AgregarGasto({
   }, [cotizacionSeleccionada]);
 
   const nombreTipo = tipoGastoSeleccionado?.nombre?.toLowerCase() || "";
+
+  // 🔹 NUEVO: detectar explícitamente si es gasto Operativo (id = 1)
+  const esGastoOperativo = tipoGastoSeleccionado?.id === 1;
+
+  // 🔹 Ajustado: incluir Operativo dentro de los tipos que requieren proveedor
   const esProveedor =
+    esGastoOperativo ||
     nombreTipo.includes("proveedor") ||
     nombreTipo.includes("servicio prestado");
+
   const esRentable = tipoGastoSeleccionado?.rentable === 1;
 
   const handleRegistrar = () => {
@@ -70,7 +78,7 @@ export default function AgregarGasto({
           }}
         />
 
-        {/* 2. Selector de Proveedor (solo si aplica) */}
+        {/* 2. Selector de Proveedor (ahora también para Operativo) */}
         {esProveedor && (
           <ProveedorSelector
             proveedores={proveedores}

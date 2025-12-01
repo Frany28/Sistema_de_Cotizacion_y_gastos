@@ -79,6 +79,26 @@ export const validarRegistro = async (req, res, next) => {
     validarCampoNumericoOpcional(cotizacion_id, "cotizacion_id");
     validarCampoNumericoOpcional(tasa_cambio, "tasa_cambio");
 
+    // Regla especial: si el tipo de gasto es Operativo (id = 1), el proveedor es obligatorio
+    if (tipo_gasto_id && !isNaN(tipo_gasto_id)) {
+      const [[tipoGasto]] = await db.query(
+        "SELECT id, nombre FROM tipos_gasto WHERE id = ?",
+        [tipo_gasto_id]
+      );
+
+      if (!tipoGasto) {
+        errores.push("El tipo de gasto seleccionado no existe.");
+      } else {
+        const esGastoOperativo = tipoGasto.id === 1; // 1 = Operativo en tu tabla
+
+        if (esGastoOperativo && (!proveedor_id || isNaN(proveedor_id))) {
+          errores.push(
+            "El proveedor es obligatorio para los gastos operativos."
+          );
+        }
+      }
+    }
+
     if (!concepto_pago || typeof concepto_pago !== "string") {
       errores.push("El concepto de pago es requerido y debe ser texto.");
     }

@@ -47,30 +47,35 @@ export const validarGasto = async (req, res, next) => {
 
   /* 2. Reglas dependientes del tipo de gasto */
   if (!errors.length) {
-    // Traer info del tipo de gasto
+    // Traer info del tipo de gasto (incluimos id)
     const [[tipoInfo]] = await db.query(
-      "SELECT nombre, rentable FROM tipos_gasto WHERE id = ?",
+      "SELECT id, nombre, rentable FROM tipos_gasto WHERE id = ?",
       [d.tipo_gasto_id]
     );
 
-    if (!tipoInfo) errors.push("tipo_gasto_id no existe");
+    if (!tipoInfo) {
+      errors.push("tipo_gasto_id no existe");
+    } else {
+      // 1 = Operativo en la tabla tipos_gasto
+      const esGastoOperativo = tipoInfo.id === 1;
 
-    const requiereProveedor =
-      tipoInfo &&
-      (tipoInfo.nombre.includes("Proveedor") ||
+      const requiereProveedor =
+        esGastoOperativo ||
+        tipoInfo.nombre.includes("Proveedor") ||
         tipoInfo.nombre.includes("Servicio") ||
-        tipoInfo.rentable === 1);
+        tipoInfo.rentable === 1;
 
-    // proveedor_id obligatorio si el tipo lo exige
-    if (requiereProveedor) {
-      if (!d.proveedor_id || isNaN(d.proveedor_id))
-        errors.push("proveedor_id es obligatorio para este tipo de gasto");
-    }
+      // proveedor_id obligatorio si el tipo lo exige
+      if (requiereProveedor) {
+        if (!d.proveedor_id || isNaN(d.proveedor_id))
+          errors.push("proveedor_id es obligatorio para este tipo de gasto");
+      }
 
-    // cotizacion_id obligatorio si es rentable
-    if (tipoInfo && tipoInfo.rentable === 1) {
-      if (!d.cotizacion_id || isNaN(d.cotizacion_id))
-        errors.push("cotizacion_id obligatorio para gastos rentables");
+      // cotizacion_id obligatorio si es rentable
+      if (tipoInfo.rentable === 1) {
+        if (!d.cotizacion_id || isNaN(d.cotizacion_id))
+          errors.push("cotizacion_id obligatorio para gastos rentables");
+      }
     }
   }
 

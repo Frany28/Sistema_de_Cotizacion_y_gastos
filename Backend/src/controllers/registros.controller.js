@@ -260,7 +260,7 @@ const crearGasto = async (datos, conn) => {
 
   // Consultar tipo de gasto para determinar si requiere proveedor o cotización
   const [[tipoGasto]] = await conn.query(
-    "SELECT rentable, nombre FROM tipos_gasto WHERE id = ?",
+    "SELECT id, rentable, nombre FROM tipos_gasto WHERE id = ?",
     [tipo_gasto_id]
   );
 
@@ -270,6 +270,7 @@ const crearGasto = async (datos, conn) => {
 
   const esRentable = tipoGasto.rentable === 1;
   const esProveedor =
+    esGastoOperativo ||
     tipoGasto.nombre.includes("Proveedor") ||
     tipoGasto.nombre.includes("Servicio Prestado");
 
