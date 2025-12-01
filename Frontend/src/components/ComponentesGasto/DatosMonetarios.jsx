@@ -1,97 +1,102 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
 
 const DatosMonetarios = ({ gasto, setGasto }) => {
   const [tasaCambio, setTasaCambio] = useState("");
   const [montoUSD, setMontoUSD] = useState("");
-  const [subtotalTexto, setSubtotalTexto] = useState("");
 
-  const inputSubtotalRef = useRef(null);
+  // Guardamos el monto en centavos como entero
+  // Ej: 0,00 -> 0   |  0,08 -> 8   |  8,53 -> 853
+  const [subtotalCentavos, setSubtotalCentavos] = useState(0);
+  const [subtotalTexto, setSubtotalTexto] = useState("0,00");
 
-  // ───── Helpers de formato LATAM ──────────────────────────────
-  const formatearMontoLatamInput = (valor) => {
-    if (!valor) return "";
+  // ───── Inicializar subtotal desde gasto.subtotal (edición) ─────
+  useEffect(() => {
+    if (
+      gasto.subtotal !== undefined &&
+      gasto.subtotal !== null &&
+      gasto.subtotal !== ""
+    ) {
+      const num = Number(gasto.subtotal);
+      if (!isNaN(num)) {
+        const cent = Math.round(num * 100);
+        setSubtotalCentavos(cent);
+      }
+    } else {
+      setSubtotalCentavos(0);
+    }
+  }, [gasto.subtotal]);
 
-    let limpio = valor.replace(/[^\d,]/g, "");
+  // ───── Formatear monto cada vez que cambian los centavos ─────
+  useEffect(() => {
+    const entero = Math.floor(subtotalCentavos / 100);
+    const decimales = subtotalCentavos % 100;
 
-    const partes = limpio.split(",");
-    let enteros = partes[0] || "";
-    let decimales = partes[1] ?? "";
+    const enterosFormateados = entero.toLocaleString("es-VE", {
+      maximumFractionDigits: 0,
+    });
 
-    decimales = decimales.slice(0, 2);
+    const texto = `${enterosFormateados},${decimales
+      .toString()
+      .padStart(2, "0")}`;
+    setSubtotalTexto(texto);
 
-    enteros = enteros.replace(/^0+(?!$)/, "");
-    if (enteros === "") enteros = "0";
+    const numeroString = (subtotalCentavos / 100).toFixed(2); // "1234.56"
+    setGasto((prev) => ({
+      ...prev,
+      subtotal: numeroString,
+    }));
+  }, [subtotalCentavos, setGasto]);
 
-    enteros = enteros.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  // ───── Manejar teclado tipo cajero en el subtotal ─────
+  const handleKeyDownSubtotal = (e) => {
+    const { key } = e;
 
-    return decimales !== "" ? `${enteros},${decimales}` : enteros;
+    // Permitir navegar con Tab/Shift+Tab
+    if (key === "Tab") return;
+
+    // Backspace: quitar último dígito
+    if (key === "Backspace") {
+      e.preventDefault();
+      setSubtotalCentavos((prev) => Math.floor(prev / 10));
+      return;
+    }
+
+    // Ignorar Enter para que no envíe el form
+    if (key === "Enter") {
+      e.preventDefault();
+      return;
+    }
+
+    // Solo aceptar dígitos 0–9
+    if (key >= "0" && key <= "9") {
+      e.preventDefault();
+      const digito = Number(key);
+      setSubtotalCentavos((prev) => {
+        // Evitar que se dispare a infinito: límite razonable
+        const nuevo = prev * 10 + digito;
+        // Máximo 15 dígitos en total (por seguridad)
+        if (nuevo > 999999999999999) return prev;
+        return nuevo;
+      });
+      return;
+    }
+
+    // Bloquear cualquier otra tecla (letras, símbolos, etc.)
+    e.preventDefault();
   };
 
-  const convertirLatamANumeroString = (valor) => {
-    if (!valor) return "";
-    let limpio = valor.replace(/[^\d,]/g, "");
-    const partes = limpio.split(",");
-    let enteros = partes[0] || "0";
-    let decimales = partes[1] ? partes[1].slice(0, 2) : "";
-
-    enteros = enteros.replace(/\./g, "");
-
-    if (decimales === "") return enteros;
-    return `${enteros}.${decimales}`;
-  };
-
-  // ───── Manejo de cambios ─────────────────────────────────────
+  // ───── Manejo general de otros campos ─────
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    if (name === "subtotal") {
-      const input = inputSubtotalRef.current;
-      const cursorPos = input.selectionStart;
-
-      const formateado = formatearMontoLatamInput(value);
-      setSubtotalTexto(formateado);
-
-      const numeroString = convertirLatamANumeroString(formateado);
-      setGasto((prev) => ({
-        ...prev,
-        subtotal: numeroString === "" ? "" : numeroString,
-      }));
-
-      setTimeout(() => {
-        const inputActual = inputSubtotalRef.current;
-        if (inputActual) {
-          const nuevaLongitud = formateado.length;
-          const compensacion = nuevaLongitud - value.length;
-
-          inputActual.selectionStart = inputActual.selectionEnd =
-            cursorPos + compensacion;
-        }
-      }, 0);
-
-      return;
-    }
+    // El subtotal se maneja SOLO con handleKeyDownSubtotal
+    if (name === "subtotal") return;
 
     setGasto((prev) => ({ ...prev, [name]: value }));
   };
 
-  // ───── Sincronizar texto si subtotal cambia externamente ─────
-  useEffect(() => {
-    if (gasto.subtotal !== "" && gasto.subtotal !== null) {
-      const num = Number(gasto.subtotal);
-      if (!isNaN(num)) {
-        const formateado = num.toLocaleString("es-VE", {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        });
-        setSubtotalTexto(formateado);
-      }
-    } else {
-      setSubtotalTexto("");
-    }
-  }, [gasto.subtotal]);
-
-  // ───── Obtener tasa de cambio ────────────────────────────────
+  // ───── Tasa de cambio según moneda ─────
   useEffect(() => {
     const obtenerTasa = async () => {
       if (gasto.moneda === "VES") {
@@ -118,7 +123,7 @@ const DatosMonetarios = ({ gasto, setGasto }) => {
     obtenerTasa();
   }, [gasto.moneda, setGasto]);
 
-  // ───── Calcular equivalente USD ──────────────────────────────
+  // ───── Cálculo de equivalente en USD cuando la moneda es VES ─────
   useEffect(() => {
     if (gasto.moneda === "VES" && gasto.subtotal && tasaCambio) {
       const subtotalNum = Number(gasto.subtotal);
@@ -152,10 +157,10 @@ const DatosMonetarios = ({ gasto, setGasto }) => {
       <div>
         <label className="text-sm mb-1 block text-white">Subtotal</label>
         <input
-          ref={inputSubtotalRef}
           type="text"
           name="subtotal"
           value={subtotalTexto}
+          onKeyDown={handleKeyDownSubtotal}
           onChange={handleChange}
           placeholder="0,00"
           className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600"
