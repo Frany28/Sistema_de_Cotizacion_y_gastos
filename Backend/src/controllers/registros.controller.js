@@ -254,11 +254,15 @@ const crearGasto = async (datos, conn) => {
     tasa_cambio = null,
   } = datos;
 
-  // Calcular impuesto y total
-  const impuesto = subtotal * (porcentaje_iva / 100);
-  const total = subtotal + impuesto;
+  // Normalizar números
+  const subtotalNum = Number(subtotal) || 0;
+  const porcentajeIvaNum = Number(porcentaje_iva) || 0;
 
-  // Consultar tipo de gasto para determinar si requiere proveedor o cotización
+  // Calcular impuesto y total
+  const impuesto = subtotalNum * (porcentajeIvaNum / 100);
+  const total = subtotalNum + impuesto;
+
+  // Consultar tipo de gasto para determinar reglas
   const [[tipoGasto]] = await conn.query(
     "SELECT id, rentable, nombre FROM tipos_gasto WHERE id = ?",
     [tipo_gasto_id]
@@ -268,7 +272,11 @@ const crearGasto = async (datos, conn) => {
     throw new Error("Tipo de gasto no válido.");
   }
 
+  // 🔹 Regla nueva: Operativo (id = 1)
+  const esGastoOperativo = tipoGasto.id === 1;
   const esRentable = tipoGasto.rentable === 1;
+
+  // 🔹 Tipos que requieren proveedor
   const esProveedor =
     esGastoOperativo ||
     tipoGasto.nombre.includes("Proveedor") ||
@@ -295,8 +303,8 @@ const crearGasto = async (datos, conn) => {
       conceptoFinal,
       tipo_gasto_id,
       descripcionFinal,
-      subtotal,
-      porcentaje_iva,
+      subtotalNum,
+      porcentajeIvaNum,
       impuesto,
       total,
       fecha,
@@ -321,9 +329,11 @@ const crearGasto = async (datos, conn) => {
     gastoId,
   ]);
 
+  // Limpiar caches relacionados con gastos/registro
   for (const k of cacheMemoria.keys()) {
-    if (k.startsWith("gastos_") || k === "datosRegistro_v1")
+    if (k.startsWith("gastos_") || k === "datosRegistro_v1") {
       cacheMemoria.del(k);
+    }
   }
 
   return {
