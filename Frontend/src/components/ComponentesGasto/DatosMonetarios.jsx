@@ -1,40 +1,33 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import axios from "axios";
 
 const DatosMonetarios = ({ gasto, setGasto }) => {
   const [tasaCambio, setTasaCambio] = useState("");
   const [montoUSD, setMontoUSD] = useState("");
   const [subtotalTexto, setSubtotalTexto] = useState("");
+
   const inputSubtotalRef = useRef(null);
 
   // ───── Helpers de formato LATAM ──────────────────────────────
-  // Formatea para mostrar: 1234,5 -> "1.234,50"
   const formatearMontoLatamInput = (valor) => {
     if (!valor) return "";
 
-    // Permitimos solo dígitos y coma
     let limpio = valor.replace(/[^\d,]/g, "");
 
-    // Separar parte entera y decimal (solo primera coma cuenta)
     const partes = limpio.split(",");
     let enteros = partes[0] || "";
     let decimales = partes[1] ?? "";
 
-    // Limitar decimales a 2
     decimales = decimales.slice(0, 2);
 
-    // Quitar ceros a la izquierda (excepto si es solo "0")
     enteros = enteros.replace(/^0+(?!$)/, "");
-
     if (enteros === "") enteros = "0";
 
-    // Agregar puntos de miles
     enteros = enteros.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 
     return decimales !== "" ? `${enteros},${decimales}` : enteros;
   };
 
-  // Convierte "1.234,56" -> "1234.56" (string numérico para cálculos/backend)
   const convertirLatamANumeroString = (valor) => {
     if (!valor) return "";
     let limpio = valor.replace(/[^\d,]/g, "");
@@ -42,55 +35,49 @@ const DatosMonetarios = ({ gasto, setGasto }) => {
     let enteros = partes[0] || "0";
     let decimales = partes[1] ? partes[1].slice(0, 2) : "";
 
-    // quitar puntos que se hayan colado por error (por si acaso)
     enteros = enteros.replace(/\./g, "");
 
     if (decimales === "") return enteros;
     return `${enteros}.${decimales}`;
   };
 
-  // ───── Manejo de cambios de inputs ───────────────────────────
-  if (name === "subtotal") {
-    const input = inputSubtotalRef.current;
+  // ───── Manejo de cambios ─────────────────────────────────────
+  const handleChange = (e) => {
+    const { name, value } = e.target;
 
-    // Guardamos la posición actual del cursor ANTES de formatear
-    const cursorPos = input.selectionStart;
+    if (name === "subtotal") {
+      const input = inputSubtotalRef.current;
+      const cursorPos = input.selectionStart;
 
-    // Formateo visual latam
-    const formateado = formatearMontoLatamInput(value);
+      const formateado = formatearMontoLatamInput(value);
+      setSubtotalTexto(formateado);
 
-    // Actualizamos el texto formateado
-    setSubtotalTexto(formateado);
+      const numeroString = convertirLatamANumeroString(formateado);
+      setGasto((prev) => ({
+        ...prev,
+        subtotal: numeroString === "" ? "" : numeroString,
+      }));
 
-    // Guardamos valor “puro” (con punto decimal)
-    const numeroString = convertirLatamANumeroString(formateado);
-    setGasto((prev) => ({
-      ...prev,
-      subtotal: numeroString === "" ? "" : numeroString,
-    }));
+      setTimeout(() => {
+        const inputActual = inputSubtotalRef.current;
+        if (inputActual) {
+          const nuevaLongitud = formateado.length;
+          const compensacion = nuevaLongitud - value.length;
 
-    // Restaurar posición del cursor en el siguiente ciclo de render
-    setTimeout(() => {
-      const inputActual = inputSubtotalRef.current;
-      if (inputActual) {
-        const nuevaLongitud = formateado.length;
-        const compensacion = nuevaLongitud - value.length;
+          inputActual.selectionStart = inputActual.selectionEnd =
+            cursorPos + compensacion;
+        }
+      }, 0);
 
-        inputActual.selectionEnd = inputActual.selectionStart =
-          cursorPos + compensacion;
-      }
-    }, 0);
+      return;
+    }
 
-    return;
-  }
+    setGasto((prev) => ({ ...prev, [name]: value }));
+  };
 
-  // Sincronizar subtotalTexto cuando venga un valor inicial o edición
+  // ───── Sincronizar texto si subtotal cambia externamente ─────
   useEffect(() => {
-    if (
-      gasto.subtotal !== undefined &&
-      gasto.subtotal !== null &&
-      gasto.subtotal !== ""
-    ) {
+    if (gasto.subtotal !== "" && gasto.subtotal !== null) {
       const num = Number(gasto.subtotal);
       if (!isNaN(num)) {
         const formateado = num.toLocaleString("es-VE", {
@@ -104,7 +91,7 @@ const DatosMonetarios = ({ gasto, setGasto }) => {
     }
   }, [gasto.subtotal]);
 
-  // ───── Tasa de cambio según moneda ──────────────────────────
+  // ───── Obtener tasa de cambio ────────────────────────────────
   useEffect(() => {
     const obtenerTasa = async () => {
       if (gasto.moneda === "VES") {
@@ -131,7 +118,7 @@ const DatosMonetarios = ({ gasto, setGasto }) => {
     obtenerTasa();
   }, [gasto.moneda, setGasto]);
 
-  // ───── Cálculo de equivalente en USD cuando la moneda es VES ─
+  // ───── Calcular equivalente USD ──────────────────────────────
   useEffect(() => {
     if (gasto.moneda === "VES" && gasto.subtotal && tasaCambio) {
       const subtotalNum = Number(gasto.subtotal);
@@ -198,7 +185,14 @@ const DatosMonetarios = ({ gasto, setGasto }) => {
             </label>
             <input
               type="text"
-              value={tasaCambio}
+              value={
+                tasaCambio
+                  ? Number(tasaCambio).toLocaleString("es-VE", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })
+                  : ""
+              }
               readOnly
               className="w-full p-2 rounded bg-gray-700 border border-gray-600 text-gray-400"
             />
