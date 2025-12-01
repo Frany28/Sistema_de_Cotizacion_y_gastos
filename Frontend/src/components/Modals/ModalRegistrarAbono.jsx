@@ -6,7 +6,6 @@ import { DollarSign, Paperclip } from "lucide-react";
 import ModalExito from "../Modals/ModalExito";
 import ModalError from "../Modals/ModalError";
 
-
 const dolarApi = axios.create();
 
 export default function ModalRegistrarAbono({
@@ -14,7 +13,6 @@ export default function ModalRegistrarAbono({
   onCancel,
   onRefreshTotals,
 }) {
-
   const [form, setForm] = useState({
     metodo_pago: "EFECTIVO",
     banco_id: "",
@@ -47,7 +45,6 @@ export default function ModalRegistrarAbono({
       .then((res) => setSaldoPendiente(parseFloat(res.data.saldo)));
   }, [cuentaId]);
 
- 
   useEffect(() => {
     if (form.metodo_pago !== "TRANSFERENCIA") return;
     const candidatos = bancosDisponibles[form.moneda_pago] || [];
@@ -78,7 +75,6 @@ export default function ModalRegistrarAbono({
       .finally(() => setCargandoBancos(false));
   }, [form.metodo_pago, form.moneda_pago]);
 
-  
   useEffect(() => {
     if (form.moneda_pago !== "VES") {
       setForm((f) => ({ ...f, tasa_cambio: "" }));
@@ -385,7 +381,10 @@ export default function ModalRegistrarAbono({
                       type="text"
                       value={
                         saldoPendiente != null
-                          ? `$${saldoPendiente.toFixed(2)}`
+                          ? `USD ${saldoPendiente.toLocaleString("es-VE", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}`
                           : ""
                       }
                       readOnly

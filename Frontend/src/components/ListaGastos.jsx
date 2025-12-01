@@ -315,19 +315,25 @@ function ListaGastos() {
     setPage(1);
   };
 
-  const formatearMonto = (valor, moneda, tasa) => {
+  // En ListaGastos.jsx
+  const formatearMonto = (valor, moneda) => {
     if (valor === null || valor === undefined) return "—";
 
-    const num = parseFloat(valor);
-    if (isNaN(num)) return "—";
+    const numero = Number(valor);
+    if (Number.isNaN(numero)) return "—";
 
+    const formatoLatam = new Intl.NumberFormat("es-VE", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
+    // OJO: aquí solo formateamos, NO multiplicamos por tasaCambio.
     if (moneda === "VES") {
-      // si tasa viene null o 0 asumimos 1 para no romper la vista
-      const tc = parseFloat(tasa) || 1;
-      return `${(num * tc).toFixed(2)} BS`;
+      return `${formatoLatam.format(numero)} BS`;
     }
+
     // USD u otra moneda
-    return `$${num.toFixed(2)}`;
+    return `${formatoLatam.format(numero)} $`;
   };
 
   // Renderizado condicional
@@ -459,27 +465,20 @@ function ListaGastos() {
                       ? gasto.proveedor
                       : "N/A"}
                   </td>
-                  <td>{gasto.concepto_pago || "—"}</td>
-                  <td>
-                    {formatearMonto(
-                      gasto.subtotal,
-                      gasto.moneda,
-                      gasto.tasa_cambio
-                    )}
+                  <td className="px-4 py-3 max-w-[220px] truncate">
+                    {gasto.concepto_pago || "—"}
                   </td>
-                  <td className="px-5 py-3">
-                    {formatearMonto(
-                      gasto.impuesto,
-                      gasto.moneda,
-                      gasto.tasa_cambio
-                    )}
+
+                  <td className="px-4 py-3 max-w-[140px] truncate">
+                    {formatearMonto(gasto.subtotal, gasto.moneda)}
                   </td>
-                  <td>
-                    {formatearMonto(
-                      gasto.total,
-                      gasto.moneda,
-                      gasto.tasa_cambio
-                    )}
+
+                  <td className="px-4 py-3 max-w-[140px] truncate">
+                    {formatearMonto(gasto.subtotal, gasto.moneda)}
+                  </td>
+
+                  <td className="px-4 py-3 max-w-[140px] truncate">
+                    {formatearMonto(gasto.subtotal, gasto.moneda)}
                   </td>
                   <td>{gasto.sucursal || "—"}</td>
 
@@ -599,7 +598,7 @@ function ListaGastos() {
               <div className="flex justify-between items-start">
                 <div>
                   <h3 className="font-medium text-white">{gasto.codigo}</h3>
-                  <p className="text-sm text-gray-400">
+                  <p className="text-sm text-gray-400 max-w-[180px] truncate">
                     {gasto.proveedor && gasto.proveedor.trim() !== ""
                       ? gasto.proveedor
                       : "N/A"}
@@ -629,40 +628,28 @@ function ListaGastos() {
                     })}
                   </span>
                 </div>
-                <div>
+                <div className="col-span-2">
                   <span className="text-gray-400">Concepto:</span>
-                  <span className="text-white ml-1">
+                  <span className="text-white ml-1 block truncate">
                     {gasto.concepto_pago || "—"}
                   </span>
                 </div>
                 <div>
                   <span className="text-gray-400">Subtotal:</span>
-                  <span className="text-white ml-1">
-                    {formatearMonto(
-                      gasto.subtotal,
-                      gasto.moneda,
-                      gasto.tasa_cambio
-                    )}
+                  <span className="text-white ml-1 block truncate">
+                    {formatearMonto(gasto.subtotal, gasto.moneda)}
                   </span>
                 </div>
                 <div>
                   <span className="text-gray-400">Impuesto:</span>
-                  <span className="text-white ml-1">
-                    {formatearMonto(
-                      gasto.impuesto,
-                      gasto.moneda,
-                      gasto.tasa_cambio
-                    )}
+                  <span className="text-white ml-1 block truncate">
+                    {formatearMonto(gasto.subtotal, gasto.moneda)}
                   </span>
                 </div>
                 <div className="col-span-2">
                   <span className="text-gray-400">Total:</span>
-                  <span className="text-white ml-1 font-semibold">
-                    {formatearMonto(
-                      gasto.total,
-                      gasto.moneda,
-                      gasto.tasa_cambio
-                    )}
+                  <span className="text-white ml-1 font-semibold block truncate">
+                    {formatearMonto(gasto.subtotal, gasto.moneda)}
                   </span>
                 </div>
                 <div>
@@ -811,31 +798,19 @@ function ListaGastos() {
                 <div className="flex justify-between">
                   <span className="text-gray-400">Subtotal:</span>
                   <span className="text-white">
-                    {formatearMonto(
-                      gasto.subtotal,
-                      gasto.moneda,
-                      gasto.tasa_cambio
-                    )}
+                    {formatearMonto(gasto.subtotal, gasto.moneda)}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Impuesto:</span>
                   <span className="text-white">
-                    {formatearMonto(
-                      gasto.impuesto,
-                      gasto.moneda,
-                      gasto.tasa_cambio
-                    )}
+                    {formatearMonto(gasto.subtotal, gasto.moneda)}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Total:</span>
                   <span className="text-white font-semibold">
-                    {formatearMonto(
-                      gasto.total,
-                      gasto.moneda,
-                      gasto.tasa_cambio
-                    )}
+                    {formatearMonto(gasto.subtotal, gasto.moneda)}
                   </span>
                 </div>
                 <div className="flex justify-between">
