@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import api from "../../api/index";
 import { motion, AnimatePresence } from "framer-motion";
 import { PlusSquare } from "lucide-react";
@@ -20,12 +20,107 @@ export default function ModalAñadirServicioProducto({
     porcentaje_iva: "",
   });
 
+  const [precioCentavos, setPrecioCentavos] = useState(0);
+  const [precioTexto, setPrecioTexto] = useState("0,00");
+
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [serverError, setServerError] = useState("");
 
+  // ───── Sincronizar form.precio y texto visible a partir de centavos ─────
+  useEffect(() => {
+    const entero = Math.floor(precioCentavos / 100);
+    const decimales = precioCentavos % 100;
+
+    const enterosFormateados = entero.toLocaleString("es-VE", {
+      maximumFractionDigits: 0,
+    });
+
+    const texto = `${enterosFormateados},${decimales
+      .toString()
+      .padStart(2, "0")}`;
+    setPrecioTexto(texto);
+
+    const numeroString = (precioCentavos / 100).toFixed(2); // "1234.56"
+    setForm((prev) => ({
+      ...prev,
+      precio: numeroString,
+    }));
+  }, [precioCentavos]);
+
+  // ───── Inicializar precioCentavos si algún día editas con valor existente ─────
+  useEffect(() => {
+    if (
+      form.precio !== undefined &&
+      form.precio !== null &&
+      form.precio !== ""
+    ) {
+      const num = Number(form.precio);
+      if (!isNaN(num)) {
+        const cent = Math.round(num * 100);
+        setPrecioCentavos(cent);
+      }
+    } else {
+      setPrecioCentavos(0);
+    }
+  }, []); // solo al montar
+
+  const handleKeyDownPrecio = (e) => {
+    const { key } = e;
+
+    // Permitir tabulaciones
+    if (key === "Tab") return;
+
+    // Evitar envío con Enter
+    if (key === "Enter") {
+      e.preventDefault();
+      return;
+    }
+
+    // Backspace: quitar último dígito
+    if (key === "Backspace") {
+      e.preventDefault();
+      setPrecioCentavos((prev) => Math.floor(prev / 10));
+      if (errors.precio) {
+        setErrors((prev) => ({ ...prev, precio: "" }));
+      }
+      if (serverError) setServerError("");
+      return;
+    }
+
+    // Digitos 0–9
+    if (key >= "0" && key <= "9") {
+      e.preventDefault();
+      const digito = Number(key);
+      setPrecioCentavos((prev) => {
+        const nuevo = prev * 10 + digito;
+        // Límite razonable para evitar desbordes (999.999.999.999,99)
+        if (nuevo > 99999999999999) return prev;
+        return nuevo;
+      });
+      if (errors.precio) {
+        setErrors((prev) => ({ ...prev, precio: "" }));
+      }
+      if (serverError) setServerError("");
+      return;
+    }
+
+    // Cualquier otra tecla se bloquea
+    e.preventDefault();
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
+
+    // El precio se maneja SOLO por handleKeyDownPrecio
+    if (name === "precio") {
+      if (errors.precio) {
+        setErrors({ ...errors, precio: "" });
+      }
+      if (serverError) setServerError("");
+      return;
+    }
+
     setForm({ ...form, [name]: value });
 
     if (errors[name]) {
@@ -52,9 +147,9 @@ export default function ModalAñadirServicioProducto({
         "La descripción debe tener entre 5 y 255 caracteres.";
     }
 
-    if (!form.precio) {
+    if (!form.precio && form.precio !== 0) {
       newErrors.precio = "El precio es requerido";
-    } else if (!regexPrecio.test(form.precio)) {
+    } else if (!regexPrecio.test(String(form.precio))) {
       newErrors.precio = "El precio debe ser un número válido (ej. 10.99)";
     } else if (parseFloat(form.precio) <= 0) {
       newErrors.precio = "El precio debe ser mayor a cero";
@@ -138,10 +233,13 @@ export default function ModalAñadirServicioProducto({
         setForm({
           nombre: "",
           descripcion: "",
-          precio: "",
+          precio: 0,
           tipo: "servicio",
-          cantidad_actual: "",
+          cantidad_actual: 0,
+          porcentaje_iva: "",
         });
+        setPrecioCentavos(0);
+        setPrecioTexto("0,00");
         onCancel();
       }
     } catch (error) {
@@ -239,13 +337,11 @@ export default function ModalAñadirServicioProducto({
                     Precio
                   </label>
                   <input
-                    type="number"
+                    type="text"
                     name="precio"
-                    value={form.precio}
+                    value={precioTexto}
+                    onKeyDown={handleKeyDownPrecio}
                     onChange={handleChange}
-                    pattern="^\d+(\.\d{1,2})?$"
-                    step="0.01"
-                    min="0"
                     className="text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-500 text-white"
                     required
                   />
@@ -253,6 +349,7 @@ export default function ModalAñadirServicioProducto({
                     <p className="text-red-500 text-sm">{errors.precio}</p>
                   )}
                 </div>
+
                 <div className="col-span-2 sm:col-span-1">
                   <label className="block mb-2 text-sm font-medium  text-white">
                     Tipo de Impuesto

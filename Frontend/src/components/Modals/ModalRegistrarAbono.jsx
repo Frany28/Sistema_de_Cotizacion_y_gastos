@@ -6,8 +6,6 @@ import { DollarSign, Paperclip } from "lucide-react";
 import ModalExito from "../Modals/ModalExito";
 import ModalError from "../Modals/ModalError";
 
-// ➜ El backend toma el id del usuario desde la sesión;
-// esta vista ya no necesita recibir ni enviar usuarioId.
 
 const dolarApi = axios.create();
 
@@ -16,9 +14,7 @@ export default function ModalRegistrarAbono({
   onCancel,
   onRefreshTotals,
 }) {
-  /* --------------------------------------------------
-   *  Estado
-   * -------------------------------------------------- */
+
   const [form, setForm] = useState({
     metodo_pago: "EFECTIVO",
     banco_id: "",
@@ -28,6 +24,7 @@ export default function ModalRegistrarAbono({
     comprobante: null,
     fecha_abono: new Date().toISOString().split("T")[0],
   });
+
   const [archivo, setArchivo] = useState(null);
   const [saldoPendiente, setSaldoPendiente] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -38,9 +35,10 @@ export default function ModalRegistrarAbono({
   const [bancosDisponibles, setBancosDisponibles] = useState({});
   const [cargandoBancos, setCargandoBancos] = useState(false);
 
-  /* --------------------------------------------------
-   * 1. Cargar saldo pendiente de la cuenta
-   * -------------------------------------------------- */
+  // Monto tipo cajero: centavos y texto LATAM
+  const [montoCentavos, setMontoCentavos] = useState(0);
+  const [montoTexto, setMontoTexto] = useState("0,00");
+
   useEffect(() => {
     if (!cuentaId) return;
 
@@ -49,16 +47,13 @@ export default function ModalRegistrarAbono({
       .then((res) => setSaldoPendiente(parseFloat(res.data.saldo)));
   }, [cuentaId]);
 
-  /* Ajustar banco al cambiar de moneda */
+ 
   useEffect(() => {
     if (form.metodo_pago !== "TRANSFERENCIA") return;
     const candidatos = bancosDisponibles[form.moneda_pago] || [];
     setForm((f) => ({ ...f, banco_id: candidatos[0]?.id || "" }));
   }, [form.moneda_pago, bancosDisponibles, form.metodo_pago]);
 
-  /* --------------------------------------------------
-   * 2. Cargar bancos disponibles cuando el método es TRANSFERENCIA
-   * -------------------------------------------------- */
   useEffect(() => {
     if (form.metodo_pago !== "TRANSFERENCIA") {
       setBancosDisponibles({});
@@ -83,9 +78,7 @@ export default function ModalRegistrarAbono({
       .finally(() => setCargandoBancos(false));
   }, [form.metodo_pago, form.moneda_pago]);
 
-  /* --------------------------------------------------
-   * 3. Obtener tasa oficial cuando la moneda es VES
-   * -------------------------------------------------- */
+  
   useEffect(() => {
     if (form.moneda_pago !== "VES") {
       setForm((f) => ({ ...f, tasa_cambio: "" }));
@@ -97,27 +90,104 @@ export default function ModalRegistrarAbono({
       .get("https://ve.dolarapi.com/v1/dolares/oficial")
       .then((res) => {
         const t = res.data?.promedio;
-        if (t) setForm((f) => ({ ...f, tasa_cambio: t.toFixed(4) }));
+        if (t) {
+          const tRed = Number(t).toFixed(2);
+          setForm((f) => ({ ...f, tasa_cambio: tRed }));
+        }
       })
       .catch(() => setError("No se pudo obtener la tasa del día."));
   }, [form.moneda_pago]);
 
   /* --------------------------------------------------
-   * 4. Calcular equivalente en USD cuando sea necesario
+   * 4. Sincronizar montoTexto y form.monto_abonado desde montoCentavos
+   * -------------------------------------------------- */
+  useEffect(() => {
+    const entero = Math.floor(montoCentavos / 100);
+    const decimales = montoCentavos % 100;
+
+    const enterosFormateados = entero.toLocaleString("es-VE", {
+      maximumFractionDigits: 0,
+    });
+
+    const texto = `${enterosFormateados},${decimales
+      .toString()
+      .padStart(2, "0")}`;
+    setMontoTexto(texto);
+
+    const numeroString = (montoCentavos / 100).toFixed(2); // "1234.56"
+    setForm((prev) => ({
+      ...prev,
+      monto_abonado: numeroString,
+    }));
+  }, [montoCentavos]);
+
+  /* --------------------------------------------------
+   * 5. Calcular equivalente en USD cuando sea necesario
    * -------------------------------------------------- */
   useEffect(() => {
     if (form.moneda_pago === "VES" && form.tasa_cambio && form.monto_abonado) {
-      setMontoUSD((form.monto_abonado / form.tasa_cambio).toFixed(2));
+      const montoNum = parseFloat(form.monto_abonado);
+      const tasaNum = parseFloat(form.tasa_cambio);
+      if (!isNaN(montoNum) && !isNaN(tasaNum) && tasaNum > 0) {
+        setMontoUSD((montoNum / tasaNum).toFixed(2));
+      } else {
+        setMontoUSD("");
+      }
     } else {
       setMontoUSD("");
     }
   }, [form.moneda_pago, form.tasa_cambio, form.monto_abonado]);
 
   /* --------------------------------------------------
-   * 5. Handlers
+   * 6. Handlers
    * -------------------------------------------------- */
+  const handleKeyDownMonto = (e) => {
+    const { key } = e;
+
+    // Permitir tabulación
+    if (key === "Tab") return;
+
+    // Evitar submit por Enter
+    if (key === "Enter") {
+      e.preventDefault();
+      return;
+    }
+
+    // Backspace: quitar último dígito
+    if (key === "Backspace") {
+      e.preventDefault();
+      setMontoCentavos((prev) => Math.floor(prev / 10));
+      if (error) setError("");
+      return;
+    }
+
+    // Solo dígitos 0–9
+    if (key >= "0" && key <= "9") {
+      e.preventDefault();
+      const digito = Number(key);
+      setMontoCentavos((prev) => {
+        const nuevo = prev * 10 + digito;
+        // límite razonable (999.999.999.999,99)
+        if (nuevo > 99999999999999) return prev;
+        return nuevo;
+      });
+      if (error) setError("");
+      return;
+    }
+
+    // Cualquier otra tecla se bloquea
+    e.preventDefault();
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
+
+    // El monto se maneja solo con handleKeyDownMonto
+    if (name === "monto_abonado") {
+      if (error) setError("");
+      return;
+    }
+
     setForm({ ...form, [name]: value });
     setError("");
 
@@ -192,7 +262,7 @@ export default function ModalRegistrarAbono({
   };
 
   /* --------------------------------------------------
-   * 6. UI
+   * 7. UI
    * -------------------------------------------------- */
   return (
     <AnimatePresence mode="wait">
@@ -307,7 +377,6 @@ export default function ModalRegistrarAbono({
                     </div>
                   )}
 
-                  {/* Resto de los campos... */}
                   <div>
                     <label className="block text-sm text-white">
                       Saldo Pendiente (USD)
@@ -323,19 +392,22 @@ export default function ModalRegistrarAbono({
                       className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600"
                     />
                   </div>
+
                   <div>
                     <label className="block text-sm text-white">
                       Monto a abonar
                     </label>
                     <input
-                      type="number"
+                      type="text"
                       name="monto_abonado"
-                      value={form.monto_abonado}
+                      value={montoTexto}
+                      onKeyDown={handleKeyDownMonto}
                       onChange={handleChange}
                       className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600"
                       required
                     />
                   </div>
+
                   <div>
                     <label className="block text-sm text-white">Moneda</label>
                     <select
@@ -348,6 +420,7 @@ export default function ModalRegistrarAbono({
                       <option value="VES">VES</option>
                     </select>
                   </div>
+
                   {form.moneda_pago === "VES" && (
                     <>
                       <div>
@@ -356,7 +429,17 @@ export default function ModalRegistrarAbono({
                         </label>
                         <input
                           type="text"
-                          value={form.tasa_cambio}
+                          value={
+                            form.tasa_cambio
+                              ? Number(form.tasa_cambio).toLocaleString(
+                                  "es-VE",
+                                  {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  }
+                                )
+                              : ""
+                          }
                           readOnly
                           className="w-full p-2 mt-1 rounded bg-gray-700 text-white border border-gray-600"
                         />
@@ -402,11 +485,11 @@ export default function ModalRegistrarAbono({
                           name="comprobante"
                           accept="application/pdf,image/*"
                           onChange={handleFileChange}
-                          required // ← obligatorio solo aquí
+                          required
                           className="block w-full text-sm text-gray-200
-                   file:mr-4 file:py-2 file:px-4 file:rounded
-                   file:border-0 file:text-sm file:font-semibold
-                   file:bg-gray-600 file:text-white hover:file:bg-gray-500"
+                           file:mr-4 file:py-2 file:px-4 file:rounded
+                           file:border-0 file:text-sm file:font-semibold
+                           file:bg-gray-600 file:text-white hover:file:bg-gray-500"
                         />
                         <Paperclip className="w-5 h-5 text-gray-400" />
                       </div>
