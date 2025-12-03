@@ -36,6 +36,20 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
     return formatoLatam.format(numero);
   };
 
+  const mostrarTasaCambio = (valor) => {
+    if (valor === undefined || valor === null) return "-";
+
+    const numero = Number(valor);
+    if (Number.isNaN(numero)) return "-";
+
+    const formatoLatam = new Intl.NumberFormat("es-VE", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
+    return formatoLatam.format(numero);
+  };
+
   const handleDescargar = async () => {
     try {
       setDescargando(true);
@@ -161,10 +175,11 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
                     <p>
                       <span className="text-gray-400">Tasa de cambio:</span>{" "}
                       <span className="font-medium">
-                        {gasto.tasa_cambio || "-"} BS
+                        {mostrarTasaCambio(gasto.tasa_cambio)} BS
                       </span>
                     </p>
                   )}
+
                   <p>
                     <span className="text-gray-400">IVA:</span>{" "}
                     <span className="font-medium">
@@ -226,25 +241,31 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
                   <tbody>
                     <tr className="border-b border-gray-600 last:border-0">
                       <td className="p-3 font-medium">{gasto.concepto_pago}</td>
+
                       {isBolivares && (
-                        <td className="p-3">{gasto.tasa_cambio || "N/A"} BS</td>
+                        <td className="p-3">
+                          {mostrarTasaCambio(gasto.tasa_cambio)} BS
+                        </td>
                       )}
+
+                      {/* Subtotal */}
                       <td className="p-3 text-right font-medium">
                         {isBolivares
                           ? `${mostrarMonto(gasto.subtotal)} BS`
                           : `$${mostrarMonto(gasto.subtotal)}`}
                       </td>
+
+                      {/* Impuesto */}
                       <td className="p-3 text-right font-medium">
                         {isBolivares
                           ? `${mostrarMonto(gasto.impuesto)} BS`
                           : `$${mostrarMonto(gasto.impuesto)}`}
                       </td>
+
+                      {/* Total */}
                       <td className="p-3 text-right font-medium text-blue-400">
                         {isBolivares
-                          ? `${mostrarMonto(
-                              gasto.total,
-                              gasto.tasa_cambio || 1
-                            )} BS`
+                          ? `${mostrarMonto(gasto.total)} BS`
                           : `$${mostrarMonto(gasto.total)}`}
                       </td>
                     </tr>
@@ -260,29 +281,25 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
                       <span>Subtotal:</span>
                       <span className="font-medium">
                         {isBolivares
-                          ? `${mostrarMonto(
-                              gasto.subtotal * gasto.tasa_cambio
-                            )} BS`
+                          ? `${mostrarMonto(gasto.subtotal)} BS`
                           : `$${mostrarMonto(gasto.subtotal)}`}
                       </span>
                     </div>
+
                     <div className="flex justify-between text-sm">
                       <span>IVA:</span>
                       <span className="font-medium">
                         {isBolivares
-                          ? `${mostrarMonto(
-                              gasto.impuesto * gasto.tasa_cambio
-                            )} BS`
+                          ? `${mostrarMonto(gasto.impuesto)} BS`
                           : `$${mostrarMonto(gasto.impuesto)}`}
                       </span>
                     </div>
+
                     <div className="pt-2 border-t border-gray-600 flex justify-between text-base font-bold text-blue-400">
                       <span>Total:</span>
                       <span>
                         {isBolivares
-                          ? `${mostrarMonto(
-                              gasto.total * gasto.tasa_cambio
-                            )} BS`
+                          ? `${mostrarMonto(gasto.total)} BS`
                           : `$${mostrarMonto(gasto.total)}`}
                       </span>
                     </div>

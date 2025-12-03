@@ -468,20 +468,19 @@ function ListaGastos() {
                   <td className="px-4 py-3 max-w-[220px] truncate">
                     {gasto.concepto_pago || "—"}
                   </td>
-
+                  // Subtotal (correcto, se queda igual)
                   <td className="px-4 py-3 max-w-[140px] truncate">
                     {formatearMonto(gasto.subtotal, gasto.moneda)}
                   </td>
-
+                  // Impuesto
                   <td className="px-4 py-3 max-w-[140px] truncate">
-                    {formatearMonto(gasto.subtotal, gasto.moneda)}
+                    {formatearMonto(gasto.impuesto, gasto.moneda)}
                   </td>
-
+                  // Monto Total
                   <td className="px-4 py-3 max-w-[140px] truncate">
-                    {formatearMonto(gasto.subtotal, gasto.moneda)}
+                    {formatearMonto(gasto.total, gasto.moneda)}
                   </td>
                   <td>{gasto.sucursal || "—"}</td>
-
                   <td className="px-5 py-3">
                     <span
                       className={`px-2 py-1 rounded-full text-xs ${
@@ -643,13 +642,13 @@ function ListaGastos() {
                 <div>
                   <span className="text-gray-400">Impuesto:</span>
                   <span className="text-white ml-1 block truncate">
-                    {formatearMonto(gasto.subtotal, gasto.moneda)}
+                    {formatearMonto(gasto.impuesto, gasto.moneda)}
                   </span>
                 </div>
                 <div className="col-span-2">
                   <span className="text-gray-400">Total:</span>
                   <span className="text-white ml-1 font-semibold block truncate">
-                    {formatearMonto(gasto.subtotal, gasto.moneda)}
+                    {formatearMonto(gasto.total, gasto.moneda)}
                   </span>
                 </div>
                 <div>
@@ -804,13 +803,13 @@ function ListaGastos() {
                 <div className="flex justify-between">
                   <span className="text-gray-400">Impuesto:</span>
                   <span className="text-white">
-                    {formatearMonto(gasto.subtotal, gasto.moneda)}
+                    {formatearMonto(gasto.impuesto, gasto.moneda)}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Total:</span>
                   <span className="text-white font-semibold">
-                    {formatearMonto(gasto.subtotal, gasto.moneda)}
+                    {formatearMonto(gasto.total, gasto.moneda)}
                   </span>
                 </div>
                 <div className="flex justify-between">
