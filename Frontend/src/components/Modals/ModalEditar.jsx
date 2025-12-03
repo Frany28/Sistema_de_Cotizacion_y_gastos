@@ -14,8 +14,30 @@ export default function ModalEditar({
   const [form, setForm] = useState(datosIniciales || {});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const formatearMonedaCajero = (valor) => {
+    const soloDigitos = String(valor).replace(/\D/g, "");
+
+    if (!soloDigitos) return "0,00";
+
+    const entero = soloDigitos.replace(/^0+/, "") || "0";
+    const longitud = entero.length;
+
+    if (longitud === 1) {
+      return `0,0${entero}`;
+    }
+
+    if (longitud === 2) {
+      return `0,${entero}`;
+    }
+
+    const parteEntera = entero.slice(0, -2);
+    const parteDecimal = entero.slice(-2);
+    const conMiles = parteEntera.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+
+    return `${conMiles},${parteDecimal}`;
+  };
+
   useEffect(() => {
-   
     setForm(datosIniciales || {});
   }, [datosIniciales]);
 
@@ -97,6 +119,28 @@ export default function ModalEditar({
                       );
                     })}
                   </select>
+                ) : campo.type === "moneda" ? (
+                  <input
+                    type="text"
+                    name={campo.name}
+                    value={
+                      form[campo.name] === undefined || form[campo.name] === ""
+                        ? "0,00"
+                        : formatearMonedaCajero(form[campo.name])
+                    }
+                    onChange={(e) => {
+                      const valorFormateado = formatearMonedaCajero(
+                        e.target.value
+                      );
+                      setForm((prev) => ({
+                        ...prev,
+                        [campo.name]: valorFormateado,
+                      }));
+                    }}
+                    placeholder={campo.placeholder || "0,00"}
+                    className="w-full px-3 py-2 border  border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white"
+                    disabled={isSubmitting}
+                  />
                 ) : (
                   <input
                     type={campo.type || "text"}

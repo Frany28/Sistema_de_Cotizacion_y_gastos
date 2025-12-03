@@ -1,4 +1,3 @@
-// src/components/ListaServiciosProductos.jsx
 import React, { useEffect, useState, useCallback } from "react";
 import BotonIcono from "./general/BotonIcono";
 import BotonAgregar from "../components/general/BotonAgregar";
@@ -30,6 +29,22 @@ function ListaServiciosProductos() {
   const [mostrarModal, setMostrarModal] = useState(false);
   const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false);
   const [tipoFiltro, setTipoFiltro] = useState("todos");
+  
+  const formatoLatam = (valor) => {
+    return Number(valor)
+      .toFixed(2)
+      .replace(".", ",")
+      .replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  };
+
+  const normalizarPrecio = (valor) => {
+    if (typeof valor === "number") return valor;
+    if (!valor) return 0;
+    const sinPuntos = String(valor).replace(/\./g, "");
+    const conPuntoDecimal = sinPuntos.replace(",", ".");
+    return parseFloat(conPuntoDecimal);
+  };
+
   const [modalExitoData, setModalExitoData] = useState({
     visible: false,
     titulo: "",
@@ -139,7 +154,7 @@ function ListaServiciosProductos() {
     try {
       const datosValidados = {
         ...datos,
-        precio: parseFloat(datos.precio),
+        precio: normalizarPrecio(datos.precio),
         estado: datos.estado || "activo",
       };
 
@@ -357,7 +372,7 @@ function ListaServiciosProductos() {
                   {item.nombre}
                 </td>
                 <td className="px-4 py-3">{item.descripcion}</td>
-                <td className="px-4 py-3">${Number(item.precio).toFixed(2)}</td>
+                <td className="px-4 py-3">${formatoLatam(item.precio)}</td>
                 <td className="px-4 py-3 capitalize">{item.tipo}</td>
                 <td className="px-4 py-3 capitalize">
                   <span
@@ -427,7 +442,7 @@ function ListaServiciosProductos() {
                 <div>
                   <span className="text-gray-400">Precio:</span>
                   <span className="text-white ml-1">
-                    ${Number(item.precio).toFixed(2)}
+                    ${formatoLatam(item.precio)}
                   </span>
                 </div>
                 <div>
@@ -491,7 +506,7 @@ function ListaServiciosProductos() {
               </div>
               <div className="flex flex-col items-end">
                 <span className="text-sm font-semibold text-white">
-                  ${Number(item.precio).toFixed(2)}
+                  ${formatoLatam(item.precio)}
                 </span>
                 <span
                   className={`px-2 py-1 rounded-full text-xs mt-1 ${
@@ -605,9 +620,10 @@ function ListaServiciosProductos() {
             {
               name: "precio",
               label: "Precio",
-              type: "number",
+              type: "moneda",
               className: "sm:col-span-1",
             },
+
             {
               name: "porcentaje_iva",
               label: "Tipo de Impuesto",
