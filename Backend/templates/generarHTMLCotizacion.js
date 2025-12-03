@@ -133,9 +133,16 @@ export function generarHTMLCotizacion(datos, modo = "preview") {
       </head>
       <body class="bg-white p-8 text-gray-900 border-2">
 
-        <!-- ENCABEZADO -->
-        <div class="flex justify-between mb-6">
-          <div>
+                <!-- ENCABEZADO CON LOGO -->
+        <div class="flex justify-between mb-6 items-center">
+
+          <!-- Logo -->
+          <div class="mr-4">
+            ${logo ? `<img src="${logo}" class="h-14 object-contain" />` : ""}
+          </div>
+
+          <!-- Datos principales -->
+          <div class="flex-1">
             ${
               modo === "final" && codigo
                 ? `<h2 class="text-xl font-bold mb-2">Cotización: ${codigo}</h2>`
@@ -161,19 +168,11 @@ export function generarHTMLCotizacion(datos, modo = "preview") {
                 : ""
             }
             <h2 class="font-bold text-sm">
-              DECLARANTE: <span class="bg-yellow-300">${
-                declarante || "N/A"
-              }</span>
+              DECLARANTE: <span class="bg-yellow-300">${declarante || "N/A"}</span>
             </h2>
           </div>
-          <div class="text-right text-sm">
-            <p>OPERACIÓN: ${operacion || "N/A"}</p>
-            <p>MERCANCÍA: ${mercancia || "N/A"}</p>
-            <p>BL: ${bl || "N/A"}</p>
-            <p>CONTENEDOR: ${contenedor || "N/A"}</p>
-            <p>PUERTO DE DESCARGA: ${puerto || "N/A"}</p>
-          </div>
         </div>
+
 
         <!-- OBSERVACIONES -->
         ${

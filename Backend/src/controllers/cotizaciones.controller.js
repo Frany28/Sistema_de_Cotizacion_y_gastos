@@ -5,10 +5,28 @@ import puppeteer from "puppeteer-core";
 import chromium from "@sparticuz/chromium";
 import cacheMemoria from "../utils/cacheMemoria.js";
 import { generarHTMLCotizacion } from "../../templates/generarHTMLCotizacion.js";
+import fs from "fs";
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const archivoActual = fileURLToPath(import.meta.url);
+const carpetaActual = path.dirname(archivoActual);
+
+let logo = null;
+try {
+  const rutaLogo = path.join(
+    carpetaActual,
+    "..",
+    "..",
+    "styles",
+    "Logo Operaciones Logisticas Falcon.jpg"
+  );
+  const bufferLogo = fs.readFileSync(rutaLogo);
+  logo = `data:image/jpeg;base64,${bufferLogo.toString("base64")}`;
+} catch (err) {
+  console.error("No se pudo cargar el logo en Cotización:", err);
+}
 
 // Obtener todas las cotizaciones con detalle
 
@@ -512,7 +530,6 @@ export const editarCotizacion = async (req, res) => {
   }
 };
 
-
 export const deleteCotizacion = async (req, res) => {
   const { id } = req.params;
 
@@ -632,6 +649,7 @@ export const generarPDFCotizacion = async (req, res) => {
       impuesto: cotizacion.impuesto,
       total: cotizacion.total,
       detalle: detalleCotizacion,
+      logo,
     };
 
     const html = generarHTMLCotizacion(datosCotizacion, "final");
