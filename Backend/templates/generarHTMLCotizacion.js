@@ -20,6 +20,7 @@ export function generarHTMLCotizacion(datos, modo = "preview") {
     subtotal = 0,
     impuesto = 0,
     total = 0,
+    logo = null, 
   } = datos || {};
 
   const clienteMostrar = cliente || cliente_nombre || "N/A";
@@ -168,7 +169,9 @@ export function generarHTMLCotizacion(datos, modo = "preview") {
                 : ""
             }
             <h2 class="font-bold text-sm">
-              DECLARANTE: <span class="bg-yellow-300">${declarante || "N/A"}</span>
+              DECLARANTE: <span class="bg-yellow-300">${
+                declarante || "N/A"
+              }</span>
             </h2>
           </div>
         </div>
