@@ -203,6 +203,14 @@ function ListaCotizaciones() {
     page * limit
   );
 
+  const mostrarMontoLatam = (valor) => {
+    const numero = Number(valor) || 0;
+    return numero
+      .toFixed(2) // dos decimales
+      .replace(".", ",") // punto → coma
+      .replace(/\B(?=(\d{3})+(?!\d))/g, "."); // miles con punto
+  };
+
   return (
     <div>
       <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 p-4 gap-2">
@@ -296,15 +304,12 @@ function ListaCotizaciones() {
                   {new Date(c.fecha).toLocaleDateString("es-VE")}
                 </td>
                 <td className="px-4 py-3">{c.sucursal || "—"}</td>
-                <td className="px-4 py-3">
-                  ${parseFloat(c.subtotal).toFixed(2)}
-                </td>
-                <td className="px-4 py-3">
-                  ${parseFloat(c.impuesto).toFixed(2)}
-                </td>
+                <td className="px-4 py-3">${mostrarMontoLatam(c.subtotal)}</td>
+                <td className="px-4 py-3">${mostrarMontoLatam(c.impuesto)}</td>
                 <td className="px-4 py-3 font-semibold">
-                  ${parseFloat(c.total).toFixed(2)}
+                  ${mostrarMontoLatam(c.total)}
                 </td>
+
                 <td className="px-4 py-3">
                   <span
                     className={`px-2 py-1 rounded-full text-xs ${
@@ -474,19 +479,19 @@ function ListaCotizaciones() {
                 <div>
                   <span className="text-gray-400">Subtotal:</span>
                   <span className="text-white ml-1">
-                    ${parseFloat(c.subtotal).toFixed(2)}
+                    ${mostrarMontoLatam(c.subtotal)}
                   </span>
                 </div>
                 <div>
                   <span className="text-gray-400">IVA:</span>
                   <span className="text-white ml-1">
-                    ${parseFloat(c.impuesto).toFixed(2)}
+                    ${mostrarMontoLatam(c.impuesto)}
                   </span>
                 </div>
                 <div>
                   <span className="text-gray-400">Total:</span>
                   <span className="text-white ml-1 font-semibold">
-                    ${parseFloat(c.total).toFixed(2)}
+                    ${mostrarMontoLatam(c.total)}
                   </span>
                 </div>
               </div>
@@ -643,7 +648,7 @@ function ListaCotizaciones() {
               <div className="col-span-2">
                 <span className="text-gray-400">Total:</span>
                 <span className="text-white ml-1 font-semibold">
-                  ${parseFloat(c.total).toFixed(2)}
+                  ${mostrarMontoLatam(c.total)}
                 </span>
               </div>
             </div>

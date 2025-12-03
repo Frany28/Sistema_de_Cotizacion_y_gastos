@@ -26,7 +26,24 @@ export function generarHTMLOrdenPago(datos = {}, modo = "preview") {
     updatedAt = null,
   } = datos;
 
-  // Formateo de fechas
+  /* === NUEVA FUNCIÓN PARA DAR FORMATO LATAM === */
+  function formatearLatam(valor, monedaLabel) {
+    if (valor === null || valor === undefined || valor === "N/A") return "N/A";
+
+    const numero = Number(valor);
+    if (isNaN(numero)) return "N/A";
+
+    const formato = numero.toLocaleString("es-VE", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
+    if (!monedaLabel) return formato;
+
+    return monedaLabel === "VES" ? `Bs ${formato}` : `$ ${formato}`;
+  }
+
+  /* === Formateo de fechas === */
   const fechaMostrar = fechaSolicitud
     ? new Date(fechaSolicitud).toLocaleDateString("es-VE")
     : "Sin especificar";
@@ -44,7 +61,7 @@ export function generarHTMLOrdenPago(datos = {}, modo = "preview") {
     }
   );
 
-  // Info del gasto
+  /* === Gasto asociado === */
   const gastoInfo =
     gasto && Object.keys(gasto).length > 0
       ? `
@@ -57,11 +74,12 @@ export function generarHTMLOrdenPago(datos = {}, modo = "preview") {
           <p><span class="font-semibold">Tipo:</span> ${
             gasto.tipoGasto || "—"
           }</p>
-          <p><span class="font-semibold">Total:</span> $${parseFloat(
-            gasto.total || 0
-          ).toFixed(2)} ${gasto.moneda || ""}</p>
+          <p><span class="font-semibold">Total:</span> ${formatearLatam(
+            gasto.total || 0,
+            gasto.moneda === "VES" ? "VES" : "USD"
+          )}</p>
           <p><span class="font-semibold">Tasa Cambio:</span> ${
-            gasto.tasaCambio || "N/A"
+            tasaCambio !== null ? formatearLatam(tasaCambio, null) : "N/A"
           }</p>
           ${
             gasto.documentoUrl
@@ -73,7 +91,7 @@ export function generarHTMLOrdenPago(datos = {}, modo = "preview") {
     `
       : "";
 
-  // Info del proveedor
+  /* === Proveedor === */
   const proveedorInfo = proveedor
     ? `
       <div class="bg-gray-50 p-3 rounded border mb-4">
@@ -92,7 +110,7 @@ export function generarHTMLOrdenPago(datos = {}, modo = "preview") {
     `
     : "";
 
-  // Observaciones
+  /* === Observaciones === */
   const observacionesHtml = observaciones
     ? `
       <div class="mb-4 p-3 bg-gray-50 rounded border">
@@ -102,11 +120,12 @@ export function generarHTMLOrdenPago(datos = {}, modo = "preview") {
     `
     : "";
 
-  // Comprobante
+  /* === Comprobante === */
   const comprobanteLink = comprobanteUrl
     ? `<a href="${comprobanteUrl}" target="_blank" class="text-blue-600 underline">Ver comprobante</a>`
     : "—";
 
+  /* === RETORNO HTML COMPLETO === */
   return `
     <html lang="es">
     <head>
@@ -138,20 +157,22 @@ export function generarHTMLOrdenPago(datos = {}, modo = "preview") {
     <body class="bg-white p-6 text-gray-800 text-xs">
       <div class="max-w-4xl mx-auto border rounded-lg overflow-hidden">
 
-        <!-- Encabezado -->
-        <div class="bg-blue-800 text-white p-4">
-          <div class="flex justify-between items-start">
-            <div class="header-accent pl-3">
-              ${
-                modo === "final"
-                  ? `<h1 class="text-xl font-bold">ORDEN DE PAGO #${codigo}</h1>`
-                  : `<h1 class="text-xl font-bold">BORRADOR DE ORDEN DE PAGO</h1>`
-              }
-              <p class="text-xs opacity-90">Generado el ${fechaGeneracion}</p>
-            </div>
-            <div class="bg-white text-blue-800 px-3 py-1 rounded text-xs font-bold">
-              ${estado.toUpperCase()}
-            </div>
+        <!-- ENCABEZADO CON LOGO NUEVO -->
+        <div class="bg-blue-800 text-white p-4 flex justify-between items-center">
+          <div class="header-accent pl-3">
+            ${
+              modo === "final"
+                ? `<h1 class="text-xl font-bold">ORDEN DE PAGO #${codigo}</h1>`
+                : `<h1 class="text-xl font-bold">BORRADOR DE ORDEN DE PAGO</h1>`
+            }
+            <p class="text-xs opacity-90">Generado el ${fechaGeneracion}</p>
+          </div>
+
+          <!-- LOGO (tú remplazas la ruta) -->
+          <img src="../styles/Logo Operaciones Logisticas Falcon.jpg" class="h-12 object-contain" />
+          
+          <div class="bg-white text-blue-800 px-3 py-1 rounded text-xs font-bold">
+            ${estado.toUpperCase()}
           </div>
         </div>
 
@@ -175,7 +196,7 @@ export function generarHTMLOrdenPago(datos = {}, modo = "preview") {
               ${
                 metodoPago?.toUpperCase() === "TRANSFERENCIA"
                   ? `<p><span class="font-semibold">Banco:</span> ${banco}</p>
-                   <p><span class="font-semibold">Referencia:</span> ${referencia}</p>`
+                     <p><span class="font-semibold">Referencia:</span> ${referencia}</p>`
                   : ""
               }
               <p><span class="font-semibold">Comprobante:</span> ${comprobanteLink}</p>
@@ -207,28 +228,34 @@ export function generarHTMLOrdenPago(datos = {}, modo = "preview") {
               </tr>
               <tr>
                 <td class="py-1 px-3 border">Tasa de Cambio</td>
-                <td class="py-1 px-3 border amount-cell">${
-                  tasaCambio !== null ? tasaCambio : "N/A"
-                }</td>
+                <td class="py-1 px-3 border amount-cell">${formatearLatam(
+                  tasaCambio,
+                  null
+                )}</td>
               </tr>
               <tr>
                 <td class="py-1 px-3 border">Monto Solicitado</td>
-                <td class="py-1 px-3 border amount-cell font-semibold">$${parseFloat(
-                  montoSolicitado
-                ).toFixed(2)}</td>
+                <td class="py-1 px-3 border amount-cell font-semibold">${formatearLatam(
+                  montoSolicitado,
+                  moneda === "VES" ? "VES" : "USD"
+                )}</td>
               </tr>
               <tr>
                 <td class="py-1 px-3 border">Monto Pagado</td>
-                <td class="py-1 px-3 border amount-cell">$${parseFloat(
-                  montoPagado
-                ).toFixed(2)}</td>
+                <td class="py-1 px-3 border amount-cell font-semibold">${formatearLatam(
+                  montoPagado,
+                  moneda === "VES" ? "VES" : "USD"
+                )}</td>
               </tr>
               <tr>
                 <td class="py-1 px-3 border font-semibold">Diferencia</td>
                 <td class="py-1 px-3 border amount-cell font-semibold ${
                   diferencia === 0 ? "text-green-600" : "text-red-600"
                 }">
-                  $${parseFloat(diferencia).toFixed(2)}
+                  ${formatearLatam(
+                    diferencia,
+                    moneda === "VES" ? "VES" : "USD"
+                  )}
                 </td>
               </tr>
             </tbody>

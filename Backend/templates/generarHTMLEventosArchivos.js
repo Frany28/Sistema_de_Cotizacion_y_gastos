@@ -1,4 +1,3 @@
-// === CARGA DE LOGO CON DOBLE ESTRATEGIA: file:// ABSOLUTO o data:base64 ===
 import fs from "fs";
 import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
