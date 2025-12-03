@@ -1,3 +1,5 @@
+import logo from "../styles/Logo Operaciones Logisticas Falcon.jpg";
+
 export function generarHTMLOrdenPago(datos = {}, modo = "preview") {
   const {
     codigo = "N/A",
@@ -168,8 +170,8 @@ export function generarHTMLOrdenPago(datos = {}, modo = "preview") {
             <p class="text-xs opacity-90">Generado el ${fechaGeneracion}</p>
           </div>
 
-          <!-- LOGO (tú remplazas la ruta) -->
-          <img src="../styles/Logo Operaciones Logisticas Falcon.jpg" class="h-12 object-contain" />
+          <!-- AQUÍ USAMOS LA VARIABLE IMPORTADA -->
+          <img src="${logo}" class="h-12 object-contain" />
           
           <div class="bg-white text-blue-800 px-3 py-1 rounded text-xs font-bold">
             ${estado.toUpperCase()}
