@@ -83,7 +83,7 @@ export default function ModalEditarGasto({
     ) || { nombre: "", rentable: 0 };
     if (!tipoObj.nombre) return;
 
-    const requiereProveedor = /proveedor|servicio\s+prestado/i.test(
+    const requiereProveedor = /proveedor|servicio\s+prestado|operativo/i.test(
       tipoObj.nombre
     );
     const requiereCotizacion =
