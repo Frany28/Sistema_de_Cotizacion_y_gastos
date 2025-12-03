@@ -1,4 +1,3 @@
-// src/components/ListaSolicitudesPago.jsx
 import React, { useEffect, useState, useCallback } from "react";
 import api from "../api/index";
 import BotonIcono from "./general/BotonIcono";
@@ -92,7 +91,7 @@ function ListaSolicitudesPago() {
     const { data } = await api.get(`/solicitudes-pago/${id}`, {
       withCredentials: true,
     });
-    return data; // ← contiene monto_total, tasa_cambio, banco_nombre...
+    return data; // contiene monto_total, tasa_cambio, banco_nombre...
   };
 
   // Estados para modales de feedback
@@ -114,10 +113,14 @@ function ListaSolicitudesPago() {
     setModalErrorData({ visible: true, titulo, mensaje, textoBoton });
   };
 
-  // Carga inicial de datos
-  useEffect(() => {
-    fetchSolicitudes();
-  }, [fetchSolicitudes]);
+  // Helper para formato LATAM
+  const mostrarMontoLatam = (valor) => {
+    const numero = Number(valor) || 0;
+    return numero
+      .toFixed(2) // dos decimales
+      .replace(".", ",") // punto → coma
+      .replace(/\B(?=(\d{3})+(?!\d))/g, "."); // miles con punto
+  };
 
   // Manejo de búsqueda
   const manejarBusqueda = (e) => {
@@ -284,7 +287,9 @@ function ListaSolicitudesPago() {
           {/* Cuerpo de tabla */}
           <tbody>
             {solicitudesPaginadas.map((solicitud) => {
-              const saldoPendiente = solicitud.monto - solicitud.pagado;
+              const monto = Number(solicitud.monto) || 0;
+              const pagado = Number(solicitud.pagado) || 0;
+              const saldoPendiente = monto - pagado;
               const isBolivares = solicitud.moneda === "VES";
 
               return (
@@ -302,18 +307,18 @@ function ListaSolicitudesPago() {
                   <td className="px-5 py-3">{solicitud.moneda}</td>
                   <td className="px-5 py-3">
                     {isBolivares
-                      ? `${parseFloat(solicitud.monto).toFixed(2)} BS`
-                      : `$${parseFloat(solicitud.monto).toFixed(2)}`}
+                      ? `${mostrarMontoLatam(monto)} BS`
+                      : `$${mostrarMontoLatam(monto)}`}
                   </td>
                   <td className="px-5 py-3">
                     {isBolivares
-                      ? `${parseFloat(solicitud.pagado).toFixed(2)} BS`
-                      : `$${parseFloat(solicitud.pagado).toFixed(2)}`}
+                      ? `${mostrarMontoLatam(pagado)} BS`
+                      : `$${mostrarMontoLatam(pagado)}`}
                   </td>
                   <td className="px-5 py-3">
                     {isBolivares
-                      ? `${saldoPendiente.toFixed(2)} BS`
-                      : `$${saldoPendiente.toFixed(2)}`}
+                      ? `${mostrarMontoLatam(saldoPendiente)} BS`
+                      : `$${mostrarMontoLatam(saldoPendiente)}`}
                   </td>
                   <td className="px-5 py-3">
                     <span
@@ -363,7 +368,9 @@ function ListaSolicitudesPago() {
       <div className="hidden md:block lg:hidden">
         <div className="grid grid-cols-1 gap-4 p-2">
           {solicitudesPaginadas.map((solicitud) => {
-            const saldoPendiente = solicitud.monto - solicitud.pagado;
+            const monto = Number(solicitud.monto) || 0;
+            const pagado = Number(solicitud.pagado) || 0;
+            const saldoPendiente = monto - pagado;
             const isBolivares = solicitud.moneda === "VES";
 
             return (
@@ -409,24 +416,24 @@ function ListaSolicitudesPago() {
                     <span className="text-gray-400">Total:</span>
                     <span className="text-white ml-1">
                       {isBolivares
-                        ? `${parseFloat(solicitud.monto).toFixed(2)} BS`
-                        : `$${parseFloat(solicitud.monto).toFixed(2)}`}
+                        ? `${mostrarMontoLatam(monto)} BS`
+                        : `$${mostrarMontoLatam(monto)}`}
                     </span>
                   </div>
                   <div>
                     <span className="text-gray-400">Pagado:</span>
                     <span className="text-white ml-1">
                       {isBolivares
-                        ? `${parseFloat(solicitud.pagado).toFixed(2)} BS`
-                        : `$${parseFloat(solicitud.pagado).toFixed(2)}`}
+                        ? `${mostrarMontoLatam(pagado)} BS`
+                        : `$${mostrarMontoLatam(pagado)}`}
                     </span>
                   </div>
                   <div>
                     <span className="text-gray-400">Saldo:</span>
                     <span className="text-white ml-1">
                       {isBolivares
-                        ? `${saldoPendiente.toFixed(2)} BS`
-                        : `$${saldoPendiente.toFixed(2)}`}
+                        ? `${mostrarMontoLatam(saldoPendiente)} BS`
+                        : `$${mostrarMontoLatam(saldoPendiente)}`}
                     </span>
                   </div>
                 </div>
@@ -463,7 +470,9 @@ function ListaSolicitudesPago() {
       {/* Vista de tarjetas compactas para móviles */}
       <div className="md:hidden space-y-3 p-2">
         {solicitudesPaginadas.map((solicitud) => {
-          const saldoPendiente = solicitud.monto - solicitud.pagado;
+          const monto = Number(solicitud.monto) || 0;
+          const pagado = Number(solicitud.pagado) || 0;
+          const saldoPendiente = monto - pagado;
           const isBolivares = solicitud.moneda === "VES";
 
           return (
@@ -503,24 +512,24 @@ function ListaSolicitudesPago() {
                   <span className="text-gray-400">Total:</span>
                   <span className="text-white">
                     {isBolivares
-                      ? `${parseFloat(solicitud.monto).toFixed(2)} BS`
-                      : `$${parseFloat(solicitud.monto).toFixed(2)}`}
+                      ? `${mostrarMontoLatam(monto)} BS`
+                      : `$${mostrarMontoLatam(monto)}`}
                   </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-gray-700">
                   <span className="text-gray-400">Pagado:</span>
                   <span className="text-white">
                     {isBolivares
-                      ? `${parseFloat(solicitud.pagado).toFixed(2)} BS`
-                      : `$${parseFloat(solicitud.pagado).toFixed(2)}`}
+                      ? `${mostrarMontoLatam(pagado)} BS`
+                      : `$${mostrarMontoLatam(pagado)}`}
                   </span>
                 </div>
                 <div className="flex justify-between py-1">
                   <span className="text-gray-400">Saldo:</span>
                   <span className="text-white font-semibold">
                     {isBolivares
-                      ? `${saldoPendiente.toFixed(2)} BS`
-                      : `$${saldoPendiente.toFixed(2)}`}
+                      ? `${mostrarMontoLatam(saldoPendiente)} BS`
+                      : `$${mostrarMontoLatam(saldoPendiente)}`}
                   </span>
                 </div>
               </div>

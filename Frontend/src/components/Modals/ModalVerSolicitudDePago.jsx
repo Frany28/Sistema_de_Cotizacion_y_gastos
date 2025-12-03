@@ -240,17 +240,13 @@ export default function ModalVerSolicitudDePago({
                       )}
                       <td className="p-3 text-right font-medium">
                         {isBolivares
-                          ? `${mostrarMonto(
-                              solicitud.monto_total * solicitud.tasa_cambio
-                            )} BS`
+                          ? `${mostrarMonto(solicitud.monto_total)} BS`
                           : `$${mostrarMonto(solicitud.monto_total)}`}
                       </td>
                       <td className="p-3 text-right font-medium text-blue-400">
                         {isPagada
                           ? isBolivares
-                            ? `${mostrarMonto(
-                                solicitud.monto_pagado * solicitud.tasa_cambio
-                              )} BS`
+                            ? `${mostrarMonto(solicitud.monto_pagado)} BS`
                             : `$${mostrarMonto(solicitud.monto_pagado)}`
                           : "-"}
                       </td>
@@ -267,9 +263,7 @@ export default function ModalVerSolicitudDePago({
                       <span>Monto solicitado:</span>
                       <span className="font-medium">
                         {isBolivares
-                          ? `${mostrarMonto(
-                              solicitud.monto_total * solicitud.tasa_cambio
-                            )} BS`
+                          ? `${mostrarMonto(solicitud.monto_total)} BS`
                           : `$${mostrarMonto(solicitud.monto_total)}`}
                       </span>
                     </div>
@@ -279,9 +273,7 @@ export default function ModalVerSolicitudDePago({
                           <span>Monto pagado:</span>
                           <span className="font-medium text-green-400">
                             {isBolivares
-                              ? `${mostrarMonto(
-                                  solicitud.monto_pagado * solicitud.tasa_cambio
-                                )} BS`
+                              ? `${mostrarMonto(solicitud.monto_pagado)} BS`
                               : `$${mostrarMonto(solicitud.monto_pagado)}`}
                           </span>
                         </div>
@@ -297,9 +289,7 @@ export default function ModalVerSolicitudDePago({
                           >
                             {isBolivares
                               ? `${mostrarMonto(
-                                  (solicitud.monto_total -
-                                    solicitud.monto_pagado) *
-                                    solicitud.tasa_cambio
+                                  solicitud.monto_total - solicitud.monto_pagado
                                 )} BS`
                               : `$${mostrarMonto(
                                   solicitud.monto_total - solicitud.monto_pagado
