@@ -22,10 +22,18 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
     gasto.tipo_gasto?.toLowerCase() === "servicio prestado";
   const [descargando, setDescargando] = useState(false);
 
-  const mostrarMonto = (valor, multiplicador = 1) => {
-    if (valor === undefined || valor === null) return "0.00";
-    const num = parseFloat(valor) * (multiplicador ?? 1);
-    return isNaN(num) ? "0.00" : num.toFixed(2);
+  const mostrarMonto = (valor) => {
+    if (valor === undefined || valor === null) return "0,00";
+
+    const numero = Number(valor);
+    if (Number.isNaN(numero)) return "0,00";
+
+    const formatoLatam = new Intl.NumberFormat("es-VE", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
+    return formatoLatam.format(numero);
   };
 
   const handleDescargar = async () => {
@@ -223,18 +231,12 @@ export default function ModalVerGasto({ visible, onClose, gasto }) {
                       )}
                       <td className="p-3 text-right font-medium">
                         {isBolivares
-                          ? `${mostrarMonto(
-                              gasto.subtotal,
-                              gasto.tasa_cambio || 1
-                            )} BS`
+                          ? `${mostrarMonto(gasto.subtotal)} BS`
                           : `$${mostrarMonto(gasto.subtotal)}`}
                       </td>
                       <td className="p-3 text-right font-medium">
                         {isBolivares
-                          ? `${mostrarMonto(
-                              gasto.impuesto,
-                              gasto.tasa_cambio || 1
-                            )} BS`
+                          ? `${mostrarMonto(gasto.impuesto)} BS`
                           : `$${mostrarMonto(gasto.impuesto)}`}
                       </td>
                       <td className="p-3 text-right font-medium text-blue-400">

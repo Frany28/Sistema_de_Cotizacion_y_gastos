@@ -51,6 +51,32 @@ export default function ModalEditarGasto({
     setDocumentoArchivo(e.target.files[0] || null);
   };
 
+  // Formatea mientras escribe (0,00 → 0,08 → 8,50 → 85,00...)
+  const formatearMontoLatam = (valor) => {
+    if (!valor) return "0,00";
+
+    // Eliminar todo lo que NO sea dígito
+    const soloNumeros = valor.replace(/\D/g, "");
+
+    // Si no hay número, devolver formato base
+    if (!soloNumeros) return "0,00";
+
+    // Convertir todo a centavos
+    const numero = parseInt(soloNumeros, 10);
+
+    // Convertir a formato decimal "real"
+    const conDecimales = (numero / 100).toFixed(2);
+
+    // Formato LATAM: miles con punto, decimales con coma
+    return conDecimales.replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  };
+
+  // Convierte "1.234,56" → 1234.56 (para backend)
+  const parsearMontoLatam = (valor) => {
+    if (!valor) return 0;
+    return parseFloat(valor.replace(/\./g, "").replace(",", "."));
+  };
+
   const actualizarCamposVisibles = (tipoGastoId) => {
     const tipoObj = (Array.isArray(tiposGasto) ? tiposGasto : []).find(
       (t) => t.id.toString() === tipoGastoId.toString()
@@ -225,7 +251,7 @@ export default function ModalEditarGasto({
       return setErrorMsg("Debe seleccionar una cotización");
     }
 
-    const sub = parseFloat(form.subtotal);
+    const sub = parsearMontoLatam(form.subtotal);
     if (isNaN(sub) || sub <= 0)
       return setErrorMsg("El subtotal debe ser mayor a 0"), setShowError(true);
 
@@ -261,7 +287,7 @@ export default function ModalEditarGasto({
     }
 
     if (documentoArchivo) {
-      data.append("documento", documentoArchivo); 
+      data.append("documento", documentoArchivo);
     }
 
     // 4 Enviar
@@ -401,12 +427,18 @@ export default function ModalEditarGasto({
                     Subtotal *
                   </label>
                   <input
-                    type="number"
+                    type="text"
                     name="subtotal"
                     value={form.subtotal}
-                    onChange={handleChange}
-                    min="0"
-                    step="0.01"
+                    onChange={(e) => {
+                      const valorFormateado = formatearMontoLatam(
+                        e.target.value
+                      );
+                      setForm((prev) => ({
+                        ...prev,
+                        subtotal: valorFormateado,
+                      }));
+                    }}
                     className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
                     required
                   />
@@ -592,12 +624,24 @@ export default function ModalEditarGasto({
                       Tasa de Cambio (BS/USD) *
                     </label>
                     <input
-                      type="number"
+                      type="text"
                       name="tasa_cambio"
                       value={form.tasa_cambio}
-                      onChange={handleChange}
-                      min="0"
-                      step="0.0001"
+                      onChange={(e) => {
+                        // Permitir solo números y coma/punto
+                        let v = e.target.value.replace(/[^0-9.,]/g, "");
+
+                        // Convertimos cualquier coma a punto para decimales
+                        v = v.replace(",", ".");
+
+                        // Limitar a máximo 2 decimales
+                        if (v.includes(".")) {
+                          const [entero, dec] = v.split(".");
+                          v = entero + "." + dec.slice(0, 2);
+                        }
+
+                        setForm((prev) => ({ ...prev, tasa_cambio: v }));
+                      }}
                       className="w-full px-3 py-2 border rounded-md bg-gray-700 text-white"
                       required
                     />
