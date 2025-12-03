@@ -198,7 +198,9 @@ export const generarPDFSolicitudPago = async (req, res) => {
   res
     .set({
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename=orden_pago_${row.codigo}.pdf`,
+      "Content-Disposition": `inline; filename=orden_pago_${
+        row.codigo || "SIN_CODIGO"
+      }.pdf`,
     })
     .send(pdfBuffer);
 };

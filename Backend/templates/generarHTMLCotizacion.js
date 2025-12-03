@@ -21,10 +21,21 @@ export function generarHTMLCotizacion(datos, modo = "preview") {
     impuesto = 0,
     total = 0,
     logo = null, // 🔹 viene desde el controlador en base64
+    createdAt = null, // 🔹 opcional: fecha de creación desde BD
   } = datos || {};
 
   const clienteMostrar = cliente || cliente_nombre || "N/A";
   const fechaMostrar = fecha_emision || fecha || null;
+
+  // 🔹 Fecha de generación del documento (igual que Orden de Pago)
+  const fechaGeneracion = new Date(createdAt || Date.now()).toLocaleDateString(
+    "es-VE",
+    {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    }
+  );
 
   // --- Cuerpo de la tabla
   let cuerpoTabla = "";
@@ -272,7 +283,7 @@ export function generarHTMLCotizacion(datos, modo = "preview") {
           </div>
 
           <!-- TOTALES -->
-          <div class="px-6 pb-6 flex justify-end">
+          <div class="px-6 pb-4 flex justify-end">
             <div class="w-72">
               <table class="w-full text-xs text-right border-collapse shadow-sm rounded-md overflow-hidden">
                 <tbody>
@@ -303,6 +314,11 @@ export function generarHTMLCotizacion(datos, modo = "preview") {
                 </tbody>
               </table>
             </div>
+          </div>
+
+          <!-- PIE DE PÁGINA (igual estilo que Orden de Pago) -->
+          <div class="bg-gray-100 p-2 text-center text-xs text-gray-500">
+            Documento generado el ${fechaGeneracion}
           </div>
 
         </div>
