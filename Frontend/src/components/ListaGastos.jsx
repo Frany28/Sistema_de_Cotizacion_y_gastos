@@ -468,15 +468,14 @@ function ListaGastos() {
                   <td className="px-4 py-3 max-w-[220px] truncate">
                     {gasto.concepto_pago || "—"}
                   </td>
-                  // Subtotal (correcto, se queda igual)
                   <td className="px-4 py-3 max-w-[140px] truncate">
                     {formatearMonto(gasto.subtotal, gasto.moneda)}
                   </td>
-                  // Impuesto
+  
                   <td className="px-4 py-3 max-w-[140px] truncate">
                     {formatearMonto(gasto.impuesto, gasto.moneda)}
                   </td>
-                  // Monto Total
+              
                   <td className="px-4 py-3 max-w-[140px] truncate">
                     {formatearMonto(gasto.total, gasto.moneda)}
                   </td>
