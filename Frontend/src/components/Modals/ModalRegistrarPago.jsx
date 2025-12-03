@@ -1,4 +1,3 @@
-// src/components/Modals/ModalRegistrarPago.jsx
 import React, { useState, useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, CreditCard } from "lucide-react";
@@ -8,14 +7,20 @@ import ModalError from "./ModalError";
 
 api.defaults.baseURL = import.meta.env.VITE_API_URL;
 
-/**
- * Devuelve la fecha‑hora local actual en formato
- * compatible con <input type="datetime-local"> (YYYY‑MM‑DDTHH:MM).
- */
+/** Fecha local compatible con datetime-local */
 const nowLocalISO = () =>
   new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
     .toISOString()
     .slice(0, 16);
+
+/** 📌 Formato LATAM (punto miles, coma decimales) */
+const formatoLatam = (valor) => {
+  const numero = Number(valor) || 0;
+  return numero
+    .toFixed(2)
+    .replace(".", ",")
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+};
 
 export default function ModalRegistrarPago({
   visible,
@@ -34,29 +39,24 @@ export default function ModalRegistrarPago({
     comprobante: null,
     observaciones: "",
   });
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [modalExito, setModalExito] = useState({ visible: false, mensaje: "" });
   const [modalError, setModalError] = useState({ visible: false, mensaje: "" });
 
-  /**
-   * Referencia para poder resetear el input file cuando el usuario cambie a "Efectivo".
-   */
   const fileInputRef = useRef(null);
 
-  /**
-   * Pre‑carga la fecha actual cada vez que el modal se abre.
-   */
+  /** Precargar fecha actual al abrir */
   useEffect(() => {
     if (visible) {
       setForm((prev) => ({ ...prev, fecha_pago: nowLocalISO() }));
     }
   }, [visible]);
 
-  /**
-   * Carga detalle y bancos disponibles.
-   */
+  /** Cargar detalle y bancos */
   useEffect(() => {
     if (!visible) return;
+
     (async () => {
       try {
         const { data } = await api.get(`/solicitudes-pago/${solicitudId}`, {
@@ -68,7 +68,7 @@ export default function ModalRegistrarPago({
             visible: true,
             mensaje: "Esta solicitud ya está pagada y no se puede modificar.",
           });
-          return; // No cerramos el modal para que el usuario vea el mensaje
+          return;
         }
 
         setDetalle(data);
@@ -93,31 +93,26 @@ export default function ModalRegistrarPago({
     })();
   }, [visible, solicitudId]);
 
+  /** Manejo de cambios */
   const handleChange = (e) => {
     const { name, value, files } = e.target;
     const newForm = { ...form, [name]: files ? files[0] : value };
 
-    // Al cambiar el método de pago, ocultamos/limpiamos campos que no aplican.
-    if (name === "metodo_pago") {
-      if (value === "Efectivo") {
-        newForm.banco_id = "";
-        newForm.comprobante = null;
-        // Resetear el input file visualmente si existía un archivo seleccionado
-        if (fileInputRef.current) {
-          fileInputRef.current.value = "";
-        }
-      }
+    if (name === "metodo_pago" && value === "Efectivo") {
+      newForm.banco_id = "";
+      newForm.comprobante = null;
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
 
     setForm(newForm);
   };
 
+  /** Enviar pago */
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
 
     try {
-      // Si el usuario borró el campo, usamos la fecha actual
       const fechaPago = form.fecha_pago || nowLocalISO();
 
       const formData = new FormData();
@@ -132,7 +127,6 @@ export default function ModalRegistrarPago({
         }
         formData.append("comprobante", form.comprobante, form.comprobante.name);
       } else {
-        // Para efectivo el backend permite referencia vacía, pero enviamos la que el usuario coloque.
         formData.append("referencia_pago", form.referencia_pago);
       }
 
@@ -159,9 +153,12 @@ export default function ModalRegistrarPago({
     }
   };
 
+  /** 📌 Formatear monto pendiente */
   const montoPendiente = detalle
-    ? `${(parseFloat(detalle.monto_total) || 0).toFixed(2)} ${detalle.moneda}`
-    : "0.00";
+    ? `${formatoLatam(detalle.monto_total)} ${
+        detalle.moneda === "VES" ? "Bs" : detalle.moneda
+      }`
+    : "0,00 Bs";
 
   return (
     <>
@@ -191,7 +188,7 @@ export default function ModalRegistrarPago({
 
               <div className="text-center mb-4">
                 <CreditCard className="mx-auto mb-2 text-blue-600 w-10 h-10" />
-                <h3 className="text-1xl font-semibold  text-white">
+                <h3 className="text-1xl font-semibold text-white">
                   Registrar Pago
                 </h3>
               </div>
@@ -199,20 +196,20 @@ export default function ModalRegistrarPago({
               <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
                 {/* Monto pendiente */}
                 <div className="col-span-2">
-                  <label className="block text-sm font-medium  text-gray-300 mb-1">
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
                     Monto a Pagar
                   </label>
                   <input
                     type="text"
                     value={montoPendiente}
                     readOnly
-                    className="w-full px-3 py-2 border  border-gray-600 rounded-md shadow-sm  bg-gray-700  text-white focus:outline-none"
+                    className="w-full px-3 py-2 border border-gray-600 rounded-md shadow-sm bg-gray-700 text-white focus:outline-none"
                   />
                 </div>
 
                 {/* Método de pago */}
                 <div className="col-span-2 sm:col-span-1">
-                  <label className="block text-sm font-medium  text-gray-300 mb-1">
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
                     Método de Pago
                   </label>
                   <select
@@ -220,7 +217,7 @@ export default function ModalRegistrarPago({
                     value={form.metodo_pago}
                     onChange={handleChange}
                     disabled={isSubmitting}
-                    className="cursor-pointer w-full px-3 py-2 border  border-gray-600 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-gray-700 text-white"
+                    className="cursor-pointer w-full px-3 py-2 border border-gray-600 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-gray-700 text-white"
                     required
                   >
                     <option value="">Seleccionar método...</option>
@@ -232,7 +229,7 @@ export default function ModalRegistrarPago({
                 {/* Banco */}
                 {form.metodo_pago !== "Efectivo" && (
                   <div className="col-span-2 sm:col-span-1">
-                    <label className="block text-sm font-medium  text-gray-300 mb-1">
+                    <label className="block text-sm font-medium text-gray-300 mb-1">
                       Banco
                     </label>
                     {detalle ? (
@@ -241,7 +238,8 @@ export default function ModalRegistrarPago({
                         value={form.banco_id}
                         onChange={handleChange}
                         disabled={isSubmitting}
-                        className="cursor-pointer w-full px-3 py-2 border  border-gray-600 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-gray-700 text-white"
+                        className="cursor-pointer w-full px-3 py-2 border border-gray-600 rounded-md shadow-sm 
+                        focus:ring-2 focus:ring-blue-500 focus:outline-none bg-gray-700 text-white"
                         required={form.metodo_pago !== "Efectivo"}
                       >
                         <option value="">Seleccionar banco...</option>
@@ -263,7 +261,7 @@ export default function ModalRegistrarPago({
 
                 {/* Referencia */}
                 <div className="col-span-2 sm:col-span-1">
-                  <label className="block text-sm font-medium  text-gray-300 mb-1">
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
                     Referencia de Pago
                   </label>
                   <input
@@ -277,14 +275,15 @@ export default function ModalRegistrarPago({
                         ? "Ej: Recibo #123"
                         : "Número de transferencia, cheque, etc."
                     }
-                    className="w-full px-3 py-2 border  border-gray-600 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-gray-700 text-white"
+                    className="w-full px-3 py-2 border border-gray-600 rounded-md shadow-sm 
+                    focus:ring-2 focus:ring-blue-500 focus:outline-none bg-gray-700 text-white"
                     required={form.metodo_pago !== "Efectivo"}
                   />
                 </div>
 
-                {/* Fecha de pago */}
+                {/* Fecha */}
                 <div className="col-span-2 sm:col-span-1">
-                  <label className="block text-sm font-medium  text-gray-300 mb-1">
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
                     Fecha de Pago
                   </label>
                   <input
@@ -293,7 +292,8 @@ export default function ModalRegistrarPago({
                     value={form.fecha_pago}
                     onChange={handleChange}
                     disabled={isSubmitting}
-                    className="w-full px-3 py-2 border  border-gray-600 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-gray-700 text-white"
+                    className="w-full px-3 py-2 border border-gray-600 rounded-md shadow-sm 
+                    focus:ring-2 focus:ring-blue-500 focus:outline-none bg-gray-700 text-white"
                     required
                   />
                 </div>
@@ -301,7 +301,7 @@ export default function ModalRegistrarPago({
                 {/* Comprobante */}
                 {form.metodo_pago !== "Efectivo" && (
                   <div className="col-span-2 sm:col-span-1">
-                    <label className="block text-sm font-medium  text-gray-300 mb-1">
+                    <label className="block text-sm font-medium text-gray-300 mb-1">
                       Comprobante (PDF/Imagen)
                     </label>
                     <input
@@ -311,7 +311,12 @@ export default function ModalRegistrarPago({
                       accept="application/pdf,image/*"
                       onChange={handleChange}
                       disabled={isSubmitting}
-                      className="w-full text-sm  text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-gray-700 file:text-gray-300 hover:file:bg-gray-600 focus:outline-none"
+                      className="w-full text-sm text-gray-400 
+                      file:mr-4 file:py-2 file:px-4 
+                      file:rounded-md file:border-0 
+                      file:text-sm file:font-semibold 
+                      file:bg-gray-700 file:text-gray-300 
+                      hover:file:bg-gray-600 focus:outline-none"
                       required={form.metodo_pago !== "Efectivo"}
                     />
                   </div>
@@ -319,7 +324,7 @@ export default function ModalRegistrarPago({
 
                 {/* Observaciones */}
                 <div className="col-span-2 sm:col-span-1">
-                  <label className="block text-sm font-medium  text-gray-300 mb-1">
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
                     Observaciones
                   </label>
                   <textarea
@@ -328,20 +333,22 @@ export default function ModalRegistrarPago({
                     onChange={handleChange}
                     disabled={isSubmitting}
                     rows={3}
-                    className="w-full px-3 py-2 border  border-gray-600 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-gray-700 text-white"
+                    className="w-full px-3 py-2 border border-gray-600 rounded-md shadow-sm 
+                    focus:ring-2 focus:ring-blue-500 focus:outline-none bg-gray-700 text-white"
                   />
                 </div>
 
-                {/* Firma del solicitante */}
+                {/* Firma */}
                 {firmaURL && (
                   <div className="col-span-2 sm:col-span-1">
-                    <label className="block text-sm font-medium  text-gray-300 mb-1">
+                    <label className="block text-sm font-medium text-gray-300 mb-1">
                       Firma del solicitante
                     </label>
                     <img
                       src={firmaURL}
                       alt="Firma del solicitante"
-                      className="border border-gray-300 rounded w-[300px] h-[120px] object-contain bg-white"
+                      className="border border-gray-300 rounded w-[300px] h-[120px] 
+                      object-contain bg-white"
                     />
                   </div>
                 )}
@@ -352,14 +359,16 @@ export default function ModalRegistrarPago({
                     type="button"
                     onClick={onClose}
                     disabled={isSubmitting}
-                    className="cursor-pointer px-5 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                    className="cursor-pointer px-5 py-2 text-sm font-medium text-gray-200 
+                    bg-gray-700 border border-gray-500 rounded-lg hover:bg-gray-600"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className=" cursor-pointer px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 disabled:opacity-50 focus:outline-none"
+                    className="cursor-pointer px-5 py-2 text-sm font-medium 
+                    text-white bg-blue-600 rounded-lg hover:bg-blue-700"
                   >
                     {isSubmitting ? "Registrando..." : "Registrar Pago"}
                   </button>
@@ -370,6 +379,7 @@ export default function ModalRegistrarPago({
         )}
       </AnimatePresence>
 
+      {/* Modal exito */}
       <ModalExito
         visible={modalExito.visible}
         onClose={() => {
@@ -381,6 +391,7 @@ export default function ModalRegistrarPago({
         mensaje={modalExito.mensaje}
       />
 
+      {/* Modal error */}
       <ModalError
         visible={modalError.visible}
         onClose={() => setModalError({ visible: false, mensaje: "" })}
