@@ -7,6 +7,11 @@ import puppeteer from "puppeteer-core";
 import chromium from "@sparticuz/chromium";
 import { generarHTMLOrdenPago } from "../../templates/generarHTMLOrdenDePago.js";
 
+// 🔹 NUEVOS IMPORTS PARA EL LOGO LOCAL
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
 async function firmaToDataUrl(key) {
   if (!key) return null; // sin firma
   const Bucket = process.env.S3_BUCKET;
@@ -70,7 +75,27 @@ export const generarPDFSolicitudPago = async (req, res) => {
     firmaToDataUrl(row.aprueba_firma),
   ]);
 
-  /* ---------- 3. Firmar URLs de comprobante y documento gasto ---------- */
+  /* ---------- 3. Logo local → Base64 ---------- */
+  let logo = null;
+  try {
+    const archivoActual = fileURLToPath(import.meta.url);
+    const carpetaActual = path.dirname(archivoActual);
+    // estamos en Backend/src/controllers → subir a Backend y entrar a styles
+    const rutaLogo = path.join(
+      carpetaActual,
+      "..",
+      "..",
+      "styles",
+      "Logo Operaciones Logisticas Falcon.jpg"
+    );
+    const bufferLogo = fs.readFileSync(rutaLogo);
+    const base64Logo = bufferLogo.toString("base64");
+    logo = `data:image/jpeg;base64,${base64Logo}`;
+  } catch (err) {
+    console.error("No se pudo cargar el logo de Orden de Pago:", err);
+  }
+
+  /* ---------- 4. Firmar URLs de comprobante y documento gasto ---------- */
   let comprobanteUrl = null;
   if (row.ruta_comprobante) {
     comprobanteUrl = await generarUrlPrefirmadaLectura(
@@ -87,10 +112,10 @@ export const generarPDFSolicitudPago = async (req, res) => {
     );
   }
 
-  /* ---------- 4. Calcular diferencia ---------- */
+  /* ---------- 5. Calcular diferencia ---------- */
   const diferencia = (row.monto_total || 0) - (row.monto_pagado || 0);
 
-  /* ---------- 5. Armar objeto para el template ---------- */
+  /* ---------- 6. Armar objeto para el template ---------- */
   const datos = {
     /* cabecera */
     codigo: row.codigo,
@@ -142,11 +167,14 @@ export const generarPDFSolicitudPago = async (req, res) => {
     comprobanteUrl,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+
+    /* 🔹 Logo en base64 para el template */
+    logo,
   };
 
   const html = generarHTMLOrdenPago(datos, "final");
 
-  /* ---------- 6. Puppeteer → PDF ---------- */
+  /* ---------- 7. Puppeteer → PDF ---------- */
   const browser = await puppeteer.launch({
     args: chromium.args,
     defaultViewport: chromium.defaultViewport,
@@ -166,7 +194,7 @@ export const generarPDFSolicitudPago = async (req, res) => {
 
   await browser.close();
 
-  /* ---------- 7. Enviar ---------- */
+  /* ---------- 8. Enviar ---------- */
   res
     .set({
       "Content-Type": "application/pdf",

@@ -1,24 +1,3 @@
-import path from "path";
-import { fileURLToPath } from "url";
-
-const nombreArchivoLogo = "Logo Operaciones Logisticas Falcon.jpg";
-
-// __dirname equivalente en ESM
-const archivoActual = fileURLToPath(import.meta.url);
-const carpetaActual = path.dirname(archivoActual);
-
-// /Backend/src/templates -> /Backend/styles/Logo...
-const rutaLogoAbsoluta = path.join(
-  carpetaActual,
-  "..",
-  "..",
-  "styles",
-  nombreArchivoLogo
-);
-
-// Ruta tipo file:// para que el motor de HTML/PDF pueda cargarla
-const logoUrl = `file://${rutaLogoAbsoluta}`;
-
 export function generarHTMLOrdenPago(datos = {}, modo = "preview") {
   const {
     codigo = "N/A",
@@ -45,6 +24,8 @@ export function generarHTMLOrdenPago(datos = {}, modo = "preview") {
     firmaAprueba = null,
     createdAt = null,
     updatedAt = null,
+    // 🔹 NUEVO: logo en base64 (data URL)
+    logo = null,
   } = datos;
 
   /* === FUNCIÓN FORMATO LATAM === */
@@ -146,6 +127,11 @@ export function generarHTMLOrdenPago(datos = {}, modo = "preview") {
     ? `<a href="${comprobanteUrl}" target="_blank" class="text-blue-600 underline">Ver comprobante</a>`
     : "—";
 
+  /* === Logo (si existe) === */
+  const logoHtml = logo
+    ? `<img src="${logo}" class="h-12 object-contain" />`
+    : "";
+
   /* === HTML === */
   return `
     <html lang="es">
@@ -178,21 +164,23 @@ export function generarHTMLOrdenPago(datos = {}, modo = "preview") {
     <body class="bg-white p-6 text-gray-800 text-xs">
       <div class="max-w-4xl mx-auto border rounded-lg overflow-hidden">
 
-        <!-- ENCABEZADO CON LOGO -->
-        <div class="bg-blue-800 text-white p-4 flex justify-between items-center">
-          <div class="header-accent pl-3">
-            ${
-              modo === "final"
-                ? `<h1 class="text-xl font-bold">ORDEN DE PAGO #${codigo}</h1>`
-                : `<h1 class="text-xl font-bold">BORRADOR DE ORDEN DE PAGO</h1>`
-            }
-            <p class="text-xs opacity-90">Generado el ${fechaGeneracion}</p>
-          </div>
-
-          <img src="${logoUrl}" class="h-12 object-contain" />
-          
-          <div class="bg-white text-blue-800 px-3 py-1 rounded text-xs font-bold">
-            ${estado.toUpperCase()}
+        <!-- ENCABEZADO CON LOGO A UN LADO -->
+        <div class="bg-blue-800 text-white p-4">
+          <div class="flex justify-between items-center gap-4">
+            <div class="flex items-center gap-4">
+              ${logoHtml}
+              <div class="header-accent pl-3">
+                ${
+                  modo === "final"
+                    ? `<h1 class="text-xl font-bold">ORDEN DE PAGO #${codigo}</h1>`
+                    : `<h1 class="text-xl font-bold">BORRADOR DE ORDEN DE PAGO</h1>`
+                }
+                <p class="text-xs opacity-90">Generado el ${fechaGeneracion}</p>
+              </div>
+            </div>
+            <div class="bg-white text-blue-800 px-3 py-1 rounded text-xs font-bold">
+              ${estado.toUpperCase()}
+            </div>
           </div>
         </div>
 
