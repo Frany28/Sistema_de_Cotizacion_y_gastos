@@ -1,4 +1,23 @@
-import logo from "../styles/Logo Operaciones Logisticas Falcon.jpg";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const nombreArchivoLogo = "Logo Operaciones Logisticas Falcon.jpg";
+
+// __dirname equivalente en ESM
+const archivoActual = fileURLToPath(import.meta.url);
+const carpetaActual = path.dirname(archivoActual);
+
+// /Backend/src/templates -> /Backend/styles/Logo...
+const rutaLogoAbsoluta = path.join(
+  carpetaActual,
+  "..",
+  "..",
+  "styles",
+  nombreArchivoLogo
+);
+
+// Ruta tipo file:// para que el motor de HTML/PDF pueda cargarla
+const logoUrl = `file://${rutaLogoAbsoluta}`;
 
 export function generarHTMLOrdenPago(datos = {}, modo = "preview") {
   const {
@@ -28,7 +47,7 @@ export function generarHTMLOrdenPago(datos = {}, modo = "preview") {
     updatedAt = null,
   } = datos;
 
-  /* === NUEVA FUNCIÓN PARA DAR FORMATO LATAM === */
+  /* === FUNCIÓN FORMATO LATAM === */
   function formatearLatam(valor, monedaLabel) {
     if (valor === null || valor === undefined || valor === "N/A") return "N/A";
 
@@ -45,7 +64,7 @@ export function generarHTMLOrdenPago(datos = {}, modo = "preview") {
     return monedaLabel === "VES" ? `Bs ${formato}` : `$ ${formato}`;
   }
 
-  /* === Formateo de fechas === */
+  /* === Fechas === */
   const fechaMostrar = fechaSolicitud
     ? new Date(fechaSolicitud).toLocaleDateString("es-VE")
     : "Sin especificar";
@@ -127,7 +146,7 @@ export function generarHTMLOrdenPago(datos = {}, modo = "preview") {
     ? `<a href="${comprobanteUrl}" target="_blank" class="text-blue-600 underline">Ver comprobante</a>`
     : "—";
 
-  /* === RETORNO HTML COMPLETO === */
+  /* === HTML === */
   return `
     <html lang="es">
     <head>
@@ -159,7 +178,7 @@ export function generarHTMLOrdenPago(datos = {}, modo = "preview") {
     <body class="bg-white p-6 text-gray-800 text-xs">
       <div class="max-w-4xl mx-auto border rounded-lg overflow-hidden">
 
-        <!-- ENCABEZADO CON LOGO NUEVO -->
+        <!-- ENCABEZADO CON LOGO -->
         <div class="bg-blue-800 text-white p-4 flex justify-between items-center">
           <div class="header-accent pl-3">
             ${
@@ -170,8 +189,7 @@ export function generarHTMLOrdenPago(datos = {}, modo = "preview") {
             <p class="text-xs opacity-90">Generado el ${fechaGeneracion}</p>
           </div>
 
-          <!-- AQUÍ USAMOS LA VARIABLE IMPORTADA -->
-          <img src="${logo}" class="h-12 object-contain" />
+          <img src="${logoUrl}" class="h-12 object-contain" />
           
           <div class="bg-white text-blue-800 px-3 py-1 rounded text-xs font-bold">
             ${estado.toUpperCase()}
