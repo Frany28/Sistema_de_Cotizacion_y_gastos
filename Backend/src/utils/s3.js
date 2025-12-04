@@ -324,3 +324,5 @@ export const uploadComprobanteAbono = multer({
     );
   },
 });
+
+console.log("🪣 [DEBUG] Bucket usado por el backend:", process.env.S3_BUCKET);
