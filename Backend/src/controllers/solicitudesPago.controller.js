@@ -13,6 +13,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 async function firmaToDataUrl(key) {
+  console.log("🪣 [DEBUG] Intentando leer del bucket:", process.env.S3_BUCKET);
+  console.log("🪣 [DEBUG] Clave que se intenta leer:", key);
   if (!key) return null; // sin firma
   const Bucket = process.env.S3_BUCKET;
   const { Body } = await s3.send(new GetObjectCommand({ Bucket, Key: key }));
