@@ -1,5 +1,4 @@
 // utils/s3.js
-
 import {
   S3Client,
   GetObjectCommand,
@@ -31,6 +30,8 @@ const slugify = (str) =>
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
+
+console.log("🪣 [DEBUG] Bucket usado por el backend:", process.env.S3_BUCKET);
 
 /*──────────────── Carga rápida en memoria ───────────*/
 export const uploadComprobanteMemoria = multer({
@@ -324,5 +325,3 @@ export const uploadComprobanteAbono = multer({
     );
   },
 });
-
-console.log("🪣 [DEBUG] Bucket usado por el backend:", process.env.S3_BUCKET);
