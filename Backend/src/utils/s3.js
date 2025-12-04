@@ -31,7 +31,7 @@ const slugify = (str) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
 
-console.log("🪣 [DEBUG] Bucket usado por el backend:", process.env.S3_BUCKET);
+console.log("[DEBUG] Bucket usado por el backend:", process.env.S3_BUCKET);
 
 /*──────────────── Carga rápida en memoria ───────────*/
 export const uploadComprobanteMemoria = multer({
