@@ -137,6 +137,8 @@ app.use((req, res, next) => {
   next();
 });
 
+console.log("Bucket en runtime:", process.env.S3_BUCKET);
+
 /* ───── Error handler global ────────────────────────────── */
 app.use(errorHandler);
 

@@ -20,8 +20,8 @@ export function generarHTMLCotizacion(datos, modo = "preview") {
     subtotal = 0,
     impuesto = 0,
     total = 0,
-    logo = null, // 🔹 viene desde el controlador en base64
-    createdAt = null, // 🔹 opcional: fecha de creación desde BD
+    logo = null, 
+    createdAt = null,
   } = datos || {};
 
   const clienteMostrar = cliente || cliente_nombre || "N/A";
