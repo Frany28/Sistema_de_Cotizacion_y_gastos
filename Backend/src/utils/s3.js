@@ -135,14 +135,22 @@ export const uploadFirma = multer({
     key: (req, file, cb) => {
       const extension = file.originalname.split(".").pop();
 
-      // 1) nombre desde body (crearUsuario)
+      // Log para ver qué se va a subir
+      console.log("🖊️ [DEBUG] Subiendo firma. Nombre:", file.originalname);
+      console.log(
+        "🖊️ [DEBUG] Body.nombre:",
+        req.body.nombre,
+        "params.id:",
+        req.params.id
+      );
+
       if (req.body.nombre) {
         const slug = slugify(req.body.nombre);
         const clave = `firmas/${slug}/firma.${extension}`;
+        console.log("🖊️ [DEBUG] Clave final (crearUsuario):", clave);
         return cb(null, clave);
       }
 
-      // 2) nombre desde BD (actualizarUsuario)
       if (req.params.id) {
         db.query("SELECT nombre FROM usuarios WHERE id = ?", [req.params.id])
           .then(([rows]) => {
@@ -150,14 +158,15 @@ export const uploadFirma = multer({
               ? slugify(rows[0].nombre)
               : `usuario-${req.params.id}`;
             const clave = `firmas/${base}/firma.${extension}`;
+            console.log("🖊️ [DEBUG] Clave final (actualizarUsuario):", clave);
             cb(null, clave);
           })
           .catch((err) => cb(err));
-        return; // callback dentro de la promesa
+        return;
       }
 
-      // 3) fallback
       const clave = `firmas/usuario-desconocido/firma.${extension}`;
+      console.log("🖊️ [DEBUG] Clave final (fallback):", clave);
       cb(null, clave);
     },
   }),

@@ -252,6 +252,7 @@ export const actualizarUsuario = async (req, res) => {
 
     // Datos de archivo (si viene nueva firma)
     const firmaKey = req.file?.key ?? null;
+    console.log("🔍 [DEBUG] actualizarUsuario -> firmaKey:", firmaKey);
     const nombreOriginal = req.file?.originalname ?? null;
     const extension = nombreOriginal?.split(".").pop() ?? null;
     const tamanioBytes = req.file?.size ?? null;
