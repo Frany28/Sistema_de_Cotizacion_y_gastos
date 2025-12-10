@@ -14,6 +14,20 @@ const TablaCuentasPorCobrar = ({ clienteId, onRefreshTotals }) => {
   const [mostrarModalError, setMostrarModalError] = useState(false);
   const [mensajeError, setMensajeError] = useState("");
 
+  // 🔹 Formateo numérico LATAM (1.234,56)
+  const formatearMontoLatam = (monto) => {
+    const numero = Number(monto);
+
+    if (Number.isNaN(numero)) {
+      return "0,00";
+    }
+
+    return numero.toLocaleString("es-VE", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
+
   const fetchCuentas = async () => {
     if (!clienteId) {
       setCuentas([]);
@@ -79,10 +93,10 @@ const TablaCuentasPorCobrar = ({ clienteId, onRefreshTotals }) => {
                     {cuenta.codigo}
                   </td>
                   <td className="px-4 py-3 text-white">
-                    ${parseFloat(cuenta.monto).toFixed(2)}
+                    ${formatearMontoLatam(cuenta.monto)}
                   </td>
                   <td className="px-4 py-3 text-white">
-                    ${parseFloat(cuenta.saldo_restante).toFixed(2)}
+                    ${formatearMontoLatam(cuenta.saldo_restante)}
                   </td>
                   <td className="px-4 py-3 capitalize text-white">
                     {cuenta.estado}
@@ -154,13 +168,13 @@ const TablaCuentasPorCobrar = ({ clienteId, onRefreshTotals }) => {
                   <div>
                     <p className="text-xs text-gray-400">Monto</p>
                     <p className="text-white">
-                      ${parseFloat(cuenta.monto).toFixed(2)}
+                      ${formatearMontoLatam(cuenta.monto)}
                     </p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-400">Saldo</p>
                     <p className="text-white">
-                      ${parseFloat(cuenta.saldo_restante).toFixed(2)}
+                      ${formatearMontoLatam(cuenta.saldo_restante)}
                     </p>
                   </div>
                   <div>

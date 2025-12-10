@@ -1,3 +1,5 @@
+// src/components/ComponentesCXC/TotalesCXC.jsx
+
 import React, { useEffect, useState } from "react";
 import api from "../../api/index";
 
@@ -27,8 +29,23 @@ const TotalesCXC = ({ clienteId, refreshKey }) => {
     obtenerTotales();
   }, [clienteId, refreshKey]);
 
-  const formatoMonto = (monto) =>
-    isLoading ? "Cargando..." : monto.toFixed(2);
+  // 🔹 Formateo numérico LATAM (1.234,56)
+  const formatearMontoLatam = (monto) => {
+    if (isLoading) {
+      return "Cargando...";
+    }
+
+    const numero = Number(monto);
+
+    if (Number.isNaN(numero)) {
+      return "0,00";
+    }
+
+    return numero.toLocaleString("es-VE", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
 
   return (
     <div className="mb-6 rounded-xl bg-gray-800 p-4 shadow-md">
@@ -44,7 +61,7 @@ const TotalesCXC = ({ clienteId, refreshKey }) => {
           <input
             type="text"
             readOnly
-            value={formatoMonto(totales.debe)}
+            value={formatearMontoLatam(totales.debe)}
             className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-center text-lg text-white sm:w-32 sm:text-right sm:text-base"
             aria-label="Total debe"
           />
@@ -58,7 +75,7 @@ const TotalesCXC = ({ clienteId, refreshKey }) => {
           <input
             type="text"
             readOnly
-            value={formatoMonto(totales.haber)}
+            value={formatearMontoLatam(totales.haber)}
             className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-center text-lg text-white sm:w-32 sm:text-right sm:text-base"
             aria-label="Total haber"
           />
@@ -72,7 +89,7 @@ const TotalesCXC = ({ clienteId, refreshKey }) => {
           <input
             type="text"
             readOnly
-            value={formatoMonto(totales.saldo)}
+            value={formatearMontoLatam(totales.saldo)}
             className={`w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-center text-lg sm:w-40 sm:text-right sm:text-base ${
               totales.saldo < 0 ? "text-red-400" : "text-green-400"
             }`}
