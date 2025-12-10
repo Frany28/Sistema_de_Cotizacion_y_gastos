@@ -126,6 +126,8 @@ export function makeUploader({ folder, maxSizeMb = 5, allowPdf = false }) {
 }
 
 /*────────────────── Upload de firmas ───────────────*/
+// utils/s3.js
+
 export const uploadFirma = multer({
   storage: multerS3({
     s3,
@@ -134,40 +136,53 @@ export const uploadFirma = multer({
     metadata: (req, file, cb) => cb(null, { fieldName: file.fieldname }),
     key: (req, file, cb) => {
       const extension = file.originalname.split(".").pop();
+      const marcaTiempo = Date.now(); // <- clave única por versión
 
-      // Log para ver qué se va a subir
-      console.log("🖊️ [DEBUG] Subiendo firma. Nombre:", file.originalname);
+      console.log("[DEBUG] Subiendo firma. Nombre:", file.originalname);
       console.log(
-        "🖊️ [DEBUG] Body.nombre:",
+        "[DEBUG] Body.nombre:",
         req.body.nombre,
         "params.id:",
         req.params.id
       );
 
+      // ──────────────────────────────────────────────
+      // 1) Creación de usuario (req.body.nombre existe)
+      // ──────────────────────────────────────────────
       if (req.body.nombre) {
-        const slug = slugify(req.body.nombre);
-        const clave = `firmas/${slug}/firma.${extension}`;
-        console.log("🖊️ [DEBUG] Clave final (crearUsuario):", clave);
-        return cb(null, clave);
+        const nombreSlug = slugify(req.body.nombre);
+        const claveFirma = `firmas/${nombreSlug}/${marcaTiempo}-firma.${extension}`;
+        console.log("[DEBUG] Clave final (crearUsuario):", claveFirma);
+        return cb(null, claveFirma);
       }
 
+      // ──────────────────────────────────────────────
+      // 2) Actualización de usuario (req.params.id)
+      // ──────────────────────────────────────────────
       if (req.params.id) {
         db.query("SELECT nombre FROM usuarios WHERE id = ?", [req.params.id])
-          .then(([rows]) => {
-            const base = rows[0]?.nombre
-              ? slugify(rows[0].nombre)
+          .then(([filas]) => {
+            const nombreBase = filas[0]?.nombre
+              ? slugify(filas[0].nombre)
               : `usuario-${req.params.id}`;
-            const clave = `firmas/${base}/firma.${extension}`;
-            console.log("🖊️ [DEBUG] Clave final (actualizarUsuario):", clave);
-            cb(null, clave);
+
+            const claveFirma = `firmas/${nombreBase}/${marcaTiempo}-firma.${extension}`;
+            console.log(
+              "[DEBUG] Clave final (actualizarUsuario):",
+              claveFirma
+            );
+            cb(null, claveFirma);
           })
-          .catch((err) => cb(err));
+          .catch((error) => cb(error));
         return;
       }
 
-      const clave = `firmas/usuario-desconocido/firma.${extension}`;
-      console.log("🖊️ [DEBUG] Clave final (fallback):", clave);
-      cb(null, clave);
+      // ──────────────────────────────────────────────
+      // 3) Caso de respaldo (por seguridad)
+      // ──────────────────────────────────────────────
+      const claveFirma = `firmas/usuario-desconocido/${marcaTiempo}-firma.${extension}`;
+      console.log("[DEBUG] Clave final (fallback):", claveFirma);
+      cb(null, claveFirma);
     },
   }),
   limits: { fileSize: 5 * 1024 * 1024 },
@@ -182,6 +197,7 @@ export const uploadFirma = multer({
     return cb(new Error("Tipo de archivo no permitido para firma"));
   },
 });
+
 
 /*────────────── Upload de facturas de gastos ───────*/
 export const uploadComprobante = multer({
