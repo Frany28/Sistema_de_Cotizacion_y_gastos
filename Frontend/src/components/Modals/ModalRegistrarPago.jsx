@@ -198,6 +198,13 @@ export default function ModalRegistrarPago({
     [montoTotal, montoPagado]
   );
 
+  const saldoPendienteUsdEstimado = useMemo(() => {
+    if (!detalle) return 0;
+    if (detalle.moneda !== "VES") return 0;
+    if (!tasaDia || tasaDia <= 0) return 0;
+    return saldoPendiente / tasaDia;
+  }, [detalle, saldoPendiente, tasaDia]);
+
   const simboloMoneda =
     detalle?.moneda === "VES" ? "Bs" : detalle?.moneda || "USD";
 
@@ -387,6 +394,14 @@ export default function ModalRegistrarPago({
                     readOnly
                     className="w-full px-3 py-2 border border-gray-600 rounded-md shadow-sm bg-gray-700 text-white focus:outline-none"
                   />
+                  {detalle?.moneda === "VES" && (
+                    <p className="text-xs text-gray-400 mt-1">
+                      Equivalente estimado:{" "}
+                      <span className="text-gray-200">
+                        {formatoLatam(saldoPendienteUsdEstimado)} USD
+                      </span>
+                    </p>
+                  )}
                 </div>
 
                 {/* Monto abono (ESTILO BANCO) */}
@@ -451,6 +466,19 @@ export default function ModalRegistrarPago({
                         {formatoLatam(abonoUsdEstimado)} USD
                       </span>
                     </p>
+                  </div>
+                )}
+                {detalle?.moneda === "VES" && tasaDia && (
+                  <div className="col-span-2 mt-2">
+                    <div className="flex items-start gap-2 p-3 rounded-md border border-yellow-600/40 bg-yellow-500/10">
+                      <span className="text-yellow-400 text-sm">⚠</span>
+                      <p className="text-xs text-yellow-100 leading-relaxed">
+                        La tasa mostrada es la <b>tasa oficial del día</b>. Si
+                        la tasa cambia, el <b>equivalente en USD</b> del saldo y
+                        del abono se actualizará automáticamente. Verifique la
+                        tasa antes de confirmar el registro.
+                      </p>
+                    </div>
                   </div>
                 )}
 
