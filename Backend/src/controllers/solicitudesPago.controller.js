@@ -287,54 +287,145 @@ export const obtenerSolicitudesPago = async (req, res) => {
 };
 
 /* ============================================================
- * 2. DETALLE DE UNA SOLICITUD
+ * 2. DETALLE DE UNA SOLICITUD (con abonos + saldos)
  * ========================================================== */
 export const obtenerSolicitudPagoPorId = async (req, res) => {
   const { id } = req.params;
+
   try {
-    const [[sol]] = await db.execute(
-      `SELECT sp.*,
-              g.codigo  AS gasto_codigo,      -- trae el código del gasto
-              p.nombre  AS proveedor_nombre,
-              us.nombre AS usuario_solicita_nombre,
-              ur.nombre AS usuario_revisa_nombre,
-              up.nombre AS usuario_aprueba_nombre,
-              b.nombre  AS banco_nombre
-         FROM solicitudes_pago sp
-         LEFT JOIN gastos      g  ON g.id  = sp.gasto_id 
-         LEFT JOIN proveedores p  ON p.id  = sp.proveedor_id
-         LEFT JOIN usuarios    us ON us.id = sp.usuario_solicita_id
-         LEFT JOIN usuarios    ur ON ur.id = sp.usuario_revisa_id  
-         LEFT JOIN usuarios    up ON up.id = sp.usuario_aprueba_id 
-         LEFT JOIN bancos      b  ON b.id  = sp.banco_id
-        WHERE sp.id = ?`,
+    // 1) Solicitud
+    const [[solicitud]] = await db.execute(
+      `
+      SELECT sp.*,
+             g.codigo  AS gasto_codigo,
+             p.nombre  AS proveedor_nombre,
+             us.nombre AS usuario_solicita_nombre,
+             ur.nombre AS usuario_revisa_nombre,
+             up.nombre AS usuario_aprueba_nombre,
+             b.nombre  AS banco_nombre
+        FROM solicitudes_pago sp
+        LEFT JOIN gastos      g  ON g.id  = sp.gasto_id
+        LEFT JOIN proveedores p  ON p.id  = sp.proveedor_id
+        LEFT JOIN usuarios    us ON us.id = sp.usuario_solicita_id
+        LEFT JOIN usuarios    ur ON ur.id = sp.usuario_revisa_id
+        LEFT JOIN usuarios    up ON up.id = sp.usuario_aprueba_id
+        LEFT JOIN bancos      b  ON b.id  = sp.banco_id
+       WHERE sp.id = ?
+      `,
       [id]
     );
-    if (!sol)
-      return res.status(404).json({ message: "Solicitud no encontrada" });
 
+    if (!solicitud) {
+      return res.status(404).json({ message: "Solicitud no encontrada" });
+    }
+
+    // 2) Firma del usuario (sesión)
     const usuarioFirma = req.session.usuario?.ruta_firma || null;
 
+    // 3) Bancos disponibles según moneda
     const [bancosDisponibles] = await db.execute(
-      `SELECT id, nombre, identificador
-         FROM bancos
-        WHERE (moneda = ? OR ? IS NULL) AND estado = 'activo'`,
-      [sol.moneda, sol.moneda]
+      `
+      SELECT id, nombre, identificador
+        FROM bancos
+       WHERE (moneda = ? OR ? IS NULL)
+         AND estado = 'activo'
+      `,
+      [solicitud.moneda, solicitud.moneda]
     );
 
-    const comprobante_url = sol.ruta_comprobante
-      ? await generarUrlPrefirmadaLectura(sol.ruta_comprobante, 600)
+    // 4) Comprobante de la solicitud (si aplica)
+    const comprobanteUrlSolicitud = solicitud.ruta_comprobante
+      ? await generarUrlPrefirmadaLectura(solicitud.ruta_comprobante, 600)
       : null;
 
-    res.json({
-      ...sol,
+    // 5) Listado de abonos (pagos_realizados)
+    const [pagosRealizados] = await db.execute(
+      `
+      SELECT pr.id,
+             pr.solicitud_pago_id,
+             pr.usuario_id,
+             u.nombre AS usuario_nombre,
+             pr.metodo_pago,
+             pr.referencia_pago,
+             pr.banco_id,
+             b.nombre AS banco_nombre,
+             pr.monto_pagado,
+             pr.moneda,
+             pr.tasa_cambio,
+             pr.monto_pagado_usd,
+             pr.fecha_pago,
+             pr.ruta_comprobante,
+             pr.observaciones,
+             pr.created_at
+        FROM pagos_realizados pr
+        LEFT JOIN usuarios u ON u.id = pr.usuario_id
+        LEFT JOIN bancos   b ON b.id = pr.banco_id
+       WHERE pr.solicitud_pago_id = ?
+       ORDER BY pr.fecha_pago DESC, pr.id DESC
+      `,
+      [id]
+    );
+
+    // 6) Generar URL prefirmada por cada comprobante de abono
+    const pagosRealizadosConUrl = await Promise.all(
+      pagosRealizados.map(async (pago) => {
+        const comprobanteUrl = pago.ruta_comprobante
+          ? await generarUrlPrefirmadaLectura(pago.ruta_comprobante, 600)
+          : null;
+
+        return {
+          ...pago,
+          comprobante_url: comprobanteUrl,
+        };
+      })
+    );
+
+    // 7) Totales en USD (la fuente de verdad para validar sobrepagos)
+    const [[sumas]] = await db.execute(
+      `
+      SELECT IFNULL(SUM(monto_pagado_usd), 0) AS total_pagado_usd
+        FROM pagos_realizados
+       WHERE solicitud_pago_id = ?
+      `,
+      [id]
+    );
+
+    const montoTotalUsd = parseFloat(solicitud.monto_total_usd) || 0;
+    const totalPagadoUsd = parseFloat(sumas.total_pagado_usd) || 0;
+    const saldoPendienteUsd = Math.max(montoTotalUsd - totalPagadoUsd, 0);
+
+    // 8) Saldo pendiente “en moneda” (referencia con tasa de la solicitud)
+    let saldoPendienteMoneda = saldoPendienteUsd;
+
+    if (solicitud.moneda === "VES") {
+      const tasaSolicitud = parseFloat(solicitud.tasa_cambio) || 0;
+      saldoPendienteMoneda =
+        tasaSolicitud > 0 ? saldoPendienteUsd * tasaSolicitud : 0;
+    }
+
+    return res.json({
+      ...solicitud,
       usuario_firma: usuarioFirma,
       bancosDisponibles,
-      comprobante_url,
+      comprobante_url: comprobanteUrlSolicitud,
+
+      pagos_realizados: pagosRealizadosConUrl,
+
+      // ✅ Totales/saldos en USD (fuente de verdad)
+      total_pagado_usd: totalPagadoUsd,
+      saldo_pendiente_usd: saldoPendienteUsd,
+
+      // ✅ Compatibilidad: algunos componentes esperan esto como “cabecera”
+      monto_pagado_usd: totalPagadoUsd,
+
+      // ✅ Referencia “en moneda” usando la tasa guardada en solicitud (no es la tasa del día)
+      saldo_pendiente_moneda: saldoPendienteMoneda,
     });
-  } catch (err) {
-    console.error("Error al obtener solicitud de pago:", err);
-    res.status(500).json({ message: "Error interno al obtener la solicitud" });
+  } catch (error) {
+    console.error("Error al obtener solicitud de pago:", error);
+    return res
+      .status(500)
+      .json({ message: "Error interno al obtener la solicitud" });
   }
 };
 
@@ -398,7 +489,6 @@ export const cancelarSolicitudPago = async (req, res) => {
 
   return res.json({ message: "Solicitud cancelada" });
 };
-
 
 export const pagarSolicitudPago = async (req, res) => {
   const { id } = req.params;
@@ -491,22 +581,49 @@ export const pagarSolicitudPago = async (req, res) => {
       });
     }
 
-    const montoTotalMoneda = parseFloat(sol.monto_total) || 0;
-    const montoPagadoMonedaActual = parseFloat(sol.monto_pagado) || 0;
-    const saldoMonedaActual = montoTotalMoneda - montoPagadoMonedaActual;
+    /* =========================================================
+     * ✅ 5. VALIDACIÓN PROFESIONAL: SIEMPRE POR SALDO EN USD
+     * ========================================================= */
 
-    if (montoAbono > saldoMonedaActual + 0.0001) {
+    const montoTotalUsd = parseFloat(sol.monto_total_usd) || 0;
+
+    // Total pagado USD actual (antes de insertar el nuevo abono)
+    const [[sumasAntes]] = await conexion.execute(
+      `
+      SELECT 
+        IFNULL(SUM(monto_pagado_usd), 0) AS total_pagado_usd
+      FROM pagos_realizados
+      WHERE solicitud_pago_id = ?
+      `,
+      [id]
+    );
+
+    const totalPagadoUsdAntes = parseFloat(sumasAntes.total_pagado_usd) || 0;
+    const saldoUsdPendienteAntes = montoTotalUsd - totalPagadoUsdAntes;
+
+    if (montoTotalUsd <= 0) {
       await conexion.rollback();
       return res.status(400).json({
         message:
-          "El monto del abono no puede ser mayor al saldo pendiente en la solicitud.",
+          "La solicitud no tiene monto_total_usd válido; no se puede validar abonos.",
       });
     }
 
-    /* ---------- 5. DEFINIR TASA DE CAMBIO DEL ABONO ---------- */
+    if (saldoUsdPendienteAntes <= 0) {
+      await conexion.rollback();
+      return res.status(400).json({
+        message: "Esta solicitud ya no tiene saldo pendiente en USD.",
+      });
+    }
+
+    // Convertimos el abono a USD para validar (con la tasa del día si es VES)
+    let abonoUsd = 0;
     let tasaCambioAbonoFinal = null;
 
-    if (sol.moneda === "VES") {
+    if (sol.moneda === "USD") {
+      abonoUsd = montoAbono;
+      tasaCambioAbonoFinal = null;
+    } else if (sol.moneda === "VES") {
       const tasaNum = parseFloat(tasa_cambio_abono);
       if (isNaN(tasaNum) || tasaNum <= 0) {
         await conexion.rollback();
@@ -516,9 +633,27 @@ export const pagarSolicitudPago = async (req, res) => {
         });
       }
       tasaCambioAbonoFinal = tasaNum;
+      abonoUsd = montoAbono / tasaNum;
     } else {
-      // Solicitud en USD → no necesitamos tasa para el abono
-      tasaCambioAbonoFinal = null;
+      await conexion.rollback();
+      return res.status(400).json({
+        message: `Moneda de solicitud no soportada: ${sol.moneda}`,
+      });
+    }
+
+    if (!abonoUsd || abonoUsd <= 0) {
+      await conexion.rollback();
+      return res.status(400).json({
+        message: "El abono en USD calculado no es válido.",
+      });
+    }
+
+    if (abonoUsd > saldoUsdPendienteAntes + 0.0001) {
+      await conexion.rollback();
+      return res.status(400).json({
+        message:
+          "El abono excede el saldo pendiente (validación por equivalente USD).",
+      });
     }
 
     /* ---------- 6. INSERTAR ABONO EN pagos_realizados ---------- */
@@ -556,11 +691,12 @@ export const pagarSolicitudPago = async (req, res) => {
 
     const pagoRealizadoId = insertPago.insertId;
 
-    /* ---------- 7. SUMAR PAGOS EN USD PARA LA SOLICITUD ---------- */
+    /* ---------- 7. SUMAR PAGOS (USD y MONEDA ORIGINAL) ---------- */
     const [[sumas]] = await conexion.execute(
       `
       SELECT 
-        IFNULL(SUM(monto_pagado_usd), 0) AS total_pagado_usd
+        IFNULL(SUM(monto_pagado_usd), 0) AS total_pagado_usd,
+        IFNULL(SUM(monto_pagado), 0)     AS total_pagado_moneda
       FROM pagos_realizados
       WHERE solicitud_pago_id = ?
       `,
@@ -568,30 +704,26 @@ export const pagarSolicitudPago = async (req, res) => {
     );
 
     const totalPagadoUsd = parseFloat(sumas.total_pagado_usd) || 0;
-    const montoTotalUsd = parseFloat(sol.monto_total_usd) || 0;
+    const totalPagadoMoneda = parseFloat(sumas.total_pagado_moneda) || 0;
 
-    /* ---------- 8. DETERMINAR NUEVO ESTADO ---------- */
+    /* ---------- 8. DETERMINAR NUEVO ESTADO (SIEMPRE POR USD) ---------- */
     let nuevoEstado = "por_pagar";
 
     if (totalPagadoUsd > 0 && totalPagadoUsd < montoTotalUsd) {
       nuevoEstado = "parcialmente_pagada";
-    } else if (montoTotalUsd > 0 && totalPagadoUsd >= montoTotalUsd) {
+    } else if (totalPagadoUsd >= montoTotalUsd) {
       nuevoEstado = "pagada";
     }
 
-    /* ---------- 9. CALCULAR monto_pagado EN MONEDA ORIGINAL ---------- */
+    /* ---------- 9. DEFINIR monto_pagado EN MONEDA ORIGINAL (COHERENTE) ---------- */
+    // ✅ USD: monto_pagado = totalPagadoUsd
+    // ✅ VES: monto_pagado = SUM(monto_pagado) real en VES (no tasa vieja)
     let nuevoMontoPagadoMoneda = 0;
 
     if (sol.moneda === "USD") {
       nuevoMontoPagadoMoneda = totalPagadoUsd;
     } else if (sol.moneda === "VES") {
-      const tasaSolicitud = parseFloat(sol.tasa_cambio) || 0;
-      if (tasaSolicitud > 0 && totalPagadoUsd > 0) {
-        nuevoMontoPagadoMoneda = totalPagadoUsd * tasaSolicitud;
-      } else {
-        // respaldo: sumamos lo que ya tenía + el abono
-        nuevoMontoPagadoMoneda = montoPagadoMonedaActual + montoAbono;
-      }
+      nuevoMontoPagadoMoneda = totalPagadoMoneda;
     }
 
     /* ---------- 10. ACTUALIZAR CABECERA DE LA SOLICITUD ---------- */
@@ -599,19 +731,18 @@ export const pagarSolicitudPago = async (req, res) => {
       `
       UPDATE solicitudes_pago
       SET 
-        banco_id         = ?,
-        metodo_pago      = ?,
-        referencia_pago  = ?,
-        ruta_comprobante = ?,
-        observaciones    = ?,
-        fecha_pago       = CASE
-                             WHEN ? >= monto_total_usd AND monto_total_usd > 0
-                               THEN ?
-                             ELSE fecha_pago
-                           END,
+        banco_id           = ?,
+        metodo_pago        = ?,
+        referencia_pago    = ?,
+        ruta_comprobante   = ?,
+        observaciones      = ?,
+        fecha_pago         = CASE
+                               WHEN ? = 'pagada' THEN ?
+                               ELSE fecha_pago
+                             END,
         usuario_aprueba_id = ?,
-        estado           = ?,
-        monto_pagado     = ?
+        estado             = ?,
+        monto_pagado       = ?
       WHERE id = ?
       `,
       [
@@ -620,7 +751,7 @@ export const pagarSolicitudPago = async (req, res) => {
         referencia_pago,
         rutaComprobante,
         observaciones || null,
-        totalPagadoUsd,
+        nuevoEstado,
         fechaPagoFinal,
         usuarioApruebaId,
         nuevoEstado,
@@ -631,14 +762,12 @@ export const pagarSolicitudPago = async (req, res) => {
 
     /* ---------- 11. REGISTRO EN archivos (SI HAY COMPROBANTE) ---------- */
     if (rutaComprobante) {
-      // 11.1 Grupo de comprobantes para esta solicitud
       const grupoId = await obtenerOcrearGrupoComprobante(
-        db, // usa el pool general para la parte de archivos
+        db,
         id,
         usuarioApruebaId
       );
 
-      // 11.2 Determinar número de versión
       const [[{ maxVer }]] = await db.query(
         `
         SELECT IFNULL(MAX(numeroVersion), 0) AS maxVer
@@ -650,7 +779,6 @@ export const pagarSolicitudPago = async (req, res) => {
       );
       const numeroVersion = maxVer + 1;
 
-      // 11.3 Insertar en archivos
       const [aRes] = await db.query(
         `
         INSERT INTO archivos
@@ -675,7 +803,6 @@ export const pagarSolicitudPago = async (req, res) => {
       );
       const archivoId = aRes.insertId;
 
-      // 11.4 Insertar versión
       const [vRes] = await db.query(
         `
         INSERT INTO versionesArchivo
@@ -696,7 +823,6 @@ export const pagarSolicitudPago = async (req, res) => {
       );
       const versionId = vRes.insertId;
 
-      // 11.5 Evento de archivo
       await db.query(
         `
         INSERT INTO eventosArchivo
@@ -720,7 +846,6 @@ export const pagarSolicitudPago = async (req, res) => {
         ]
       );
 
-      // 11.6 Actualizar uso de storage del usuario
       await db.query(
         `
         UPDATE usuarios

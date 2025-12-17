@@ -7,13 +7,11 @@ import ModalError from "./ModalError";
 
 api.defaults.baseURL = import.meta.env.VITE_API_URL;
 
-/** Fecha local compatible con datetime-local */
 const nowLocalISO = () =>
   new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
     .toISOString()
     .slice(0, 16);
 
-/** Formato LATAM (punto miles, coma decimales) */
 const formatoLatam = (valor) => {
   const numero = Number(valor) || 0;
   return numero
@@ -22,7 +20,6 @@ const formatoLatam = (valor) => {
     .replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 };
 
-/** Redondeo seguro a 2 decimales */
 const redondear2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
 /**
@@ -36,11 +33,6 @@ const centavosTextoAFloat = (centavosTexto) => {
   const digitos = soloDigitos(centavosTexto);
   if (!digitos) return 0;
   return Number(digitos) / 100;
-};
-
-const floatACentavosTexto = (numero) => {
-  const n = Math.max(0, Number(numero) || 0);
-  return String(Math.round(n * 100));
 };
 
 const formatearBancoDesdeCentavosTexto = (centavosTexto) => {
@@ -58,11 +50,9 @@ export default function ModalRegistrarPago({
   const [banks, setBanks] = useState([]);
   const [firmaURL, setFirmaURL] = useState(null);
 
-  // Tasa del día para VES
   const [tasaDia, setTasaDia] = useState(null);
   const [cargandoTasa, setCargandoTasa] = useState(false);
 
-  // Estado del formulario
   const [form, setForm] = useState({
     metodo_pago: "",
     banco_id: "",
@@ -70,7 +60,6 @@ export default function ModalRegistrarPago({
     fecha_pago: "",
     comprobante: null,
     observaciones: "",
-    // Guardamos centavos como dígitos (estilo banco)
     montoAbonoCentavosTexto: "",
   });
 
@@ -80,7 +69,6 @@ export default function ModalRegistrarPago({
 
   const fileInputRef = useRef(null);
 
-  /** Precargar fecha al abrir */
   useEffect(() => {
     if (!visible) return;
 
@@ -99,7 +87,6 @@ export default function ModalRegistrarPago({
     if (fileInputRef.current) fileInputRef.current.value = "";
   }, [visible]);
 
-  /** Cargar detalle y bancos */
   useEffect(() => {
     if (!visible) return;
 
@@ -141,7 +128,6 @@ export default function ModalRegistrarPago({
     })();
   }, [visible, solicitudId]);
 
-  /** Obtener tasa del día si la solicitud está en VES */
   const consultarTasaDelDia = async () => {
     try {
       setCargandoTasa(true);
@@ -184,30 +170,73 @@ export default function ModalRegistrarPago({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, detalle]);
 
-  /** Derivados */
-  const montoTotal = useMemo(
-    () => Number(detalle?.monto_total) || 0,
+  /** =========================
+   *  SALDOS (USD base + VES actualizado)
+   *  ========================= */
+
+  const montoTotalUsd = useMemo(
+    () => Number(detalle?.monto_total_usd) || 0,
     [detalle]
-  );
-  const montoPagado = useMemo(
-    () => Number(detalle?.monto_pagado) || 0,
-    [detalle]
-  );
-  const saldoPendiente = useMemo(
-    () => redondear2(montoTotal - montoPagado),
-    [montoTotal, montoPagado]
   );
 
-  const saldoPendienteUsdEstimado = useMemo(() => {
+  // Si el backend te da monto_pagado_usd, usamos eso. Si no, aproximamos:
+  const montoPagadoUsd = useMemo(() => {
+    if (!detalle) return 0;
+
+    const pagadoUsdDirecto = Number(detalle?.monto_pagado_usd);
+    if (Number.isFinite(pagadoUsdDirecto) && pagadoUsdDirecto >= 0) {
+      return pagadoUsdDirecto;
+    }
+
+    // aproximación: monto_pagado (VES) / tasa_cambio (guardada en solicitud)
+    if (detalle.moneda === "VES") {
+      const pagadoVes = Number(detalle?.monto_pagado) || 0;
+      const tasaSolicitud = Number(detalle?.tasa_cambio) || 0;
+      if (tasaSolicitud > 0) return pagadoVes / tasaSolicitud;
+    }
+
+    return 0;
+  }, [detalle]);
+
+  const saldoUsdPendiente = useMemo(() => {
+    if (!detalle) return 0;
+    const saldo = montoTotalUsd - montoPagadoUsd;
+    return saldo > 0 ? saldo : 0;
+  }, [detalle, montoTotalUsd, montoPagadoUsd]);
+
+  // Este es el saldo “real” en VES recalculado con tasa del día
+  const saldoVesActualizado = useMemo(() => {
     if (!detalle) return 0;
     if (detalle.moneda !== "VES") return 0;
     if (!tasaDia || tasaDia <= 0) return 0;
-    return saldoPendiente / tasaDia;
-  }, [detalle, saldoPendiente, tasaDia]);
+    return saldoUsdPendiente * tasaDia;
+  }, [detalle, saldoUsdPendiente, tasaDia]);
+
+  // Para USD, el saldo pendiente se muestra normal en USD
+  const saldoUsdTexto = useMemo(() => {
+    if (!detalle) return "0,00 USD";
+    return `${formatoLatam(saldoUsdPendiente)} USD`;
+  }, [detalle, saldoUsdPendiente]);
 
   const simboloMoneda =
     detalle?.moneda === "VES" ? "Bs" : detalle?.moneda || "USD";
 
+  // Si es VES: mostramos el saldo en VES usando tasa del día. Si no: el saldo en USD.
+  const saldoTextoPrincipal = useMemo(() => {
+    if (!detalle) return `0,00 ${simboloMoneda}`;
+
+    if (detalle.moneda === "VES") {
+      // Si todavía no hay tasa, no inventamos saldo actualizado
+      if (!tasaDia) return `— Bs`;
+      return `${formatoLatam(saldoVesActualizado)} Bs`;
+    }
+
+    return `${formatoLatam(saldoUsdPendiente)} USD`;
+  }, [detalle, simboloMoneda, tasaDia, saldoVesActualizado, saldoUsdPendiente]);
+
+  /** =========================
+   *  ABONO (estilo banco)
+   *  ========================= */
   const montoAbonoNumero = useMemo(
     () => centavosTextoAFloat(form.montoAbonoCentavosTexto),
     [form.montoAbonoCentavosTexto]
@@ -218,12 +247,7 @@ export default function ModalRegistrarPago({
     [form.montoAbonoCentavosTexto]
   );
 
-  const saldoTexto = detalle
-    ? `${formatoLatam(saldoPendiente)} ${simboloMoneda}`
-    : `0,00 ${simboloMoneda}`;
-
-  const abonoTexto = `${formatoLatam(montoAbonoNumero)} ${simboloMoneda}`;
-
+  // Abono estimado en USD (si VES, usando tasa del día)
   const abonoUsdEstimado = useMemo(() => {
     if (!detalle) return 0;
     if (detalle.moneda === "USD") return montoAbonoNumero;
@@ -231,7 +255,22 @@ export default function ModalRegistrarPago({
     return 0;
   }, [detalle, montoAbonoNumero, tasaDia]);
 
-  /** Handlers */
+  // Límite máximo del abono:
+  // - Si es VES: saldo actualizado en VES (tasa del día)
+  // - Si es USD: saldo en USD
+  const maximoAbonoMoneda = useMemo(() => {
+    if (!detalle) return 0;
+    if (detalle.moneda === "VES") return saldoVesActualizado || 0;
+    return saldoUsdPendiente || 0;
+  }, [detalle, saldoVesActualizado, saldoUsdPendiente]);
+
+  const maximoTexto = useMemo(() => {
+    if (!detalle) return "0,00";
+    if (detalle.moneda === "VES")
+      return `${formatoLatam(maximoAbonoMoneda)} Bs`;
+    return `${formatoLatam(maximoAbonoMoneda)} USD`;
+  }, [detalle, maximoAbonoMoneda]);
+
   const handleChange = (e) => {
     const { name, value, files } = e.target;
 
@@ -241,8 +280,7 @@ export default function ModalRegistrarPago({
     }
 
     if (name === "monto_abono") {
-      // Estilo banco: extraemos solo dígitos y lo guardamos como centavosTexto
-      const digitos = soloDigitos(value).slice(0, 18); // límite sano
+      const digitos = soloDigitos(value).slice(0, 18);
       setForm((prev) => ({ ...prev, montoAbonoCentavosTexto: digitos }));
       return;
     }
@@ -258,7 +296,6 @@ export default function ModalRegistrarPago({
     setForm(nuevoForm);
   };
 
-  /** Submit: registra ABONO (no pago completo) */
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -266,15 +303,15 @@ export default function ModalRegistrarPago({
     try {
       if (!detalle) throw new Error("No hay detalle de la solicitud.");
 
-      // Validaciones de abono
       if (!montoAbonoNumero || montoAbonoNumero <= 0) {
         throw new Error("Debe indicar un monto de abono mayor a 0.");
       }
-      if (montoAbonoNumero > saldoPendiente + 0.0001) {
+
+      // ✅ Validamos contra el saldo ACTUALIZADO si es VES
+      if (montoAbonoNumero > maximoAbonoMoneda + 0.0001) {
         throw new Error("El abono no puede ser mayor al saldo pendiente.");
       }
 
-      // VES requiere tasa del día
       if (detalle.moneda === "VES") {
         if (!tasaDia || tasaDia <= 0) {
           throw new Error(
@@ -283,9 +320,9 @@ export default function ModalRegistrarPago({
         }
       }
 
-      // Validaciones de método
-      if (!form.metodo_pago)
+      if (!form.metodo_pago) {
         throw new Error("Debe seleccionar método de pago.");
+      }
 
       const metodoNormalizado = String(form.metodo_pago).trim();
 
@@ -302,10 +339,9 @@ export default function ModalRegistrarPago({
       const formData = new FormData();
       formData.append("metodo_pago", metodoNormalizado);
 
-      // NUEVO: monto_abono (snake_case como espera el backend)
+      // backend espera esto:
       formData.append("monto_abono", String(montoAbonoNumero));
 
-      // NUEVO: tasa_cambio_abono (solo si VES)
       if (detalle.moneda === "VES") {
         formData.append("tasa_cambio_abono", String(tasaDia));
       }
@@ -383,28 +419,39 @@ export default function ModalRegistrarPago({
               </div>
 
               <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
-                {/* Saldo pendiente */}
+                {detalle?.moneda === "VES" && tasaDia && (
+                  <div className="col-span-2 mt-2">
+                    <div className="flex items-start gap-2 p-3 rounded-md border border-yellow-600/40 bg-yellow-500/10">
+                      <span className="text-yellow-400 text-sm">⚠</span>
+                      <p className="text-xs text-yellow-100 leading-relaxed">
+                        El saldo en Bs se recalcula con la{" "}
+                        <b>tasa oficial del día</b>. Si la tasa cambia,{" "}
+                        <b>el saldo pendiente en Bs</b> también cambia.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Saldo pendiente (VES actualizado a tasa del día / USD base) */}
                 <div className="col-span-2">
                   <label className="block text-sm font-medium text-gray-300 mb-1">
                     Saldo pendiente
                   </label>
                   <input
                     type="text"
-                    value={saldoTexto}
+                    value={saldoTextoPrincipal}
                     readOnly
                     className="w-full px-3 py-2 border border-gray-600 rounded-md shadow-sm bg-gray-700 text-white focus:outline-none"
                   />
-                  {detalle?.moneda === "VES" && (
-                    <p className="text-xs text-gray-400 mt-1">
-                      Equivalente estimado:{" "}
-                      <span className="text-gray-200">
-                        {formatoLatam(saldoPendienteUsdEstimado)} USD
-                      </span>
-                    </p>
-                  )}
+
+                  {/* Siempre mostramos el saldo base en USD (siempre estable) */}
+                  <p className="text-xs text-gray-400 mt-1">
+                    Base en USD:{" "}
+                    <span className="text-gray-200">{saldoUsdTexto}</span>
+                  </p>
                 </div>
 
-                {/* Monto abono (ESTILO BANCO) */}
+                {/* Monto a abonar */}
                 <div className="col-span-2 sm:col-span-1">
                   <label className="block text-sm font-medium text-gray-300 mb-1">
                     Monto a abonar
@@ -422,12 +469,20 @@ export default function ModalRegistrarPago({
                     required
                   />
                   <p className="text-xs text-gray-400 mt-1">
-                    Abono: <span className="text-gray-200">{abonoTexto}</span> ·
-                    Máximo: <span className="text-gray-200">{saldoTexto}</span>
+                    Máximo: <span className="text-gray-200">{maximoTexto}</span>
+                    {detalle?.moneda === "VES" && tasaDia && (
+                      <>
+                        {" "}
+                        · USD estimado:{" "}
+                        <span className="text-gray-200">
+                          {formatoLatam(abonoUsdEstimado)} USD
+                        </span>
+                      </>
+                    )}
                   </p>
                 </div>
 
-                {/* Tasa del día (solo VES) */}
+                {/* Tasa del día */}
                 {detalle?.moneda === "VES" && (
                   <div className="col-span-2 sm:col-span-1">
                     <div className="flex items-center justify-between">
@@ -459,26 +514,6 @@ export default function ModalRegistrarPago({
                       readOnly
                       className="w-full px-3 py-2 border border-gray-600 rounded-md shadow-sm bg-gray-700 text-white focus:outline-none"
                     />
-
-                    <p className="text-xs text-gray-400 mt-1">
-                      Abono estimado en USD:{" "}
-                      <span className="text-gray-200">
-                        {formatoLatam(abonoUsdEstimado)} USD
-                      </span>
-                    </p>
-                  </div>
-                )}
-                {detalle?.moneda === "VES" && tasaDia && (
-                  <div className="col-span-2 mt-2">
-                    <div className="flex items-start gap-2 p-3 rounded-md border border-yellow-600/40 bg-yellow-500/10">
-                      <span className="text-yellow-400 text-sm">⚠</span>
-                      <p className="text-xs text-yellow-100 leading-relaxed">
-                        La tasa mostrada es la <b>tasa oficial del día</b>. Si
-                        la tasa cambia, el <b>equivalente en USD</b> del saldo y
-                        del abono se actualizará automáticamente. Verifique la
-                        tasa antes de confirmar el registro.
-                      </p>
-                    </div>
                   </div>
                 )}
 
