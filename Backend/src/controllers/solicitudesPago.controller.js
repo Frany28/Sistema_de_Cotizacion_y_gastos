@@ -763,33 +763,34 @@ export const pagarSolicitudPago = async (req, res) => {
     /* ---------- 11. REGISTRO EN archivos (SI HAY COMPROBANTE) ---------- */
     if (rutaComprobante) {
       const grupoId = await obtenerOcrearGrupoComprobante(
-        db,
+        conexion,
         id,
         usuarioApruebaId
       );
 
-      const [[{ maxVer }]] = await db.query(
+      const [[{ maxVer }]] = await conexion.execute(
         `
-        SELECT IFNULL(MAX(numeroVersion), 0) AS maxVer
-        FROM archivos
-        WHERE registroTipo = 'comprobantesPagos'
-          AND registroId   = ?
-        `,
+  SELECT IFNULL(MAX(numeroVersion), 0) AS maxVer
+  FROM archivos
+  WHERE registroTipo = 'comprobantesPagos'
+    AND registroId   = ?
+  `,
         [id]
       );
-      const numeroVersion = maxVer + 1;
 
-      const [aRes] = await db.query(
+      const numeroVersion = Number(maxVer || 0) + 1;
+
+      const [aRes] = await conexion.execute(
         `
-        INSERT INTO archivos
-          (registroTipo, registroId, grupoArchivoId,
-           nombreOriginal, extension, tamanioBytes,
-           rutaS3, numeroVersion, estado,
-           subidoPor, creadoEn, actualizadoEn)
-        VALUES
-          ('comprobantesPagos', ?, ?, ?, ?, ?, ?, ?, 'activo',
-           ?, NOW(), NOW())
-        `,
+  INSERT INTO archivos
+    (registroTipo, registroId, grupoArchivoId,
+     nombreOriginal, extension, tamanioBytes,
+     rutaS3, numeroVersion, estado,
+     subidoPor, creadoEn, actualizadoEn)
+  VALUES
+    ('comprobantesPagos', ?, ?, ?, ?, ?, ?, ?, 'activo',
+     ?, NOW(), NOW())
+  `,
         [
           id,
           grupoId,
@@ -801,16 +802,17 @@ export const pagarSolicitudPago = async (req, res) => {
           usuarioApruebaId,
         ]
       );
+
       const archivoId = aRes.insertId;
 
-      const [vRes] = await db.query(
+      const [vRes] = await conexion.execute(
         `
-        INSERT INTO versionesArchivo
-          (archivoId, numeroVersion, nombreOriginal, extension,
-           tamanioBytes, rutaS3, subidoPor)
-        VALUES
-          (?, ?, ?, ?, ?, ?, ?)
-        `,
+  INSERT INTO versionesArchivo
+    (archivoId, numeroVersion, nombreOriginal, extension,
+     tamanioBytes, rutaS3, subidoPor)
+  VALUES
+    (?, ?, ?, ?, ?, ?, ?)
+  `,
         [
           archivoId,
           numeroVersion,
@@ -821,9 +823,10 @@ export const pagarSolicitudPago = async (req, res) => {
           usuarioApruebaId,
         ]
       );
+
       const versionId = vRes.insertId;
 
-      await db.query(
+      await conexion.execute(
         `
         INSERT INTO eventosArchivo
           (archivoId, versionId, accion, creadoPor,
@@ -846,7 +849,7 @@ export const pagarSolicitudPago = async (req, res) => {
         ]
       );
 
-      await db.query(
+      await conexion.execute(
         `
         UPDATE usuarios
         SET usoStorageBytes = usoStorageBytes + ?
