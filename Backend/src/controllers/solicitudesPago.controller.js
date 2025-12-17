@@ -399,41 +399,55 @@ export const cancelarSolicitudPago = async (req, res) => {
   return res.json({ message: "Solicitud cancelada" });
 };
 
-/* ============================================================
- * 5. PAGAR
- * ========================================================== */
+
 export const pagarSolicitudPago = async (req, res) => {
   const { id } = req.params;
+
+  // 🔹 Datos que vienen del frontend (body en snake_case)
   let {
     metodo_pago,
     banco_id: rawBancoId,
     referencia_pago,
     observaciones,
     fecha_pago,
+    monto_abono, // monto del abono en la MONEDA de la solicitud
+    tasa_cambio_abono, // tasa del día (solo si moneda = VES)
   } = req.body;
 
   /* ---------- 1. VALIDACIONES POR TIPO DE PAGO ---------- */
-  if (!metodo_pago)
+  if (!metodo_pago) {
     return res.status(400).json({ message: "Método de pago requerido" });
+  }
 
-  const metodo = metodo_pago.trim().toLowerCase();
+  const metodoNormalizado = metodo_pago.trim().toLowerCase();
 
-  if (metodo === "efectivo") {
+  if (metodoNormalizado === "efectivo") {
     rawBancoId = null;
     referencia_pago = null;
   } else {
-    if (!rawBancoId)
+    if (!rawBancoId) {
       return res.status(400).json({ message: "Banco requerido" });
-    if (!referencia_pago)
+    }
+    if (!referencia_pago) {
       return res.status(400).json({ message: "Referencia de pago requerida" });
-    if (!req.file)
-      return res
-        .status(400)
-        .json({ message: "Comprobante (PDF o imagen) requerido" });
+    }
+    if (!req.file) {
+      return res.status(400).json({
+        message: "Comprobante (PDF o imagen) requerido",
+      });
+    }
   }
 
-  /* ---------- 2. VARIABLES DERIVADAS ---------- */
-  const bancoId = metodo === "efectivo" ? null : rawBancoId;
+  /* ---------- 2. VALIDAR MONTO DEL ABONO ---------- */
+  const montoAbono = parseFloat(monto_abono);
+  if (isNaN(montoAbono) || montoAbono <= 0) {
+    return res.status(400).json({
+      message: "monto_abono es requerido y debe ser mayor a 0",
+    });
+  }
+
+  /* ---------- 3. DATOS DEL COMPROBANTE / USUARIO ---------- */
+  const bancoId = metodoNormalizado === "efectivo" ? null : rawBancoId;
   const comprobanteFile = req.file || null;
   const rutaComprobante = comprobanteFile ? comprobanteFile.key : null;
   const nombreOriginal = comprobanteFile ? comprobanteFile.originalname : null;
@@ -442,94 +456,212 @@ export const pagarSolicitudPago = async (req, res) => {
   const fechaPagoFinal = fecha_pago ? new Date(fecha_pago) : new Date();
   const usuarioApruebaId = req.user?.id;
 
+  const conexion = await db.getConnection();
+
   try {
-    /* ---------- 3. COMPROBAR ESTADO ---------- */
-    const [[sol]] = await db.execute(
-      "SELECT estado, monto_total, moneda, tasa_cambio FROM solicitudes_pago WHERE id = ?",
+    await conexion.beginTransaction();
+
+    /* ---------- 4. OBTENER SOLICITUD Y VALIDAR ESTADO ---------- */
+    const [[sol]] = await conexion.execute(
+      `
+      SELECT 
+        id,
+        estado,
+        monto_total,
+        monto_pagado,
+        monto_total_usd,
+        moneda,
+        tasa_cambio
+      FROM solicitudes_pago
+      WHERE id = ?
+      `,
       [id]
     );
-    if (!sol)
+
+    if (!sol) {
+      await conexion.rollback();
       return res.status(404).json({ message: "Solicitud no encontrada." });
-    if (sol.estado !== "por_pagar")
-      return res
-        .status(400)
-        .json({ message: `Estado inválido: ${sol.estado}` });
+    }
 
-    /* ---------- 4. ACTUALIZAR SOLICITUD ---------- */
-    await db.execute(
-      `UPDATE solicitudes_pago
-          SET banco_id         = ?,
-              metodo_pago      = ?,
-              referencia_pago  = ?,
-              ruta_comprobante = ?,
-              observaciones    = ?,
-              fecha_pago       = ?,
-              usuario_aprueba_id = ?,
-              estado           = 'pagada',
-              monto_pagado     = monto_total
-        WHERE id = ?`,
-      [
-        bancoId,
+    // Solo permitimos abonos si NO está ya pagada
+    if (!["por_pagar", "parcialmente_pagada"].includes(sol.estado)) {
+      await conexion.rollback();
+      return res.status(400).json({
+        message: `No se puede registrar abono; estado actual: ${sol.estado}`,
+      });
+    }
+
+    const montoTotalMoneda = parseFloat(sol.monto_total) || 0;
+    const montoPagadoMonedaActual = parseFloat(sol.monto_pagado) || 0;
+    const saldoMonedaActual = montoTotalMoneda - montoPagadoMonedaActual;
+
+    if (montoAbono > saldoMonedaActual + 0.0001) {
+      await conexion.rollback();
+      return res.status(400).json({
+        message:
+          "El monto del abono no puede ser mayor al saldo pendiente en la solicitud.",
+      });
+    }
+
+    /* ---------- 5. DEFINIR TASA DE CAMBIO DEL ABONO ---------- */
+    let tasaCambioAbonoFinal = null;
+
+    if (sol.moneda === "VES") {
+      const tasaNum = parseFloat(tasa_cambio_abono);
+      if (isNaN(tasaNum) || tasaNum <= 0) {
+        await conexion.rollback();
+        return res.status(400).json({
+          message:
+            "tasa_cambio_abono es requerida y debe ser mayor a 0 cuando la moneda es VES.",
+        });
+      }
+      tasaCambioAbonoFinal = tasaNum;
+    } else {
+      // Solicitud en USD → no necesitamos tasa para el abono
+      tasaCambioAbonoFinal = null;
+    }
+
+    /* ---------- 6. INSERTAR ABONO EN pagos_realizados ---------- */
+    const [insertPago] = await conexion.execute(
+      `
+      INSERT INTO pagos_realizados (
+        solicitud_pago_id,
+        usuario_id,
         metodo_pago,
+        banco_id,
+        referencia_pago,
+        ruta_comprobante,
+        observaciones,
+        fecha_pago,
+        monto_pagado,
+        moneda,
+        tasa_cambio
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+      [
+        id,
+        usuarioApruebaId,
+        metodo_pago,
+        bancoId,
         referencia_pago,
         rutaComprobante,
         observaciones || null,
         fechaPagoFinal,
-        usuarioApruebaId,
-        id,
-      ]
-    );
-
-    /* ---------- 5. HISTÓRICO ---------- */
-    await db.execute(
-      `INSERT INTO pagos_realizados
-         (solicitud_pago_id, usuario_id, metodo_pago, banco_id,
-          referencia_pago, ruta_comprobante, observaciones, fecha_pago,
-          monto_pagado, moneda, tasa_cambio)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        id,
-        usuarioApruebaId,
-        metodo_pago,
-        bancoId,
-        referencia_pago,
-        rutaComprobante,
-        observaciones || null,
-        fechaPagoFinal,
-        sol.monto_total,
+        montoAbono,
         sol.moneda,
-        sol.tasa_cambio,
+        tasaCambioAbonoFinal,
       ]
     );
 
-    /* ---------- 6. ARCHIVO (solo si hay) ---------- */
-    /* ---------- 6. ARCHIVO (solo si hay) ---------- */
+    const pagoRealizadoId = insertPago.insertId;
+
+    /* ---------- 7. SUMAR PAGOS EN USD PARA LA SOLICITUD ---------- */
+    const [[sumas]] = await conexion.execute(
+      `
+      SELECT 
+        IFNULL(SUM(monto_pagado_usd), 0) AS total_pagado_usd
+      FROM pagos_realizados
+      WHERE solicitud_pago_id = ?
+      `,
+      [id]
+    );
+
+    const totalPagadoUsd = parseFloat(sumas.total_pagado_usd) || 0;
+    const montoTotalUsd = parseFloat(sol.monto_total_usd) || 0;
+
+    /* ---------- 8. DETERMINAR NUEVO ESTADO ---------- */
+    let nuevoEstado = "por_pagar";
+
+    if (totalPagadoUsd > 0 && totalPagadoUsd < montoTotalUsd) {
+      nuevoEstado = "parcialmente_pagada";
+    } else if (montoTotalUsd > 0 && totalPagadoUsd >= montoTotalUsd) {
+      nuevoEstado = "pagada";
+    }
+
+    /* ---------- 9. CALCULAR monto_pagado EN MONEDA ORIGINAL ---------- */
+    let nuevoMontoPagadoMoneda = 0;
+
+    if (sol.moneda === "USD") {
+      nuevoMontoPagadoMoneda = totalPagadoUsd;
+    } else if (sol.moneda === "VES") {
+      const tasaSolicitud = parseFloat(sol.tasa_cambio) || 0;
+      if (tasaSolicitud > 0 && totalPagadoUsd > 0) {
+        nuevoMontoPagadoMoneda = totalPagadoUsd * tasaSolicitud;
+      } else {
+        // respaldo: sumamos lo que ya tenía + el abono
+        nuevoMontoPagadoMoneda = montoPagadoMonedaActual + montoAbono;
+      }
+    }
+
+    /* ---------- 10. ACTUALIZAR CABECERA DE LA SOLICITUD ---------- */
+    await conexion.execute(
+      `
+      UPDATE solicitudes_pago
+      SET 
+        banco_id         = ?,
+        metodo_pago      = ?,
+        referencia_pago  = ?,
+        ruta_comprobante = ?,
+        observaciones    = ?,
+        fecha_pago       = CASE
+                             WHEN ? >= monto_total_usd AND monto_total_usd > 0
+                               THEN ?
+                             ELSE fecha_pago
+                           END,
+        usuario_aprueba_id = ?,
+        estado           = ?,
+        monto_pagado     = ?
+      WHERE id = ?
+      `,
+      [
+        bancoId,
+        metodo_pago,
+        referencia_pago,
+        rutaComprobante,
+        observaciones || null,
+        totalPagadoUsd,
+        fechaPagoFinal,
+        usuarioApruebaId,
+        nuevoEstado,
+        nuevoMontoPagadoMoneda,
+        id,
+      ]
+    );
+
+    /* ---------- 11. REGISTRO EN archivos (SI HAY COMPROBANTE) ---------- */
     if (rutaComprobante) {
-      /* 6.1. Grupo */
+      // 11.1 Grupo de comprobantes para esta solicitud
       const grupoId = await obtenerOcrearGrupoComprobante(
-        db,
+        db, // usa el pool general para la parte de archivos
         id,
         usuarioApruebaId
       );
 
-      /* 6.2. Calcular Nº de versión */
+      // 11.2 Determinar número de versión
       const [[{ maxVer }]] = await db.query(
-        `SELECT IFNULL(MAX(numeroVersion),0) AS maxVer
-       FROM archivos
-      WHERE registroTipo = 'comprobantesPagos' AND registroId = ?`,
+        `
+        SELECT IFNULL(MAX(numeroVersion), 0) AS maxVer
+        FROM archivos
+        WHERE registroTipo = 'comprobantesPagos'
+          AND registroId   = ?
+        `,
         [id]
       );
       const numeroVersion = maxVer + 1;
 
-      /* 6.3. Tabla archivos */
+      // 11.3 Insertar en archivos
       const [aRes] = await db.query(
-        `INSERT INTO archivos
-       (registroTipo, registroId, grupoArchivoId,
-        nombreOriginal, extension, tamanioBytes,
-        rutaS3, numeroVersion, estado,
-        subidoPor, creadoEn, actualizadoEn)
-     VALUES ('comprobantesPagos', ?, ?, ?, ?, ?, ?, ?, 'activo',
-             ?, NOW(), NOW())`,
+        `
+        INSERT INTO archivos
+          (registroTipo, registroId, grupoArchivoId,
+           nombreOriginal, extension, tamanioBytes,
+           rutaS3, numeroVersion, estado,
+           subidoPor, creadoEn, actualizadoEn)
+        VALUES
+          ('comprobantesPagos', ?, ?, ?, ?, ?, ?, ?, 'activo',
+           ?, NOW(), NOW())
+        `,
         [
           id,
           grupoId,
@@ -543,12 +675,15 @@ export const pagarSolicitudPago = async (req, res) => {
       );
       const archivoId = aRes.insertId;
 
-      /* 6.4. versionesArchivo */
+      // 11.4 Insertar versión
       const [vRes] = await db.query(
-        `INSERT INTO versionesArchivo
-       (archivoId, numeroVersion, nombreOriginal, extension,
-        tamanioBytes, rutaS3, subidoPor)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        `
+        INSERT INTO versionesArchivo
+          (archivoId, numeroVersion, nombreOriginal, extension,
+           tamanioBytes, rutaS3, subidoPor)
+        VALUES
+          (?, ?, ?, ?, ?, ?, ?)
+        `,
         [
           archivoId,
           numeroVersion,
@@ -561,39 +696,56 @@ export const pagarSolicitudPago = async (req, res) => {
       );
       const versionId = vRes.insertId;
 
-      /* 6.5. eventosArchivo */
+      // 11.5 Evento de archivo
       await db.query(
-        `INSERT INTO eventosArchivo
-       (archivoId, versionId, accion, creadoPor,
-        ip, userAgent, detalles)
-     VALUES (?, ?, 'subidaArchivo', ?, ?, ?, ?)`,
+        `
+        INSERT INTO eventosArchivo
+          (archivoId, versionId, accion, creadoPor,
+           ip, userAgent, detalles)
+        VALUES
+          (?, ?, 'subidaArchivo', ?, ?, ?, ?)
+        `,
         [
           archivoId,
           versionId,
           usuarioApruebaId,
           req.ip || null,
           req.get("user-agent") || null,
-          JSON.stringify({ nombreOriginal, extension, ruta: rutaComprobante }),
+          JSON.stringify({
+            nombreOriginal,
+            extension,
+            ruta: rutaComprobante,
+            pagoRealizadoId,
+          }),
         ]
       );
 
-      /* 6.6. cuota de almacenamiento del aprobador */
+      // 11.6 Actualizar uso de storage del usuario
       await db.query(
-        `UPDATE usuarios
+        `
+        UPDATE usuarios
         SET usoStorageBytes = usoStorageBytes + ?
-      WHERE id = ?`,
+        WHERE id = ?
+        `,
         [tamanioBytes, usuarioApruebaId]
       );
     }
 
+    await conexion.commit();
+
     return res.json({
-      message: "Pago registrado correctamente.",
+      message: "Abono registrado correctamente.",
       solicitud_id: id,
+      pago_realizado_id: pagoRealizadoId,
+      nuevo_estado: nuevoEstado,
     });
   } catch (error) {
-    console.error("Error al registrar pago:", error);
+    console.error("Error al registrar abono:", error);
+    await conexion.rollback();
     return res
       .status(500)
-      .json({ message: "Error interno al registrar el pago." });
+      .json({ message: "Error interno al registrar el abono." });
+  } finally {
+    conexion.release();
   }
 };
