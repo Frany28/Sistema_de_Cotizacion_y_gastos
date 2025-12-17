@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { X, CreditCard } from "lucide-react";
+import { X, CreditCard, RefreshCw } from "lucide-react";
 import api from "../../api/index";
 import ModalExito from "./ModalExito";
 import ModalError from "./ModalError";
@@ -22,23 +22,31 @@ const formatoLatam = (valor) => {
     .replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 };
 
-/** Convierte string LATAM a número: "1.234,56" -> 1234.56 */
-const latamToNumero = (valorTexto) => {
-  if (typeof valorTexto !== "string") return Number(valorTexto) || 0;
-  const limpio = valorTexto.replace(/\./g, "").replace(",", ".");
-  const numero = parseFloat(limpio);
-  return Number.isFinite(numero) ? numero : 0;
-};
-
-/** Formato de escritura tipo "cajero" (opcional simple): deja solo números y , */
-const limpiarInputLatam = (texto) => {
-  if (!texto) return "";
-  // deja dígitos y coma
-  return texto.replace(/[^\d,]/g, "");
-};
-
 /** Redondeo seguro a 2 decimales */
 const redondear2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
+
+/**
+ * Estilo banco / cajero:
+ * - Guardamos internamente "centavos" como string de dígitos: "1234" => 12,34
+ * - Mostramos siempre con 2 decimales y formato LATAM.
+ */
+const soloDigitos = (texto) => (texto || "").replace(/\D/g, "");
+
+const centavosTextoAFloat = (centavosTexto) => {
+  const digitos = soloDigitos(centavosTexto);
+  if (!digitos) return 0;
+  return Number(digitos) / 100;
+};
+
+const floatACentavosTexto = (numero) => {
+  const n = Math.max(0, Number(numero) || 0);
+  return String(Math.round(n * 100));
+};
+
+const formatearBancoDesdeCentavosTexto = (centavosTexto) => {
+  const valor = centavosTextoAFloat(centavosTexto);
+  return formatoLatam(valor);
+};
 
 export default function ModalRegistrarPago({
   visible,
@@ -50,11 +58,11 @@ export default function ModalRegistrarPago({
   const [banks, setBanks] = useState([]);
   const [firmaURL, setFirmaURL] = useState(null);
 
-  // Tasa del día para VES (del endpoint)
+  // Tasa del día para VES
   const [tasaDia, setTasaDia] = useState(null);
   const [cargandoTasa, setCargandoTasa] = useState(false);
 
-  // OJO: monto_abono lo manejamos como texto LATAM para que escriba bonito
+  // Estado del formulario
   const [form, setForm] = useState({
     metodo_pago: "",
     banco_id: "",
@@ -62,7 +70,8 @@ export default function ModalRegistrarPago({
     fecha_pago: "",
     comprobante: null,
     observaciones: "",
-    monto_abono: "", // NUEVO
+    // Guardamos centavos como dígitos (estilo banco)
+    montoAbonoCentavosTexto: "",
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -71,12 +80,23 @@ export default function ModalRegistrarPago({
 
   const fileInputRef = useRef(null);
 
-  /** Precargar fecha actual al abrir */
+  /** Precargar fecha al abrir */
   useEffect(() => {
-    if (visible) {
-      setForm((prev) => ({ ...prev, fecha_pago: nowLocalISO() }));
-      setTasaDia(null);
-    }
+    if (!visible) return;
+
+    setForm((prev) => ({
+      ...prev,
+      fecha_pago: nowLocalISO(),
+      comprobante: null,
+      referencia_pago: "",
+      observaciones: "",
+      metodo_pago: "",
+      banco_id: "",
+      montoAbonoCentavosTexto: "",
+    }));
+    setTasaDia(null);
+
+    if (fileInputRef.current) fileInputRef.current.value = "";
   }, [visible]);
 
   /** Cargar detalle y bancos */
@@ -102,12 +122,12 @@ export default function ModalRegistrarPago({
         setForm((prev) => ({
           ...prev,
           banco_id: data.bancosDisponibles?.[0]?.id || "",
-          // Por defecto, que el abono sea el saldo pendiente (para facilitar)
-          monto_abono: "",
         }));
 
         if (data.usuario_firma) {
           setFirmaURL(`${api.defaults.baseURL}${data.usuario_firma}`);
+        } else {
+          setFirmaURL(null);
         }
       } catch (error) {
         console.error("Error al cargar detalle:", error);
@@ -121,49 +141,50 @@ export default function ModalRegistrarPago({
     })();
   }, [visible, solicitudId]);
 
-  /** Traer tasa del día SOLO si la solicitud está en VES */
+  /** Obtener tasa del día si la solicitud está en VES */
+  const consultarTasaDelDia = async () => {
+    try {
+      setCargandoTasa(true);
+
+      const resp = await fetch("https://ve.dolarapi.com/v1/dolares/oficial");
+      if (!resp.ok) throw new Error("No se pudo consultar la tasa del día.");
+
+      const data = await resp.json();
+
+      const tasa =
+        Number(data?.promedio) ||
+        Number(data?.price) ||
+        Number(data?.venta) ||
+        Number(data?.compra) ||
+        null;
+
+      if (!tasa || tasa <= 0) throw new Error("La tasa recibida no es válida.");
+
+      setTasaDia(tasa);
+    } catch (e) {
+      console.error("Error al obtener tasa:", e);
+      setTasaDia(null);
+      setModalError({
+        visible: true,
+        mensaje:
+          e.message ||
+          "No se pudo obtener la tasa del día. Intente nuevamente.",
+      });
+    } finally {
+      setCargandoTasa(false);
+    }
+  };
+
   useEffect(() => {
     if (!visible) return;
     if (!detalle) return;
     if (detalle.moneda !== "VES") return;
 
-    (async () => {
-      try {
-        setCargandoTasa(true);
-        // API: https://ve.dolarapi.com/v1/dolares/oficial
-        const resp = await fetch("https://ve.dolarapi.com/v1/dolares/oficial");
-        if (!resp.ok) throw new Error("No se pudo consultar la tasa del día.");
-
-        const data = await resp.json();
-        // La API normalmente trae "promedio" y/o "price". Usamos el primero disponible.
-        const tasa =
-          Number(data?.promedio) ||
-          Number(data?.price) ||
-          Number(data?.venta) ||
-          Number(data?.compra) ||
-          null;
-
-        if (!tasa || tasa <= 0) {
-          throw new Error("La tasa recibida no es válida.");
-        }
-
-        setTasaDia(tasa);
-      } catch (e) {
-        console.error("Error al obtener tasa:", e);
-        setTasaDia(null);
-        setModalError({
-          visible: true,
-          mensaje:
-            e.message ||
-            "No se pudo obtener la tasa del día. Intente nuevamente.",
-        });
-      } finally {
-        setCargandoTasa(false);
-      }
-    })();
+    consultarTasaDelDia();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, detalle]);
 
-  /** Datos derivados */
+  /** Derivados */
   const montoTotal = useMemo(
     () => Number(detalle?.monto_total) || 0,
     [detalle]
@@ -181,13 +202,18 @@ export default function ModalRegistrarPago({
     detalle?.moneda === "VES" ? "Bs" : detalle?.moneda || "USD";
 
   const montoAbonoNumero = useMemo(
-    () => latamToNumero(form.monto_abono),
-    [form.monto_abono]
+    () => centavosTextoAFloat(form.montoAbonoCentavosTexto),
+    [form.montoAbonoCentavosTexto]
+  );
+
+  const montoAbonoTexto = useMemo(
+    () => formatearBancoDesdeCentavosTexto(form.montoAbonoCentavosTexto),
+    [form.montoAbonoCentavosTexto]
   );
 
   const saldoTexto = detalle
     ? `${formatoLatam(saldoPendiente)} ${simboloMoneda}`
-    : "0,00 Bs";
+    : `0,00 ${simboloMoneda}`;
 
   const abonoTexto = `${formatoLatam(montoAbonoNumero)} ${simboloMoneda}`;
 
@@ -198,35 +224,34 @@ export default function ModalRegistrarPago({
     return 0;
   }, [detalle, montoAbonoNumero, tasaDia]);
 
-  /** Manejo de cambios */
+  /** Handlers */
   const handleChange = (e) => {
     const { name, value, files } = e.target;
 
-    // Archivos
     if (files) {
       setForm((prev) => ({ ...prev, [name]: files[0] }));
       return;
     }
 
-    // Monto abono (texto LATAM)
     if (name === "monto_abono") {
-      const limpio = limpiarInputLatam(value);
-      setForm((prev) => ({ ...prev, monto_abono: limpio }));
+      // Estilo banco: extraemos solo dígitos y lo guardamos como centavosTexto
+      const digitos = soloDigitos(value).slice(0, 18); // límite sano
+      setForm((prev) => ({ ...prev, montoAbonoCentavosTexto: digitos }));
       return;
     }
 
-    const newForm = { ...form, [name]: value };
+    const nuevoForm = { ...form, [name]: value };
 
     if (name === "metodo_pago" && value === "Efectivo") {
-      newForm.banco_id = "";
-      newForm.comprobante = null;
+      nuevoForm.banco_id = "";
+      nuevoForm.comprobante = null;
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
 
-    setForm(newForm);
+    setForm(nuevoForm);
   };
 
-  /** Enviar abono */
+  /** Submit: registra ABONO (no pago completo) */
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -242,7 +267,7 @@ export default function ModalRegistrarPago({
         throw new Error("El abono no puede ser mayor al saldo pendiente.");
       }
 
-      // Si es VES, la tasa del día es obligatoria
+      // VES requiere tasa del día
       if (detalle.moneda === "VES") {
         if (!tasaDia || tasaDia <= 0) {
           throw new Error(
@@ -251,10 +276,24 @@ export default function ModalRegistrarPago({
         }
       }
 
+      // Validaciones de método
+      if (!form.metodo_pago)
+        throw new Error("Debe seleccionar método de pago.");
+
+      const metodoNormalizado = String(form.metodo_pago).trim();
+
+      if (metodoNormalizado !== "Efectivo") {
+        if (!form.banco_id) throw new Error("Debe seleccionar banco.");
+        if (!form.referencia_pago)
+          throw new Error("Debe ingresar referencia de pago.");
+        if (!form.comprobante)
+          throw new Error("Debe adjuntar el comprobante de pago.");
+      }
+
       const fechaPago = form.fecha_pago || nowLocalISO();
 
       const formData = new FormData();
-      formData.append("metodo_pago", form.metodo_pago);
+      formData.append("metodo_pago", metodoNormalizado);
 
       // NUEVO: monto_abono (snake_case como espera el backend)
       formData.append("monto_abono", String(montoAbonoNumero));
@@ -264,16 +303,11 @@ export default function ModalRegistrarPago({
         formData.append("tasa_cambio_abono", String(tasaDia));
       }
 
-      if (form.metodo_pago !== "Efectivo") {
+      if (metodoNormalizado !== "Efectivo") {
         formData.append("banco_id", form.banco_id);
         formData.append("referencia_pago", form.referencia_pago);
-
-        if (!form.comprobante) {
-          throw new Error("Debe adjuntar el comprobante de pago.");
-        }
         formData.append("comprobante", form.comprobante, form.comprobante.name);
       } else {
-        // Si quieres que efectivo también lleve referencia tipo recibo, lo dejamos permitido
         if (form.referencia_pago) {
           formData.append("referencia_pago", form.referencia_pago);
         }
@@ -355,33 +389,49 @@ export default function ModalRegistrarPago({
                   />
                 </div>
 
-                {/* Monto abono */}
+                {/* Monto abono (ESTILO BANCO) */}
                 <div className="col-span-2 sm:col-span-1">
                   <label className="block text-sm font-medium text-gray-300 mb-1">
-                    Monto del abono
+                    Monto a abonar
                   </label>
                   <input
                     type="text"
                     name="monto_abono"
-                    value={form.monto_abono}
+                    value={montoAbonoTexto}
                     onChange={handleChange}
                     disabled={isSubmitting}
-                    placeholder="Ej: 100,00"
+                    placeholder="0,00"
+                    inputMode="numeric"
                     className="w-full px-3 py-2 border border-gray-600 rounded-md shadow-sm 
                     focus:ring-2 focus:ring-blue-500 focus:outline-none bg-gray-700 text-white"
                     required
                   />
                   <p className="text-xs text-gray-400 mt-1">
-                    Abono: <span className="text-gray-200">{abonoTexto}</span>
+                    Abono: <span className="text-gray-200">{abonoTexto}</span> ·
+                    Máximo: <span className="text-gray-200">{saldoTexto}</span>
                   </p>
                 </div>
 
                 {/* Tasa del día (solo VES) */}
                 {detalle?.moneda === "VES" && (
                   <div className="col-span-2 sm:col-span-1">
-                    <label className="block text-sm font-medium text-gray-300 mb-1">
-                      Tasa del día (USD oficial)
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label className="block text-sm font-medium text-gray-300 mb-1">
+                        Tasa del día (USD oficial)
+                      </label>
+
+                      <button
+                        type="button"
+                        onClick={consultarTasaDelDia}
+                        disabled={cargandoTasa || isSubmitting}
+                        className="cursor-pointer inline-flex items-center gap-1 text-xs text-gray-300 hover:text-white disabled:opacity-50"
+                        title="Actualizar tasa"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                        Actualizar
+                      </button>
+                    </div>
+
                     <input
                       type="text"
                       value={
@@ -394,6 +444,7 @@ export default function ModalRegistrarPago({
                       readOnly
                       className="w-full px-3 py-2 border border-gray-600 rounded-md shadow-sm bg-gray-700 text-white focus:outline-none"
                     />
+
                     <p className="text-xs text-gray-400 mt-1">
                       Abono estimado en USD:{" "}
                       <span className="text-gray-200">
@@ -403,10 +454,10 @@ export default function ModalRegistrarPago({
                   </div>
                 )}
 
-                {/* Método de pago */}
+                {/* Método */}
                 <div className="col-span-2 sm:col-span-1">
                   <label className="block text-sm font-medium text-gray-300 mb-1">
-                    Método de Pago
+                    Método de pago
                   </label>
                   <select
                     name="metodo_pago"
@@ -417,7 +468,7 @@ export default function ModalRegistrarPago({
                     focus:ring-2 focus:ring-blue-500 focus:outline-none bg-gray-700 text-white"
                     required
                   >
-                    <option value="">Seleccionar método...</option>
+                    <option value="">Seleccionar...</option>
                     <option value="Transferencia">Transferencia</option>
                     <option value="Efectivo">Efectivo</option>
                   </select>
@@ -429,37 +480,33 @@ export default function ModalRegistrarPago({
                     <label className="block text-sm font-medium text-gray-300 mb-1">
                       Banco
                     </label>
-                    {detalle ? (
-                      <select
-                        name="banco_id"
-                        value={form.banco_id}
-                        onChange={handleChange}
-                        disabled={isSubmitting}
-                        className="cursor-pointer w-full px-3 py-2 border border-gray-600 rounded-md shadow-sm
-                        focus:ring-2 focus:ring-blue-500 focus:outline-none bg-gray-700 text-white"
-                        required
-                      >
-                        <option value="">Seleccionar banco...</option>
-                        {banks.length > 0 ? (
-                          banks.map((b) => (
-                            <option key={b.id} value={b.id}>
-                              {b.nombre} ({b.identificador})
-                            </option>
-                          ))
-                        ) : (
-                          <option disabled>No hay bancos disponibles</option>
-                        )}
-                      </select>
-                    ) : (
-                      <p className="text-sm text-gray-500">Cargando bancos…</p>
-                    )}
+                    <select
+                      name="banco_id"
+                      value={form.banco_id}
+                      onChange={handleChange}
+                      disabled={isSubmitting}
+                      className="cursor-pointer w-full px-3 py-2 border border-gray-600 rounded-md shadow-sm
+                      focus:ring-2 focus:ring-blue-500 focus:outline-none bg-gray-700 text-white"
+                      required
+                    >
+                      <option value="">Seleccionar banco...</option>
+                      {banks.length > 0 ? (
+                        banks.map((b) => (
+                          <option key={b.id} value={b.id}>
+                            {b.nombre} ({b.identificador})
+                          </option>
+                        ))
+                      ) : (
+                        <option disabled>No hay bancos disponibles</option>
+                      )}
+                    </select>
                   </div>
                 )}
 
                 {/* Referencia */}
                 <div className="col-span-2 sm:col-span-1">
                   <label className="block text-sm font-medium text-gray-300 mb-1">
-                    Referencia de Pago
+                    Referencia de pago
                   </label>
                   <input
                     type="text"
@@ -481,7 +528,7 @@ export default function ModalRegistrarPago({
                 {/* Fecha */}
                 <div className="col-span-2 sm:col-span-1">
                   <label className="block text-sm font-medium text-gray-300 mb-1">
-                    Fecha de Pago
+                    Fecha de pago
                   </label>
                   <input
                     type="datetime-local"
@@ -560,6 +607,7 @@ export default function ModalRegistrarPago({
                   >
                     Cancelar
                   </button>
+
                   <button
                     type="submit"
                     disabled={
@@ -573,7 +621,7 @@ export default function ModalRegistrarPago({
                         : ""
                     }
                   >
-                    {isSubmitting ? "Registrando..." : "Registrar Abono"}
+                    {isSubmitting ? "Registrando..." : "Registrar abono"}
                   </button>
                 </div>
               </form>
@@ -582,7 +630,6 @@ export default function ModalRegistrarPago({
         )}
       </AnimatePresence>
 
-      {/* Modal exito */}
       <ModalExito
         visible={modalExito.visible}
         onClose={() => {
@@ -590,11 +637,10 @@ export default function ModalRegistrarPago({
           onPaid();
           onClose();
         }}
-        titulo="Abono Registrado"
+        titulo="Abono registrado"
         mensaje={modalExito.mensaje}
       />
 
-      {/* Modal error */}
       <ModalError
         visible={modalError.visible}
         onClose={() => setModalError({ visible: false, mensaje: "" })}
