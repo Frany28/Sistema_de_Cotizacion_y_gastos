@@ -167,10 +167,7 @@ export const uploadFirma = multer({
               : `usuario-${req.params.id}`;
 
             const claveFirma = `firmas/${nombreBase}/${marcaTiempo}-firma.${extension}`;
-            console.log(
-              "[DEBUG] Clave final (actualizarUsuario):",
-              claveFirma
-            );
+            console.log("[DEBUG] Clave final (actualizarUsuario):", claveFirma);
             cb(null, claveFirma);
           })
           .catch((error) => cb(error));
@@ -197,7 +194,6 @@ export const uploadFirma = multer({
     return cb(new Error("Tipo de archivo no permitido para firma"));
   },
 });
-
 
 /*────────────── Upload de facturas de gastos ───────*/
 export const uploadComprobante = multer({
@@ -350,3 +346,33 @@ export const uploadComprobanteAbono = multer({
     );
   },
 });
+
+export async function subirBufferAS3({
+  claveS3,
+  buffer,
+  contentType = "application/pdf",
+}) {
+  const bucket = process.env.S3_BUCKET;
+
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: claveS3,
+      Body: buffer,
+      ContentType: contentType,
+    })
+  );
+
+  return claveS3;
+}
+
+export async function borrarObjetoAS3(claveS3) {
+  const bucket = process.env.S3_BUCKET;
+
+  await s3.send(
+    new DeleteObjectCommand({
+      Bucket: bucket,
+      Key: claveS3,
+    })
+  );
+}

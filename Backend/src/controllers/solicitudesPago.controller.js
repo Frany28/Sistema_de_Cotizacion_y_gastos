@@ -1,6 +1,11 @@
 // controllers/solicitudesPago.controller.js
 import db from "../config/database.js";
-import { s3, generarUrlPrefirmadaLectura } from "../utils/s3.js";
+import {
+  s3,
+  generarUrlPrefirmadaLectura,
+  subirBufferAS3,
+  borrarObjetoAS3,
+} from "../utils/s3.js";
 import { obtenerOcrearGrupoComprobante } from "../utils/gruposArchivos.js";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import puppeteer from "puppeteer-core";
@@ -196,7 +201,195 @@ export const generarPDFSolicitudPago = async (req, res) => {
 
   await browser.close();
 
-  /* ---------- 8. Enviar ---------- */
+  /* ============================================================
+   8) GUARDAR PDF (ORDEN DE PAGO) EN S3 + REGISTRAR EN BD
+   - Se asocia al PRIMER ABONO (primer pago_realizado de la solicitud)
+   ============================================================ */
+
+  const usuarioId = req.user?.id; // viene del middleware autenticarUsuario
+  let clavePdfOrdenPago = null;
+
+  const conexion = await db.getConnection();
+
+  try {
+    await conexion.beginTransaction();
+
+    // 1) Buscar el PRIMER abono (primer pago_realizado)
+    const [[primerAbono]] = await conexion.execute(
+      `
+    SELECT id, fecha_pago
+    FROM pagos_realizados
+    WHERE solicitud_pago_id = ?
+    ORDER BY fecha_pago ASC, id ASC
+    LIMIT 1
+    `,
+      [id]
+    );
+
+    // Si aún no hay abonos, solo devolvemos el PDF sin guardar.
+    if (primerAbono) {
+      const idPagoRealizado = primerAbono.id;
+
+      // 2) Grupo de archivos para la solicitud (reutiliza tu flujo actual)
+      const grupoId = await obtenerOcrearGrupoComprobante(
+        conexion,
+        id,
+        usuarioId
+      );
+
+      // 3) Construir ruta S3 en la MISMA “carpeta” de la solicitud
+      const meses = [
+        "enero",
+        "febrero",
+        "marzo",
+        "abril",
+        "mayo",
+        "junio",
+        "julio",
+        "agosto",
+        "septiembre",
+        "octubre",
+        "noviembre",
+        "diciembre",
+      ];
+
+      const fechaBase = primerAbono.fecha_pago
+        ? new Date(primerAbono.fecha_pago)
+        : new Date();
+      const anio = fechaBase.getFullYear();
+      const mesPalabra = meses[fechaBase.getMonth()];
+
+      const numeroAbono = 1; // este PDF es del primer abono
+      const timestamp = Date.now();
+
+      const nombreOriginal = `ordenPago-${row.codigo}-abono-${String(
+        numeroAbono
+      ).padStart(4, "0")}-${idPagoRealizado}-${timestamp}.pdf`;
+      const extension = "pdf";
+      const tamanioBytes = pdfBuffer.length;
+
+      clavePdfOrdenPago = `comprobantes_pagos/${anio}/${mesPalabra}/${row.codigo}/ordenes_pago/${nombreOriginal}`;
+
+      // 4) Subir a S3
+      await subirBufferAS3({
+        claveS3: clavePdfOrdenPago,
+        buffer: pdfBuffer,
+        contentType: "application/pdf",
+      });
+
+      // 5) Calcular versión (por primer abono y ordenPago)
+      const [[ver]] = await conexion.execute(
+        `
+      SELECT IFNULL(MAX(numeroVersion), 0) AS maxVer
+      FROM archivos
+      WHERE registroTipo = 'comprobantesPagos'
+        AND registroId = ?
+        AND subTipoArchivo = 'ordenPago'
+      `,
+        [idPagoRealizado]
+      );
+
+      const numeroVersion = Number(ver?.maxVer || 0) + 1;
+
+      // 6) Insert en archivos (IMPORTANTE: registroId = idPagoRealizado)
+      const [aRes] = await conexion.execute(
+        `
+      INSERT INTO archivos
+        (registroTipo, subTipoArchivo, registroId, grupoArchivoId,
+         nombreOriginal, extension, tamanioBytes, numeroVersion,
+         rutaS3, estado, esPublico, subidoPor)
+      VALUES
+        ('comprobantesPagos', 'ordenPago', ?, ?, ?, ?, ?, ?, ?, 'activo', 0, ?)
+      `,
+        [
+          idPagoRealizado,
+          grupoId,
+          nombreOriginal,
+          extension,
+          tamanioBytes,
+          numeroVersion,
+          clavePdfOrdenPago,
+          usuarioId,
+        ]
+      );
+
+      const archivoId = aRes.insertId;
+
+      // 7) Insert en versionesArchivo
+      const [vRes] = await conexion.execute(
+        `
+      INSERT INTO versionesArchivo
+        (archivoId, numeroVersion, nombreOriginal, extension,
+         tamanioBytes, rutaS3, subidoPor)
+      VALUES
+        (?, ?, ?, ?, ?, ?, ?)
+      `,
+        [
+          archivoId,
+          numeroVersion,
+          nombreOriginal,
+          extension,
+          tamanioBytes,
+          clavePdfOrdenPago,
+          usuarioId,
+        ]
+      );
+
+      const versionId = vRes.insertId;
+
+      // 8) Auditoría en eventosArchivo
+      await conexion.execute(
+        `
+      INSERT INTO eventosArchivo
+        (archivoId, versionId, accion, creadoPor, ip, userAgent, detalles)
+      VALUES
+        (?, ?, 'subidaArchivo', ?, ?, ?, ?)
+      `,
+        [
+          archivoId,
+          versionId,
+          usuarioId,
+          req.ip || null,
+          req.headers["user-agent"] || null,
+          JSON.stringify({
+            registroTipo: "comprobantesPagos",
+            subTipoArchivo: "ordenPago",
+            solicitudPagoId: Number(id),
+            pagoRealizadoId: idPagoRealizado,
+            codigoSolicitudPago: row.codigo,
+            origen: "sistema",
+          }),
+        ]
+      );
+
+      // 9) Sumar almacenamiento al usuario
+      await conexion.execute(
+        `
+      UPDATE usuarios
+      SET usoStorageBytes = usoStorageBytes + ?
+      WHERE id = ?
+      `,
+        [tamanioBytes, usuarioId]
+      );
+    }
+
+    await conexion.commit();
+  } catch (error) {
+    await conexion.rollback();
+
+    // Si ya subimos a S3 pero falló BD, intentamos limpiar
+    if (clavePdfOrdenPago) {
+      try {
+        await borrarObjetoAS3(clavePdfOrdenPago);
+      } catch (_) {}
+    }
+
+    console.error("Error guardando PDF Orden de Pago:", error);
+  } finally {
+    conexion.release();
+  }
+
+  /* ---------- 9. Enviar ---------- */
   res
     .set({
       "Content-Type": "application/pdf",

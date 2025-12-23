@@ -50,110 +50,150 @@ export const sustituirArchivo = async (req, res) => {
   const rolId = req.user.rol_id;
 
   try {
-    // 1. Datos del nuevo archivo recibido (vía Multer)
-    const { key: nuevaKey, originalname, size: tamanoBytes } = req.file;
-    const extension = originalname.split(".").pop();
+    if (!req.file) {
+      return res.status(400).json({ message: "No se recibió archivo." });
+    }
 
-    // 2. Buscar archivo activo del registro (registroTipo + registroId)
-    const [[archivo]] = await conexion.query(
-      `SELECT id, grupoArchivoId, rutaS3 AS keyS3, subidoPor, tamanoBytes
+    const { key: nuevaKey, originalname, size: tamanioBytes } = req.file;
+    const extension = originalname.includes(".")
+      ? originalname.split(".").pop()
+      : null;
+
+    const subTipoArchivo = req.query.subTipoArchivo || "comprobante";
+
+    const [[archivoActivo]] = await conexion.query(
+      `SELECT id, grupoArchivoId, rutaS3 AS keyS3, subidoPor, tamanioBytes
          FROM archivos
-        WHERE registroTipo = ? AND registroId = ? AND estado = 'activo'`,
-      [req.params.registroTipo, req.params.registroId]
+        WHERE registroTipo = ?
+          AND registroId = ?
+          AND subTipoArchivo = ?
+          AND estado = 'activo'`,
+      [req.params.registroTipo, req.params.registroId, subTipoArchivo]
     );
 
-    if (!archivo) {
-      return res
-        .status(404)
-        .json({ message: "No hay archivo activo para sustituir." });
+    if (!archivoActivo) {
+      return res.status(404).json({
+        message: "No hay archivo activo para sustituir.",
+      });
     }
 
-    // 3. Verificar permiso de sustitución
+    // Permisos
     if (
       ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
-      archivo.subidoPor !== creadoPor
+      archivoActivo.subidoPor !== creadoPor
     ) {
-      return res
-        .status(403)
-        .json({ message: "No tienes permiso para sustituir este archivo." });
+      return res.status(403).json({
+        message: "No tienes permiso para sustituir este archivo.",
+      });
     }
 
-    // 4. Validar cuota de almacenamiento (50MB)
+    // Cuota
     const [[usuario]] = await conexion.query(
       "SELECT cuotaMb, usoStorageBytes FROM usuarios WHERE id = ?",
       [creadoPor]
     );
-    const cuotaBytes = usuario.cuotaMb * 1024 * 1024;
+
+    const cuotaBytes = Number(usuario.cuotaMb || 0) * 1024 * 1024;
     const nuevoUso =
-      usuario.usoStorageBytes - archivo.tamanoBytes + tamanoBytes;
+      Number(usuario.usoStorageBytes || 0) -
+      Number(archivoActivo.tamanioBytes || 0) +
+      Number(tamanioBytes || 0);
 
     if (nuevoUso > cuotaBytes) {
-      return res
-        .status(400)
-        .json({ message: "Superas tu cuota de almacenamiento (50MB)." });
+      return res.status(400).json({
+        message: "Superas tu cuota de almacenamiento.",
+      });
     }
 
     await conexion.beginTransaction();
 
-    // 5. Mover archivo viejo a papelera en S3
-    await moverArchivoAPapelera(archivo.keyS3);
+    // 1) mover viejo a papelera
+    const rutaPapelera = await moverArchivoAPapelera(archivoActivo.keyS3);
 
-    // 6. Marcar el archivo anterior como reemplazado
+    // 2) marcar archivo anterior como reemplazado (y actualizar ruta si se movió)
     await conexion.query(
-      `UPDATE archivos SET estado = 'reemplazado', actualizadoEn = NOW() WHERE id = ?`,
-      [archivo.id]
+      `UPDATE archivos
+          SET estado = 'reemplazado',
+              rutaS3 = COALESCE(?, rutaS3),
+              actualizadoEn = NOW()
+        WHERE id = ?`,
+      [rutaPapelera, archivoActivo.id]
     );
 
-    // 7. Obtener la próxima versión dentro del grupo
+    // 3) siguiente versión del grupo
     const [[{ maxVersion }]] = await conexion.query(
-      `SELECT COALESCE(MAX(numeroVersion), 0) AS maxVersion FROM archivos WHERE grupoArchivoId = ?`,
-      [archivo.grupoArchivoId]
+      `SELECT COALESCE(MAX(numeroVersion), 0) AS maxVersion
+         FROM archivos
+        WHERE grupoArchivoId = ?`,
+      [archivoActivo.grupoArchivoId]
     );
-    const siguienteVersion = maxVersion + 1;
 
-    // 8. Insertar nuevo archivo como nueva versión
-    const [resultado] = await conexion.query(
+    const siguienteVersion = Number(maxVersion || 0) + 1;
+
+    // 4) insertar nuevo archivo
+    const [resultadoArchivo] = await conexion.query(
       `INSERT INTO archivos (
-         grupoArchivoId, numeroVersion, registroTipo, registroId,
-         nombreOriginal, extension, tamanioBytes, rutaS3,
-         subidoPor, subidoEn, estado
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'activo')`,
+          grupoArchivoId, numeroVersion, registroTipo, subTipoArchivo, registroId,
+          nombreOriginal, extension, tamanioBytes, rutaS3,
+          subidoPor, estado
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'activo')`,
       [
-        archivo.grupoArchivoId,
+        archivoActivo.grupoArchivoId,
         siguienteVersion,
         req.params.registroTipo,
+        subTipoArchivo,
         req.params.registroId,
         originalname,
         extension,
-        tamanoBytes,
+        tamanioBytes,
         nuevaKey,
         creadoPor,
       ]
     );
-    const nuevoArchivoId = resultado.insertId;
 
-    // 9. Actualizar uso de almacenamiento del usuario
+    const nuevoArchivoId = resultadoArchivo.insertId;
+
+    // 5) insertar en versionesArchivo
+    const [resultadoVersion] = await conexion.query(
+      `INSERT INTO versionesArchivo
+        (archivoId, numeroVersion, nombreOriginal, extension, tamanioBytes, rutaS3, subidoPor)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        nuevoArchivoId,
+        siguienteVersion,
+        originalname,
+        extension,
+        tamanioBytes,
+        nuevaKey,
+        creadoPor,
+      ]
+    );
+
+    const versionId = resultadoVersion.insertId;
+
+    // 6) actualizar uso storage
     await conexion.query(
       "UPDATE usuarios SET usoStorageBytes = ? WHERE id = ?",
       [nuevoUso, creadoPor]
     );
 
-    // 10. Registrar evento de sustitución
+    // 7) auditoría (acción válida en tu ENUM)
     await conexion.query(
       `INSERT INTO eventosArchivo
-         (archivoId, versionId, accion, creadoPor, ip, userAgent, detalles)
-       VALUES (?, ?, 'sustitucion', ?, ?, ?, ?)`,
+        (archivoId, versionId, accion, creadoPor, ip, userAgent, detalles)
+       VALUES (?, ?, 'sustitucionArchivo', ?, ?, ?, ?)`,
       [
         nuevoArchivoId,
-        archivo.id,
+        versionId,
         creadoPor,
-        req.ip,
-        req.get("User-Agent"),
+        req.ip || null,
+        req.get("User-Agent") || null,
         JSON.stringify({
-          anteriorId: archivo.id,
-          nuevaKey,
-          extension,
-          originalname,
+          subTipoArchivo,
+          anteriorArchivoId: archivoActivo.id,
+          anteriorRuta: archivoActivo.keyS3,
+          nuevaRuta: nuevaKey,
+          nombreOriginal: originalname,
           numeroVersion: siguienteVersion,
         }),
       ]
@@ -164,9 +204,9 @@ export const sustituirArchivo = async (req, res) => {
   } catch (error) {
     await conexion.rollback();
     console.error(error);
-    return res
-      .status(500)
-      .json({ message: "Error interno al sustituir archivo." });
+    return res.status(500).json({
+      message: "Error interno al sustituir archivo.",
+    });
   } finally {
     conexion.release();
   }
@@ -186,8 +226,11 @@ export const descargarArchivo = async (req, res) => {
           AND estado = 'activo'`,
       [archivoId]
     );
-    if (!archivo)
+
+    if (!archivo) {
       return res.status(404).json({ message: "Archivo no encontrado." });
+    }
+
     if (
       ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
       archivo.subidoPor !== creadoPor
@@ -198,24 +241,12 @@ export const descargarArchivo = async (req, res) => {
     }
 
     const url = await generarUrlPrefirmadaLectura(archivo.keyS3, 600);
-    await db.execute(
-      `INSERT INTO eventosArchivo (archivoId, accion, creadoPor, ip, userAgent, detalles)
-       VALUES (?, 'descarga', ?, ?, ?, ?)`,
-      [
-        archivoId,
-        creadoPor,
-        req.ip,
-        req.get("User-Agent"),
-        JSON.stringify({ key: archivo.keyS3 }),
-      ]
-    );
-
     return res.json({ nombreOriginal: archivo.nombreOriginal, url });
   } catch (error) {
     console.error(error);
-    return res
-      .status(500)
-      .json({ message: "Error interno al descargar archivo." });
+    return res.status(500).json({
+      message: "Error interno al descargar archivo.",
+    });
   }
 };
 
@@ -281,36 +312,47 @@ export const eliminarArchivo = async (req, res) => {
 
   try {
     const [[archivo]] = await db.query(
-      "SELECT estado, subidoPor, tamanoBytes FROM archivos WHERE id = ?",
+      "SELECT estado, subidoPor, tamanioBytes FROM archivos WHERE id = ?",
       [archivoId]
     );
-    if (!archivo)
+
+    if (!archivo) {
       return res.status(404).json({ message: "Archivo no encontrado." });
+    }
+
     if (archivo.estado === "eliminado") {
       return res.status(400).json({ message: "El archivo ya está eliminado." });
     }
+
     if (
       ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
       archivo.subidoPor !== creadoPor
     ) {
-      return res
-        .status(403)
-        .json({ message: "Acceso denegado: no puedes eliminar este archivo." });
+      return res.status(403).json({
+        message: "Acceso denegado: no puedes eliminar este archivo.",
+      });
     }
 
     await db.execute(
       "UPDATE archivos SET estado = 'eliminado', eliminadoEn = NOW(), actualizadoEn = NOW() WHERE id = ?",
       [archivoId]
     );
-    // Ajustar uso de almacenamiento
+
     await db.execute(
       "UPDATE usuarios SET usoStorageBytes = usoStorageBytes - ? WHERE id = ?",
-      [archivo.tamanoBytes, archivo.subidoPor]
+      [archivo.tamanioBytes, archivo.subidoPor]
     );
+
     await db.execute(
-      `INSERT INTO eventosArchivo (archivoId, accion, creadoPor, ip, userAgent)
-       VALUES (?, 'eliminacion', ?, ?, ?)`,
-      [archivoId, creadoPor, req.ip, req.get("User-Agent")]
+      `INSERT INTO eventosArchivo (archivoId, accion, creadoPor, ip, userAgent, detalles)
+       VALUES (?, 'eliminacionArchivo', ?, ?, ?, ?)`,
+      [
+        archivoId,
+        creadoPor,
+        req.ip || null,
+        req.get("User-Agent") || null,
+        JSON.stringify({ motivo: "eliminacionManual" }),
+      ]
     );
 
     return res.json({
@@ -330,141 +372,135 @@ export const restaurarArchivo = async (req, res) => {
   const creadoPor = req.user.id;
   const rolId = req.user.rol_id;
 
-  /* 1️⃣  Traer metadatos del archivo que se quiere restaurar */
-  const [[archReemplazado]] = await db.query(
+  const [[archivoReemplazado]] = await db.query(
     `SELECT *
        FROM archivos
       WHERE id = ? AND estado = 'reemplazado'`,
     [archivoId]
   );
-  if (!archReemplazado)
+
+  if (!archivoReemplazado) {
     return res.status(404).json({
       mensaje: "Archivo no encontrado o su estado no es 'reemplazado'.",
     });
+  }
 
-  /*  Permisos */
   if (
     ![ROL_ADMIN, ROL_SUPERVISOR].includes(rolId) &&
-    archReemplazado.subidoPor !== creadoPor
-  )
-    return res
-      .status(403)
-      .json({ mensaje: "No posees permiso para restaurar este archivo." });
+    archivoReemplazado.subidoPor !== creadoPor
+  ) {
+    return res.status(403).json({
+      mensaje: "No posees permiso para restaurar este archivo.",
+    });
+  }
 
-  /*   Verificar que el registro asociado aún existe */
   const destinoPorTipo = {
     facturasGastos: "gastos",
     comprobantesPagos: "solicitudes_pago",
     abonosCXC: "abonos_cuentas",
     firmas: "usuarios",
-    cotizacion: "cotizaciones", // legados
+    cotizacion: "cotizaciones",
     gasto: "gastos",
     solicitudPago: "solicitudes_pago",
   };
-  const tablaDestino = destinoPorTipo[archReemplazado.registroTipo];
-  if (!tablaDestino)
+
+  const tablaDestino = destinoPorTipo[archivoReemplazado.registroTipo];
+  if (!tablaDestino) {
     return res.status(400).json({
-      mensaje: `registroTipo inválido: ${archReemplazado.registroTipo}`,
+      mensaje: `registroTipo inválido: ${archivoReemplazado.registroTipo}`,
     });
+  }
 
   const [[registroVivo]] = await db.query(
     `SELECT 1 FROM \`${tablaDestino}\` WHERE id = ? LIMIT 1`,
-    [archReemplazado.registroId]
+    [archivoReemplazado.registroId]
   );
-  if (!registroVivo)
-    return res
-      .status(410)
-      .json({ mensaje: "El registro asociado ya no existe." });
 
-  /* 4️⃣  Iniciar transacción */
-  const cx = await db.getConnection();
+  if (!registroVivo) {
+    return res.status(410).json({
+      mensaje: "El registro asociado ya no existe.",
+    });
+  }
+
+  const conexion = await db.getConnection();
+
   try {
-    await cx.beginTransaction();
+    await conexion.beginTransaction();
 
-    /* 4.1  Bloquear (FOR UPDATE) la versión activa actual —si existe— */
-    const [[archActivo]] = await cx.query(
+    // bloquear el activo actual
+    const [[archivoActivo]] = await conexion.query(
       `SELECT id, rutaS3
          FROM archivos
-        WHERE grupoArchivoId = ? AND estado = 'activo' FOR UPDATE`,
-      [archReemplazado.grupoArchivoId]
+        WHERE grupoArchivoId = ?
+          AND estado = 'activo'
+        FOR UPDATE`,
+      [archivoReemplazado.grupoArchivoId]
     );
 
-    /* 4.2  Si hay activo, pasarlo a papelera y marcarlo como 'reemplazado' */
-    if (archActivo) {
-      const rutaPapelera = `papelera/${archActivo.rutaS3}`;
+    // si hay activo, mover a papelera y marcar reemplazado
+    if (archivoActivo) {
+      const rutaPapelera = `papelera/${archivoActivo.rutaS3}`;
+
       await moverObjetoEnS3({
-        origen: archActivo.rutaS3,
+        origen: archivoActivo.rutaS3,
         destino: rutaPapelera,
       });
 
-      await cx.query(
+      await conexion.query(
         `UPDATE archivos
-            SET estado   = 'reemplazado',
-                rutaS3   = ?,
+            SET estado = 'reemplazado',
+                rutaS3 = ?,
                 actualizadoEn = NOW()
           WHERE id = ?`,
-        [rutaPapelera, archActivo.id]
+        [rutaPapelera, archivoActivo.id]
       );
     }
 
-    /* 4.3  Sacar la versión a restaurar de la papelera y dejarla 'activa' */
-    const rutaDestino = archReemplazado.rutaS3.replace(/^papelera\//, "");
+    // restaurar el reemplazado (sacarlo de papelera)
+    const rutaDestino = archivoReemplazado.rutaS3.replace(/^papelera\//, "");
+
     await moverObjetoEnS3({
-      origen: archReemplazado.rutaS3,
+      origen: archivoReemplazado.rutaS3,
       destino: rutaDestino,
     });
 
-    await cx.query(
+    await conexion.query(
       `UPDATE archivos
-          SET estado   = 'activo',
-              rutaS3   = ?,
+          SET estado = 'activo',
+              rutaS3 = ?,
               actualizadoEn = NOW()
         WHERE id = ?`,
-      [rutaDestino, archReemplazado.id]
+      [rutaDestino, archivoReemplazado.id]
     );
 
-    /* 4.4  Registrar dos eventos de auditoría */
-    const userAgent = req.get("User-Agent");
-    const ip = req.ip;
-
-    if (archActivo) {
-      await cx.query(
-        `INSERT INTO eventosArchivo
-           (archivoId, accion, creadoPor, ip, userAgent, detalles)
-         VALUES (?, 'versionReemplazada', ?, ?, ?, ?)`,
-        [
-          archActivo.id,
-          creadoPor,
-          ip,
-          userAgent,
-          JSON.stringify({ nuevaRuta: `papelera/${archActivo.rutaS3}` }),
-        ]
-      );
-    }
-
-    await cx.query(
+    // auditoría compatible: usamos sustitucionArchivo + detalles
+    await conexion.query(
       `INSERT INTO eventosArchivo
         (archivoId, accion, creadoPor, ip, userAgent, detalles)
-       VALUES (?, 'restauracion', ?, ?, ?, ?)`,
+       VALUES (?, 'sustitucionArchivo', ?, ?, ?, ?)`,
       [
-        archReemplazado.id,
+        archivoReemplazado.id,
         creadoPor,
-        ip,
-        userAgent,
-        JSON.stringify({ rutaRestaurada: rutaDestino }),
+        req.ip || null,
+        req.get("User-Agent") || null,
+        JSON.stringify({
+          tipo: "restauracion",
+          archivoActivoAnteriorId: archivoActivo ? archivoActivo.id : null,
+          rutaRestaurada: rutaDestino,
+        }),
       ]
     );
 
-    await cx.commit();
+    await conexion.commit();
     return res.json({ mensaje: "Archivo restaurado correctamente." });
-  } catch (err) {
-    await cx.rollback();
-    console.error("Error al restaurar archivo:", err);
+  } catch (error) {
+    await conexion.rollback();
+    console.error("Error al restaurar archivo:", error);
     return res
       .status(500)
       .json({ mensaje: "Error interno al restaurar archivo." });
   } finally {
-    cx.release();
+    conexion.release();
   }
 };
 
