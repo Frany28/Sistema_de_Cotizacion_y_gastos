@@ -224,7 +224,6 @@ export default function ModalVerSolicitudDePago({
         </motion.div>
       </AnimatePresence>
       {/* NUEVO: Modal selector */}
-      // ModalVerSolicitudDePago.jsx (al final)
       <ModalElegirOrdenPago
         visible={mostrarModalOrdenesPago}
         onClose={() => setMostrarModalOrdenesPago(false)}
