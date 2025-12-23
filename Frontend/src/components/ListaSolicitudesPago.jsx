@@ -19,7 +19,6 @@ function ListaSolicitudesPago() {
   const [todasSolicitudes, setTodasSolicitudes] = useState([]);
   const [puedePagar, setPuedePagar] = useState(false);
   const estadosPagables = ["por_pagar", "parcialmente_pagada"];
-  const estaBloqueadoPago = !estadosPagables.includes(solicitud.estado);
 
   const [limit, setLimit] = useState(() => {
     const stored = localStorage.getItem("solicitudesLimit");
@@ -150,11 +149,11 @@ function ListaSolicitudesPago() {
   };
 
   const handleAgregarPago = (solicitud) => {
-    if (solicitud.estado !== "por_pagar") {
+    if (!estadosPagables.includes(solicitud.estado)) {
       mostrarError({
         titulo: "Solicitud no disponible",
         mensaje:
-          "Esta solicitud ya fue pagada o cancelada y no se puede registrar un nuevo pago.",
+          "Esta solicitud está pagada o cancelada y no se puede registrar un nuevo abono.",
       });
       return;
     }
@@ -293,6 +292,9 @@ function ListaSolicitudesPago() {
               const pagado = Number(solicitud.pagado) || 0;
               const saldoPendiente = monto - pagado;
               const isBolivares = solicitud.moneda === "VES";
+              const estaBloqueadoPago = !estadosPagables.includes(
+                solicitud.estado
+              );
 
               return (
                 <tr key={solicitud.id} className="border-b border-gray-700">
@@ -376,6 +378,9 @@ function ListaSolicitudesPago() {
             const pagado = Number(solicitud.pagado) || 0;
             const saldoPendiente = monto - pagado;
             const isBolivares = solicitud.moneda === "VES";
+            const estaBloqueadoPago = !estadosPagables.includes(
+              solicitud.estado
+            );
 
             return (
               <div
@@ -478,6 +483,7 @@ function ListaSolicitudesPago() {
           const pagado = Number(solicitud.pagado) || 0;
           const saldoPendiente = monto - pagado;
           const isBolivares = solicitud.moneda === "VES";
+          const estaBloqueadoPago = !estadosPagables.includes(solicitud.estado);
 
           return (
             <div
