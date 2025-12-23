@@ -8,7 +8,7 @@ import {
   Clock,
   List,
 } from "lucide-react";
-import ModalElegirOrdenPago from "./ModalElegirOrdenPago";
+import ModalElegirOrdenPago from "./ModalElegirOrdenDePago";
 
 export default function ModalVerSolicitudDePago({
   visible,
