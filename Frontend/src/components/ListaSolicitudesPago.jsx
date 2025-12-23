@@ -18,6 +18,8 @@ function ListaSolicitudesPago() {
   const [totalSolicitudes, setTotalSolicitudes] = useState(0);
   const [todasSolicitudes, setTodasSolicitudes] = useState([]);
   const [puedePagar, setPuedePagar] = useState(false);
+  const estadosPagables = ["por_pagar", "parcialmente_pagada"];
+  const estaBloqueadoPago = !estadosPagables.includes(solicitud.estado);
 
   const [limit, setLimit] = useState(() => {
     const stored = localStorage.getItem("solicitudesLimit");
@@ -325,6 +327,8 @@ function ListaSolicitudesPago() {
                       className={`px-2 py-1 rounded-full text-xs ${
                         solicitud.estado === "por_pagar"
                           ? "bg-yellow-100 text-yellow-800"
+                          : solicitud.estado === "parcialmente_pagada"
+                          ? "bg-blue-100 text-blue-800"
                           : solicitud.estado === "pagada"
                           ? "bg-green-100 text-green-800"
                           : solicitud.estado === "cancelada" ||
@@ -347,9 +351,9 @@ function ListaSolicitudesPago() {
                       <BotonIcono
                         tipo="abonar"
                         onClick={() => handleAgregarPago(solicitud)}
-                        disabled={solicitud.estado !== "por_pagar"}
+                        disabled={estaBloqueadoPago}
                         className={`${
-                          solicitud.estado !== "por_pagar"
+                          estaBloqueadoPago
                             ? "opacity-50 cursor-not-allowed"
                             : ""
                         }`}
@@ -395,6 +399,8 @@ function ListaSolicitudesPago() {
                     className={`px-2 py-1 rounded-full text-xs ${
                       solicitud.estado === "por_pagar"
                         ? "bg-yellow-100 text-yellow-800"
+                        : solicitud.estado === "parcialmente_pagada"
+                        ? "bg-blue-100 text-blue-800"
                         : solicitud.estado === "pagada"
                         ? "bg-green-100 text-green-800"
                         : solicitud.estado === "cancelada" ||
@@ -450,13 +456,11 @@ function ListaSolicitudesPago() {
                     <BotonIcono
                       tipo="abonar"
                       onClick={() => handleAgregarPago(solicitud)}
-                      disabled={solicitud.estado !== "por_pagar"}
-                      small
+                      disabled={estaBloqueadoPago}
                       className={`${
-                        solicitud.estado !== "por_pagar"
-                          ? "opacity-50 cursor-not-allowed"
-                          : ""
+                        estaBloqueadoPago ? "opacity-50 cursor-not-allowed" : ""
                       }`}
+                      small
                       titulo="Agregar pago"
                     />
                   )}
@@ -495,6 +499,8 @@ function ListaSolicitudesPago() {
                   className={`px-2 py-1 rounded-full text-xs ${
                     solicitud.estado === "por_pagar"
                       ? "bg-yellow-100 text-yellow-800"
+                      : solicitud.estado === "parcialmente_pagada"
+                      ? "bg-blue-100 text-blue-800"
                       : solicitud.estado === "pagada"
                       ? "bg-green-100 text-green-800"
                       : solicitud.estado === "cancelada" ||
@@ -546,12 +552,9 @@ function ListaSolicitudesPago() {
                   <BotonIcono
                     tipo="abonar"
                     onClick={() => handleAgregarPago(solicitud)}
-                    disabled={solicitud.estado !== "por_pagar"}
-                    small
+                    disabled={estaBloqueadoPago}
                     className={`${
-                      solicitud.estado !== "por_pagar"
-                        ? "opacity-50 cursor-not-allowed"
-                        : ""
+                      estaBloqueadoPago ? "opacity-50 cursor-not-allowed" : ""
                     }`}
                     titulo="Pagar"
                   />

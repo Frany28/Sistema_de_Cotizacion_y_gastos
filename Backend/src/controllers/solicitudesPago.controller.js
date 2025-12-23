@@ -400,6 +400,361 @@ export const generarPDFSolicitudPago = async (req, res) => {
     .send(pdfBuffer);
 };
 
+async function guardarPdfOrdenPagoPrimerAbono({
+  solicitudPagoId,
+  pagoRealizadoId,
+  usuarioId,
+  ip,
+  userAgent,
+}) {
+  let clavePdfOrdenPago = null;
+  const conexion = await db.getConnection();
+
+  try {
+    await conexion.beginTransaction();
+
+    // 1) Traer data completa de la solicitud (misma consulta base del PDF)
+    const [[row]] = await conexion.execute(
+      `
+      SELECT  
+              sp.*,
+              g.codigo              AS gasto_codigo,
+              g.total               AS gasto_total,
+              g.moneda              AS gasto_moneda,
+              g.tasa_cambio         AS gasto_tasa_cambio,
+              g.documento           AS gasto_documento,
+              tg.nombre             AS tipo_gasto_nombre,
+              p.nombre              AS proveedor_nombre,
+              p.rif                 AS proveedor_rif,
+              p.telefono            AS proveedor_telefono,
+              p.email               AS proveedor_email,
+              b.nombre              AS banco_nombre,
+
+              us.nombre             AS solicita_nombre,
+              us.firma              AS solicita_firma,
+
+              ur.nombre             AS revisa_nombre,
+              ur.firma              AS revisa_firma,
+
+              up.nombre             AS aprueba_nombre,
+              up.firma              AS aprueba_firma
+      FROM    solicitudes_pago sp
+      LEFT JOIN gastos g         ON g.id = sp.gasto_id
+      LEFT JOIN tipos_gasto tg   ON tg.id = g.tipo_gasto_id
+      LEFT JOIN proveedores p    ON p.id = sp.proveedor_id
+      LEFT JOIN bancos b         ON b.id = sp.banco_id
+      LEFT JOIN usuarios us      ON us.id = sp.usuario_solicita_id
+      LEFT JOIN usuarios ur      ON ur.id = sp.usuario_revisa_id
+      LEFT JOIN usuarios up      ON up.id = sp.usuario_aprueba_id
+      WHERE sp.id = ?
+      `,
+      [solicitudPagoId]
+    );
+
+    if (!row) {
+      await conexion.rollback();
+      return { ok: false, motivo: "Solicitud no encontrada" };
+    }
+
+    // 2) Asegurar que este PDF sea del primer abono
+    const [[primerAbono]] = await conexion.execute(
+      `
+      SELECT *
+      FROM pagos_realizados
+      WHERE solicitud_pago_id = ?
+      ORDER BY fecha_pago ASC, id ASC
+      LIMIT 1
+      `,
+      [solicitudPagoId]
+    );
+
+    if (!primerAbono) {
+      await conexion.rollback();
+      return { ok: false, motivo: "No existe primer abono todavía" };
+    }
+
+    // Si el primer abono real no coincide con el pagoRealizadoId que acabamos de crear,
+    // entonces NO generamos (esto evita generar el PDF si ya existían abonos antes).
+    if (Number(primerAbono.id) !== Number(pagoRealizadoId)) {
+      await conexion.rollback();
+      return { ok: true, omitido: true, motivo: "No es el primer abono" };
+    }
+
+    // 3) Evitar duplicado: si ya existe un ordenPago para este pagoRealizadoId, no regenerar
+    const [[yaExiste]] = await conexion.execute(
+      `
+      SELECT id
+      FROM archivos
+      WHERE registroTipo = 'comprobantesPagos'
+        AND registroId = ?
+        AND subTipoArchivo = 'ordenPago'
+        AND estado = 'activo'
+      LIMIT 1
+      `,
+      [pagoRealizadoId]
+    );
+
+    if (yaExiste?.id) {
+      await conexion.rollback();
+      return { ok: true, omitido: true, motivo: "PDF ya estaba registrado" };
+    }
+
+    // 4) Firmas + logo (igual que generarPDFSolicitudPago)
+    const solicitaFirma = await firmaToDataUrl(row.solicita_firma);
+    const revisaFirma = await firmaToDataUrl(row.revisa_firma);
+    const apruebaFirma = await firmaToDataUrl(row.aprueba_firma);
+
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const rutaLogo = path.join(__dirname, "../assets/logo.png");
+    const logo = fs.existsSync(rutaLogo)
+      ? `data:image/png;base64,${fs.readFileSync(rutaLogo).toString("base64")}`
+      : null;
+
+    // 5) Comprobante URL (si aplica)
+    const comprobanteUrl = row.ruta_comprobante
+      ? await generarUrlPrefirmadaLectura(row.ruta_comprobante)
+      : null;
+
+    // 6) Construir objeto para template
+    const datos = {
+      solicitud: {
+        id: row.id,
+        codigo: row.codigo,
+        conceptoPago: row.concepto_pago,
+        metodoPago: row.metodo_pago,
+        referenciaPago: row.referencia_pago,
+        observaciones: row.observaciones,
+        moneda: row.moneda,
+        tasaCambio: row.tasa_cambio,
+        montoTotal: row.monto_total,
+        montoPagado: row.monto_pagado,
+        estado: row.estado,
+        fechaSolicitud: row.fecha_solicitud,
+        fechaPago: primerAbono.fecha_pago,
+      },
+      gasto: row.gasto_id
+        ? {
+            id: row.gasto_id,
+            codigo: row.gasto_codigo,
+            total: row.gasto_total || 0,
+            moneda: row.gasto_moneda || "—",
+            tasaCambio: row.gasto_tasa_cambio || null,
+            documentoUrl: row.gasto_documento
+              ? await generarUrlPrefirmadaLectura(row.gasto_documento)
+              : null,
+          }
+        : null,
+      proveedor: row.proveedor_nombre
+        ? {
+            nombre: row.proveedor_nombre,
+            rif: row.proveedor_rif,
+            telefono: row.proveedor_telefono,
+            email: row.proveedor_email,
+          }
+        : null,
+      banco: row.banco_nombre ? { nombre: row.banco_nombre } : null,
+      firmas: {
+        solicita: solicitaFirma,
+        revisa: revisaFirma,
+        aprueba: apruebaFirma,
+      },
+      comprobanteUrl,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      logo,
+    };
+
+    const html = generarHTMLOrdenPago(datos, "final");
+
+    // 7) Puppeteer → PDF buffer
+    const browser = await puppeteer.launch({
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
+      ignoreHTTPSErrors: true,
+    });
+
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: "networkidle0" });
+
+    const pdfBuffer = await page.pdf({
+      format: "A4",
+      printBackground: true,
+      margin: { top: "20px", bottom: "20px", left: "20px", right: "20px" },
+    });
+
+    await browser.close();
+
+    // 8) Carpeta S3: .../SP-00005/ordenes_pago/...
+    const meses = [
+      "enero",
+      "febrero",
+      "marzo",
+      "abril",
+      "mayo",
+      "junio",
+      "julio",
+      "agosto",
+      "septiembre",
+      "octubre",
+      "noviembre",
+      "diciembre",
+    ];
+
+    const fechaBase = primerAbono?.fecha_pago
+      ? new Date(primerAbono.fecha_pago)
+      : new Date();
+    const anio = fechaBase.getFullYear();
+    const mesPalabra = meses[fechaBase.getMonth()];
+
+    const numeroAbono = 1;
+    const timestamp = Date.now();
+
+    const nombreOriginal = `ordenPago-${row.codigo}-abono-${String(
+      numeroAbono
+    ).padStart(4, "0")}-${pagoRealizadoId}-${timestamp}.pdf`;
+
+    const extension = "pdf";
+    const tamanioBytes = pdfBuffer.length;
+
+    clavePdfOrdenPago = `comprobantes_pagos/${anio}/${mesPalabra}/${row.codigo}/ordenes_pago/${nombreOriginal}`;
+
+    // 9) Subir a S3
+    await subirBufferAS3({
+      claveS3: clavePdfOrdenPago,
+      buffer: pdfBuffer,
+      contentType: "application/pdf",
+    });
+
+    // 10) Grupo de archivos (misma utilidad que ya usas)
+    const grupoId = await obtenerOcrearGrupoComprobante(
+      conexion,
+      solicitudPagoId,
+      usuarioId
+    );
+
+    // 11) Versionado
+    const [[ver]] = await conexion.execute(
+      `
+      SELECT IFNULL(MAX(numeroVersion), 0) AS maxVer
+      FROM archivos
+      WHERE registroTipo = 'comprobantesPagos'
+        AND registroId = ?
+        AND subTipoArchivo = 'ordenPago'
+      `,
+      [pagoRealizadoId]
+    );
+
+    const numeroVersion = Number(ver?.maxVer || 0) + 1;
+
+    // 12) Insert archivos (registroId = pagoRealizadoId)
+    const [aRes] = await conexion.execute(
+      `
+      INSERT INTO archivos
+        (registroTipo, subTipoArchivo, registroId, grupoArchivoId,
+         nombreOriginal, extension, tamanioBytes, numeroVersion,
+         rutaS3, estado, esPublico, subidoPor)
+      VALUES
+        ('comprobantesPagos', 'ordenPago', ?, ?, ?, ?, ?, ?, ?, 'activo', 0, ?)
+      `,
+      [
+        pagoRealizadoId,
+        grupoId,
+        nombreOriginal,
+        extension,
+        tamanioBytes,
+        numeroVersion,
+        clavePdfOrdenPago,
+        usuarioId,
+      ]
+    );
+
+    const archivoId = aRes.insertId;
+
+    // 13) Insert versionesArchivo
+    const [vRes] = await conexion.execute(
+      `
+      INSERT INTO versionesArchivo
+        (archivoId, numeroVersion, nombreOriginal, extension,
+         tamanioBytes, rutaS3, subidoPor)
+      VALUES
+        (?, ?, ?, ?, ?, ?, ?)
+      `,
+      [
+        archivoId,
+        numeroVersion,
+        nombreOriginal,
+        extension,
+        tamanioBytes,
+        clavePdfOrdenPago,
+        usuarioId,
+      ]
+    );
+
+    const versionId = vRes.insertId;
+
+    // 14) Auditoría eventosArchivo
+    await conexion.execute(
+      `
+      INSERT INTO eventosArchivo
+        (archivoId, versionId, accion, creadoPor, ip, userAgent, detalles)
+      VALUES
+        (?, ?, 'subidaArchivo', ?, ?, ?, ?)
+      `,
+      [
+        archivoId,
+        versionId,
+        usuarioId,
+        ip || null,
+        userAgent || null,
+        JSON.stringify({
+          registroTipo: "comprobantesPagos",
+          subTipoArchivo: "ordenPago",
+          solicitudPagoId: Number(solicitudPagoId),
+          pagoRealizadoId: Number(pagoRealizadoId),
+          codigoSolicitudPago: row.codigo,
+          origen: "abono",
+        }),
+      ]
+    );
+
+    // 15) Storage
+    await conexion.execute(
+      `
+      UPDATE usuarios
+      SET usoStorageBytes = usoStorageBytes + ?
+      WHERE id = ?
+      `,
+      [tamanioBytes, usuarioId]
+    );
+
+    await conexion.commit();
+
+    return {
+      ok: true,
+      clavePdfOrdenPago,
+      archivoId,
+      versionId,
+    };
+  } catch (error) {
+    await conexion.rollback();
+
+    // Si subió a S3 pero falló BD, limpia
+    if (clavePdfOrdenPago) {
+      try {
+        await borrarObjetoAS3(clavePdfOrdenPago);
+      } catch (_) {}
+    }
+
+    console.error("Error guardando PDF Orden de Pago (auto):", error);
+    return { ok: false, error: error?.message || "Error desconocido" };
+  } finally {
+    conexion.release();
+  }
+}
+
 /* ============================================================
  * 1. LISTAR SOLICITUDES DE PAGO
  * ========================================================== */
@@ -686,274 +1041,112 @@ export const cancelarSolicitudPago = async (req, res) => {
 export const pagarSolicitudPago = async (req, res) => {
   const { id } = req.params;
 
-  // 🔹 Datos que vienen del frontend (body en snake_case)
-  let {
-    metodo_pago,
-    banco_id: rawBancoId,
-    referencia_pago,
+  const usuarioApruebaId = req.user?.id; // ajusta si tu auth lo maneja distinto
+  const ip = req.ip || null;
+  const userAgent = req.get("user-agent") || null;
+
+  const {
+    metodo_pago: metodoPago,
+    referencia_pago: referenciaPago,
+    banco_id: bancoId,
+    monto_pagado: montoPagado,
+    monto_pagado_usd: montoPagadoUsd,
+    moneda,
+    tasa_cambio: tasaCambio,
     observaciones,
-    fecha_pago,
-    monto_abono, // monto del abono en la MONEDA de la solicitud
-    tasa_cambio_abono, // tasa del día (solo si moneda = VES)
   } = req.body;
 
-  /* ---------- 1. VALIDACIONES POR TIPO DE PAGO ---------- */
-  if (!metodo_pago) {
-    return res.status(400).json({ message: "Método de pago requerido" });
-  }
-
-  const metodoNormalizado = metodo_pago.trim().toLowerCase();
-
-  if (metodoNormalizado === "efectivo") {
-    rawBancoId = null;
-    referencia_pago = null;
-  } else {
-    if (!rawBancoId) {
-      return res.status(400).json({ message: "Banco requerido" });
-    }
-    if (!referencia_pago) {
-      return res.status(400).json({ message: "Referencia de pago requerida" });
-    }
-    if (!req.file) {
-      return res.status(400).json({
-        message: "Comprobante (PDF o imagen) requerido",
-      });
-    }
-  }
-
-  /* ---------- 2. VALIDAR MONTO DEL ABONO ---------- */
-  const montoAbono = parseFloat(monto_abono);
-  if (isNaN(montoAbono) || montoAbono <= 0) {
-    return res.status(400).json({
-      message: "monto_abono es requerido y debe ser mayor a 0",
-    });
-  }
-
-  /* ---------- 3. DATOS DEL COMPROBANTE / USUARIO ---------- */
-  const bancoId = metodoNormalizado === "efectivo" ? null : rawBancoId;
-  const comprobanteFile = req.file || null;
-  const rutaComprobante = comprobanteFile ? comprobanteFile.key : null;
-  const nombreOriginal = comprobanteFile ? comprobanteFile.originalname : null;
+  const rutaComprobante = req.file?.key || null;
+  const nombreOriginal = req.file?.originalname || null;
   const extension = nombreOriginal ? nombreOriginal.split(".").pop() : null;
-  const tamanioBytes = comprobanteFile ? comprobanteFile.size : null;
-  const fechaPagoFinal = fecha_pago ? new Date(fecha_pago) : new Date();
-  const usuarioApruebaId = req.user?.id;
+  const tamanioBytes = req.file?.size || 0;
 
   const conexion = await db.getConnection();
+
+  let pagoRealizadoId = null;
+  let esPrimerAbono = false;
 
   try {
     await conexion.beginTransaction();
 
-    /* ---------- 4. OBTENER SOLICITUD Y VALIDAR ESTADO ---------- */
-    const [[sol]] = await conexion.execute(
+    // 1) Validar solicitud
+    const [[solicitud]] = await conexion.execute(
       `
-      SELECT 
-        id,
-        estado,
-        monto_total,
-        monto_pagado,
-        monto_total_usd,
-        moneda,
-        tasa_cambio
+      SELECT id, codigo, monto_total, monto_pagado, estado
       FROM solicitudes_pago
       WHERE id = ?
+      FOR UPDATE
       `,
       [id]
     );
 
-    if (!sol) {
+    if (!solicitud) {
       await conexion.rollback();
-      return res.status(404).json({ message: "Solicitud no encontrada." });
+      return res.status(404).json({ message: "Solicitud no encontrada" });
     }
 
-    // Solo permitimos abonos si NO está ya pagada
-    if (!["por_pagar", "parcialmente_pagada"].includes(sol.estado)) {
-      await conexion.rollback();
-      return res.status(400).json({
-        message: `No se puede registrar abono; estado actual: ${sol.estado}`,
-      });
-    }
-
-    /* =========================================================
-     * ✅ 5. VALIDACIÓN PROFESIONAL: SIEMPRE POR SALDO EN USD
-     * ========================================================= */
-
-    const montoTotalUsd = parseFloat(sol.monto_total_usd) || 0;
-
-    // Total pagado USD actual (antes de insertar el nuevo abono)
-    const [[sumasAntes]] = await conexion.execute(
+    // 2) Saber si ya existían abonos (esto define "primer abono")
+    const [[conteo]] = await conexion.execute(
       `
-      SELECT 
-        IFNULL(SUM(monto_pagado_usd), 0) AS total_pagado_usd
+      SELECT COUNT(*) AS total
       FROM pagos_realizados
       WHERE solicitud_pago_id = ?
       `,
       [id]
     );
 
-    const totalPagadoUsdAntes = parseFloat(sumasAntes.total_pagado_usd) || 0;
-    const saldoUsdPendienteAntes = montoTotalUsd - totalPagadoUsdAntes;
+    esPrimerAbono = Number(conteo?.total || 0) === 0;
 
-    if (montoTotalUsd <= 0) {
-      await conexion.rollback();
-      return res.status(400).json({
-        message:
-          "La solicitud no tiene monto_total_usd válido; no se puede validar abonos.",
-      });
-    }
-
-    if (saldoUsdPendienteAntes <= 0) {
-      await conexion.rollback();
-      return res.status(400).json({
-        message: "Esta solicitud ya no tiene saldo pendiente en USD.",
-      });
-    }
-
-    // Convertimos el abono a USD para validar (con la tasa del día si es VES)
-    let abonoUsd = 0;
-    let tasaCambioAbonoFinal = null;
-
-    if (sol.moneda === "USD") {
-      abonoUsd = montoAbono;
-      tasaCambioAbonoFinal = null;
-    } else if (sol.moneda === "VES") {
-      const tasaNum = parseFloat(tasa_cambio_abono);
-      if (isNaN(tasaNum) || tasaNum <= 0) {
-        await conexion.rollback();
-        return res.status(400).json({
-          message:
-            "tasa_cambio_abono es requerida y debe ser mayor a 0 cuando la moneda es VES.",
-        });
-      }
-      tasaCambioAbonoFinal = tasaNum;
-      abonoUsd = montoAbono / tasaNum;
-    } else {
-      await conexion.rollback();
-      return res.status(400).json({
-        message: `Moneda de solicitud no soportada: ${sol.moneda}`,
-      });
-    }
-
-    if (!abonoUsd || abonoUsd <= 0) {
-      await conexion.rollback();
-      return res.status(400).json({
-        message: "El abono en USD calculado no es válido.",
-      });
-    }
-
-    if (abonoUsd > saldoUsdPendienteAntes + 0.0001) {
-      await conexion.rollback();
-      return res.status(400).json({
-        message:
-          "El abono excede el saldo pendiente (validación por equivalente USD).",
-      });
-    }
-
-    /* ---------- 6. INSERTAR ABONO EN pagos_realizados ---------- */
-    const [insertPago] = await conexion.execute(
+    // 3) Insertar pago_realizado
+    const [pRes] = await conexion.execute(
       `
-      INSERT INTO pagos_realizados (
-        solicitud_pago_id,
-        usuario_id,
-        metodo_pago,
-        banco_id,
-        referencia_pago,
-        ruta_comprobante,
-        observaciones,
-        fecha_pago,
-        monto_pagado,
-        moneda,
-        tasa_cambio
-      )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO pagos_realizados
+        (solicitud_pago_id, usuario_id, metodo_pago, referencia_pago, banco_id,
+         monto_pagado, monto_pagado_usd, moneda, tasa_cambio, fecha_pago,
+         ruta_comprobante, ruta_firma, observaciones, created_at, updated_at)
+      VALUES
+        (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, NULL, ?, NOW(), NOW())
       `,
       [
         id,
         usuarioApruebaId,
-        metodo_pago,
-        bancoId,
-        referencia_pago,
+        metodoPago,
+        referenciaPago,
+        bancoId || null,
+        montoPagado,
+        montoPagadoUsd || null,
+        moneda || solicitud.moneda || "VES",
+        tasaCambio || null,
         rutaComprobante,
         observaciones || null,
-        fechaPagoFinal,
-        montoAbono,
-        sol.moneda,
-        tasaCambioAbonoFinal,
       ]
     );
 
-    const pagoRealizadoId = insertPago.insertId;
+    pagoRealizadoId = pRes.insertId;
 
-    /* ---------- 7. SUMAR PAGOS (USD y MONEDA ORIGINAL) ---------- */
-    const [[sumas]] = await conexion.execute(
-      `
-      SELECT 
-        IFNULL(SUM(monto_pagado_usd), 0) AS total_pagado_usd,
-        IFNULL(SUM(monto_pagado), 0)     AS total_pagado_moneda
-      FROM pagos_realizados
-      WHERE solicitud_pago_id = ?
-      `,
-      [id]
-    );
+    // 4) Actualizar solicitud: monto_pagado, estado
+    const nuevoMontoPagado =
+      Number(solicitud.monto_pagado || 0) + Number(montoPagado || 0);
 
-    const totalPagadoUsd = parseFloat(sumas.total_pagado_usd) || 0;
-    const totalPagadoMoneda = parseFloat(sumas.total_pagado_moneda) || 0;
-
-    /* ---------- 8. DETERMINAR NUEVO ESTADO (SIEMPRE POR USD) ---------- */
-    let nuevoEstado = "por_pagar";
-
-    if (totalPagadoUsd > 0 && totalPagadoUsd < montoTotalUsd) {
-      nuevoEstado = "parcialmente_pagada";
-    } else if (totalPagadoUsd >= montoTotalUsd) {
+    let nuevoEstado = "parcialmente_pagada";
+    if (nuevoMontoPagado >= Number(solicitud.monto_total || 0)) {
       nuevoEstado = "pagada";
     }
 
-    /* ---------- 9. DEFINIR monto_pagado EN MONEDA ORIGINAL (COHERENTE) ---------- */
-    // ✅ USD: monto_pagado = totalPagadoUsd
-    // ✅ VES: monto_pagado = SUM(monto_pagado) real en VES (no tasa vieja)
-    let nuevoMontoPagadoMoneda = 0;
-
-    if (sol.moneda === "USD") {
-      nuevoMontoPagadoMoneda = totalPagadoUsd;
-    } else if (sol.moneda === "VES") {
-      nuevoMontoPagadoMoneda = totalPagadoMoneda;
-    }
-
-    /* ---------- 10. ACTUALIZAR CABECERA DE LA SOLICITUD ---------- */
     await conexion.execute(
       `
       UPDATE solicitudes_pago
-      SET 
-        banco_id           = ?,
-        metodo_pago        = ?,
-        referencia_pago    = ?,
-        ruta_comprobante   = ?,
-        observaciones      = ?,
-        fecha_pago         = CASE
-                               WHEN ? = 'pagada' THEN ?
-                               ELSE fecha_pago
-                             END,
-        usuario_aprueba_id = ?,
-        estado             = ?,
-        monto_pagado       = ?
+      SET
+        monto_pagado = ?,
+        estado = ?,
+        fecha_pago = CASE WHEN ? = 'pagada' THEN NOW() ELSE fecha_pago END,
+        updated_at = NOW()
       WHERE id = ?
       `,
-      [
-        bancoId,
-        metodo_pago,
-        referencia_pago,
-        rutaComprobante,
-        observaciones || null,
-        nuevoEstado,
-        fechaPagoFinal,
-        usuarioApruebaId,
-        nuevoEstado,
-        nuevoMontoPagadoMoneda,
-        id,
-      ]
+      [nuevoMontoPagado, nuevoEstado, nuevoEstado, id]
     );
 
-    /* ---------- 11. REGISTRO EN archivos (SI HAY COMPROBANTE) ---------- */
+    // 5) Registrar comprobante en sistema de archivos (ya existente)
     if (rutaComprobante) {
       const grupoId = await obtenerOcrearGrupoComprobante(
         conexion,
@@ -963,11 +1156,11 @@ export const pagarSolicitudPago = async (req, res) => {
 
       const [[{ maxVer }]] = await conexion.execute(
         `
-  SELECT IFNULL(MAX(numeroVersion), 0) AS maxVer
-  FROM archivos
-  WHERE registroTipo = 'comprobantesPagos'
-    AND registroId   = ?
-  `,
+        SELECT IFNULL(MAX(numeroVersion), 0) AS maxVer
+        FROM archivos
+        WHERE registroTipo = 'comprobantesPagos'
+          AND registroId   = ?
+        `,
         [id]
       );
 
@@ -975,15 +1168,15 @@ export const pagarSolicitudPago = async (req, res) => {
 
       const [aRes] = await conexion.execute(
         `
-  INSERT INTO archivos
-    (registroTipo, registroId, grupoArchivoId,
-     nombreOriginal, extension, tamanioBytes,
-     rutaS3, numeroVersion, estado,
-     subidoPor, creadoEn, actualizadoEn)
-  VALUES
-    ('comprobantesPagos', ?, ?, ?, ?, ?, ?, ?, 'activo',
-     ?, NOW(), NOW())
-  `,
+        INSERT INTO archivos
+          (registroTipo, registroId, grupoArchivoId,
+           nombreOriginal, extension, tamanioBytes,
+           rutaS3, numeroVersion, estado,
+           subidoPor, creadoEn, actualizadoEn)
+        VALUES
+          ('comprobantesPagos', ?, ?, ?, ?, ?, ?, ?, 'activo',
+           ?, NOW(), NOW())
+        `,
         [
           id,
           grupoId,
@@ -1000,12 +1193,12 @@ export const pagarSolicitudPago = async (req, res) => {
 
       const [vRes] = await conexion.execute(
         `
-  INSERT INTO versionesArchivo
-    (archivoId, numeroVersion, nombreOriginal, extension,
-     tamanioBytes, rutaS3, subidoPor)
-  VALUES
-    (?, ?, ?, ?, ?, ?, ?)
-  `,
+        INSERT INTO versionesArchivo
+          (archivoId, numeroVersion, nombreOriginal, extension,
+           tamanioBytes, rutaS3, subidoPor)
+        VALUES
+          (?, ?, ?, ?, ?, ?, ?)
+        `,
         [
           archivoId,
           numeroVersion,
@@ -1031,8 +1224,8 @@ export const pagarSolicitudPago = async (req, res) => {
           archivoId,
           versionId,
           usuarioApruebaId,
-          req.ip || null,
-          req.get("user-agent") || null,
+          ip,
+          userAgent,
           JSON.stringify({
             nombreOriginal,
             extension,
@@ -1054,11 +1247,32 @@ export const pagarSolicitudPago = async (req, res) => {
 
     await conexion.commit();
 
+    // 6) ✅ NUEVO: generar y guardar PDF automáticamente SOLO si es el primer abono
+    let resultadoPdf = null;
+    if (esPrimerAbono) {
+      resultadoPdf = await guardarPdfOrdenPagoPrimerAbono({
+        solicitudPagoId: id,
+        pagoRealizadoId,
+        usuarioId: usuarioApruebaId,
+        ip,
+        userAgent,
+      });
+    }
+
     return res.json({
       message: "Abono registrado correctamente.",
       solicitud_id: id,
       pago_realizado_id: pagoRealizadoId,
       nuevo_estado: nuevoEstado,
+      pdf_orden_pago: resultadoPdf?.ok
+        ? { guardado: true, rutaS3: resultadoPdf.clavePdfOrdenPago }
+        : esPrimerAbono
+        ? {
+            guardado: false,
+            error:
+              resultadoPdf?.error || resultadoPdf?.motivo || "No se generó",
+          }
+        : { guardado: false, motivo: "No aplica (no es primer abono)" },
     });
   } catch (error) {
     console.error("Error al registrar abono:", error);
