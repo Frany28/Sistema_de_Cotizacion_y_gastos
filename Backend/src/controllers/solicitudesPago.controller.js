@@ -1284,3 +1284,103 @@ export const pagarSolicitudPago = async (req, res) => {
     conexion.release();
   }
 };
+
+export const obtenerOrdenesPagoSolicitud = async (req, res) => {
+  const solicitudPagoId = Number(req.params.id);
+
+  try {
+    if (!solicitudPagoId || Number.isNaN(solicitudPagoId)) {
+      return res.status(400).json({ message: "ID de solicitud inválido." });
+    }
+
+    // 1) Validar que exista la solicitud
+    const [[solicitud]] = await db.execute(
+      `SELECT id, codigo, estado
+       FROM solicitudes_pago
+       WHERE id = ?
+       LIMIT 1`,
+      [solicitudPagoId]
+    );
+
+    if (!solicitud) {
+      return res
+        .status(404)
+        .json({ message: "Solicitud de pago no encontrada." });
+    }
+
+    // 2) Traer los abonos (pagos_realizados) de esa solicitud
+    const [pagos] = await db.execute(
+      `SELECT
+          pr.id,
+          pr.solicitud_pago_id,
+          pr.monto_pagado,
+          pr.moneda,
+          pr.tasa_cambio,
+          pr.fecha_pago,
+          pr.referencia_pago,
+          pr.banco_id
+       FROM pagos_realizados pr
+       WHERE pr.solicitud_pago_id = ?
+       ORDER BY pr.fecha_pago ASC, pr.id ASC`,
+      [solicitudPagoId]
+    );
+
+    // 3) Por cada abono, buscar el PDF ordenPago en archivos
+    //    (activo y con mayor numeroVersion)
+    const ordenesPago = await Promise.all(
+      pagos.map(async (pago, index) => {
+        const pagoRealizadoId = Number(pago.id);
+        const numeroAbono = index + 1;
+
+        const [[archivoPdf]] = await db.execute(
+          `SELECT
+              a.id AS archivoId,
+              a.rutaS3,
+              a.numeroVersion,
+              a.estado,
+              a.nombreOriginal
+           FROM archivos a
+           WHERE a.registroTipo = 'comprobantesPagos'
+             AND a.subTipoArchivo = 'ordenPago'
+             AND a.registroId = ?
+             AND a.estado = 'activo'
+           ORDER BY a.numeroVersion DESC, a.id DESC
+           LIMIT 1`,
+          [pagoRealizadoId]
+        );
+
+        let urlPdf = null;
+        if (archivoPdf?.rutaS3) {
+          // 10 min de validez (ajusta si quieres)
+          urlPdf = await generarUrlPrefirmadaLectura(archivoPdf.rutaS3, 600);
+        }
+
+        return {
+          pagoRealizadoId,
+          numeroAbono,
+          fechaPago: pago.fecha_pago,
+          monto: pago.monto_pagado,
+          moneda: pago.moneda,
+          tasaCambio: pago.tasa_cambio ?? null,
+          referenciaPago: pago.referencia_pago ?? null,
+          bancoId: pago.banco_id ?? null,
+
+          // PDF orden de pago (si existe)
+          tienePdf: Boolean(archivoPdf?.rutaS3),
+          archivoId: archivoPdf?.archivoId ?? null,
+          nombreArchivo: archivoPdf?.nombreOriginal ?? null,
+          rutaS3: archivoPdf?.rutaS3 ?? null,
+          numeroVersion: archivoPdf?.numeroVersion ?? null,
+          urlPdf,
+        };
+      })
+    );
+
+    return res.json(ordenesPago);
+  } catch (error) {
+    console.error("Error obtenerOrdenesPagoSolicitud:", error);
+    return res.status(500).json({
+      message: "Error interno al obtener las órdenes de pago.",
+    });
+  }
+};

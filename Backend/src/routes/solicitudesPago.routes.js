@@ -7,6 +7,7 @@ import {
   cancelarSolicitudPago,
   pagarSolicitudPago,
   generarPDFSolicitudPago,
+  obtenerOrdenesPagoSolicitud,
 } from "../controllers/solicitudesPago.controller.js";
 import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
 import { verificarPermiso } from "../Middleware/verificarPermiso.js";
@@ -15,7 +16,6 @@ import { validarCuota } from "../Middleware/validarCuota.js";
 
 const router = express.Router();
 
-// GET   /api/solicitudes-pago
 router.get(
   "/",
   autenticarUsuario,
@@ -25,7 +25,6 @@ router.get(
 
 router.get("/:id/pdf", generarPDFSolicitudPago);
 
-// GET   /api/solicitudes-pago/:id
 router.get(
   "/:id",
   autenticarUsuario,
@@ -33,7 +32,6 @@ router.get(
   obtenerSolicitudPagoPorId
 );
 
-// PATCH /api/solicitudes-pago/:id
 router.patch(
   "/:id",
   autenticarUsuario,
@@ -41,7 +39,6 @@ router.patch(
   actualizarSolicitudPago
 );
 
-// PATCH /api/solicitudes-pago/:id/cancelar
 router.patch(
   "/:id/cancelar",
   autenticarUsuario,
@@ -49,7 +46,13 @@ router.patch(
   cancelarSolicitudPago
 );
 
-// PATCH /api/solicitudes-pago/:id/pagar
+router.get(
+  "/:id/ordenes-pago",
+  autenticarUsuario,
+  verificarPermiso("verSolicitudesPago"),
+  obtenerOrdenesPagoSolicitud
+);
+
 router.patch(
   "/:id/pagar",
   autenticarUsuario,
