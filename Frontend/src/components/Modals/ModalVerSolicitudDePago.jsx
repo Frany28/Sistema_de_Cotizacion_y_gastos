@@ -110,8 +110,15 @@ export default function ModalVerSolicitudDePago({
       const url = `${apiBaseUrl}/solicitudes-pago/${solicitud.id}/ordenes-pago`;
       const { data } = await axios.get(url, configAxios);
 
-      // Backend esperado: { ok: true, data: [...] }
-      const lista = Array.isArray(data?.data) ? data.data : [];
+      // ✅ Acepta ambos formatos:
+      // 1) Array directo: [...]
+      // 2) Objeto: { ok: true, data: [...] }
+      const lista = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.data)
+        ? data.data
+        : [];
+
       setOrdenesPago(lista);
     } catch (error) {
       const mensaje =
@@ -137,7 +144,7 @@ export default function ModalVerSolicitudDePago({
   };
 
   // =========================
-  // UI: estado badge (mantiene diseño viejo + añade parcial)
+  // UI: estado badge
   // =========================
   const claseEstado = () => {
     if (isPagada) return "bg-green-100 text-green-800";
@@ -248,38 +255,7 @@ export default function ModalVerSolicitudDePago({
                   </div>
                 </div>
 
-                {/* Detalles del pago: antes era solo pagada.
-                    Ahora lo mantenemos, pero también lo mostramos en parcial si ya hay datos. */}
-                {(isPagada || isParcialmentePagada) && (
-                  <div className="bg-gray-700 p-4 rounded-lg border border-gray-600">
-                    <h3 className="font-medium text-gray-300 mb-2 flex items-center">
-                      <span className="w-3 h-3 bg-purple-400 rounded-full mr-2"></span>
-                      Detalles del Pago
-                    </h3>
-                    <div className="space-y-2 text-sm text-gray-300">
-                      <p>
-                        <span className="text-gray-400">Método de pago:</span>{" "}
-                        <span className="font-medium">
-                          {solicitud.metodo_pago || "-"}
-                        </span>
-                      </p>
-                      {solicitud.banco_id && (
-                        <p>
-                          <span className="text-gray-400">Banco:</span>{" "}
-                          <span className="font-medium">
-                            {solicitud.banco_nombre || "-"}
-                          </span>
-                        </p>
-                      )}
-                      <p>
-                        <span className="text-gray-400">Referencia:</span>{" "}
-                        <span className="font-medium">
-                          {solicitud.referencia_pago || "-"}
-                        </span>
-                      </p>
-                    </div>
-                  </div>
-                )}
+                {/* ✅ Eliminado: "Detalles del Pago" (como pediste) */}
 
                 {/* Motivo de cancelación */}
                 {isCancelada && (
@@ -314,7 +290,7 @@ export default function ModalVerSolicitudDePago({
                       </p>
                     </div>
 
-                    {/* Antes era solo pagada; lo mantenemos (puedes habilitar en parcial si tu backend lo llena). */}
+                    {/* Antes era solo pagada; se mantiene igual */}
                     {isPagada && (
                       <div>
                         <p className="text-gray-400">Aprobado por:</p>
@@ -346,7 +322,6 @@ export default function ModalVerSolicitudDePago({
                     </thead>
                     <tbody>
                       <tr className="border-b border-gray-600 last:border-0">
-                        {/* FIX: antes tenías un <div> dentro de <tr>. Debe ser <td>. */}
                         <td className="p-3 font-medium">
                           {solicitud.concepto_pago || solicitud.concepto || "-"}
                         </td>
@@ -421,7 +396,7 @@ export default function ModalVerSolicitudDePago({
               </div>
             </div>
 
-            {/* Footer (mantiene diseño viejo + agrega órdenes pago) */}
+            {/* Footer */}
             <div className="mt-4 flex justify-end">
               <button
                 onClick={onClose}
@@ -443,7 +418,7 @@ export default function ModalVerSolicitudDePago({
                 </button>
               )}
 
-              {/* Botón nuevo: selector (pagada + parcialmente pagada) */}
+              {/* Botón: selector (pagada + parcialmente pagada) */}
               {puedeVerOrdenesPago && (
                 <button
                   onClick={handleAbrirModalOrdenesPago}
