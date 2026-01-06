@@ -1,18 +1,15 @@
 export function generarHTMLOrdenPago(datos = {}, modo = "preview") {
   const {
     codigo = "N/A",
-    estado = "N/A",
     fechaSolicitud = null,
     fechaPago = null,
+    estado = "pendiente",
     solicitadoPor = "N/A",
     autorizadoPor = "N/A",
     aprobadoPor = "N/A",
-    firmaSolicita = null,
-    firmaAutoriza = null,
-    firmaAprueba = null,
     metodoPago = "N/A",
-    banco = "N/A",
-    referencia = "N/A",
+    banco = "—",
+    referencia = "—",
     montoSolicitado = 0,
     montoPagado = 0,
     diferencia = 0,
@@ -22,511 +19,297 @@ export function generarHTMLOrdenPago(datos = {}, modo = "preview") {
     gasto = {},
     proveedor = null,
     comprobanteUrl = null,
+    firmaSolicita = null,
+    firmaAutoriza = null,
+    firmaAprueba = null,
     createdAt = null,
     updatedAt = null,
+    // 🔹 NUEVO: logo en base64 (data URL)
     logo = null,
   } = datos;
 
-  function formatoMoneda(valor = 0) {
+  /* === FUNCIÓN FORMATO LATAM === */
+  function formatearLatam(valor, monedaLabel) {
+    if (valor === null || valor === undefined || valor === "N/A") return "N/A";
+
     const numero = Number(valor);
     if (isNaN(numero)) return "N/A";
 
-    const formato = new Intl.NumberFormat("es-VE", {
+    const formato = numero.toLocaleString("es-VE", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    }).format(numero);
-
-    if (String(moneda).toUpperCase() === "VES") return `${formato} Bs`;
-    return `$ ${formato}`;
-  }
-
-  /** === Fechas (Zona: Venezuela) === */
-  const timeZoneVzla = "America/Caracas";
-
-  function formatearFechaVzlaSoloFecha(valorFecha, opciones = {}) {
-    if (!valorFecha) return null;
-
-    const fecha = new Date(valorFecha);
-    if (isNaN(fecha.getTime())) return null;
-
-    return fecha.toLocaleDateString("es-VE", {
-      timeZone: timeZoneVzla,
-      ...opciones,
     });
+
+    if (!monedaLabel) return formato;
+
+    return monedaLabel === "VES" ? `Bs ${formato}` : `$ ${formato}`;
   }
 
+  /* === Fechas === */
   const fechaMostrar = fechaSolicitud
-    ? formatearFechaVzlaSoloFecha(fechaSolicitud)
+    ? new Date(fechaSolicitud).toLocaleDateString("es-VE")
     : "Sin especificar";
 
   const fechaPagoMostrar = fechaPago
-    ? formatearFechaVzlaSoloFecha(fechaPago)
+    ? new Date(fechaPago).toLocaleDateString("es-VE")
     : "—";
 
-  const fechaGeneracion =
-    formatearFechaVzlaSoloFecha(createdAt || Date.now(), {
+  const fechaGeneracion = new Date(createdAt || Date.now()).toLocaleDateString(
+    "es-VE",
+    {
       year: "numeric",
       month: "long",
       day: "numeric",
-    }) || "Sin especificar";
+    }
+  );
 
-  /** === Datos del gasto === */
-  const {
-    codigo: codigoGasto = "—",
-    tipoGasto = "—",
-    total: totalGasto = 0,
-    moneda: monedaGasto = "—",
-    tasaCambio: tasaCambioGasto = null,
-    documentoUrl: documentoGastoUrl = null,
-  } = gasto || {};
-
-  const isBolivares = String(moneda).toUpperCase() === "VES";
-
-  const estiloFirma = (firmaDataUrl) => {
-    if (!firmaDataUrl) return "";
-    return `
-      <div class="firmaBox">
-        <img class="firmaImg" src="${firmaDataUrl}" alt="Firma" />
+  /* === Gasto asociado === */
+  const gastoInfo =
+    gasto && Object.keys(gasto).length > 0
+      ? `
+      <div class="bg-gray-50 p-3 rounded border mb-4">
+        <h3 class="font-bold text-sm mb-2 text-blue-800">GASTO ASOCIADO</h3>
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <p><span class="font-semibold">Código:</span> ${
+            gasto.codigo || "—"
+          }</p>
+          <p><span class="font-semibold">Tipo:</span> ${
+            gasto.tipoGasto || "—"
+          }</p>
+          <p><span class="font-semibold">Total:</span> ${formatearLatam(
+            gasto.total || 0,
+            gasto.moneda === "VES" ? "VES" : "USD"
+          )}</p>
+          <p><span class="font-semibold">Tasa Cambio:</span> ${
+            tasaCambio !== null ? formatearLatam(tasaCambio, null) : "N/A"
+          }</p>
+          ${
+            gasto.documentoUrl
+              ? `<p class="col-span-2"><a href="${gasto.documentoUrl}" target="_blank" class="text-blue-600 underline">Ver documento del gasto</a></p>`
+              : ""
+          }
+        </div>
       </div>
-    `;
-  };
+    `
+      : "";
 
-  const seccionProveedor = proveedor
+  /* === Proveedor === */
+  const proveedorInfo = proveedor
     ? `
-      <div class="card">
-        <div class="cardTitle">Proveedor</div>
-        <div class="grid2">
-          <div><span class="label">Nombre:</span> ${
-            proveedor?.nombre || "—"
-          }</div>
-          <div><span class="label">RIF:</span> ${proveedor?.rif || "—"}</div>
-          <div><span class="label">Teléfono:</span> ${
-            proveedor?.telefono || "—"
-          }</div>
-          <div><span class="label">Email:</span> ${
-            proveedor?.email || "—"
-          }</div>
+      <div class="bg-gray-50 p-3 rounded border mb-4">
+        <h3 class="font-bold text-sm mb-2 text-blue-800">PROVEEDOR</h3>
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <p><span class="font-semibold">Nombre:</span> ${proveedor.nombre}</p>
+          <p><span class="font-semibold">RIF:</span> ${proveedor.rif}</p>
+          <p><span class="font-semibold">Teléfono:</span> ${
+            proveedor.telefono || "—"
+          }</p>
+          <p><span class="font-semibold">Email:</span> ${
+            proveedor.email || "—"
+          }</p>
         </div>
       </div>
     `
     : "";
 
-  const seccionAdjuntos = `
-    <div class="card">
-      <div class="cardTitle">Adjuntos</div>
-      <div class="grid2">
-        <div>
-          <span class="label">Comprobante:</span>
-          ${
-            comprobanteUrl
-              ? `<a class="link" href="${comprobanteUrl}" target="_blank" rel="noreferrer">Ver comprobante</a>`
-              : "—"
-          }
-        </div>
-        <div>
-          <span class="label">Documento del gasto:</span>
-          ${
-            documentoGastoUrl
-              ? `<a class="link" href="${documentoGastoUrl}" target="_blank" rel="noreferrer">Ver documento</a>`
-              : "—"
-          }
-        </div>
+  /* === Observaciones === */
+  const observacionesHtml = observaciones
+    ? `
+      <div class="mb-4 p-3 bg-gray-50 rounded border">
+        <h3 class="font-bold text-sm mb-1 text-blue-800">OBSERVACIONES</h3>
+        <p class="text-xs">${observaciones}</p>
       </div>
-      <div class="note">
-        Nota: Los enlaces pueden expirar si son URLs prefirmadas (S3). Si ocurre, vuelva a abrir desde el sistema.
-      </div>
-    </div>
-  `;
+    `
+    : "";
 
-  const badgeEstado = () => {
-    const estadoLower = String(estado).toLowerCase().trim();
+  /* === Comprobante === */
+  const comprobanteLink = comprobanteUrl
+    ? `<a href="${comprobanteUrl}" target="_blank" class="text-blue-600 underline">Ver comprobante</a>`
+    : "—";
 
-    if (estadoLower === "pagada")
-      return `<span class="badge badgeGreen">Pagada</span>`;
-    if (estadoLower.includes("parcial"))
-      return `<span class="badge badgeBlue">Parcialmente pagada</span>`;
-    if (estadoLower.includes("cancel"))
-      return `<span class="badge badgeRed">Cancelada</span>`;
-    return `<span class="badge badgeYellow">${estado || "N/A"}</span>`;
-  };
+  /* === Logo (si existe) === */
+  const logoHtml = logo
+    ? `<img src="${logo}" class="h-12 object-contain" />`
+    : "";
 
-  const mostrarTasa = isBolivares && tasaCambio ? `${tasaCambio} Bs` : "—";
-
-  const tituloDocumento =
-    modo === "final"
-      ? "Comprobante / Orden de Pago"
-      : "Vista previa de Orden de Pago";
-
-  const subTitulo =
-    modo === "final"
-      ? `Generado el ${fechaGeneracion}`
-      : `Vista previa (no válido como comprobante) - ${fechaGeneracion}`;
-
+  /* === HTML === */
   return `
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Orden de Pago - ${codigo}</title>
-  <style>
-    :root{
-      --bg:#0b1220;
-      --card:#0f1a2e;
-      --border:#1e2a44;
-      --text:#e5e7eb;
-      --muted:#9ca3af;
-      --accent:#60a5fa;
-      --green:#34d399;
-      --blue:#60a5fa;
-      --red:#f87171;
-      --yellow:#fbbf24;
-      --white:#ffffff;
-    }
-    *{box-sizing:border-box;}
-    body{
-      font-family: Arial, Helvetica, sans-serif;
-      margin:0;
-      padding:24px;
-      background:#ffffff;
-      color:#111827;
-    }
-    .page{
-      width:100%;
-      max-width:1000px;
-      margin:0 auto;
-    }
-    .header{
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:16px;
-      border:1px solid #e5e7eb;
-      padding:16px;
-      border-radius:12px;
-    }
-    .brand{
-      display:flex;
-      gap:12px;
-      align-items:center;
-    }
-    .logo{
-      width:56px;
-      height:56px;
-      object-fit:contain;
-      border-radius:10px;
-      border:1px solid #e5e7eb;
-      padding:6px;
-    }
-    .hTitle{
-      margin:0;
-      font-size:18px;
-      font-weight:700;
-      color:#111827;
-    }
-    .hSub{
-      margin:4px 0 0 0;
-      font-size:12px;
-      color:#6b7280;
-    }
-    .metaRight{
-      text-align:right;
-      min-width:220px;
-    }
-    .metaRight .code{
-      font-size:12px;
-      color:#6b7280;
-    }
-    .metaRight .code strong{
-      color:#111827;
-    }
-    .badge{
-      display:inline-block;
-      padding:6px 10px;
-      border-radius:999px;
-      font-size:12px;
-      font-weight:700;
-      margin-top:8px;
-    }
-    .badgeGreen{ background:#ecfdf5; color:#065f46; }
-    .badgeBlue{ background:#eff6ff; color:#1d4ed8; }
-    .badgeRed{ background:#fef2f2; color:#991b1b; }
-    .badgeYellow{ background:#fffbeb; color:#92400e; }
-
-    .grid{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:14px;
-      margin-top:14px;
-    }
-    .card{
-      border:1px solid #e5e7eb;
-      border-radius:12px;
-      padding:14px;
-    }
-    .cardTitle{
-      font-size:13px;
-      font-weight:700;
-      margin-bottom:10px;
-      color:#111827;
-    }
-    .grid2{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:10px;
-      font-size:12px;
-      color:#111827;
-    }
-    .label{
-      color:#6b7280;
-      font-weight:700;
-    }
-    .table{
-      width:100%;
-      border-collapse:collapse;
-      overflow:hidden;
-      border-radius:12px;
-      border:1px solid #e5e7eb;
-      margin-top:14px;
-    }
-    .table th, .table td{
-      padding:10px 12px;
-      font-size:12px;
-      border-bottom:1px solid #e5e7eb;
-      text-align:left;
-      vertical-align:top;
-    }
-    .table thead th{
-      background:#f9fafb;
-      font-weight:800;
-      color:#111827;
-    }
-    .table .right{
-      text-align:right;
-      font-weight:700;
-    }
-    .resume{
-      margin-top:14px;
-      border:1px solid #e5e7eb;
-      border-radius:12px;
-      padding:14px;
-      display:flex;
-      justify-content:flex-end;
-    }
-    .resumeBox{
-      width:320px;
-      font-size:12px;
-    }
-    .resumeRow{
-      display:flex;
-      justify-content:space-between;
-      padding:6px 0;
-      border-bottom:1px dashed #e5e7eb;
-    }
-    .resumeRow:last-child{
-      border-bottom:none;
-      padding-top:10px;
-      font-size:13px;
-      font-weight:900;
-    }
-    .muted{ color:#6b7280; }
-    .link{ color:#2563eb; text-decoration:underline; }
-    .note{
-      margin-top:10px;
-      font-size:11px;
-      color:#6b7280;
-      line-height:1.35;
-    }
-    .firmas{
-      display:grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap:14px;
-      margin-top:14px;
-    }
-    .firmaCard{
-      border:1px solid #e5e7eb;
-      border-radius:12px;
-      padding:12px;
-      text-align:center;
-      min-height:110px;
-    }
-    .firmaTitulo{
-      font-size:12px;
-      font-weight:800;
-      color:#111827;
-      margin:0 0 8px 0;
-    }
-    .firmaBox{
-      width:100%;
-      display:flex;
-      justify-content:center;
-      align-items:center;
-      min-height:60px;
-    }
-    .firmaImg{
-      max-width: 220px;
-      max-height: 60px;
-      object-fit:contain;
-    }
-    .firmaNombre{
-      margin-top:8px;
-      font-size:11px;
-      color:#6b7280;
-    }
-    .footer{
-      margin-top:16px;
-      font-size:11px;
-      color:#6b7280;
-      text-align:center;
-    }
-
-    @media print{
-      body{ padding:0; }
-      .page{ max-width:100%; }
-      .link{ text-decoration:none; color:#111827; }
-    }
-  </style>
-</head>
-<body>
-  <div class="page">
-    <div class="header">
-      <div class="brand">
-        ${
-          logo
-            ? `<img class="logo" src="${logo}" alt="Logo" />`
-            : `<div class="logo" style="display:flex;align-items:center;justify-content:center;font-weight:900;color:#111827;">LOGO</div>`
+    <html lang="es">
+    <head>
+      <meta charset="UTF-8" />
+      <script src="https://cdn.tailwindcss.com"></script>
+      <title>Orden de Pago</title>
+      <style>
+        @page {
+          size: A4;
+          margin: 1cm;
         }
-        <div>
-          <h1 class="hTitle">${tituloDocumento}</h1>
-          <p class="hSub">${subTitulo}</p>
+        body {
+          font-family: 'Helvetica', Arial, sans-serif;
+        }
+        .header-accent {
+          border-left: 4px solid #1e40af;
+        }
+        .amount-cell {
+          text-align: right;
+          padding-right: 1rem;
+        }
+        .firma-placeholder {
+          height: 60px;
+          border-bottom: 1px dashed #ccc;
+          margin-top: 10px;
+        }
+      </style>
+    </head>
+    <body class="bg-white p-6 text-gray-800 text-xs">
+      <div class="max-w-4xl mx-auto border rounded-lg overflow-hidden">
+
+        <!-- ENCABEZADO CON LOGO A UN LADO -->
+        <div class="bg-blue-800 text-white p-4">
+          <div class="flex justify-between items-center gap-4">
+            <div class="flex items-center gap-4">
+              ${logoHtml}
+              <div class="header-accent pl-3">
+                ${
+                  modo === "final"
+                    ? `<h1 class="text-xl font-bold">ORDEN DE PAGO #${codigo}</h1>`
+                    : `<h1 class="text-xl font-bold">BORRADOR DE ORDEN DE PAGO</h1>`
+                }
+                <p class="text-xs opacity-90">Generado el ${fechaGeneracion}</p>
+              </div>
+            </div>
+            <div class="bg-white text-blue-800 px-3 py-1 rounded text-xs font-bold">
+              ${estado.toUpperCase()}
+            </div>
+          </div>
+        </div>
+
+        <!-- Datos principales -->
+        <div class="grid grid-cols-2 gap-4 p-4 border-b">
+          <div>
+            <h2 class="font-bold text-sm mb-2 text-blue-800">INFORMACIÓN BÁSICA</h2>
+            <div class="space-y-1 text-xs">
+              <p><span class="font-semibold">Fecha Solicitud:</span> ${fechaMostrar}</p>
+              <p><span class="font-semibold">Fecha Pago:</span> ${fechaPagoMostrar}</p>
+              <p><span class="font-semibold">Solicitado por:</span> ${solicitadoPor}</p>
+              <p><span class="font-semibold">Autorizado por:</span> ${autorizadoPor}</p>
+              <p><span class="font-semibold">Aprobado por:</span> ${aprobadoPor}</p>
+            </div>
+          </div>
+          
+          <div>
+            <h2 class="font-bold text-sm mb-2 text-blue-800">DATOS DE PAGO</h2>
+            <div class="space-y-1 text-xs">
+              <p><span class="font-semibold">Método:</span> ${metodoPago}</p>
+              ${
+                metodoPago?.toUpperCase() === "TRANSFERENCIA"
+                  ? `<p><span class="font-semibold">Banco:</span> ${banco}</p>
+                     <p><span class="font-semibold">Referencia:</span> ${referencia}</p>`
+                  : ""
+              }
+              <p><span class="font-semibold">Comprobante:</span> ${comprobanteLink}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Información adicional -->
+        <div class="p-4 border-b">
+          ${gastoInfo || ""}
+          ${proveedorInfo || ""}
+          ${observacionesHtml || ""}
+        </div>
+
+        <!-- Tabla de montos -->
+        <div class="p-4 border-b">
+          <h2 class="font-bold text-sm mb-2 text-blue-800">DETALLE DE MONTOS</h2>
+          <table class="w-full border-collapse text-xs">
+            <thead>
+              <tr class="bg-gray-100">
+                <th class="text-left py-2 px-3 border">Concepto</th>
+                <th class="text-right py-2 px-3 border">Valor</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="py-1 px-3 border">Moneda</td>
+                <td class="py-1 px-3 border amount-cell">${moneda}</td>
+              </tr>
+              <tr>
+                <td class="py-1 px-3 border">Tasa de Cambio</td>
+                <td class="py-1 px-3 border amount-cell">${formatearLatam(
+                  tasaCambio,
+                  null
+                )}</td>
+              </tr>
+              <tr>
+                <td class="py-1 px-3 border">Monto Solicitado</td>
+                <td class="py-1 px-3 border amount-cell font-semibold">${formatearLatam(
+                  montoSolicitado,
+                  moneda === "VES" ? "VES" : "USD"
+                )}</td>
+              </tr>
+              <tr>
+                <td class="py-1 px-3 border">Monto Pagado</td>
+                <td class="py-1 px-3 border amount-cell font-semibold">${formatearLatam(
+                  montoPagado,
+                  moneda === "VES" ? "VES" : "USD"
+                )}</td>
+              </tr>
+              <tr>
+                <td class="py-1 px-3 border font-semibold">Diferencia</td>
+                <td class="py-1 px-3 border amount-cell font-semibold ${
+                  diferencia === 0 ? "text-green-600" : "text-red-600"
+                }">
+                  ${formatearLatam(
+                    diferencia,
+                    moneda === "VES" ? "VES" : "USD"
+                  )}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Firmas -->
+        <div class="p-4">
+          <h3 class="font-bold text-sm mb-3 text-center text-blue-800">FIRMAS AUTORIZADAS</h3>
+          <div class="grid grid-cols-3 gap-4 text-center text-xs">
+            <div>
+              ${
+                firmaSolicita
+                  ? `<img src="${firmaSolicita}" class="h-12 mx-auto mb-1" />`
+                  : '<div class="firma-placeholder"></div>'
+              }
+              <p class="font-semibold">${solicitadoPor}</p>
+              <p class="text-gray-500">Solicitado por</p>
+            </div>
+            <div>
+              ${
+                firmaAutoriza
+                  ? `<img src="${firmaAutoriza}" class="h-12 mx-auto mb-1" />`
+                  : '<div class="firma-placeholder"></div>'
+              }
+              <p class="font-semibold">${autorizadoPor}</p>
+              <p class="text-gray-500">Autorizado por</p>
+            </div>
+            <div>
+              ${
+                firmaAprueba
+                  ? `<img src="${firmaAprueba}" class="h-12 mx-auto mb-1" />`
+                  : '<div class="firma-placeholder"></div>'
+              }
+              <p class="font-semibold">${aprobadoPor}</p>
+              <p class="text-gray-500">Aprobado por</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pie de página -->
+        <div class="bg-gray-100 p-2 text-center text-xs text-gray-500">
+          Documento generado el ${fechaGeneracion}
         </div>
       </div>
-
-      <div class="metaRight">
-        <div class="code">Código: <strong>${codigo}</strong></div>
-        ${badgeEstado()}
-      </div>
-    </div>
-
-    <div class="grid">
-      <div class="card">
-        <div class="cardTitle">Información de la solicitud</div>
-        <div class="grid2">
-          <div><span class="label">Fecha solicitud:</span> ${fechaMostrar}</div>
-          <div><span class="label">Fecha pago:</span> ${fechaPagoMostrar}</div>
-          <div><span class="label">Estado:</span> ${estado || "N/A"}</div>
-          <div><span class="label">Tasa de cambio:</span> ${mostrarTasa}</div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="cardTitle">Responsables</div>
-        <div class="grid2">
-          <div><span class="label">Solicitado por:</span> ${
-            solicitadoPor || "—"
-          }</div>
-          <div><span class="label">Autorizado por:</span> ${
-            autorizadoPor || "—"
-          }</div>
-          <div><span class="label">Aprobado por:</span> ${
-            aprobadoPor || "—"
-          }</div>
-          <div><span class="label">Método:</span> ${metodoPago || "—"}</div>
-          <div><span class="label">Banco:</span> ${banco || "—"}</div>
-          <div><span class="label">Referencia:</span> ${referencia || "—"}</div>
-        </div>
-      </div>
-    </div>
-
-    ${seccionProveedor}
-
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Concepto / Gasto</th>
-          <th>Tipo</th>
-          <th class="right">Monto solicitado</th>
-          <th class="right">Monto pagado</th>
-          <th class="right">Diferencia</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>
-            <div><span class="label">Código gasto:</span> ${codigoGasto}</div>
-            <div><span class="label">Obs:</span> ${observaciones || "—"}</div>
-          </td>
-          <td>${tipoGasto || tipoGasto}</td>
-          <td class="right">${formatoMoneda(montoSolicitado)}</td>
-          <td class="right">${formatoMoneda(montoPagado)}</td>
-          <td class="right">${formatoMoneda(diferencia)}</td>
-        </tr>
-        <tr>
-          <td colspan="2"><span class="label">Total del gasto:</span></td>
-          <td colspan="3" class="right">
-            ${
-              String(monedaGasto).toUpperCase() === "VES"
-                ? `${new Intl.NumberFormat("es-VE", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  }).format(Number(totalGasto) || 0)} Bs`
-                : `$ ${new Intl.NumberFormat("es-VE", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  }).format(Number(totalGasto) || 0)}`
-            }
-            ${
-              tasaCambioGasto
-                ? `<span class="muted"> (tasa: ${tasaCambioGasto} Bs)</span>`
-                : ""
-            }
-          </td>
-        </tr>
-      </tbody>
-    </table>
-
-    <div class="resume">
-      <div class="resumeBox">
-        <div class="resumeRow">
-          <span class="muted">Monto solicitado:</span>
-          <span>${formatoMoneda(montoSolicitado)}</span>
-        </div>
-        <div class="resumeRow">
-          <span class="muted">Monto pagado:</span>
-          <span>${formatoMoneda(montoPagado)}</span>
-        </div>
-        <div class="resumeRow">
-          <span class="muted">Diferencia:</span>
-          <span>${formatoMoneda(diferencia)}</span>
-        </div>
-      </div>
-    </div>
-
-    ${seccionAdjuntos}
-
-    <div class="firmas">
-      <div class="firmaCard">
-        <p class="firmaTitulo">Solicita</p>
-        ${estiloFirma(firmaSolicita)}
-        <div class="firmaNombre">${solicitadoPor || "—"}</div>
-      </div>
-
-      <div class="firmaCard">
-        <p class="firmaTitulo">Autoriza</p>
-        ${estiloFirma(firmaAutoriza)}
-        <div class="firmaNombre">${autorizadoPor || "—"}</div>
-      </div>
-
-      <div class="firmaCard">
-        <p class="firmaTitulo">Aprueba</p>
-        ${estiloFirma(firmaAprueba)}
-        <div class="firmaNombre">${aprobadoPor || "—"}</div>
-      </div>
-    </div>
-
-   
-  </div>
-</body>
-</html>
-`;
+    </body>
+    </html>
+  `;
 }

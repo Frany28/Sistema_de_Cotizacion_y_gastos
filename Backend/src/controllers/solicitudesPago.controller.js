@@ -1041,7 +1041,8 @@ export const cancelarSolicitudPago = async (req, res) => {
 export const pagarSolicitudPago = async (req, res) => {
   const { id } = req.params;
 
-  const usuarioApruebaId = req.user?.id;
+  const usuarioApruebaId = req.user?.id ?? req.session?.usuario?.id ?? null;
+
   const ip = req.ip || null;
   const userAgent = req.get("user-agent") || null;
 
@@ -1056,6 +1057,7 @@ export const pagarSolicitudPago = async (req, res) => {
   const observaciones = req.body?.observaciones ?? null;
   const fechaPagoRaw = req.body?.fecha_pago ?? null;
 
+  // Archivo del comprobante del abono (si existe)
   const rutaComprobante = req.file?.key ?? null;
 
   const conexion = await db.getConnection();
@@ -1091,7 +1093,7 @@ export const pagarSolicitudPago = async (req, res) => {
 
     await conexion.beginTransaction();
 
-    // 1) Validar solicitud (incluye moneda)
+    // 1) Validar solicitud
     const [[solicitud]] = await conexion.execute(
       `
       SELECT id, codigo, monto_total, monto_pagado, estado, moneda
@@ -1121,7 +1123,7 @@ export const pagarSolicitudPago = async (req, res) => {
 
     esPrimerAbono = Number(conteo?.total || 0) === 0;
 
-    // 3) Insertar pago_realizado
+    // 3) Insertar pago_realizado (aquí SÍ queda guardado el usuario del abono)
     const [pRes] = await conexion.execute(
       `
       INSERT INTO pagos_realizados
@@ -1149,35 +1151,49 @@ export const pagarSolicitudPago = async (req, res) => {
 
     pagoRealizadoId = pRes.insertId;
 
-    // 4) Actualizar solicitud: monto_pagado, estado
+    // 4) Calcular nuevo monto/estado
     const nuevoMontoPagado =
       Number(solicitud.monto_pagado || 0) + Number(montoPagado || 0);
 
     let nuevoEstado = "parcialmente_pagada";
-    if (nuevoMontoPagado >= Number(solicitud.monto_total || 0)) {
-      nuevoEstado = "pagada";
-    }
+    const quedaPagada = nuevoMontoPagado >= Number(solicitud.monto_total || 0);
+    if (quedaPagada) nuevoEstado = "pagada";
+
+    // ✅ FIX: actualizar usuario_aprueba_id en solicitudes_pago
+    // Recomendación: setearlo siempre con el último que paga (o sea, el aprobador real de ese pago).
+    // fecha_pago: solo cuando queda totalmente pagada (último abono).
+    const paramsUpdate = [
+      nuevoMontoPagado,
+      nuevoEstado,
+      usuarioApruebaId,
+      quedaPagada ? fechaPagoMySql ?? null : null,
+      id,
+    ];
 
     await conexion.execute(
       `
       UPDATE solicitudes_pago
-      SET monto_pagado = ?, estado = ?, updated_at = NOW()
+      SET monto_pagado = ?,
+          estado = ?,
+          usuario_aprueba_id = ?,
+          fecha_pago = CASE
+                        WHEN ? IS NULL THEN fecha_pago
+                        ELSE COALESCE(?, NOW())
+                      END,
+          updated_at = NOW()
       WHERE id = ?
       `,
-      [nuevoMontoPagado, nuevoEstado, id]
+      [
+        nuevoMontoPagado,
+        nuevoEstado,
+        usuarioApruebaId,
+        quedaPagada ? 1 : null, // solo como bandera interna
+        quedaPagada ? fechaPagoMySql : null,
+        id,
+      ]
     );
 
     await conexion.commit();
-
-    // 5) ✅ Generar y guardar PDF automáticamente (DESPUÉS del commit)
-    //    Nota: si esto falla, el abono igualmente queda registrado.
-    const resultadoPdf = await guardarPdfOrdenPagoPorAbono({
-      solicitudPagoId: Number(id),
-      pagoRealizadoId: Number(pagoRealizadoId),
-      usuarioId: Number(usuarioApruebaId),
-      ip,
-      userAgent,
-    });
 
     return res.status(200).json({
       message: "Abono registrado correctamente.",
@@ -1185,17 +1201,6 @@ export const pagarSolicitudPago = async (req, res) => {
       esPrimerAbono,
       nuevoEstado,
       nuevoMontoPagado,
-
-      pdfOrdenPago: {
-        generado: Boolean(resultadoPdf?.ok && !resultadoPdf?.omitido),
-        omitido: Boolean(resultadoPdf?.omitido),
-        motivo: resultadoPdf?.motivo ?? null,
-        archivoId: resultadoPdf?.archivoId ?? null,
-        versionId: resultadoPdf?.versionId ?? null,
-        claveS3: resultadoPdf?.clavePdfOrdenPago ?? null,
-        numeroAbono: resultadoPdf?.numeroAbono ?? null,
-        nombreOriginal: resultadoPdf?.nombreOriginal ?? null,
-      },
     });
   } catch (error) {
     try {
