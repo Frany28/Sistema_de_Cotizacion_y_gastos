@@ -1474,30 +1474,22 @@ export const pagarSolicitudPago = async (req, res) => {
 
     // 3) Insertar pago_realizado
     // ⚠️ NO insertamos monto_pagado_usd porque es GENERATED en tu SQL
-    const [pRes] = await conexion.execute(
-      `
-      INSERT INTO pagos_realizados
-        (solicitud_pago_id, usuario_id, metodo_pago, referencia_pago, banco_id,
-         monto_pagado, moneda, tasa_cambio, fecha_pago,
-         ruta_comprobante, ruta_firma, observaciones, created_at, updated_at)
-      VALUES
-        (?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()),
-         ?, NULL, ?, NOW(), NOW())
-      `,
-      [
-        id,
-        usuarioApruebaId,
-        metodoPago,
-        referenciaPago, // ✅ nunca undefined
-        bancoId, // ✅ nunca undefined
-        montoPagado,
-        monedaFinal,
-        tasaCambioRaw ?? null, // ✅ null si no aplica (USD/Efectivo sin tasa)
-        fechaPagoMySql,
-        rutaComprobante, // ✅ null si no hay archivo
-        observaciones,
-      ]
-    );
+    const [pRes] = // Dentro de pagarSolicitudPago
+      await conexion.execute(
+        `
+        INSERT INTO pagos_realizados
+          (solicitud_pago_id, monto, fecha_pago, usuario_id, ruta_comprobante)
+        VALUES
+          (?, ?, COALESCE(?, CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '-04:00')), ?, ?)
+        `,
+        [
+          id,
+          montoAbono,
+          fechaPagoMySql || null,
+          usuarioApruebaId,
+          rutaComprobante || null,
+        ]
+      );
 
     pagoRealizadoId = pRes.insertId;
 
@@ -1512,6 +1504,8 @@ export const pagarSolicitudPago = async (req, res) => {
 
     const fechaPagoFinal = fechaPagoMySql || null;
 
+    // Dentro de pagarSolicitudPago
+
     await conexion.execute(
       `
   UPDATE solicitudes_pago
@@ -1520,7 +1514,11 @@ export const pagarSolicitudPago = async (req, res) => {
     estado = ?,
     usuario_aprueba_id = COALESCE(usuario_aprueba_id, ?),
     fecha_pago = CASE
-      WHEN ? = 'pagada' THEN COALESCE(fecha_pago, COALESCE(?, NOW()))
+      WHEN ? = 'pagada'
+        THEN COALESCE(
+          fecha_pago,
+          COALESCE(?, CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '-04:00'))
+        )
       ELSE fecha_pago
     END,
     updated_at = NOW()
@@ -1531,7 +1529,7 @@ export const pagarSolicitudPago = async (req, res) => {
         nuevoEstado,
         usuarioApruebaId,
         nuevoEstado,
-        fechaPagoFinal,
+        fechaPagoMySql || null,
         id,
       ]
     );
