@@ -1322,7 +1322,7 @@ async function guardarPdfOrdenPagoPorAbono({
   try {
     await conexion.beginTransaction();
 
-    // 1) Traer data completa de la solicitud (misma base que tu PDF)
+    // 1) Traer data completa de la solicitud
     const [[row]] = await conexion.execute(
       `
       SELECT  
@@ -1363,14 +1363,22 @@ async function guardarPdfOrdenPagoPorAbono({
       return { ok: false, motivo: "Solicitud no encontrada" };
     }
 
-    // 2) Traer el abono actual (pago_realizado) + banco (NOMBRE + CUENTA)
-    // ✅ AQUÍ está el cambio importante: los datos de pago se leen desde pagos_realizados
+    // 2) ✅ Traer el abono actual con todos los datos del pago + banco (nombre + numeroCuenta)
     const [[abono]] = await conexion.execute(
       `
       SELECT
-        pr.*,
-        b.nombre        AS banco_nombre_pago,
-        b.numero_cuenta AS banco_numero_cuenta
+        pr.id,
+        pr.fecha_pago,
+        pr.metodo_pago,
+        pr.referencia_pago,
+        pr.banco_id,
+        pr.monto_pagado,
+        pr.moneda,
+        pr.tasa_cambio,
+        pr.ruta_comprobante,
+
+        b.nombre       AS banco_nombre_pago,
+        b.numeroCuenta AS banco_numero_cuenta
       FROM pagos_realizados pr
       LEFT JOIN bancos b ON b.id = pr.banco_id
       WHERE pr.id = ? AND pr.solicitud_pago_id = ?
@@ -1384,7 +1392,7 @@ async function guardarPdfOrdenPagoPorAbono({
       return { ok: false, motivo: "Abono no encontrado para esta solicitud" };
     }
 
-    // 3) Calcular numeroAbono (orden cronológico) con MySQL 8 (ROW_NUMBER)
+    // 3) Calcular numeroAbono (ROW_NUMBER)
     const [[rankRow]] = await conexion.execute(
       `
       SELECT rn
@@ -1428,7 +1436,7 @@ async function guardarPdfOrdenPagoPorAbono({
       firmaToDataUrl(row.aprueba_firma),
     ]);
 
-    // 6) Logo local a base64 (misma ruta que ya usas en generarPDFSolicitudPago)
+    // 6) Logo local a base64
     let logo = null;
     try {
       const archivoActual = fileURLToPath(import.meta.url);
@@ -1446,7 +1454,7 @@ async function guardarPdfOrdenPagoPorAbono({
       console.error("No se pudo cargar el logo de Orden de Pago:", err);
     }
 
-    // 7) URLs prefirmadas (✅ ahora desde el abono, no desde la solicitud)
+    // 7) ✅ URLs prefirmadas: comprobante desde el ABONO, documento del gasto desde el gasto
     const comprobanteUrl = abono.ruta_comprobante
       ? await generarUrlPrefirmadaLectura(abono.ruta_comprobante, 600)
       : null;
@@ -1455,10 +1463,9 @@ async function guardarPdfOrdenPagoPorAbono({
       ? await generarUrlPrefirmadaLectura(row.gasto_documento, 600)
       : null;
 
-    // 8) Diferencia (se mantiene como estaba: total solicitado - total pagado acumulado)
     const diferencia = (row.monto_total || 0) - (row.monto_pagado || 0);
 
-    // 9) Datos para el template (manteniendo tu estructura + ✅ pagoRealizado)
+    // 8) ✅ Datos para el template (manteniendo tu estructura + pagoRealizado)
     const datos = {
       codigo: row.codigo,
       fechaSolicitud: row.fecha_solicitud,
@@ -1473,18 +1480,16 @@ async function guardarPdfOrdenPagoPorAbono({
       firmaAutoriza: firmaRevisa,
       firmaAprueba,
 
-      // ✅ Método / Banco / Referencia deben salir del ABONO (pagos_realizados)
-      metodoPago: abono.metodo_pago,
+      // Compatibilidad (viejo)
+      metodoPago: abono.metodo_pago ?? row.metodo_pago,
       banco: abono.banco_nombre_pago || "—",
       referencia: abono.referencia_pago || "—",
-
-      // ✅ Mantengo compatibilidad con el template viejo
       comprobanteUrl,
 
-      // ✅ NUEVO: esto es lo que tu HTML actualizado va a priorizar
+      // ✅ Nuevo (tu HTML actualizado lo prioriza)
       pagoRealizado: {
-        metodoPago: abono.metodo_pago,
-        referenciaPago: abono.referencia_pago,
+        metodoPago: abono.metodo_pago ?? "N/A",
+        referenciaPago: abono.referencia_pago ?? "—",
         bancoNombre: abono.banco_nombre_pago || "—",
         numeroCuenta: abono.banco_numero_cuenta || "—",
         rutaComprobante: comprobanteUrl,
@@ -1492,11 +1497,10 @@ async function guardarPdfOrdenPagoPorAbono({
       },
 
       montoSolicitado: row.monto_total,
-      montoPagado: row.monto_pagado,
+      montoPagado: row.monto_pagado, // (acumulado, como ya lo manejas)
       diferencia,
 
-      // ✅ Moneda / tasa del pago (si están en abono, se usan; si no, caen a la solicitud)
-      moneda: abono.moneda || row.moneda,
+      moneda: abono.moneda ?? row.moneda,
       tasaCambio:
         abono.tasa_cambio !== null && abono.tasa_cambio !== undefined
           ? abono.tasa_cambio
@@ -1529,7 +1533,7 @@ async function guardarPdfOrdenPagoPorAbono({
 
     const html = generarHTMLOrdenPago(datos, "final");
 
-    // 10) Generar PDF
+    // 9) Generar PDF
     const browser = await puppeteer.launch({
       args: chromium.args,
       defaultViewport: chromium.defaultViewport,
@@ -1549,7 +1553,7 @@ async function guardarPdfOrdenPagoPorAbono({
 
     await browser.close();
 
-    // 11) Construir ruta S3 (se mantiene igual)
+    // 10) Construir ruta S3
     const meses = [
       "enero",
       "febrero",
@@ -1581,30 +1585,149 @@ async function guardarPdfOrdenPagoPorAbono({
 
     clavePdfOrdenPago = `comprobantes_pagos/${anio}/${mesPalabra}/${row.codigo}/ordenes_pago/${nombreOriginal}`;
 
-    // 12) Subir a S3 (se mantiene igual)
+    // 11) Subir a S3
     await subirBufferAS3({
       claveS3: clavePdfOrdenPago,
       buffer: pdfBuffer,
       contentType: "application/pdf",
     });
 
-    // ... ✅ aquí sigue TODO lo demás EXACTAMENTE igual en tu archivo:
-    // - obtenerOcrearGrupoComprobante
-    // - insert en archivos
-    // - commit
-    // - return ok
+    // 12) Grupo de archivos de la solicitud
+    const grupoId = await obtenerOcrearGrupoComprobante(
+      conexion,
+      solicitudPagoId,
+      usuarioId
+    );
 
-    // ⚠️ OJO: como no tengo el resto del bloque visible en este snippet,
-    // NO lo toco: en tu archivo se queda igual.
+    // 13) Versionado
+    const [[ver]] = await conexion.execute(
+      `
+      SELECT IFNULL(MAX(numeroVersion), 0) AS maxVer
+      FROM archivos
+      WHERE registroTipo = 'comprobantesPagos'
+        AND registroId = ?
+        AND subTipoArchivo = 'ordenPago'
+      `,
+      [pagoRealizadoId]
+    );
+
+    const numeroVersion = Number(ver?.maxVer || 0) + 1;
+
+    // 14) Insert archivos
+    const [aRes] = await conexion.execute(
+      `
+      INSERT INTO archivos
+        (registroTipo, subTipoArchivo, registroId, grupoArchivoId,
+         nombreOriginal, extension, tamanioBytes, numeroVersion,
+         rutaS3, estado, esPublico, subidoPor)
+      VALUES
+        ('comprobantesPagos', 'ordenPago', ?, ?, ?, ?, ?, ?, ?, 'activo', 0, ?)
+      `,
+      [
+        pagoRealizadoId,
+        grupoId,
+        nombreOriginal,
+        extension,
+        tamanioBytes,
+        numeroVersion,
+        clavePdfOrdenPago,
+        usuarioId,
+      ]
+    );
+
+    const archivoId = aRes.insertId;
+
+    // 15) Insert versionesArchivo
+    const [vRes] = await conexion.execute(
+      `
+      INSERT INTO versionesArchivo
+        (archivoId, numeroVersion, nombreOriginal, extension,
+         tamanioBytes, rutaS3, subidoPor)
+      VALUES
+        (?, ?, ?, ?, ?, ?, ?)
+      `,
+      [
+        archivoId,
+        numeroVersion,
+        nombreOriginal,
+        extension,
+        tamanioBytes,
+        clavePdfOrdenPago,
+        usuarioId,
+      ]
+    );
+
+    const versionId = vRes.insertId;
+
+    // 16) Auditoría eventosArchivo
+    await conexion.execute(
+      `
+      INSERT INTO eventosArchivo
+        (archivoId, versionId, accion, creadoPor, ip, userAgent, detalles)
+      VALUES
+        (?, ?, 'subidaArchivo', ?, ?, ?, ?)
+      `,
+      [
+        archivoId,
+        versionId,
+        usuarioId,
+        ip || null,
+        userAgent || null,
+        JSON.stringify({
+          registroTipo: "comprobantesPagos",
+          subTipoArchivo: "ordenPago",
+          solicitudPagoId: Number(solicitudPagoId),
+          pagoRealizadoId: Number(pagoRealizadoId),
+          codigoSolicitudPago: row.codigo,
+          numeroAbono,
+          origen: "abono",
+        }),
+      ]
+    );
+
+    // 17) Storage
+    await conexion.execute(
+      `
+      UPDATE usuarios
+      SET usoStorageBytes = usoStorageBytes + ?
+      WHERE id = ?
+      `,
+      [tamanioBytes, usuarioId]
+    );
+
     await conexion.commit();
-    return { ok: true, clavePdfOrdenPago, tamanioBytes, extension };
+
+    return {
+      ok: true,
+      archivoId,
+      versionId,
+      clavePdfOrdenPago,
+      numeroAbono,
+      nombreOriginal,
+      tamanioBytes,
+    };
   } catch (error) {
     try {
       await conexion.rollback();
     } catch (_) {}
+
+    // Limpieza si subió a S3 pero falló BD
+    if (clavePdfOrdenPago) {
+      try {
+        await borrarObjetoAS3(clavePdfOrdenPago);
+      } catch (_) {}
+    }
+
     console.error("Error guardando PDF Orden de Pago (auto por abono):", error);
-    return { ok: false, motivo: "Error interno al generar PDF" };
+
+    return {
+      ok: false,
+      motivo: "No se pudo generar/guardar el PDF de la orden de pago.",
+      error: error?.message ?? String(error),
+    };
   } finally {
-    conexion.release();
+    try {
+      conexion.release();
+    } catch (_) {}
   }
 }
