@@ -1510,20 +1510,34 @@ export const pagarSolicitudPago = async (req, res) => {
       nuevoEstado = "pagada";
     }
 
+    const fechaPagoFinal = fechaPagoMySql || null;
+
     await conexion.execute(
       `
-      UPDATE solicitudes_pago
-      SET monto_pagado = ?, estado = ?, updated_at = NOW()
-      WHERE id = ?
-      `,
-      [nuevoMontoPagado, nuevoEstado, id]
+  UPDATE solicitudes_pago
+  SET
+    monto_pagado = ?,
+    estado = ?,
+    usuario_aprueba_id = COALESCE(usuario_aprueba_id, ?),
+    fecha_pago = CASE
+      WHEN ? = 'pagada' THEN COALESCE(fecha_pago, COALESCE(?, NOW()))
+      ELSE fecha_pago
+    END,
+    updated_at = NOW()
+  WHERE id = ?
+  `,
+      [
+        nuevoMontoPagado,
+        nuevoEstado,
+        usuarioApruebaId,
+        nuevoEstado,
+        fechaPagoFinal,
+        id,
+      ]
     );
 
     await conexion.commit();
 
-    // ✅ Guardar automáticamente el PDF de Orden/Comprobante de Pago en S3 por cada abono
-    // Nota: se ejecuta fuera de la transacción del abono (ya fue commiteada),
-    // para evitar locks largos en MySQL por Puppeteer.
     let pdfOrdenPago = null;
     try {
       pdfOrdenPago = await guardarPdfOrdenPagoPorAbono({
