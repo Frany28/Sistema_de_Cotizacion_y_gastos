@@ -913,7 +913,6 @@ export const pagarSolicitudPago = async (req, res) => {
   const observaciones = req.body?.observaciones ?? null;
   const fechaPagoRaw = req.body?.fecha_pago ?? null;
 
-  // Si suben comprobante en el abono (multer-s3 normalmente deja req.file.key)
   const rutaComprobante = req.file?.key ?? null;
 
   const ip =
@@ -1087,6 +1086,7 @@ export const pagarSolicitudPago = async (req, res) => {
     conexion.release();
   }
 };
+
 
 export const obtenerOrdenesPagoSolicitud = async (req, res) => {
   const solicitudPagoId = Number(req.params.id);
@@ -1461,4 +1461,3 @@ async function guardarPdfOrdenPagoPorAbono({
     conexion.release();
   }
 }
-
