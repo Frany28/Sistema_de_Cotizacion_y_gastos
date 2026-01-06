@@ -26,7 +26,41 @@ export function generarHTMLOrdenPago(datos = {}, modo = "preview") {
     updatedAt = null,
     // 🔹 NUEVO: logo en base64 (data URL)
     logo = null,
+
+    // ✅ NUEVO: datos del pago (si existe)
+    pagoRealizado = null,
   } = datos;
+
+  /* ==========================
+     ✅ Normalización de datos de pago
+     - Si viene pagoRealizado, manda él.
+     - Si no viene, usa los campos anteriores.
+  ========================== */
+  const metodoPagoFinal =
+    pagoRealizado?.metodoPago ?? pagoRealizado?.metodo ?? metodoPago ?? "N/A";
+
+  const bancoFinal =
+    pagoRealizado?.bancoNombre ?? pagoRealizado?.banco ?? banco ?? "—";
+
+  const cuentaBancariaFinal =
+    pagoRealizado?.numeroCuenta ??
+    pagoRealizado?.cuentaBancaria ??
+    pagoRealizado?.cuenta ??
+    "—";
+
+  const referenciaFinal =
+    pagoRealizado?.referenciaPago ??
+    pagoRealizado?.referencia ??
+    referencia ??
+    "—";
+
+  const comprobanteUrlFinal =
+    pagoRealizado?.rutaComprobante ??
+    pagoRealizado?.comprobanteUrl ??
+    comprobanteUrl ??
+    null;
+
+  const fechaPagoFinal = pagoRealizado?.fechaPago ?? fechaPago ?? null;
 
   /* === FUNCIÓN FORMATO LATAM === */
   function formatearLatam(valor, monedaLabel) {
@@ -50,8 +84,8 @@ export function generarHTMLOrdenPago(datos = {}, modo = "preview") {
     ? new Date(fechaSolicitud).toLocaleDateString("es-VE")
     : "Sin especificar";
 
-  const fechaPagoMostrar = fechaPago
-    ? new Date(fechaPago).toLocaleDateString("es-VE")
+  const fechaPagoMostrar = fechaPagoFinal
+    ? new Date(fechaPagoFinal).toLocaleDateString("es-VE")
     : "—";
 
   const fechaGeneracion = new Date(createdAt || Date.now()).toLocaleDateString(
@@ -123,8 +157,8 @@ export function generarHTMLOrdenPago(datos = {}, modo = "preview") {
     : "";
 
   /* === Comprobante === */
-  const comprobanteLink = comprobanteUrl
-    ? `<a href="${comprobanteUrl}" target="_blank" class="text-blue-600 underline">Ver comprobante</a>`
+  const comprobanteLink = comprobanteUrlFinal
+    ? `<a href="${comprobanteUrlFinal}" target="_blank" class="text-blue-600 underline">Ver comprobante</a>`
     : "—";
 
   /* === Logo (si existe) === */
@@ -200,11 +234,12 @@ export function generarHTMLOrdenPago(datos = {}, modo = "preview") {
           <div>
             <h2 class="font-bold text-sm mb-2 text-blue-800">DATOS DE PAGO</h2>
             <div class="space-y-1 text-xs">
-              <p><span class="font-semibold">Método:</span> ${metodoPago}</p>
+              <p><span class="font-semibold">Método:</span> ${metodoPagoFinal}</p>
               ${
-                metodoPago?.toUpperCase() === "TRANSFERENCIA"
-                  ? `<p><span class="font-semibold">Banco:</span> ${banco}</p>
-                     <p><span class="font-semibold">Referencia:</span> ${referencia}</p>`
+                metodoPagoFinal?.toUpperCase() === "TRANSFERENCIA"
+                  ? `<p><span class="font-semibold">Banco:</span> ${bancoFinal}</p>
+                     <p><span class="font-semibold">Cuenta:</span> ${cuentaBancariaFinal}</p>
+                     <p><span class="font-semibold">Referencia:</span> ${referenciaFinal}</p>`
                   : ""
               }
               <p><span class="font-semibold">Comprobante:</span> ${comprobanteLink}</p>
