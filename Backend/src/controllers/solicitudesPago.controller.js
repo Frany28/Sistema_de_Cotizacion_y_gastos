@@ -1041,7 +1041,11 @@ export const cancelarSolicitudPago = async (req, res) => {
 export const pagarSolicitudPago = async (req, res) => {
   const { id } = req.params;
 
+  // ✅ Toma el usuario desde middleware o sesión (para que NO sea null)
   const usuarioApruebaId = req.user?.id ?? req.session?.usuario?.id ?? null;
+
+  const ip = req.ip || null;
+  const userAgent = req.get("user-agent") || null;
 
   const metodoPago = req.body?.metodo_pago;
   const referenciaPago = req.body?.referencia_pago ?? null;
@@ -1054,15 +1058,17 @@ export const pagarSolicitudPago = async (req, res) => {
   const observaciones = req.body?.observaciones ?? null;
   const fechaPagoRaw = req.body?.fecha_pago ?? null;
 
+  // Si mandas comprobante en el abono
   const rutaComprobante = req.file?.key ?? null;
-
-  const conexion = await db.getConnection();
 
   const normalizarFechaMySql = (fechaIso) => {
     if (!fechaIso) return null;
     const fecha = String(fechaIso).replace("T", " ").trim();
     return fecha.length === 16 ? `${fecha}:00` : fecha;
   };
+
+  const conexion = await db.getConnection();
+  let pagoRealizadoId = null;
 
   try {
     if (!usuarioApruebaId) {
@@ -1086,9 +1092,10 @@ export const pagarSolicitudPago = async (req, res) => {
 
     await conexion.beginTransaction();
 
+    // 1) Bloquear la solicitud para actualizar montos sin condiciones de carrera
     const [[solicitud]] = await conexion.execute(
       `
-      SELECT id, monto_total, monto_pagado, moneda
+      SELECT id, codigo, monto_total, monto_pagado, estado, moneda
       FROM solicitudes_pago
       WHERE id = ?
       FOR UPDATE
@@ -1098,12 +1105,12 @@ export const pagarSolicitudPago = async (req, res) => {
 
     if (!solicitud) {
       await conexion.rollback();
-      return res.status(404).json({ message: "Solicitud no encontrada" });
+      return res.status(404).json({ message: "Solicitud no encontrada." });
     }
 
     const monedaFinal = monedaBody ?? solicitud.moneda ?? "VES";
 
-    // Insertar pago_realizado
+    // 2) Insertar el abono
     const [pRes] = await conexion.execute(
       `
       INSERT INTO pagos_realizados
@@ -1129,15 +1136,16 @@ export const pagarSolicitudPago = async (req, res) => {
       ]
     );
 
-    const pagoRealizadoId = pRes.insertId;
+    pagoRealizadoId = pRes.insertId;
 
-    // Nuevo monto/estado
+    // 3) Recalcular estado
     const nuevoMontoPagado =
       Number(solicitud.monto_pagado || 0) + Number(montoPagado || 0);
 
     const quedaPagada = nuevoMontoPagado >= Number(solicitud.monto_total || 0);
     const nuevoEstado = quedaPagada ? "pagada" : "parcialmente_pagada";
 
+    // 4) ✅ Actualizar solicitud incluyendo el usuario que aprueba
     await conexion.execute(
       `
       UPDATE solicitudes_pago
@@ -1152,11 +1160,37 @@ export const pagarSolicitudPago = async (req, res) => {
 
     await conexion.commit();
 
+    // 5) ✅ Generar PDF automático y guardarlo en S3 (si tienes esa función creada)
+    // Si no existe, comenta este bloque.
+    let resultadoPdf = null;
+    if (typeof guardarPdfOrdenPagoPorAbono === "function") {
+      resultadoPdf = await guardarPdfOrdenPagoPorAbono({
+        solicitudPagoId: Number(id),
+        pagoRealizadoId: Number(pagoRealizadoId),
+        usuarioId: Number(usuarioApruebaId),
+        ip,
+        userAgent,
+      });
+    }
+
     return res.status(200).json({
       message: "Abono registrado correctamente.",
       pagoRealizadoId,
       nuevoEstado,
       nuevoMontoPagado,
+      usuarioApruebaId,
+      pdfOrdenPago: resultadoPdf
+        ? {
+            generado: Boolean(resultadoPdf?.ok && !resultadoPdf?.omitido),
+            omitido: Boolean(resultadoPdf?.omitido),
+            motivo: resultadoPdf?.motivo ?? null,
+            archivoId: resultadoPdf?.archivoId ?? null,
+            versionId: resultadoPdf?.versionId ?? null,
+            claveS3: resultadoPdf?.clavePdfOrdenPago ?? null,
+            numeroAbono: resultadoPdf?.numeroAbono ?? null,
+            nombreOriginal: resultadoPdf?.nombreOriginal ?? null,
+          }
+        : null,
     });
   } catch (error) {
     try {
@@ -1166,10 +1200,12 @@ export const pagarSolicitudPago = async (req, res) => {
     console.error("Error al registrar abono:", error);
     return res.status(500).json({
       message: "No se pudo registrar el abono.",
-      error: error?.message,
+      error: error?.message ?? String(error),
     });
   } finally {
-    conexion.release();
+    try {
+      conexion.release();
+    } catch (_) {}
   }
 };
 
