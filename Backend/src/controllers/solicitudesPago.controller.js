@@ -143,6 +143,7 @@ export const generarPDFSolicitudPago = async (req, res) => {
     referencia: row.referencia_pago || "—",
 
     montoSolicitado: row.monto_total,
+    montoAbono: abono.monto_pagado,
     montoPagado: row.monto_pagado,
     diferencia,
     moneda: row.moneda,

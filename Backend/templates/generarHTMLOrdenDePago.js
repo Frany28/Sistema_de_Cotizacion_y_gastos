@@ -284,14 +284,23 @@ export function generarHTMLOrdenPago(datos = {}, modo = "preview") {
                 )}</td>
               </tr>
               <tr>
-                <td class="py-1 px-3 border">Monto Pagado</td>
+                <td class="py-1 px-3 border">Monto de este pago</td>
+                <td class="py-1 px-3 border amount-cell font-semibold text-blue-700">
+                  ${formatearLatam(
+                    montoAbono,
+                    moneda === "VES" ? "VES" : "USD"
+                  )}
+                </td>
+              </tr>
+              <tr>
+                <td class="py-1 px-3 border">Total pagado a la fecha</td>
                 <td class="py-1 px-3 border amount-cell font-semibold">${formatearLatam(
                   montoPagado,
                   moneda === "VES" ? "VES" : "USD"
                 )}</td>
               </tr>
               <tr>
-                <td class="py-1 px-3 border font-semibold">Diferencia</td>
+                <td class="py-1 px-3 border font-semibold">Saldo pendiente</td>
                 <td class="py-1 px-3 border amount-cell font-semibold ${
                   diferencia === 0 ? "text-green-600" : "text-red-600"
                 }">
