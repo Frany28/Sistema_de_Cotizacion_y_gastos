@@ -266,25 +266,14 @@ export function generarHTMLOrdenPago(datos = {}, modo = "preview") {
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td class="py-1 px-3 border">Moneda</td>
-                <td class="py-1 px-3 border amount-cell">${moneda}</td>
-              </tr>
-              <tr>
-                <td class="py-1 px-3 border">Tasa de Cambio</td>
-                <td class="py-1 px-3 border amount-cell">${formatearLatam(
-                  tasaCambio,
-                  null
-                )}</td>
-              </tr>
-              <tr>
+             <tr>
                 <td class="py-1 px-3 border">Monto Solicitado</td>
                 <td class="py-1 px-3 border amount-cell font-semibold">${formatearLatam(
                   montoSolicitado,
                   moneda === "VES" ? "VES" : "USD"
                 )}</td>
               </tr>
-              <tr>
+               <tr>
                 <td class="py-1 px-3 border">Monto de este pago</td>
                 <td class="py-1 px-3 border amount-cell font-semibold text-blue-700">
                   ${formatearLatam(
@@ -292,13 +281,6 @@ export function generarHTMLOrdenPago(datos = {}, modo = "preview") {
                     moneda === "VES" ? "VES" : "USD"
                   )}
                 </td>
-              </tr>
-              <tr>
-                <td class="py-1 px-3 border">Total pagado a la fecha</td>
-                <td class="py-1 px-3 border amount-cell font-semibold">${formatearLatam(
-                  montoPagado,
-                  moneda === "VES" ? "VES" : "USD"
-                )}</td>
               </tr>
               <tr>
                 <td class="py-1 px-3 border font-semibold">Saldo pendiente</td>
@@ -310,6 +292,17 @@ export function generarHTMLOrdenPago(datos = {}, modo = "preview") {
                     moneda === "VES" ? "VES" : "USD"
                   )}
                 </td>
+              </tr>
+              <tr>
+                <td class="py-1 px-3 border">Moneda</td>
+                <td class="py-1 px-3 border amount-cell">${moneda}</td>
+              </tr>
+              <tr>
+                <td class="py-1 px-3 border">Tasa de Cambio</td>
+                <td class="py-1 px-3 border amount-cell">${formatearLatam(
+                  tasaCambio,
+                  null
+                )}</td>
               </tr>
             </tbody>
           </table>
