@@ -70,14 +70,6 @@ export default function ModalVerSolicitudDePago({
   };
 
   // =========================
-  // PDF directo (lógica vieja)
-  // =========================
-  const handleVerOrdenPagoPDF = () => {
-    if (!isPagada) return; // seguridad extra
-    window.open(`${apiBaseUrl}/solicitudes-pago/${solicitud.id}/pdf`, "_blank");
-  };
-
-  // =========================
   // Órdenes de pago (selector)
   // =========================
   const [mostrarModalOrdenesPago, setMostrarModalOrdenesPago] = useState(false);
@@ -109,10 +101,6 @@ export default function ModalVerSolicitudDePago({
     try {
       const url = `${apiBaseUrl}/solicitudes-pago/${solicitud.id}/ordenes-pago`;
       const { data } = await axios.get(url, configAxios);
-
-      // ✅ Acepta ambos formatos:
-      // 1) Array directo: [...]
-      // 2) Objeto: { ok: true, data: [...] }
       const lista = Array.isArray(data)
         ? data
         : Array.isArray(data?.data)
@@ -137,7 +125,6 @@ export default function ModalVerSolicitudDePago({
 
     setMostrarModalOrdenesPago(true);
 
-    // Si ya están cargadas, no repitas petición
     if (ordenesPago.length > 0) return;
 
     await obtenerOrdenesPago();
@@ -255,7 +242,6 @@ export default function ModalVerSolicitudDePago({
                   </div>
                 </div>
 
-                {/* ✅ Eliminado: "Detalles del Pago" (como pediste) */}
 
                 {/* Motivo de cancelación */}
                 {isCancelada && (
@@ -405,18 +391,6 @@ export default function ModalVerSolicitudDePago({
               >
                 Cerrar
               </button>
-
-              {/* Botón viejo: PDF directo (solo pagada) */}
-              {isPagada && (
-                <button
-                  onClick={handleVerOrdenPagoPDF}
-                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-medium flex items-center mr-2"
-                  type="button"
-                >
-                  <FileText className="w-4 h-4 mr-2" />
-                  Ver Orden de Pago.
-                </button>
-              )}
 
               {/* Botón: selector (pagada + parcialmente pagada) */}
               {puedeVerOrdenesPago && (
