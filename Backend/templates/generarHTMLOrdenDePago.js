@@ -11,6 +11,7 @@ export function generarHTMLOrdenPago(datos = {}, modo = "preview") {
     banco = "—",
     referencia = "—",
     montoSolicitado = 0,
+    montoAbono = 0,
     montoPagado = 0,
     diferencia = 0,
     moneda = "USD",

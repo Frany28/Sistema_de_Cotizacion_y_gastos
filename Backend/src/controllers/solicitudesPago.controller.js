@@ -1509,7 +1509,8 @@ async function guardarPdfOrdenPagoPorAbono({
       },
 
       montoSolicitado: row.monto_total,
-      montoPagado: row.monto_pagado, // acumulado
+      montoAbono: abono.monto_pagado, 
+      montoPagado: row.monto_pagado, 
       diferencia,
 
       moneda: abono.moneda ?? row.moneda,
