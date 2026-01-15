@@ -29,7 +29,6 @@ export default function UsuariosCRUD() {
   const [puedeCrear, setPuedeCrear] = useState(false);
   const [puedeEditar, setPuedeEditar] = useState(false);
   const [puedeEliminar, setPuedeEliminar] = useState(false);
-  const [puedeEditarCuota, setPuedeEditarCuota] = useState(false);
 
   // Estados para eliminación
   const [showModalEliminar, setShowModalEliminar] = useState(false);
@@ -77,7 +76,6 @@ export default function UsuariosCRUD() {
       setPuedeCrear(await verificarPermisoFront("crearUsuario"));
       setPuedeEditar(await verificarPermisoFront("editarUsuario"));
       setPuedeEliminar(await verificarPermisoFront("eliminarUsuario"));
-      setPuedeEditarCuota(await verificarPermisoFront("editar_cuota_usuario"));
     })();
   }, []);
 
@@ -193,7 +191,6 @@ export default function UsuariosCRUD() {
         onClose={() => setModalEditar(false)}
         usuario={usuarioEditando}
         roles={roles}
-        puedeEditarCuota={puedeEditarCuota}
         onUsuarioActualizado={() => {
           // tu refresh actual
         }}

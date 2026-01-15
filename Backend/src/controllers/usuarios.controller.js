@@ -248,11 +248,10 @@ export const actualizarUsuario = async (req, res) => {
     await conexion.beginTransaction();
 
     const { id } = req.params;
-    const { nombre, email, password, rol_id, estado } = req.body;
+    const { nombre, email, password, rol_id, estado, cuotaMb } = req.body;
 
     // Datos de archivo (si viene nueva firma)
     const firmaKey = req.file?.key ?? null;
-    console.log("🔍 [DEBUG] actualizarUsuario -> firmaKey:", firmaKey);
     const nombreOriginal = req.file?.originalname ?? null;
     const extension = nombreOriginal?.split(".").pop() ?? null;
     const tamanioBytes = req.file?.size ?? null;
@@ -298,6 +297,66 @@ export const actualizarUsuario = async (req, res) => {
         .json({ message: "Si envías rol_id, debe ser un valor válido" });
     }
 
+    // ─────────────────────────────────────────────
+    // ✅ Cuota (MB) — unificada en editarUsuario
+    // ─────────────────────────────────────────────
+    let cuotaMbNormalizada = undefined;
+
+    // Si viene desde FormData, llega como string
+    if (cuotaMb !== undefined) {
+      const texto = cuotaMb === null ? null : String(cuotaMb).trim();
+
+      // Si lo dejan vacío, no tocamos la cuota
+      if (texto === "") {
+        cuotaMbNormalizada = undefined;
+      } else if (
+        texto.toLowerCase() === "null" ||
+        texto.toLowerCase() === "ilimitado"
+      ) {
+        cuotaMbNormalizada = null; // ilimitado
+      } else {
+        const numero = Number(texto);
+        const esValido = Number.isFinite(numero) && numero >= 0;
+        if (!esValido) {
+          await conexion.rollback();
+          return res.status(400).json({
+            message: "La cuota debe ser un número >= 0 o 'ilimitado'.",
+          });
+        }
+        cuotaMbNormalizada = numero;
+      }
+
+      // Regla: admin siempre ilimitado (por rol)
+      // Si están editando y el rol final del usuario queda como admin, forzamos cuota null
+      if (rol_id !== undefined && Number(rol_id) === 1) {
+        cuotaMbNormalizada = null;
+      }
+
+      // Validación: no permitir poner una cuota menor al uso actual
+      if (cuotaMbNormalizada !== undefined) {
+        const [[filaUso]] = await conexion.query(
+          `SELECT usoStorageBytes FROM usuarios WHERE id = ?`,
+          [id]
+        );
+
+        if (!filaUso) {
+          await conexion.rollback();
+          return res.status(404).json({ message: "Usuario no encontrado." });
+        }
+
+        if (cuotaMbNormalizada !== null) {
+          const cuotaBytes = cuotaMbNormalizada * 1024 * 1024;
+          if (Number(filaUso.usoStorageBytes || 0) > cuotaBytes) {
+            await conexion.rollback();
+            return res.status(400).json({
+              message:
+                "La cuota no puede ser menor al almacenamiento ya usado por el usuario.",
+            });
+          }
+        }
+      }
+    }
+
     // Build de actualización dinámica
     const campos = [];
     const valores = [];
@@ -322,6 +381,10 @@ export const actualizarUsuario = async (req, res) => {
     if (estado !== undefined) {
       campos.push("estado = ?");
       valores.push(estado);
+    }
+    if (cuotaMbNormalizada !== undefined) {
+      campos.push("cuotaMb = ?");
+      valores.push(cuotaMbNormalizada);
     }
     if (firmaKey) {
       campos.push("firma = ?");
@@ -641,47 +704,5 @@ export const eliminarUsuario = async (req, res) => {
       .json({ message: "Error interno al eliminar usuario." });
   } finally {
     conexion.release();
-  }
-};
-
-export const actualizarCuotaUsuario = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { cuotaMb } = req.body;
-
-    const idUsuario = Number(id);
-
-    if (!Number.isInteger(idUsuario) || idUsuario <= 0) {
-      return res.status(400).json({ message: "ID de usuario inválido." });
-    }
-
-    // cuotaMb puede ser null (ilimitado) o número >= 0
-    const esNull = cuotaMb === null;
-    const esNumeroValido =
-      typeof cuotaMb === "number" && Number.isFinite(cuotaMb) && cuotaMb >= 0;
-
-    if (!esNull && !esNumeroValido) {
-      return res.status(400).json({
-        message: "La cuota debe ser un número >= 0 o null (ilimitado).",
-      });
-    }
-
-    const [resultado] = await db.query(
-      "UPDATE usuarios SET cuotaMb = ? WHERE id = ?",
-      [cuotaMb, idUsuario]
-    );
-
-    if (resultado.affectedRows === 0) {
-      return res.status(404).json({ message: "Usuario no encontrado." });
-    }
-
-    return res.json({
-      message: "Cuota de almacenamiento actualizada correctamente.",
-    });
-  } catch (error) {
-    console.error("Error al actualizar cuota:", error);
-    return res.status(500).json({
-      message: "Error interno al actualizar la cuota.",
-    });
   }
 };

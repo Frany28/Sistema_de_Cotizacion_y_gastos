@@ -1,28 +1,28 @@
 // routes/usuarios.routes.js
 import express from "express";
-import db from "../config/database.js";
-import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
-import { uploadFirma } from "../utils/s3.js";
+import db from "./config/database.js";
+import { autenticarUsuario } from "./Middleware/autenticarUsuario.js";
+import { uploadFirma } from "./utils/s3.js";
 import {
   obtenerUsuarios,
   obtenerUsuarioPorId,
   crearUsuario,
   actualizarUsuario,
   eliminarUsuario,
-  actualizarCuotaUsuario,
-} from "../controllers/usuarios.controller.js";
-import { verificarPermiso } from "../Middleware/verificarPermiso.js";
+} from "./controllers/usuarios.controller.js";
+import { verificarPermiso } from "./Middleware/verificarPermiso.js";
+
 const router = express.Router();
 
 // Listado
 router.get("/", autenticarUsuario, obtenerUsuarios);
 
-// ✅ Verificar permiso por clave (ANTES de "/:id" y sin ruta fantasma)
+// ✅ Verificar permiso por clave (SIN ruta fantasma, y antes de "/:id")
 router.get("/permisos/:clave", autenticarUsuario, async (req, res) => {
   try {
     const { clave } = req.params;
 
-    // ✅ Tu autenticarUsuario llena req.user (Redis solo guarda la sesión)
+    // autenticarUsuario llena req.user (Redis solo guarda la sesión)
     const usuario = req.user;
 
     if (!usuario) {
@@ -56,23 +56,29 @@ router.get("/permisos/:clave", autenticarUsuario, async (req, res) => {
 router.get("/:id", autenticarUsuario, obtenerUsuarioPorId);
 
 // Crear
-router.post("/", autenticarUsuario, uploadFirma.single("firma"), crearUsuario);
+router.post(
+  "/",
+  autenticarUsuario,
+  verificarPermiso("crearUsuario"),
+  uploadFirma.single("firma"),
+  crearUsuario
+);
 
-// Actualizar
+// ✅ Actualizar (incluye cuotaMb en el MISMO endpoint)
 router.put(
   "/:id",
   autenticarUsuario,
+  verificarPermiso("editarUsuario"),
   uploadFirma.single("firma"),
   actualizarUsuario
 );
 
-router.put(
-  "/:id/cuota",
-  autenticarUsuario,
-  verificarPermiso("editar_cuota_usuario"),
-  actualizarCuotaUsuario
-);
 // Eliminar
-router.delete("/:id", autenticarUsuario, eliminarUsuario);
+router.delete(
+  "/:id",
+  autenticarUsuario,
+  verificarPermiso("eliminarUsuario"),
+  eliminarUsuario
+);
 
 export default router;
