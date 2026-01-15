@@ -2,7 +2,9 @@
 import express from "express";
 import db from "../config/database.js";
 import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
+import { verificarPermiso } from "../Middleware/verificarPermiso.js";
 import { uploadFirma } from "../utils/s3.js";
+
 import {
   obtenerUsuarios,
   obtenerUsuarioPorId,
@@ -10,50 +12,23 @@ import {
   actualizarUsuario,
   eliminarUsuario,
 } from "../controllers/usuarios.controller.js";
-import { verificarPermiso } from "../Middleware/verificarPermiso.js";
 
 const router = express.Router();
 
-// Listado
-router.get("/", autenticarUsuario, obtenerUsuarios);
+// Listado y detalle
+router.get(
+  "/",
+  autenticarUsuario,
+  verificarPermiso("verUsuarios"),
+  obtenerUsuarios
+);
 
-// ✅ Verificar permiso por clave (SIN ruta fantasma, y antes de "/:id")
-router.get("/permisos/:clave", autenticarUsuario, async (req, res) => {
-  try {
-    const { clave } = req.params;
-
-    // autenticarUsuario llena req.user (Redis solo guarda la sesión)
-    const usuario = req.user;
-
-    if (!usuario) {
-      return res.status(401).json({ message: "No has iniciado sesión" });
-    }
-
-    // Admin siempre true
-    if (Number(usuario.rol_id) === 1) {
-      return res.json({ tienePermiso: true });
-    }
-
-    const [rows] = await db.query(
-      `SELECT 1
-         FROM roles_permisos rp
-         JOIN permisos p ON p.id = rp.permiso_id
-        WHERE rp.rol_id = ? AND p.nombre = ?
-        LIMIT 1`,
-      [usuario.rol_id, clave]
-    );
-
-    return res.json({ tienePermiso: rows.length > 0 });
-  } catch (error) {
-    console.error("Error al verificar permiso (frontend):", error);
-    return res
-      .status(500)
-      .json({ message: "Error interno al verificar permiso" });
-  }
-});
-
-// Detalle
-router.get("/:id", autenticarUsuario, obtenerUsuarioPorId);
+router.get(
+  "/:id",
+  autenticarUsuario,
+  verificarPermiso("verUsuarios"),
+  obtenerUsuarioPorId
+);
 
 // Crear
 router.post(
@@ -64,7 +39,7 @@ router.post(
   crearUsuario
 );
 
-// ✅ Actualizar (incluye cuotaMb en el MISMO endpoint)
+// Actualizar (✅ aquí va cuotaMb también)
 router.put(
   "/:id",
   autenticarUsuario,
@@ -80,5 +55,31 @@ router.delete(
   verificarPermiso("eliminarUsuario"),
   eliminarUsuario
 );
+
+// Verificar permiso por clave (frontend)
+router.get("/permisos/:clave", autenticarUsuario, async (req, res) => {
+  const { clave } = req.params;
+  const usuario = req.user;
+
+  try {
+    if (usuario.rol_id === 1) {
+      return res.json({ tienePermiso: true });
+    }
+
+    const [rows] = await db.query(
+      `SELECT 1
+         FROM roles_permisos rp
+         JOIN permisos p ON p.id = rp.permiso_id
+        WHERE rp.rol_id = ? AND p.nombre = ?
+        LIMIT 1`,
+      [usuario.rol_id, clave]
+    );
+
+    res.json({ tienePermiso: rows.length > 0 });
+  } catch (error) {
+    console.error("Error al verificar permiso (frontend):", error);
+    res.status(500).json({ message: "Error interno al verificar permiso" });
+  }
+});
 
 export default router;

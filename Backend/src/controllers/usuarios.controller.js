@@ -256,17 +256,22 @@ export const actualizarUsuario = async (req, res) => {
     const extension = nombreOriginal?.split(".").pop() ?? null;
     const tamanioBytes = req.file?.size ?? null;
 
-    // Verificar usuario
+    // ✅ Verificar usuario (traer también rol_id, cuotaMb y usoStorageBytes)
     const [[filaUsuario]] = await conexion.query(
-      `SELECT id, password FROM usuarios WHERE id = ?`,
+      `SELECT id, password, rol_id, cuotaMb, usoStorageBytes
+         FROM usuarios
+        WHERE id = ?`,
       [id]
     );
+
     if (!filaUsuario) {
       await conexion.rollback();
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
-    // Validaciones
+    // ─────────────────────────────────────────────
+    // Validaciones base
+    // ─────────────────────────────────────────────
     if (email !== undefined) {
       if (!email.trim() || !EMAIL_REGEX.test(email.trim())) {
         await conexion.rollback();
@@ -275,6 +280,7 @@ export const actualizarUsuario = async (req, res) => {
           .json({ message: "El email tiene un formato inválido" });
       }
     }
+
     if (password !== undefined) {
       if (password.length < 6) {
         await conexion.rollback();
@@ -282,6 +288,7 @@ export const actualizarUsuario = async (req, res) => {
           .status(400)
           .json({ message: "La contraseña debe tener al menos 6 caracteres" });
       }
+
       const coincide = await bcrypt.compare(password, filaUsuario.password);
       if (coincide) {
         await conexion.rollback();
@@ -290,6 +297,7 @@ export const actualizarUsuario = async (req, res) => {
         });
       }
     }
+
     if (rol_id !== undefined && !rol_id) {
       await conexion.rollback();
       return res
@@ -302,7 +310,10 @@ export const actualizarUsuario = async (req, res) => {
     // ─────────────────────────────────────────────
     let cuotaMbNormalizada = undefined;
 
-    // Si viene desde FormData, llega como string
+    // Rol final: si no mandan rol_id, usamos el rol actual
+    const rolIdFinal =
+      rol_id !== undefined ? Number(rol_id) : Number(filaUsuario.rol_id);
+
     if (cuotaMb !== undefined) {
       const texto = cuotaMb === null ? null : String(cuotaMb).trim();
 
@@ -310,54 +321,47 @@ export const actualizarUsuario = async (req, res) => {
       if (texto === "") {
         cuotaMbNormalizada = undefined;
       } else if (
-        texto.toLowerCase() === "null" ||
-        texto.toLowerCase() === "ilimitado"
+        String(texto).toLowerCase() === "null" ||
+        String(texto).toLowerCase() === "ilimitado"
       ) {
         cuotaMbNormalizada = null; // ilimitado
       } else {
         const numero = Number(texto);
         const esValido = Number.isFinite(numero) && numero >= 0;
+
         if (!esValido) {
           await conexion.rollback();
           return res.status(400).json({
             message: "La cuota debe ser un número >= 0 o 'ilimitado'.",
           });
         }
+
         cuotaMbNormalizada = numero;
-      }
-
-      // Regla: admin siempre ilimitado (por rol)
-      // Si están editando y el rol final del usuario queda como admin, forzamos cuota null
-      if (rol_id !== undefined && Number(rol_id) === 1) {
-        cuotaMbNormalizada = null;
-      }
-
-      // Validación: no permitir poner una cuota menor al uso actual
-      if (cuotaMbNormalizada !== undefined) {
-        const [[filaUso]] = await conexion.query(
-          `SELECT usoStorageBytes FROM usuarios WHERE id = ?`,
-          [id]
-        );
-
-        if (!filaUso) {
-          await conexion.rollback();
-          return res.status(404).json({ message: "Usuario no encontrado." });
-        }
-
-        if (cuotaMbNormalizada !== null) {
-          const cuotaBytes = cuotaMbNormalizada * 1024 * 1024;
-          if (Number(filaUso.usoStorageBytes || 0) > cuotaBytes) {
-            await conexion.rollback();
-            return res.status(400).json({
-              message:
-                "La cuota no puede ser menor al almacenamiento ya usado por el usuario.",
-            });
-          }
-        }
       }
     }
 
+    // ✅ Regla: Admin siempre ilimitado (aunque NO envíen rol_id)
+    if (rolIdFinal === 1) {
+      cuotaMbNormalizada = null;
+    }
+
+    // ✅ Validación: si la cuota se está seteando (y no es null), no puede ser menor al uso actual
+    if (cuotaMbNormalizada !== undefined && cuotaMbNormalizada !== null) {
+      const cuotaBytes = Number(cuotaMbNormalizada) * 1024 * 1024;
+      const usoActualBytes = Number(filaUsuario.usoStorageBytes || 0);
+
+      if (usoActualBytes > cuotaBytes) {
+        await conexion.rollback();
+        return res.status(400).json({
+          message:
+            "La cuota no puede ser menor al almacenamiento ya usado por el usuario.",
+        });
+      }
+    }
+
+    // ─────────────────────────────────────────────
     // Build de actualización dinámica
+    // ─────────────────────────────────────────────
     const campos = [];
     const valores = [];
 
@@ -365,27 +369,34 @@ export const actualizarUsuario = async (req, res) => {
       campos.push("nombre = ?");
       valores.push(nombre.trim());
     }
+
     if (email !== undefined) {
       campos.push("email = ?");
       valores.push(email.trim());
     }
+
     if (password !== undefined) {
       const nuevoHash = await bcrypt.hash(password, 10);
       campos.push("password = ?");
       valores.push(nuevoHash);
     }
+
     if (rol_id !== undefined) {
       campos.push("rol_id = ?");
       valores.push(rol_id);
     }
+
     if (estado !== undefined) {
       campos.push("estado = ?");
       valores.push(estado);
     }
+
+    // ✅ Guardar cuota solo si se decidió cambiarla
     if (cuotaMbNormalizada !== undefined) {
       campos.push("cuotaMb = ?");
       valores.push(cuotaMbNormalizada);
     }
+
     if (firmaKey) {
       campos.push("firma = ?");
       valores.push(firmaKey);
@@ -408,7 +419,9 @@ export const actualizarUsuario = async (req, res) => {
       valores
     );
 
-    // Si hay nueva firma, creamos archivo/versión/eventos y movemos anterior a papelera
+    // ─────────────────────────────────────────────
+    // Si hay nueva firma: archivos/versiones/eventos + papelera + usoStorage
+    // ─────────────────────────────────────────────
     if (firmaKey) {
       const grupoArchivoId = await obtenerOcrearGrupoFirma(
         conexion,
@@ -416,7 +429,6 @@ export const actualizarUsuario = async (req, res) => {
         req.user.id
       );
 
-      // Calcular número de versión
       const [[{ maxVer }]] = await conexion.query(
         `SELECT IFNULL(MAX(numeroVersion),0) AS maxVer
            FROM archivos
@@ -425,7 +437,6 @@ export const actualizarUsuario = async (req, res) => {
       );
       const numeroVersion = (maxVer || 0) + 1;
 
-      // Registrar nuevo archivo (activo)
       const [resArchivo] = await conexion.query(
         `INSERT INTO archivos
            (registroTipo, registroId, grupoArchivoId,
@@ -462,7 +473,6 @@ export const actualizarUsuario = async (req, res) => {
         ]
       );
 
-      // Evento consistente con gastos: 'sustitucionArchivo'
       await conexion.query(
         `INSERT INTO eventosArchivo
            (archivoId, accion, creadoPor, fechaHora, ip, userAgent, detalles)
@@ -476,7 +486,6 @@ export const actualizarUsuario = async (req, res) => {
         ]
       );
 
-      // Buscar la anterior firma activa para marcar 'reemplazado' y mover a papelera
       const [anteriorActiva] = await conexion.query(
         `SELECT id, rutaS3
            FROM archivos
@@ -500,7 +509,6 @@ export const actualizarUsuario = async (req, res) => {
           [nuevaRutaPapelera, archivoAnteriorId]
         );
 
-        // Evento consistente con gastos: 'eliminacionArchivo' (por sustitución)
         await conexion.query(
           `INSERT INTO eventosArchivo
              (archivoId, accion, creadoPor, fechaHora, ip, userAgent, detalles)
@@ -518,7 +526,7 @@ export const actualizarUsuario = async (req, res) => {
         );
       }
 
-      // Aumentar cuota del usuario dueño de la firma (el propio usuario)
+      // Aumentar usoStorageBytes del usuario dueño de la firma (el usuario editado)
       await conexion.query(
         `UPDATE usuarios SET usoStorageBytes = usoStorageBytes + ? WHERE id = ?`,
         [tamanioBytes, id]
