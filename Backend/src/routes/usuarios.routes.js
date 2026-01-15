@@ -1,6 +1,6 @@
 // routes/usuarios.routes.js
 import express from "express";
-import db from "./config/database.js";
+import db from "../config/database.js";
 import { autenticarUsuario } from "./Middleware/autenticarUsuario.js";
 import { uploadFirma } from "./utils/s3.js";
 import {
