@@ -178,6 +178,7 @@ export default function UsuariosCRUD() {
       {/* Crear usuario */}
       <ModalCrearUsuario
         visible={showModalCrear}
+        esAdmin={esAdmin}
         onCancel={() => setShowModalCrear(false)}
         onSuccess={() => {
           setShowModalCrear(false);

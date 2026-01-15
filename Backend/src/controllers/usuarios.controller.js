@@ -302,12 +302,16 @@ export const actualizarUsuario = async (req, res) => {
     await conexion.beginTransaction();
 
     const { id } = req.params;
-    const { nombre, email, password, rol_id, estado, cuotaMb } = req.body;
+    const { nombre, email, password, rol_id, estado } = req.body;
+
+    // Normalizar cuota: permite que el frontend mande "null" como string
+    const cuotaMbEntrada = req.body?.cuotaMb;
+    const cuotaMb = cuotaMbEntrada === "null" ? null : cuotaMbEntrada;
+
     const usuarioEsAdmin = req.user?.rol_id === 1;
 
     // Datos de archivo (si viene nueva firma)
     const firmaKey = req.file?.key ?? null;
-    console.log("🔍 [DEBUG] actualizarUsuario -> firmaKey:", firmaKey);
     const nombreOriginal = req.file?.originalname ?? null;
     const extension = nombreOriginal?.split(".").pop() ?? null;
     const tamanioBytes = req.file?.size ?? null;
@@ -317,6 +321,7 @@ export const actualizarUsuario = async (req, res) => {
       `SELECT id, password, rol_id FROM usuarios WHERE id = ?`,
       [id]
     );
+
     if (!filaUsuario) {
       await conexion.rollback();
       return res.status(404).json({ message: "Usuario no encontrado" });
@@ -339,6 +344,7 @@ export const actualizarUsuario = async (req, res) => {
           .status(400)
           .json({ message: "La contraseña debe tener al menos 6 caracteres" });
       }
+
       const coincide = await bcrypt.compare(password, filaUsuario.password);
       if (coincide) {
         await conexion.rollback();
@@ -359,7 +365,7 @@ export const actualizarUsuario = async (req, res) => {
     // REGLAS DE CUOTA (ANTES DEL UPDATE)
     // ─────────────────────────────────────────────────────────
 
-    // Si alguien NO admin intenta enviar cuotaMb => bloqueo
+    // Si NO es admin y manda cuota => prohibido
     if (!usuarioEsAdmin && cuotaMb !== undefined) {
       await conexion.rollback();
       return res.status(403).json({
@@ -367,19 +373,18 @@ export const actualizarUsuario = async (req, res) => {
       });
     }
 
-    // Si admin envía cuotaMb, validarlo (si no es null)
+    // Si admin manda cuotaMb, validar (si no es null)
     if (usuarioEsAdmin && cuotaMb !== undefined && cuotaMb !== null) {
       const cuotaMbNumero = Number(cuotaMb);
       if (!Number.isFinite(cuotaMbNumero) || cuotaMbNumero < 0) {
         await conexion.rollback();
         return res.status(400).json({
-          message:
-            "cuotaMb debe ser un número mayor o igual a 0, o null para ilimitado.",
+          message: "cuotaMb debe ser un número >= 0, o null para ilimitado.",
         });
       }
     }
 
-    // Determinar el rol final (si no envían rol_id, queda el actual)
+    // Rol final (si no mandan rol_id, queda el actual)
     const rolIdFinal =
       rol_id !== undefined ? Number(rol_id) : Number(filaUsuario.rol_id);
 
@@ -391,34 +396,40 @@ export const actualizarUsuario = async (req, res) => {
       campos.push("nombre = ?");
       valores.push(nombre.trim());
     }
+
     if (email !== undefined) {
       campos.push("email = ?");
       valores.push(email.trim());
     }
+
     if (password !== undefined) {
       const nuevoHash = await bcrypt.hash(password, 10);
       campos.push("password = ?");
       valores.push(nuevoHash);
     }
+
     if (rol_id !== undefined) {
       campos.push("rol_id = ?");
       valores.push(rol_id);
     }
+
     if (estado !== undefined) {
       campos.push("estado = ?");
       valores.push(estado);
     }
+
     if (firmaKey) {
       campos.push("firma = ?");
       valores.push(firmaKey);
-      firmaKeyNueva = firmaKey; // por si falla luego
+      firmaKeyNueva = firmaKey;
     }
 
-    // ✅ CUOTA: si el rol final es admin => cuotaMb = NULL SIEMPRE
+    // Cuota según reglas:
+    // - Si el rol final es admin => ilimitado (NULL)
+    // - Si admin está editando y manda cuota => se aplica (null o número)
     if (rolIdFinal === 1) {
       campos.push("cuotaMb = NULL");
     } else if (usuarioEsAdmin && cuotaMb !== undefined) {
-      // ✅ Solo admin puede setear cuota a no-admin
       campos.push("cuotaMb = ?");
       valores.push(cuotaMb === null ? null : Number(cuotaMb));
     }
@@ -430,6 +441,7 @@ export const actualizarUsuario = async (req, res) => {
         .json({ message: "No se enviaron campos para actualizar." });
     }
 
+    // Guardar quién actualizó (esto SÍ queda almacenado en SQL)
     campos.push("actualizadoPor = ?");
     valores.push(req.user.id);
 
@@ -440,9 +452,7 @@ export const actualizarUsuario = async (req, res) => {
       valores
     );
 
-    // ─────────────────────────────────────────────────────────
-    // Si hay nueva firma, registros de auditoría y aumento de uso
-    // ─────────────────────────────────────────────────────────
+    // Si hay nueva firma: registrar archivo/versión/eventos y mover anterior a papelera
     if (firmaKey) {
       const grupoArchivoId = await obtenerOcrearGrupoFirma(
         conexion,
@@ -452,18 +462,19 @@ export const actualizarUsuario = async (req, res) => {
 
       const [[{ maxVer }]] = await conexion.query(
         `SELECT IFNULL(MAX(numeroVersion),0) AS maxVer
-           FROM archivos
-          WHERE registroTipo='firmas' AND registroId = ?`,
+         FROM archivos
+         WHERE registroTipo='firmas' AND registroId = ?`,
         [id]
       );
+
       const numeroVersion = (maxVer || 0) + 1;
 
       const [resArchivo] = await conexion.query(
         `INSERT INTO archivos
-           (registroTipo, registroId, grupoArchivoId,
-            nombreOriginal, extension, tamanioBytes,
-            rutaS3, numeroVersion, estado,
-            subidoPor, creadoEn, actualizadoEn)
+          (registroTipo, registroId, grupoArchivoId,
+           nombreOriginal, extension, tamanioBytes,
+           rutaS3, numeroVersion, estado,
+           subidoPor, creadoEn, actualizadoEn)
          VALUES ('firmas', ?, ?, ?, ?, ?, ?, ?, 'activo', ?, NOW(), NOW())`,
         [
           id,
@@ -481,8 +492,8 @@ export const actualizarUsuario = async (req, res) => {
 
       await conexion.query(
         `INSERT INTO versionesArchivo
-           (archivoId, numeroVersion, nombreOriginal, extension,
-            tamanioBytes, rutaS3, subidoPor, creadoEn)
+          (archivoId, numeroVersion, nombreOriginal, extension,
+           tamanioBytes, rutaS3, subidoPor, creadoEn)
          VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
         [
           archivoId,
@@ -497,7 +508,7 @@ export const actualizarUsuario = async (req, res) => {
 
       await conexion.query(
         `INSERT INTO eventosArchivo
-           (archivoId, accion, creadoPor, fechaHora, ip, userAgent, detalles)
+          (archivoId, accion, creadoPor, fechaHora, ip, userAgent, detalles)
          VALUES (?, 'sustitucionArchivo', ?, NOW(), ?, ?, ?)`,
         [
           archivoId,
@@ -510,13 +521,13 @@ export const actualizarUsuario = async (req, res) => {
 
       const [anteriorActiva] = await conexion.query(
         `SELECT id, rutaS3
-           FROM archivos
-          WHERE registroTipo='firmas'
-            AND registroId = ?
-            AND estado = 'activo'
-            AND id <> ?
-          ORDER BY numeroVersion DESC
-          LIMIT 1`,
+         FROM archivos
+         WHERE registroTipo='firmas'
+           AND registroId = ?
+           AND estado = 'activo'
+           AND id <> ?
+         ORDER BY numeroVersion DESC
+         LIMIT 1`,
         [id, archivoId]
       );
 
@@ -533,7 +544,7 @@ export const actualizarUsuario = async (req, res) => {
 
         await conexion.query(
           `INSERT INTO eventosArchivo
-             (archivoId, accion, creadoPor, fechaHora, ip, userAgent, detalles)
+            (archivoId, accion, creadoPor, fechaHora, ip, userAgent, detalles)
            VALUES (?, 'eliminacionArchivo', ?, NOW(), ?, ?, ?)`,
           [
             archivoAnteriorId,
@@ -555,12 +566,7 @@ export const actualizarUsuario = async (req, res) => {
     }
 
     await conexion.commit();
-    return res.json({
-      id,
-      firma: firmaKey || null,
-      rol_id: rolIdFinal,
-      cuotaMb: rolIdFinal === 1 ? null : cuotaMb ?? undefined,
-    });
+    return res.json({ id, firma: firmaKey || null });
   } catch (error) {
     await conexion.rollback();
 

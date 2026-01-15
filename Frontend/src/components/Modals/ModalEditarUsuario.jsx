@@ -13,6 +13,7 @@ export default function ModalEditarUsuario({
   onClose,
   usuario,
   roles = [],
+  esAdmin = false,
   onUsuarioActualizado,
 }) {
   const [form, setForm] = useState({
@@ -22,7 +23,10 @@ export default function ModalEditarUsuario({
     rol_id: "",
     estado: "",
     firma: null,
+    cuotaMb: "",
   });
+
+  const [cuotaIlimitada, setCuotaIlimitada] = useState(false);
   const [firmaArchivo, setFirmaArchivo] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showExito, setShowExito] = useState(false);
@@ -32,17 +36,33 @@ export default function ModalEditarUsuario({
   // Carga inicial de datos en el formulario
   useEffect(() => {
     if (usuario) {
+      const cuotaActual = usuario.cuotaMb ?? usuario.cuota_mb;
+
       setForm({
         nombre: usuario.nombre || "",
         email: usuario.email || "",
-        password: "", // nunca cargamos la contraseña actual
+        password: "",
         rol_id: usuario.rolId ? String(usuario.rolId) : "",
         estado: usuario.estado || "activo",
         firma: usuario.firma || null,
+        cuotaMb:
+          cuotaActual === null || cuotaActual === undefined
+            ? ""
+            : String(cuotaActual),
       });
+
       setFirmaArchivo(null);
+      setCuotaIlimitada(cuotaActual === null);
     }
   }, [usuario]);
+
+  // Si se selecciona rol admin => cuota ilimitada forzada
+  useEffect(() => {
+    if (!esAdmin) return;
+    if (String(form.rol_id) === "1") {
+      setCuotaIlimitada(true);
+    }
+  }, [esAdmin, form.rol_id]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -53,7 +73,6 @@ export default function ModalEditarUsuario({
     setFirmaArchivo(e.target.files[0] || null);
   };
 
-  // Validaciones antes de enviar
   const validarFormulario = () => {
     if (!form.nombre.trim()) {
       setErrorMsg("El nombre es obligatorio");
@@ -71,16 +90,27 @@ export default function ModalEditarUsuario({
       setErrorMsg("La contraseña debe tener al menos 6 caracteres");
       return false;
     }
+
+    // Cuota (solo admin)
+    if (esAdmin && String(form.rol_id) !== "1" && !cuotaIlimitada) {
+      // Permitir vacío para "no cambiar"
+      if (String(form.cuotaMb).trim() !== "") {
+        const cuotaMbNumero = Number(form.cuotaMb);
+        if (!Number.isFinite(cuotaMbNumero) || cuotaMbNumero < 0) {
+          setErrorMsg("La cuota debe ser un número mayor o igual a 0");
+          return false;
+        }
+      }
+    }
+
     return true;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // 1) Validación en cliente
     if (!validarFormulario()) {
       setShowError(true);
-      onClose(); // cerrar modal de edición
       return;
     }
 
@@ -93,26 +123,60 @@ export default function ModalEditarUsuario({
       data.append("nombre", form.nombre);
       cambios = true;
     }
+
     // Email
     if (form.email !== usuario.email) {
       data.append("email", form.email);
       cambios = true;
     }
-    // Contraseña (solo si escribe algo)
+
+    // Contraseña
     if (form.password) {
       data.append("password", form.password);
       cambios = true;
     }
+
     // Rol
     if (form.rol_id !== String(usuario.rolId)) {
       data.append("rol_id", form.rol_id);
       cambios = true;
     }
+
     // Estado
     if (form.estado !== usuario.estado) {
       data.append("estado", form.estado);
       cambios = true;
     }
+
+    // Cuota (solo admin)
+    if (esAdmin) {
+      const cuotaActual = usuario.cuotaMb ?? usuario.cuota_mb;
+
+      // Si queda admin => ilimitado automático, no enviamos cuotaMb
+      if (String(form.rol_id) === "1") {
+        // noop
+      } else if (cuotaIlimitada) {
+        if (cuotaActual !== null) {
+          data.append("cuotaMb", "null");
+          cambios = true;
+        }
+      } else {
+        const cuotaTexto = String(form.cuotaMb ?? "").trim();
+        if (cuotaTexto !== "") {
+          const cuotaNueva = Number(cuotaTexto);
+          const cuotaActualNumero =
+            cuotaActual === null || cuotaActual === undefined
+              ? null
+              : Number(cuotaActual);
+
+          if (cuotaActualNumero === null || cuotaNueva !== cuotaActualNumero) {
+            data.append("cuotaMb", String(cuotaNueva));
+            cambios = true;
+          }
+        }
+      }
+    }
+
     // Nueva firma
     if (firmaArchivo) {
       data.append("firma", firmaArchivo);
@@ -122,7 +186,6 @@ export default function ModalEditarUsuario({
     if (!cambios) {
       setErrorMsg("No se detectaron cambios para guardar");
       setShowError(true);
-      onClose(); // cerrar modal de edición
       setIsSubmitting(false);
       return;
     }
@@ -130,7 +193,7 @@ export default function ModalEditarUsuario({
     try {
       await api.put(`/usuarios/${usuario.id}`, data, { withCredentials: true });
       setShowExito(true);
-      onClose(); // cerrar modal de edición
+      onClose();
     } catch (err) {
       setErrorMsg(
         err.response?.data?.message ||
@@ -138,7 +201,6 @@ export default function ModalEditarUsuario({
           "Error al actualizar usuario"
       );
       setShowError(true);
-      onClose(); // cerrar modal de edición
     } finally {
       setIsSubmitting(false);
     }
@@ -146,8 +208,9 @@ export default function ModalEditarUsuario({
 
   const handleExitoClose = () => {
     setShowExito(false);
-    onUsuarioActualizado();
+    onUsuarioActualizado?.();
   };
+
   const handleErrorClose = () => setShowError(false);
 
   return (
@@ -177,30 +240,31 @@ export default function ModalEditarUsuario({
             onClick={() => !isSubmitting && onClose()}
           >
             <motion.div
-              className="relative w-full max-w-lg p-6 bg-gray-800 rounded-lg shadow"
+              className="relative bg-gray-800 rounded-lg shadow p-6 w-full max-w-lg"
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
             >
-              <button
-                onClick={() => !isSubmitting && onClose()}
-                disabled={isSubmitting}
-                className="absolute top-3 right-3 text-gray-400 hover:text-white disabled:opacity-50"
-              >
-                <X className="w-5 h-5" />
-              </button>
-              <div className="text-center mb-4">
-                <Pencil className="mx-auto mb-2 text-blue-600 w-10 h-10" />
-                <h3 className="text-lg font-semibold text-white">
-                  Editar Usuario
-                </h3>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Pencil className="w-5 h-5 text-blue-500" />
+                  <h3 className="text-lg font-semibold text-white">
+                    Editar Usuario
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => !isSubmitting && onClose()}
+                  className="text-gray-400 hover:text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
 
               <form
                 onSubmit={handleSubmit}
-                encType="multipart/form-data"
-                className="grid grid-cols-2 gap-4"
+                className="grid grid-cols-1 sm:grid-cols-2 gap-4"
               >
                 {/* Nombre */}
                 <div>
@@ -235,7 +299,7 @@ export default function ModalEditarUsuario({
                 {/* Contraseña */}
                 <div className="col-span-2">
                   <label className="block mb-1 text-sm font-medium text-white">
-                    Contraseña
+                    Nueva contraseña
                   </label>
                   <input
                     type="password"
@@ -286,7 +350,54 @@ export default function ModalEditarUsuario({
                   </select>
                 </div>
 
-                {/* Firma previa (si existe) */}
+                {/* Cuota (solo admin) */}
+                {esAdmin && (
+                  <div className="col-span-2">
+                    <label className="block mb-1 text-sm font-medium text-white">
+                      Cuota de almacenamiento (MB)
+                    </label>
+
+                    {String(form.rol_id) === "1" ? (
+                      <p className="text-sm text-gray-300">
+                        Este usuario es Administrador → almacenamiento
+                        ilimitado.
+                      </p>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-2 mb-2">
+                          <input
+                            type="checkbox"
+                            checked={cuotaIlimitada}
+                            onChange={() => setCuotaIlimitada((v) => !v)}
+                            disabled={isSubmitting}
+                            className="cursor-pointer"
+                          />
+                          <span className="text-sm text-white">Ilimitado</span>
+                        </div>
+
+                        {!cuotaIlimitada && (
+                          <input
+                            type="number"
+                            name="cuotaMb"
+                            min="0"
+                            step="1"
+                            placeholder="Ej: 50"
+                            value={form.cuotaMb}
+                            onChange={handleChange}
+                            disabled={isSubmitting}
+                            className="block w-full p-2.5 border rounded-lg bg-gray-600 border-gray-500 text-white"
+                          />
+                        )}
+
+                        <p className="text-xs text-gray-300 mt-1">
+                          Deja vacío para no cambiar la cuota.
+                        </p>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Firma previa */}
                 {form.firma && !firmaArchivo && (
                   <div className="col-span-2">
                     <label className="block mb-1 text-sm font-medium text-white">
@@ -303,7 +414,7 @@ export default function ModalEditarUsuario({
                   </div>
                 )}
 
-                {/* Input para subir/cambiar firma */}
+                {/* Subir/cambiar firma */}
                 <div className="col-span-2">
                   <label className="block mb-1 text-sm font-medium text-white">
                     {form.firma && !firmaArchivo
@@ -319,20 +430,17 @@ export default function ModalEditarUsuario({
                   />
                 </div>
 
-                {/* Botón Guardar */}
-                <div className="col-span-2 flex justify-center pt-4">
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className={`w-full p-2.5 text-white font-medium rounded-lg ${
-                      isSubmitting
-                        ? "bg-gray-400 cursor-not-allowed"
-                        : "bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-800"
-                    }`}
-                  >
-                    {isSubmitting ? "Guardando..." : "Guardar cambios"}
-                  </button>
-                </div>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className={`col-span-2 w-full text-white font-medium rounded-lg p-2.5 text-center ${
+                    isSubmitting
+                      ? "bg-gray-500 cursor-not-allowed"
+                      : "bg-blue-600 hover:bg-blue-700"
+                  }`}
+                >
+                  {isSubmitting ? "Guardando..." : "Guardar cambios"}
+                </button>
               </form>
             </motion.div>
           </motion.div>
