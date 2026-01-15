@@ -8,24 +8,56 @@ import {
   obtenerUsuarioPorId,
   crearUsuario,
   actualizarUsuario,
+  actualizarCuotaUsuario,
   eliminarUsuario,
 } from "../controllers/usuarios.controller.js";
 
 const router = express.Router();
 
+/**
+ * Middleware local (para no depender de rutas/paths externos)
+ * Admin (rol_id === 1) pasa directo.
+ */
+const verificarPermiso = (clave) => {
+  return async (req, res, next) => {
+    try {
+      const usuario = req.usuario;
+      if (!usuario) return res.status(401).json({ message: "No autenticado" });
+
+      // Admin sin restricciones
+      if (Number(usuario.rol_id) === 1) return next();
+
+      const [rows] = await db.query(
+        `SELECT 1
+         FROM roles_permisos rp
+         JOIN permisos p ON p.id = rp.permiso_id
+         WHERE rp.rol_id = ? AND p.nombre = ?
+         LIMIT 1`,
+        [usuario.rol_id, clave]
+      );
+
+      if (!rows.length) {
+        return res.status(403).json({ message: "No tienes permiso" });
+      }
+
+      return next();
+    } catch (error) {
+      console.error("Error al verificar permiso:", error);
+      return res
+        .status(500)
+        .json({ message: "Error interno al verificar permiso" });
+    }
+  };
+};
+
 // Listado y detalle
 router.get("/", autenticarUsuario, obtenerUsuarios);
-router.get("/permisos/:permiso", autenticarUsuario); // (si no se usa, puedes eliminarla)
 router.get("/:id", autenticarUsuario, obtenerUsuarioPorId);
 
-// Crear y actualizar (ahora usando uploadFirma -> carpeta "firmas/")
-router.post(
-  "/",
-  autenticarUsuario,
-  uploadFirma.single("firma"), // ⬅️ antes: uploadComprobante
-  crearUsuario
-);
+// Crear
+router.post("/", autenticarUsuario, uploadFirma.single("firma"), crearUsuario);
 
+// Actualizar usuario (datos generales)
 router.put(
   "/:id",
   autenticarUsuario,
@@ -33,16 +65,28 @@ router.put(
   actualizarUsuario
 );
 
+// ✅ Editar cuota de almacenamiento (opción 1)
+router.put(
+  "/:id/cuota",
+  autenticarUsuario,
+  verificarPermiso("editar_cuota_usuario"),
+  actualizarCuotaUsuario
+);
+
 // Eliminar
 router.delete("/:id", autenticarUsuario, eliminarUsuario);
 
-// Verificar permiso por clave (esta sí tiene handler)
+/**
+ * Endpoint usado por frontend para saber si el usuario logueado
+ * tiene un permiso específico.
+ */
 router.get("/permisos/:clave", autenticarUsuario, async (req, res) => {
-  const { clave } = req.params;
-  const usuario = req.user;
-
   try {
-    if (usuario.rol_id === 1) {
+    const usuario = req.usuario;
+    const { clave } = req.params;
+
+    // Admin siempre true
+    if (Number(usuario.rol_id) === 1) {
       return res.json({ tienePermiso: true });
     }
 

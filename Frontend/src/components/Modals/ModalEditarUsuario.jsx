@@ -1,18 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { X, Pencil } from "lucide-react";
-import api from "../../api/index";
-import ModalExito from "./ModalExito";
-import ModalError from "./ModalError";
+import api from "../../api/api";
 
-// Regex para validar email
-const EMAIL_REGEX = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+import ModalError from "../modales/ModalError";
+import ModalExito from "../modales/ModalExito";
 
 export default function ModalEditarUsuario({
   visible,
   onClose,
   usuario,
-  roles = [],
+  roles,
+  puedeEditarCuota,
   onUsuarioActualizado,
 }) {
   const [form, setForm] = useState({
@@ -22,23 +20,30 @@ export default function ModalEditarUsuario({
     rol_id: "",
     estado: "",
     firma: null,
+    cuotaMb: "",
   });
+
   const [firmaArchivo, setFirmaArchivo] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showExito, setShowExito] = useState(false);
+
   const [showError, setShowError] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
-  // Carga inicial de datos en el formulario
+  const [showExito, setShowExito] = useState(false);
+
   useEffect(() => {
     if (usuario) {
       setForm({
         nombre: usuario.nombre || "",
         email: usuario.email || "",
-        password: "", // nunca cargamos la contraseña actual
+        password: "",
         rol_id: usuario.rolId ? String(usuario.rolId) : "",
         estado: usuario.estado || "activo",
         firma: usuario.firma || null,
+        cuotaMb:
+          usuario.cuotaMb === null || usuario.cuotaMb === undefined
+            ? ""
+            : String(usuario.cuotaMb),
       });
       setFirmaArchivo(null);
     }
@@ -53,38 +58,24 @@ export default function ModalEditarUsuario({
     setFirmaArchivo(e.target.files[0] || null);
   };
 
-  // Validaciones antes de enviar
   const validarFormulario = () => {
-    if (!form.nombre.trim()) {
-      setErrorMsg("El nombre es obligatorio");
-      return false;
-    }
-    if (!form.email.trim() || !EMAIL_REGEX.test(form.email.trim())) {
-      setErrorMsg("El email es obligatorio o tiene formato inválido");
-      return false;
-    }
-    if (form.rol_id !== "" && Number.isNaN(Number(form.rol_id))) {
-      setErrorMsg("El rol seleccionado no es válido");
-      return false;
-    }
-    if (form.password && form.password.length < 6) {
-      setErrorMsg("La contraseña debe tener al menos 6 caracteres");
-      return false;
-    }
+    if (!form.nombre?.trim()) return false;
+    if (!form.email?.trim()) return false;
     return true;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // 1) Validación en cliente
     if (!validarFormulario()) {
       setShowError(true);
-      onClose(); // cerrar modal de edición
+      setErrorMsg("Verifica nombre y correo.");
+      onClose();
       return;
     }
 
     setIsSubmitting(true);
+
     const data = new FormData();
     let cambios = false;
 
@@ -93,44 +84,81 @@ export default function ModalEditarUsuario({
       data.append("nombre", form.nombre);
       cambios = true;
     }
+
     // Email
     if (form.email !== usuario.email) {
       data.append("email", form.email);
       cambios = true;
     }
-    // Contraseña (solo si escribe algo)
-    if (form.password) {
+
+    // Password
+    if (form.password?.trim()) {
       data.append("password", form.password);
       cambios = true;
     }
+
     // Rol
-    if (form.rol_id !== String(usuario.rolId)) {
+    if (String(form.rol_id) !== String(usuario.rolId)) {
       data.append("rol_id", form.rol_id);
       cambios = true;
     }
+
     // Estado
     if (form.estado !== usuario.estado) {
       data.append("estado", form.estado);
       cambios = true;
     }
+
     // Nueva firma
     if (firmaArchivo) {
       data.append("firma", firmaArchivo);
       cambios = true;
     }
 
-    if (!cambios) {
+    // Cuota (opción 1): se actualiza por endpoint separado y requiere permiso
+    let cambioCuota = false;
+    let cuotaForm = null;
+
+    if (puedeEditarCuota) {
+      cuotaForm = form.cuotaMb === "" ? null : Number(form.cuotaMb);
+      const cuotaActual =
+        usuario.cuotaMb === undefined ? null : usuario.cuotaMb ?? null;
+
+      cambioCuota =
+        (cuotaActual === null && cuotaForm !== null) ||
+        (cuotaActual !== null && cuotaForm === null) ||
+        (cuotaActual !== null &&
+          cuotaForm !== null &&
+          cuotaActual !== cuotaForm);
+    }
+
+    if (!cambios && !cambioCuota) {
       setErrorMsg("No se detectaron cambios para guardar");
       setShowError(true);
-      onClose(); // cerrar modal de edición
+      onClose();
       setIsSubmitting(false);
       return;
     }
 
     try {
-      await api.put(`/usuarios/${usuario.id}`, data, { withCredentials: true });
+      // 1) Actualizar datos generales del usuario (solo si hay cambios)
+      if (cambios) {
+        await api.put(`/usuarios/${usuario.id}`, data, {
+          withCredentials: true,
+        });
+      }
+
+      // 2) Actualizar cuota (solo si cambió y tiene permiso)
+      if (cambioCuota) {
+        await api.put(
+          `/usuarios/${usuario.id}/cuota`,
+          { cuotaMb: cuotaForm },
+          { withCredentials: true }
+        );
+      }
+
       setShowExito(true);
-      onClose(); // cerrar modal de edición
+      onClose();
     } catch (err) {
       setErrorMsg(
         err.response?.data?.message ||
@@ -138,7 +166,7 @@ export default function ModalEditarUsuario({
           "Error al actualizar usuario"
       );
       setShowError(true);
-      onClose(); // cerrar modal de edición
+      onClose();
     } finally {
       setIsSubmitting(false);
     }
@@ -146,19 +174,21 @@ export default function ModalEditarUsuario({
 
   const handleExitoClose = () => {
     setShowExito(false);
-    onUsuarioActualizado();
+    onUsuarioActualizado?.();
   };
-  const handleErrorClose = () => setShowError(false);
+
+  if (!usuario) return null;
 
   return (
     <>
       <ModalError
         visible={showError}
-        onClose={handleErrorClose}
+        onClose={() => setShowError(false)}
         titulo="Error"
         mensaje={errorMsg}
         textoBoton="Entendido"
       />
+
       <ModalExito
         visible={showExito}
         onClose={handleExitoClose}
@@ -170,31 +200,27 @@ export default function ModalEditarUsuario({
       <AnimatePresence>
         {visible && !showExito && !showError && (
           <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/40"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => !isSubmitting && onClose()}
           >
             <motion.div
-              className="relative w-full max-w-lg p-6 bg-gray-800 rounded-lg shadow"
+              className="bg-gray-700 rounded-lg shadow-lg w-full max-w-2xl p-6"
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
             >
-              <button
-                onClick={() => !isSubmitting && onClose()}
-                disabled={isSubmitting}
-                className="absolute top-3 right-3 text-gray-400 hover:text-white disabled:opacity-50"
-              >
-                <X className="w-5 h-5" />
-              </button>
-              <div className="text-center mb-4">
-                <Pencil className="mx-auto mb-2 text-blue-600 w-10 h-10" />
-                <h3 className="text-lg font-semibold text-white">
-                  Editar Usuario
-                </h3>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-semibold text-white">
+                  Editar usuario
+                </h2>
+                <button
+                  onClick={onClose}
+                  className="text-gray-300 hover:text-white"
+                >
+                  ✕
+                </button>
               </div>
 
               <form
@@ -260,9 +286,9 @@ export default function ModalEditarUsuario({
                     disabled={isSubmitting}
                     className="block w-full p-2.5 border rounded-lg bg-gray-600 border-gray-500 text-white"
                   >
-                    <option value="">Seleccione rol</option>
-                    {roles.map((r) => (
-                      <option key={r.id} value={r.id}>
+                    <option value="">Seleccione...</option>
+                    {roles?.map((r) => (
+                      <option key={r.id} value={String(r.id)}>
                         {r.nombre}
                       </option>
                     ))}
@@ -286,7 +312,29 @@ export default function ModalEditarUsuario({
                   </select>
                 </div>
 
-                {/* Firma previa (si existe) */}
+                {/* ✅ Cuota de almacenamiento (MB) */}
+                {puedeEditarCuota && (
+                  <div>
+                    <label className="block mb-1 text-sm font-medium text-white">
+                      Cuota de almacenamiento (MB)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      name="cuotaMb"
+                      value={form.cuotaMb}
+                      onChange={handleChange}
+                      disabled={isSubmitting}
+                      placeholder="Vacío = ilimitado"
+                      className="block w-full p-2.5 border rounded-lg bg-gray-600 border-gray-500 text-white"
+                    />
+                    <p className="mt-1 text-xs text-gray-300">
+                      Deja el campo vacío para cuota ilimitada.
+                    </p>
+                  </div>
+                )}
+
+                {/* Firma previa */}
                 {form.firma && !firmaArchivo && (
                   <div className="col-span-2">
                     <label className="block mb-1 text-sm font-medium text-white">
@@ -296,14 +344,14 @@ export default function ModalEditarUsuario({
                       href={form.firma}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="block underline text-blue-600 mb-2"
+                      className="text-blue-300 hover:text-blue-200 underline"
                     >
-                      {form.firma.split("/").pop()}
+                      Ver firma
                     </a>
                   </div>
                 )}
 
-                {/* Input para subir/cambiar firma */}
+                {/* Input firma */}
                 <div className="col-span-2">
                   <label className="block mb-1 text-sm font-medium text-white">
                     {form.firma && !firmaArchivo
@@ -315,22 +363,25 @@ export default function ModalEditarUsuario({
                     accept="image/*"
                     onChange={handleFileChange}
                     disabled={isSubmitting}
-                    className="block w-full p-2.5 text-gray-200 rounded file:px-4 file:py-2 file:bg-gray-700 file:text-gray-200 file:border file:border-gray-500 file:rounded file:cursor-pointer file:hover:bg-gray-500 transition duration-200 ease-in-out"
+                    className="block w-full text-sm text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-600 file:text-white hover:file:bg-gray-500"
                   />
                 </div>
 
-                {/* Botón Guardar */}
-                <div className="col-span-2 flex justify-center pt-4">
+                <div className="col-span-2 flex justify-end gap-2 mt-4">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="px-4 py-2 rounded-lg bg-gray-600 text-white hover:bg-gray-500"
+                    disabled={isSubmitting}
+                  >
+                    Cancelar
+                  </button>
                   <button
                     type="submit"
+                    className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-500"
                     disabled={isSubmitting}
-                    className={`w-full p-2.5 text-white font-medium rounded-lg ${
-                      isSubmitting
-                        ? "bg-gray-400 cursor-not-allowed"
-                        : "bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-800"
-                    }`}
                   >
-                    {isSubmitting ? "Guardando..." : "Guardar cambios"}
+                    Guardar
                   </button>
                 </div>
               </form>
