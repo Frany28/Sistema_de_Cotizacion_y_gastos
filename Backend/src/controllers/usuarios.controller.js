@@ -499,6 +499,8 @@ export const obtenerUsuarios = async (req, res) => {
         u.nombre,
         u.email,
         u.estado,
+        u.cuotaMb,
+        u.usoStorageBytes,
         u.fechaCreacion      AS fechaCreacion,
         u.fechaActualizacion AS fechaActualizacion,
         u.creadoPor,
@@ -522,7 +524,7 @@ export const obtenerUsuarioPorId = async (req, res) => {
   const { id } = req.params;
   try {
     const [[usuario]] = await db.query(
-       `
+      `
             SELECT
           u.id,
           u.codigo,
@@ -647,57 +649,26 @@ export const actualizarCuotaUsuario = async (req, res) => {
     const { id } = req.params;
     const { cuotaMb } = req.body;
 
-    const idUsuarioObjetivo = Number(id);
-    const idUsuarioEditor = req.user?.id ?? null;
+    const idUsuario = Number(id);
 
-    if (!Number.isInteger(idUsuarioObjetivo) || idUsuarioObjetivo <= 0) {
+    if (!Number.isInteger(idUsuario) || idUsuario <= 0) {
       return res.status(400).json({ message: "ID de usuario inválido." });
     }
 
-    // Permitir: number >= 0 o null (ilimitado)
-    const cuotaMbNueva = cuotaMb === null ? null : Number(cuotaMb);
+    // cuotaMb puede ser null (ilimitado) o número >= 0
+    const esNull = cuotaMb === null;
+    const esNumeroValido =
+      typeof cuotaMb === "number" && Number.isFinite(cuotaMb) && cuotaMb >= 0;
 
-    if (cuotaMbNueva !== null) {
-      if (!Number.isFinite(cuotaMbNueva) || cuotaMbNueva < 0) {
-        return res.status(400).json({
-          message: "La cuota debe ser un número >= 0 o null (ilimitado).",
-        });
-      }
+    if (!esNull && !esNumeroValido) {
+      return res.status(400).json({
+        message: "La cuota debe ser un número >= 0 o null (ilimitado).",
+      });
     }
 
-    // 1) Traer uso actual del usuario para evitar bajar la cuota por debajo del uso
-    const [[usuarioObjetivo]] = await db.query(
-      `SELECT id, cuotaMb, usoStorageBytes
-         FROM usuarios
-        WHERE id = ?
-        LIMIT 1`,
-      [idUsuarioObjetivo]
-    );
-
-    if (!usuarioObjetivo) {
-      return res.status(404).json({ message: "Usuario no encontrado." });
-    }
-
-    const usoStorageBytes = Number(usuarioObjetivo.usoStorageBytes ?? 0);
-
-    if (cuotaMbNueva !== null) {
-      const cuotaBytesNueva = cuotaMbNueva * 1_048_576;
-      if (cuotaBytesNueva < usoStorageBytes) {
-        const usoMb = usoStorageBytes / 1_048_576;
-        return res.status(400).json({
-          message: `No puedes asignar ${cuotaMbNueva} MB porque el usuario ya usa ${usoMb.toFixed(
-            2
-          )} MB.`,
-        });
-      }
-    }
-
-    // 2) Actualizar cuota y auditoría
     const [resultado] = await db.query(
-      `UPDATE usuarios
-          SET cuotaMb = ?, actualizadoPor = ?
-        WHERE id = ?`,
-      [cuotaMbNueva, idUsuarioEditor, idUsuarioObjetivo]
+      "UPDATE usuarios SET cuotaMb = ? WHERE id = ?",
+      [cuotaMb, idUsuario]
     );
 
     if (resultado.affectedRows === 0) {
@@ -706,8 +677,6 @@ export const actualizarCuotaUsuario = async (req, res) => {
 
     return res.json({
       message: "Cuota de almacenamiento actualizada correctamente.",
-      usuarioId: idUsuarioObjetivo,
-      cuotaMb: cuotaMbNueva,
     });
   } catch (error) {
     console.error("Error al actualizar cuota:", error);

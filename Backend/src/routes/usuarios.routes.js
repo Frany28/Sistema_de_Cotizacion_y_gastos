@@ -9,6 +9,7 @@ import {
   crearUsuario,
   actualizarUsuario,
   eliminarUsuario,
+  actualizarCuotaUsuario,
 } from "../controllers/usuarios.controller.js";
 
 const router = express.Router();
@@ -65,6 +66,12 @@ router.put(
   actualizarUsuario
 );
 
+router.put(
+  "/:id/cuota",
+  autenticarUsuario,
+  verificarPermiso("editar_cuota_usuario"),
+  actualizarCuotaUsuario
+);
 // Eliminar
 router.delete("/:id", autenticarUsuario, eliminarUsuario);
 
