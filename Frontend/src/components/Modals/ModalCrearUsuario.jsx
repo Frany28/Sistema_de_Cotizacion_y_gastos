@@ -7,12 +7,7 @@ import Loader from "../general/Loader";
 
 const regexEmail = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
 
-export default function ModalCrearUsuario({
-  visible,
-  onCancel,
-  onSuccess,
-  esAdmin = false,
-}) {
+export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
   // Permisos y catálogos
   const [permisoConcedido, setPermisoConcedido] = useState(null);
   const [roles, setRoles] = useState([]);
@@ -24,12 +19,8 @@ export default function ModalCrearUsuario({
     password: "",
     rol_id: "",
     estado: "activo",
-    cuotaMb: "50",
   });
   const [archivoFirma, setArchivoFirma] = useState(null);
-
-  // Cuota
-  const [cuotaIlimitada, setCuotaIlimitada] = useState(false);
 
   // Validación / UX
   const [errores, setErrores] = useState({});
@@ -43,10 +34,6 @@ export default function ModalCrearUsuario({
     setErrorServidor("");
     setErrores({});
 
-    // Reset cuota al abrir
-    setCuotaIlimitada(false);
-    setFormulario((f) => ({ ...f, cuotaMb: "50" }));
-
     api
       .get("usuarios/permisos/crearUsuario", { withCredentials: true })
       .then(({ data }) => setPermisoConcedido(Boolean(data.tienePermiso)))
@@ -57,13 +44,6 @@ export default function ModalCrearUsuario({
       .then(({ data }) => setRoles(Array.isArray(data) ? data : []))
       .catch(() => setRoles([]));
   }, [visible]);
-
-  // Si el rol seleccionado es admin (id=1) => ilimitado automático
-  useEffect(() => {
-    if (String(formulario.rol_id) === "1") {
-      setCuotaIlimitada(true);
-    }
-  }, [formulario.rol_id]);
 
   const manejarCambio = (e) => {
     const { name, value } = e.target;
@@ -89,20 +69,11 @@ export default function ModalCrearUsuario({
     else if (formulario.password.length < 6)
       nuevosErrores.password = "Mínimo 6 caracteres";
     if (!formulario.rol_id) nuevosErrores.rol_id = "Seleccione un rol";
-
-    // Validación cuota (solo admin)
-    if (esAdmin && !cuotaIlimitada && String(formulario.rol_id) !== "1") {
-      const cuotaMbNumero = Number(formulario.cuotaMb);
-      if (!Number.isFinite(cuotaMbNumero) || cuotaMbNumero < 0) {
-        nuevosErrores.cuotaMb = "Cuota inválida (debe ser un número ≥ 0)";
-      }
-    }
-
     setErrores(nuevosErrores);
     return Object.keys(nuevosErrores).length === 0;
   };
 
-  // Pre-chequeo duplicados en backend
+  // Pre-chequeo en backend: /usuarios/check?nombre=..&email=..
   const verificarDuplicados = async () => {
     const params = {
       nombre: formulario.nombre.trim(),
@@ -113,7 +84,7 @@ export default function ModalCrearUsuario({
       withCredentials: true,
       validateStatus: (s) => s < 500,
     });
-
+    // { exists:boolean, campos:{nombre:boolean, email:boolean} }
     if (data?.exists) {
       const nuevosErrores = { ...errores };
       let mensaje = "Ya existe un usuario con los datos ingresados:\n";
@@ -132,6 +103,7 @@ export default function ModalCrearUsuario({
     return true;
   };
 
+  // Parser de errores POST (incluye ER_DUP_ENTRY)
   const construirMensajeError = (err) => {
     const data = err?.response?.data;
     const texto =
@@ -154,6 +126,7 @@ export default function ModalCrearUsuario({
       /Duplicate entry/i.test(texto);
 
     if (esDuplicado) {
+      // Backend ya intenta decir qué campo es; si no, damos uno neutral.
       if (/email/i.test(texto))
         return "El correo ya existe. Por favor, usa otro.";
       if (/nombre/i.test(texto))
@@ -173,36 +146,19 @@ export default function ModalCrearUsuario({
 
     setEnviando(true);
     try {
+      // 1) Pre-chequeo duplicados
       const ok = await verificarDuplicados();
       if (!ok) return;
 
+      // 2) Envío
       const formData = new FormData();
-
-      // Campos base (sin cuotaMb)
-      Object.entries(formulario)
-        .filter(([k]) => k !== "cuotaMb")
-        .forEach(([k, v]) => formData.append(k, v));
-
-      // Cuota (solo admin)
-      if (esAdmin) {
-        // Si rol del nuevo usuario es admin => backend pone NULL automáticamente
-        if (String(formulario.rol_id) === "1") {
-          // no hace falta enviar cuotaMb
-        } else if (cuotaIlimitada) {
-          // ⚠️ FormData no manda null real -> enviamos "null"
-          formData.append("cuotaMb", "null");
-        } else {
-          formData.append("cuotaMb", String(formulario.cuotaMb ?? ""));
-        }
-      }
-
+      Object.entries(formulario).forEach(([k, v]) => formData.append(k, v));
       if (archivoFirma) formData.append("firma", archivoFirma);
 
       await api.post("usuarios", formData, {
         withCredentials: true,
         headers: { "Content-Type": "multipart/form-data" },
       });
-
       setMostrarExito(true);
     } catch (err) {
       setErrorServidor(construirMensajeError(err));
@@ -302,58 +258,6 @@ export default function ModalCrearUsuario({
                       <p className="text-red-500 text-sm">{errores.nombre}</p>
                     )}
                   </div>
-
-                  {/* Cuota (solo admin) */}
-                  {esAdmin && (
-                    <div className="col-span-2">
-                      <label className="block mb-1 text-sm font-medium text-white">
-                        Cuota de almacenamiento (MB)
-                      </label>
-
-                      {String(formulario.rol_id) === "1" ? (
-                        <p className="text-sm text-gray-300">
-                          Este usuario será Administrador → almacenamiento
-                          ilimitado.
-                        </p>
-                      ) : (
-                        <>
-                          <div className="flex items-center gap-2 mb-2">
-                            <input
-                              type="checkbox"
-                              checked={cuotaIlimitada}
-                              onChange={() => setCuotaIlimitada((v) => !v)}
-                              disabled={deshabilitado}
-                              className="cursor-pointer"
-                            />
-                            <span className="text-sm text-white">
-                              Ilimitado
-                            </span>
-                          </div>
-
-                          {!cuotaIlimitada && (
-                            <input
-                              type="number"
-                              name="cuotaMb"
-                              min="0"
-                              placeholder="Ej: 50"
-                              value={formulario.cuotaMb}
-                              onChange={manejarCambio}
-                              disabled={deshabilitado}
-                              className={`block w-full p-2.5 border rounded-lg bg-gray-700 border-gray-500 text-white disabled:opacity-60 ${
-                                errores.cuotaMb ? "ring-1 ring-red-500" : ""
-                              }`}
-                            />
-                          )}
-
-                          {errores.cuotaMb && (
-                            <p className="text-red-500 text-sm">
-                              {errores.cuotaMb}
-                            </p>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  )}
 
                   <div>
                     <label className="block mb-1 text-sm font-medium text-white">

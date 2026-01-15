@@ -14,18 +14,14 @@ const EMAIL_REGEX = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
 /*─────────────────────────────────────────────────────────────
   Crear usuario (y firma opcional en `firmas/`)
 ──────────────────────────────────────────────────────────────*/
+// ✅ Reemplaza SOLO esta función dentro de controllers/usuarios.controller.js
+
 export const crearUsuario = async (req, res) => {
   const conexion = await db.getConnection();
   let firmaKeyNueva = null;
 
   try {
     await conexion.beginTransaction();
-
-    // ✅ Seguridad mínima: debe haber usuario autenticado
-    if (!req.user?.id) {
-      await conexion.rollback();
-      return res.status(401).json({ message: "No autenticado." });
-    }
 
     // ── 1) Normalizo/valido entradas
     const nombre = (req.body?.nombre || "").trim();
@@ -37,10 +33,6 @@ export const crearUsuario = async (req, res) => {
     // Campos opcionales que podrían existir en la BD
     const numero = (req.body?.numero ?? "").toString().trim();
     const telefono = (req.body?.telefono ?? "").toString().trim();
-
-    // ✅ Cuota (nuevo requerimiento)
-    const cuotaMbBody = req.body?.cuotaMb ?? undefined;
-    const usuarioEsAdmin = req.user?.rol_id === 1;
 
     const errores = [];
     const regexEmail = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
@@ -57,37 +49,6 @@ export const crearUsuario = async (req, res) => {
     if (errores.length) {
       await conexion.rollback();
       return res.status(400).json({ message: "Error de validación.", errores });
-    }
-
-    // ─────────────────────────────────────────────────────────
-    // ✅ Reglas de cuota (ANTES del INSERT)
-    // ─────────────────────────────────────────────────────────
-
-    // Regla base:
-    // - si el usuario creado será admin => ilimitado (NULL)
-    // - si no => 50 por defecto
-    let cuotaMbFinal = Number(rolId) === 1 ? null : 50;
-
-    // Si NO es admin y manda cuotaMb => bloqueo
-    if (!usuarioEsAdmin && cuotaMbBody !== undefined) {
-      await conexion.rollback();
-      return res.status(403).json({
-        message: "No tienes permiso para asignar cuota de almacenamiento.",
-      });
-    }
-
-    // Si admin manda cuotaMb para usuario NO admin, validarlo y usarlo
-    if (usuarioEsAdmin && Number(rolId) !== 1 && cuotaMbBody !== undefined) {
-      const cuotaMbNumero = Number(cuotaMbBody);
-
-      if (!Number.isFinite(cuotaMbNumero) || cuotaMbNumero < 0) {
-        await conexion.rollback();
-        return res.status(400).json({
-          message: "cuotaMb debe ser un número mayor o igual a 0.",
-        });
-      }
-
-      cuotaMbFinal = cuotaMbNumero;
     }
 
     // ── 2) Verificación de duplicados (nombre, email, y si existen: numero/telefono)
@@ -167,18 +128,9 @@ export const crearUsuario = async (req, res) => {
 
     const [resultadoUsuario] = await conexion.query(
       `INSERT INTO usuarios
-         (nombre, email, password, rol_id, estado, firma, cuotaMb, creadoPor)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        nombre,
-        email,
-        hashPassword,
-        rolId,
-        estado,
-        firmaKey,
-        cuotaMbFinal,
-        usuarioCreadorId,
-      ]
+         (nombre, email, password, rol_id, estado, firma, creadoPor)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [nombre, email, hashPassword, rolId, estado, firmaKey, usuarioCreadorId]
     );
 
     const nuevoUsuarioId = resultadoUsuario.insertId;
@@ -253,11 +205,7 @@ export const crearUsuario = async (req, res) => {
     }
 
     await conexion.commit();
-    return res.status(201).json({
-      id: nuevoUsuarioId,
-      firma: firmaKey,
-      cuotaMb: cuotaMbFinal,
-    });
+    return res.status(201).json({ id: nuevoUsuarioId, firma: firmaKey });
   } catch (error) {
     await conexion.rollback();
 
@@ -276,7 +224,6 @@ export const crearUsuario = async (req, res) => {
     }
 
     console.error("Error al crear usuario:", error);
-
     // Si el error viene por unique index en BD, estandarizo la respuesta
     const texto = String(error?.message || "");
     if (/duplicate entry/i.test(texto) || error?.code === "ER_DUP_ENTRY") {
@@ -284,7 +231,6 @@ export const crearUsuario = async (req, res) => {
         message: "Registro duplicado: ya existe un usuario con esos datos.",
       });
     }
-
     return res.status(500).json({ error: "Error al crear usuario" });
   } finally {
     conexion.release();
@@ -304,24 +250,18 @@ export const actualizarUsuario = async (req, res) => {
     const { id } = req.params;
     const { nombre, email, password, rol_id, estado } = req.body;
 
-    // Normalizar cuota: permite que el frontend mande "null" como string
-    const cuotaMbEntrada = req.body?.cuotaMb;
-    const cuotaMb = cuotaMbEntrada === "null" ? null : cuotaMbEntrada;
-
-    const usuarioEsAdmin = req.user?.rol_id === 1;
-
     // Datos de archivo (si viene nueva firma)
     const firmaKey = req.file?.key ?? null;
+    console.log("🔍 [DEBUG] actualizarUsuario -> firmaKey:", firmaKey);
     const nombreOriginal = req.file?.originalname ?? null;
     const extension = nombreOriginal?.split(".").pop() ?? null;
     const tamanioBytes = req.file?.size ?? null;
 
     // Verificar usuario
     const [[filaUsuario]] = await conexion.query(
-      `SELECT id, password, rol_id FROM usuarios WHERE id = ?`,
+      `SELECT id, password FROM usuarios WHERE id = ?`,
       [id]
     );
-
     if (!filaUsuario) {
       await conexion.rollback();
       return res.status(404).json({ message: "Usuario no encontrado" });
@@ -336,7 +276,6 @@ export const actualizarUsuario = async (req, res) => {
           .json({ message: "El email tiene un formato inválido" });
       }
     }
-
     if (password !== undefined) {
       if (password.length < 6) {
         await conexion.rollback();
@@ -344,7 +283,6 @@ export const actualizarUsuario = async (req, res) => {
           .status(400)
           .json({ message: "La contraseña debe tener al menos 6 caracteres" });
       }
-
       const coincide = await bcrypt.compare(password, filaUsuario.password);
       if (coincide) {
         await conexion.rollback();
@@ -353,40 +291,12 @@ export const actualizarUsuario = async (req, res) => {
         });
       }
     }
-
     if (rol_id !== undefined && !rol_id) {
       await conexion.rollback();
       return res
         .status(400)
         .json({ message: "Si envías rol_id, debe ser un valor válido" });
     }
-
-    // ─────────────────────────────────────────────────────────
-    // REGLAS DE CUOTA (ANTES DEL UPDATE)
-    // ─────────────────────────────────────────────────────────
-
-    // Si NO es admin y manda cuota => prohibido
-    if (!usuarioEsAdmin && cuotaMb !== undefined) {
-      await conexion.rollback();
-      return res.status(403).json({
-        message: "No tienes permiso para modificar la cuota de almacenamiento.",
-      });
-    }
-
-    // Si admin manda cuotaMb, validar (si no es null)
-    if (usuarioEsAdmin && cuotaMb !== undefined && cuotaMb !== null) {
-      const cuotaMbNumero = Number(cuotaMb);
-      if (!Number.isFinite(cuotaMbNumero) || cuotaMbNumero < 0) {
-        await conexion.rollback();
-        return res.status(400).json({
-          message: "cuotaMb debe ser un número >= 0, o null para ilimitado.",
-        });
-      }
-    }
-
-    // Rol final (si no mandan rol_id, queda el actual)
-    const rolIdFinal =
-      rol_id !== undefined ? Number(rol_id) : Number(filaUsuario.rol_id);
 
     // Build de actualización dinámica
     const campos = [];
@@ -396,42 +306,27 @@ export const actualizarUsuario = async (req, res) => {
       campos.push("nombre = ?");
       valores.push(nombre.trim());
     }
-
     if (email !== undefined) {
       campos.push("email = ?");
       valores.push(email.trim());
     }
-
     if (password !== undefined) {
       const nuevoHash = await bcrypt.hash(password, 10);
       campos.push("password = ?");
       valores.push(nuevoHash);
     }
-
     if (rol_id !== undefined) {
       campos.push("rol_id = ?");
       valores.push(rol_id);
     }
-
     if (estado !== undefined) {
       campos.push("estado = ?");
       valores.push(estado);
     }
-
     if (firmaKey) {
       campos.push("firma = ?");
       valores.push(firmaKey);
-      firmaKeyNueva = firmaKey;
-    }
-
-    // Cuota según reglas:
-    // - Si el rol final es admin => ilimitado (NULL)
-    // - Si admin está editando y manda cuota => se aplica (null o número)
-    if (rolIdFinal === 1) {
-      campos.push("cuotaMb = NULL");
-    } else if (usuarioEsAdmin && cuotaMb !== undefined) {
-      campos.push("cuotaMb = ?");
-      valores.push(cuotaMb === null ? null : Number(cuotaMb));
+      firmaKeyNueva = firmaKey; // por si falla luego
     }
 
     if (campos.length === 0) {
@@ -441,10 +336,8 @@ export const actualizarUsuario = async (req, res) => {
         .json({ message: "No se enviaron campos para actualizar." });
     }
 
-    // Guardar quién actualizó (esto SÍ queda almacenado en SQL)
     campos.push("actualizadoPor = ?");
     valores.push(req.user.id);
-
     valores.push(id);
 
     await conexion.query(
@@ -452,7 +345,7 @@ export const actualizarUsuario = async (req, res) => {
       valores
     );
 
-    // Si hay nueva firma: registrar archivo/versión/eventos y mover anterior a papelera
+    // Si hay nueva firma, creamos archivo/versión/eventos y movemos anterior a papelera
     if (firmaKey) {
       const grupoArchivoId = await obtenerOcrearGrupoFirma(
         conexion,
@@ -460,21 +353,22 @@ export const actualizarUsuario = async (req, res) => {
         req.user.id
       );
 
+      // Calcular número de versión
       const [[{ maxVer }]] = await conexion.query(
         `SELECT IFNULL(MAX(numeroVersion),0) AS maxVer
-         FROM archivos
-         WHERE registroTipo='firmas' AND registroId = ?`,
+           FROM archivos
+          WHERE registroTipo='firmas' AND registroId = ?`,
         [id]
       );
-
       const numeroVersion = (maxVer || 0) + 1;
 
+      // Registrar nuevo archivo (activo)
       const [resArchivo] = await conexion.query(
         `INSERT INTO archivos
-          (registroTipo, registroId, grupoArchivoId,
-           nombreOriginal, extension, tamanioBytes,
-           rutaS3, numeroVersion, estado,
-           subidoPor, creadoEn, actualizadoEn)
+           (registroTipo, registroId, grupoArchivoId,
+            nombreOriginal, extension, tamanioBytes,
+            rutaS3, numeroVersion, estado,
+            subidoPor, creadoEn, actualizadoEn)
          VALUES ('firmas', ?, ?, ?, ?, ?, ?, ?, 'activo', ?, NOW(), NOW())`,
         [
           id,
@@ -487,13 +381,12 @@ export const actualizarUsuario = async (req, res) => {
           req.user.id,
         ]
       );
-
       const archivoId = resArchivo.insertId;
 
       await conexion.query(
         `INSERT INTO versionesArchivo
-          (archivoId, numeroVersion, nombreOriginal, extension,
-           tamanioBytes, rutaS3, subidoPor, creadoEn)
+           (archivoId, numeroVersion, nombreOriginal, extension,
+            tamanioBytes, rutaS3, subidoPor, creadoEn)
          VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
         [
           archivoId,
@@ -506,9 +399,10 @@ export const actualizarUsuario = async (req, res) => {
         ]
       );
 
+      // Evento consistente con gastos: 'sustitucionArchivo'
       await conexion.query(
         `INSERT INTO eventosArchivo
-          (archivoId, accion, creadoPor, fechaHora, ip, userAgent, detalles)
+           (archivoId, accion, creadoPor, fechaHora, ip, userAgent, detalles)
          VALUES (?, 'sustitucionArchivo', ?, NOW(), ?, ?, ?)`,
         [
           archivoId,
@@ -519,15 +413,16 @@ export const actualizarUsuario = async (req, res) => {
         ]
       );
 
+      // Buscar la anterior firma activa para marcar 'reemplazado' y mover a papelera
       const [anteriorActiva] = await conexion.query(
         `SELECT id, rutaS3
-         FROM archivos
-         WHERE registroTipo='firmas'
-           AND registroId = ?
-           AND estado = 'activo'
-           AND id <> ?
-         ORDER BY numeroVersion DESC
-         LIMIT 1`,
+           FROM archivos
+          WHERE registroTipo='firmas'
+            AND registroId = ?
+            AND estado = 'activo'
+            AND id <> ?
+          ORDER BY numeroVersion DESC
+          LIMIT 1`,
         [id, archivoId]
       );
 
@@ -542,9 +437,10 @@ export const actualizarUsuario = async (req, res) => {
           [nuevaRutaPapelera, archivoAnteriorId]
         );
 
+        // Evento consistente con gastos: 'eliminacionArchivo' (por sustitución)
         await conexion.query(
           `INSERT INTO eventosArchivo
-            (archivoId, accion, creadoPor, fechaHora, ip, userAgent, detalles)
+             (archivoId, accion, creadoPor, fechaHora, ip, userAgent, detalles)
            VALUES (?, 'eliminacionArchivo', ?, NOW(), ?, ?, ?)`,
           [
             archivoAnteriorId,
@@ -559,6 +455,7 @@ export const actualizarUsuario = async (req, res) => {
         );
       }
 
+      // Aumentar cuota del usuario dueño de la firma (el propio usuario)
       await conexion.query(
         `UPDATE usuarios SET usoStorageBytes = usoStorageBytes + ? WHERE id = ?`,
         [tamanioBytes, id]
@@ -754,17 +651,13 @@ export const actualizarCuotaUsuario = async (req, res) => {
       return res.status(400).json({ message: "ID de usuario inválido." });
     }
 
-    // cuotaMb puede ser null (ilimitado) o número >= 0
-    if (cuotaMb !== null) {
-      const cuotaMbNumero = Number(cuotaMb);
-      if (!Number.isFinite(cuotaMbNumero) || cuotaMbNumero < 0) {
-        return res.status(400).json({
-          message: "La cuota debe ser un número >= 0 o null (ilimitado).",
-        });
-      }
+    if (cuotaMb !== null && (typeof cuotaMb !== "number" || cuotaMb < 0)) {
+      return res.status(400).json({
+        message: "La cuota debe ser un número positivo o null (ilimitado).",
+      });
     }
 
-    const [resultado] = await db.query(
+    const [resultado] = await pool.execute(
       "UPDATE usuarios SET cuotaMb = ? WHERE id = ?",
       [cuotaMb, idUsuario]
     );
@@ -772,6 +665,8 @@ export const actualizarCuotaUsuario = async (req, res) => {
     if (resultado.affectedRows === 0) {
       return res.status(404).json({ message: "Usuario no encontrado." });
     }
+
+    await limpiarCacheAlmacenamiento(idUsuario);
 
     return res.json({
       message: "Cuota de almacenamiento actualizada correctamente.",
