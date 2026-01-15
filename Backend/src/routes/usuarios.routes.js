@@ -11,7 +11,7 @@ import {
   eliminarUsuario,
   actualizarCuotaUsuario,
 } from "../controllers/usuarios.controller.js";
-
+import { verificarPermiso } from "../Middleware/verificarPermiso.js";
 const router = express.Router();
 
 // Listado
