@@ -116,18 +116,6 @@ app.use("/api/permisos", permisosRoutes);
 app.use("/api/roles-permisos", rolesPermisosRoutes);
 app.use("/api/archivos/eventos", eventosArchivosRoutes);
 
-/* ───── Ruta de diagnóstico (temporal) ──────────────────── */
-/* Útil para verificar si la cookie llega al backend y si la sesión existe.
-   - Elimínala cuando termines de probar.
-*/
-app.get("/api/auth/debug-cookie", (req, res) => {
-  res.json({
-    tieneCookieSesion: Boolean(req.sessionID),
-    sessionId: req.sessionID || null,
-    tieneObjetoSesion: Boolean(req.session),
-    usuarioEnSesion: req.session?.user || null,
-  });
-});
 
 /* ───── 404 para API inexistente ─────────────────────────── */
 app.use((req, res, next) => {

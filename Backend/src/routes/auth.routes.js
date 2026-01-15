@@ -20,7 +20,7 @@ router.post("/logout", (req, res) => {
     }
 
     // Eliminar cookie de sesión
-    res.clearCookie("connect.sid");
+    res.clearCookie("csidSistema");
     res.json({ message: "Sesión cerrada correctamente" });
   });
 });

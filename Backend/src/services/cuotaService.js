@@ -7,28 +7,20 @@ import db from "../config/database.js";
  * @param {number} pesoBytes   – Tamaño del archivo que se pretende subir
  * @returns {boolean}          – true si hay espacio suficiente
  */
-export const tieneEspacio = async (usuarioId, pesoBytes) => {
-  // 1) Traer cuota y uso actuales -----------------------------------------
-  const [[usuario]] = await db.query(
-    `SELECT cuotaMb, usoStorageBytes
-       FROM usuarios
-      WHERE id = ?`,
-    [usuarioId]
-  );
+export const validarCuotaDisponible = ({
+  cuotaMb,
+  usoStorageBytes,
+  bytesNuevoArchivo,
+}) => {
+  // Si la cuota es null → ilimitado
+  if (cuotaMb === null) {
+    return true;
+  }
 
-  if (!usuario) throw new Error("usuarioNoEncontrado");
+  const cuotaBytes = cuotaMb * 1024 * 1024;
+  const totalUsado = usoStorageBytes + bytesNuevoArchivo;
 
-  // 2) Normalizar valores nulos -------------------------------------------
-  const cuotaMb = usuario.cuotaMb ?? null; // null = ilimitado
-  const usoActualBytes = usuario.usoStorageBytes ?? 0; // null → 0
-  const nuevoUsoBytes = usoActualBytes + pesoBytes;
-
-  // 3) Si no existe cuota (ilimitado) siempre hay espacio -----------------
-  if (cuotaMb === null) return true;
-
-  // 4) Comparar contra la cuota -------------------------------------------
-  const cuotaBytes = cuotaMb * 1_048_576; // 1 MB = 1_048_576 bytes
-  return nuevoUsoBytes <= cuotaBytes;
+  return totalUsado <= cuotaBytes;
 };
 
 /**
