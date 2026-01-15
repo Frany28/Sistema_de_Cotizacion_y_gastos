@@ -2,40 +2,39 @@
 import express from "express";
 import db from "../config/database.js";
 import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
-import { uploadFirma } from "../utils/s3.js";
+import { uploadFirma } from "../utils/s3.js"; // ⬅️ usar el uploader correcto para firmas
 import {
   obtenerUsuarios,
   obtenerUsuarioPorId,
   crearUsuario,
   actualizarUsuario,
   eliminarUsuario,
-  actualizarCuotaUsuario,
 } from "../controllers/usuarios.controller.js";
 
 const router = express.Router();
 
 // Listado y detalle
 router.get("/", autenticarUsuario, obtenerUsuarios);
-router.get("/permisos/:permiso", autenticarUsuario);
+router.get("/permisos/:permiso", autenticarUsuario); // (si no se usa, puedes eliminarla)
 router.get("/:id", autenticarUsuario, obtenerUsuarioPorId);
 
-router.post("/", autenticarUsuario, uploadFirma.single("firma"), crearUsuario);
+// Crear y actualizar (ahora usando uploadFirma -> carpeta "firmas/")
+router.post(
+  "/",
+  autenticarUsuario,
+  uploadFirma.single("firma"), // ⬅️ antes: uploadComprobante
+  crearUsuario
+);
 
 router.put(
   "/:id",
   autenticarUsuario,
-  uploadFirma.single("firma"),
+  uploadFirma.single("firma"), // ⬅️ antes: uploadComprobante
   actualizarUsuario
 );
 
 // Eliminar
 router.delete("/:id", autenticarUsuario, eliminarUsuario);
-
-router.patch(
-  "/:id/cuota",
-  validarPermisoUsuarios("editarCuotaUsuario"),
-  actualizarCuotaUsuario
-);
 
 // Verificar permiso por clave (esta sí tiene handler)
 router.get("/permisos/:clave", autenticarUsuario, async (req, res) => {
