@@ -1,6 +1,6 @@
 // Backend/src/Middleware/validarCuota.js
 import db from "../config/database.js";
-import { validarCuotaDisponible } from "../services/cuotaService.js";
+import { tieneEspacio } from "../services/cuotaService.js";
 
 /**
  * Middleware: valida si el usuario autenticado tiene espacio suficiente
@@ -44,7 +44,7 @@ export const validarCuota = async (req, res, next) => {
     const usoStorageBytes = Number(usuario.usoStorageBytes ?? 0);
 
     // 4) Validar cuota (función pura, NO async)
-    const ok = validarCuotaDisponible({
+    const ok = tieneEspacio({
       cuotaMb,
       usoStorageBytes,
       bytesNuevoArchivo: pesoBytes,
