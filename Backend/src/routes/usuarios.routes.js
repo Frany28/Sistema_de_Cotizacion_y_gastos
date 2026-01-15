@@ -7,8 +7,8 @@ import {
   cambiarEstadoUsuario,
 } from "../controllers/usuarios.controller.js";
 
-import { autenticarUsuario } from "../middlewares/autenticarUsuario.js";
-import { verificarPermiso } from "../middlewares/verificarPermiso.js";
+import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
+import { verificarPermiso } from "../Middleware/verificarPermiso.js";
 import { uploadFirma } from "../middlewares/uploadFirma.js";
 
 const router = express.Router();
