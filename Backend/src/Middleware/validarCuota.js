@@ -1,29 +1,55 @@
-// middlewares/validarCuota.js
-import { tieneEspacio } from "../services/cuotaService.js";
+// Backend/src/Middleware/validarCuota.js
+import db from "../config/database.js";
+import { validarCuotaDisponible } from "../services/cuotaService.js";
 
 /**
- * Bloquea la petición si el archivo a subir excede la cuota del usuario.
- * • req.user.id   → lo coloca autenticarUsuario
- * • req.file.size → lo rellena Multer (uploadComprobanteMemoria)
- * • También acepta headers/body para flujos que firman URL primero.
+ * Middleware: valida si el usuario autenticado tiene espacio suficiente
+ * para subir el archivo que viene en req.file (multer/s3).
+ *
+ * Requisitos:
+ * - Debe ejecutarse DESPUÉS de autenticarUsuario (para tener req.user)
+ * - Normalmente se usa en rutas con upload.single("archivo") o similar
  */
 export const validarCuota = async (req, res, next) => {
   try {
-    const usuarioId = req.user.id;
+    // 1) Validar autenticación mínima
+    const usuarioId = req.user?.id;
 
-    // 1) Detecta tamaño de archivo según el flujo
-    const pesoBytes = Number(
-      req.headers["x-file-size"] ?? // presigned-URL
-        req.body?.pesoBytes ?? // fetch JSON
-        req.file?.size ?? // multipart (Multer)
-        0
+    if (!usuarioId) {
+      return res.status(401).json({ mensaje: "No autenticado." });
+    }
+
+    // 2) Si no viene archivo, no hay nada que validar
+    // (esto evita romper endpoints que reusan el middleware sin archivo)
+    const pesoBytes = Number(req.file?.size ?? 0);
+
+    if (!pesoBytes || !Number.isFinite(pesoBytes) || pesoBytes < 0) {
+      return next();
+    }
+
+    // 3) Traer cuota y uso actual del usuario desde BD
+    const [[usuario]] = await db.query(
+      `SELECT cuotaMb, usoStorageBytes
+       FROM usuarios
+       WHERE id = ?
+       LIMIT 1`,
+      [usuarioId]
     );
 
-    // 2) Si no hay archivo, deja pasar
-    if (!pesoBytes) return next();
+    if (!usuario) {
+      return res.status(404).json({ mensaje: "Usuario no encontrado." });
+    }
 
-    // 3) Valida cuota
-    const ok = await tieneEspacio(usuarioId, pesoBytes);
+    const cuotaMb = usuario.cuotaMb ?? null;
+    const usoStorageBytes = Number(usuario.usoStorageBytes ?? 0);
+
+    // 4) Validar cuota (función pura, NO async)
+    const ok = validarCuotaDisponible({
+      cuotaMb,
+      usoStorageBytes,
+      bytesNuevoArchivo: pesoBytes,
+    });
+
     if (!ok) {
       return res.status(413).json({
         mensaje:
@@ -31,8 +57,14 @@ export const validarCuota = async (req, res, next) => {
       });
     }
 
+    // 5) OK -> continúa
     return next();
   } catch (error) {
-    return next(error);
+    console.error("Error en validarCuota:", error);
+    return res.status(500).json({
+      mensaje: "Error interno al validar cuota de almacenamiento.",
+    });
   }
 };
+
+export default validarCuota;

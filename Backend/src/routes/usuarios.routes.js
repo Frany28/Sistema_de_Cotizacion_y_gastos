@@ -2,7 +2,9 @@
 import express from "express";
 import db from "../config/database.js";
 import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
+import validarCuota from "../Middleware/validarCuota.js"; 
 import { uploadFirma } from "../utils/s3.js";
+
 import {
   obtenerUsuarios,
   obtenerUsuarioPorId,
@@ -19,11 +21,20 @@ router.get("/", autenticarUsuario, obtenerUsuarios);
 router.get("/permisos/:permiso", autenticarUsuario);
 router.get("/:id", autenticarUsuario, obtenerUsuarioPorId);
 
-router.post("/", autenticarUsuario, uploadFirma.single("firma"), crearUsuario);
+// ✅ Crear usuario (firma opcional) -> validar cuota ANTES de subir
+router.post(
+  "/",
+  autenticarUsuario,
+  validarCuota,
+  uploadFirma.single("firma"),
+  crearUsuario
+);
 
+// ✅ Actualizar usuario (firma opcional) -> validar cuota ANTES de subir
 router.put(
   "/:id",
   autenticarUsuario,
+  validarCuota,
   uploadFirma.single("firma"),
   actualizarUsuario
 );

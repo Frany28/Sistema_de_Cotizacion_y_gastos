@@ -754,13 +754,17 @@ export const actualizarCuotaUsuario = async (req, res) => {
       return res.status(400).json({ message: "ID de usuario inválido." });
     }
 
-    if (cuotaMb !== null && (typeof cuotaMb !== "number" || cuotaMb < 0)) {
-      return res.status(400).json({
-        message: "La cuota debe ser un número positivo o null (ilimitado).",
-      });
+    // cuotaMb puede ser null (ilimitado) o número >= 0
+    if (cuotaMb !== null) {
+      const cuotaMbNumero = Number(cuotaMb);
+      if (!Number.isFinite(cuotaMbNumero) || cuotaMbNumero < 0) {
+        return res.status(400).json({
+          message: "La cuota debe ser un número >= 0 o null (ilimitado).",
+        });
+      }
     }
 
-    const [resultado] = await pool.execute(
+    const [resultado] = await db.query(
       "UPDATE usuarios SET cuotaMb = ? WHERE id = ?",
       [cuotaMb, idUsuario]
     );
@@ -768,8 +772,6 @@ export const actualizarCuotaUsuario = async (req, res) => {
     if (resultado.affectedRows === 0) {
       return res.status(404).json({ message: "Usuario no encontrado." });
     }
-
-    await limpiarCacheAlmacenamiento(idUsuario);
 
     return res.json({
       message: "Cuota de almacenamiento actualizada correctamente.",
