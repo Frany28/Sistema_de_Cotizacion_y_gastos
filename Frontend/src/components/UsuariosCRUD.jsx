@@ -186,15 +186,20 @@ export default function UsuariosCRUD() {
       />
 
       {/* Editar usuario */}
+      {/* Editar usuario */}
       <ModalEditarUsuario
-        visible={modalEditar}
+        visible={showModalEditar}
         onClose={() => {
-          setModalEditar(false);
-          setUsuarioEditando(null);
+          setShowModalEditar(false);
+          setUsuarioEditar(null);
         }}
-        usuario={usuarioEditando}
+        usuario={usuarioEditar}
         roles={roles}
-        onUsuarioActualizado={cargarUsuarios}
+        onUsuarioActualizado={() => {
+          setShowModalEditar(false);
+          setUsuarioEditar(null);
+          fetchUsuarios();
+        }}
       />
 
       {/* Confirmación eliminación */}
