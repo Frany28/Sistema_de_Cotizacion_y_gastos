@@ -26,6 +26,37 @@ export default function ModalEditarUsuario({
     firma: null,
   });
 
+  // ─────────────────────────────────────────────
+  // Cuota MB: input "tipo banco" + MB + ∞
+  // ─────────────────────────────────────────────
+  const [cuotaMbVista, setCuotaMbVista] = useState("");
+
+  const formatearEnteroBanco = (valor) => {
+    const soloDigitos = String(valor ?? "").replace(/[^\d]/g, "");
+    if (!soloDigitos) return "";
+    const numero = Number(soloDigitos);
+    if (!Number.isFinite(numero)) return "";
+    return new Intl.NumberFormat("es-ES").format(numero);
+  };
+
+  const normalizarCuotaParaEnviar = (valorVista) => {
+    const texto = String(valorVista ?? "").trim();
+
+    // vacío => no cambiar (tu lógica actual)
+    if (texto === "") return "";
+
+    // ∞ o ilimitado => ilimitado
+    if (texto === "∞" || texto.toLowerCase() === "ilimitado")
+      return "ilimitado";
+
+    // permitir que el usuario escriba "12.000", "12000", "12 000", "12000 MB"
+    const sinMb = texto.replace(/mb/gi, "").trim();
+    const soloDigitos = sinMb.replace(/[^\d]/g, "");
+    if (!soloDigitos) return "";
+
+    return String(Number(soloDigitos)); // número limpio
+  };
+
   const [firmaArchivo, setFirmaArchivo] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showExito, setShowExito] = useState(false);
@@ -52,6 +83,13 @@ export default function ModalEditarUsuario({
       firma: usuario.firma || null,
     });
 
+    // cuota vista (formato banco o ∞)
+    if (cuotaMbActual === null || cuotaMbActual === undefined) {
+      setCuotaMbVista("∞");
+    } else {
+      setCuotaMbVista(formatearEnteroBanco(cuotaMbActual));
+    }
+
     setFirmaArchivo(null);
   }, [usuario]);
 
@@ -63,6 +101,28 @@ export default function ModalEditarUsuario({
   const handleFileChange = (e) => {
     setFirmaArchivo(e.target.files[0] || null);
   };
+
+  const rolIdActual = usuario?.rolId ?? usuario?.rol_id;
+  const esAdminSeleccionado = String(form.rol_id) === "1";
+
+  // Si el usuario queda como admin, la cuota se vuelve ∞ y se bloquea
+  useEffect(() => {
+    if (!usuario) return;
+
+    if (esAdminSeleccionado) {
+      // Bloqueo visual y lógico
+      setCuotaMbVista("∞");
+      setForm((prev) => ({ ...prev, cuotaMb: "ilimitado" }));
+    } else {
+      // Si venía siendo admin y lo cambian a NO admin, dejamos el campo listo para editar
+      // (no tocamos cuota si ya tenía algo numérico; si estaba ∞, lo dejamos vacío para que el usuario decida)
+      if (cuotaMbVista === "∞") {
+        setCuotaMbVista("");
+        setForm((prev) => ({ ...prev, cuotaMb: "" }));
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.rol_id]);
 
   // Validaciones antes de enviar
   const validarFormulario = () => {
@@ -86,15 +146,14 @@ export default function ModalEditarUsuario({
       return false;
     }
 
-    // cuotaMb: permite número (>=0), vacío (no cambiar) o 'ilimitado'
-    if (form.cuotaMb !== "") {
-      const cuotaMbLimpia = String(form.cuotaMb).trim().toLowerCase();
-      if (cuotaMbLimpia !== "ilimitado") {
-        const cuotaNumero = Number(cuotaMbLimpia);
-        if (Number.isNaN(cuotaNumero) || cuotaNumero < 0) {
-          setErrorMsg(
-            "La cuota debe ser un número mayor o igual a 0, o 'ilimitado'"
-          );
+    // cuotaMb: permite número (>=0), vacío (no cambiar) o ilimitado (∞/ilimitado)
+    if (cuotaMbVista !== "") {
+      const cuotaEnviar = normalizarCuotaParaEnviar(cuotaMbVista);
+
+      if (cuotaEnviar !== "" && cuotaEnviar !== "ilimitado") {
+        const cuotaNumero = Number(cuotaEnviar);
+        if (!Number.isFinite(cuotaNumero) || cuotaNumero < 0) {
+          setErrorMsg("La cuota debe ser un número >= 0 o ilimitado (∞).");
           return false;
         }
       }
@@ -109,7 +168,7 @@ export default function ModalEditarUsuario({
     // 1) Validación en cliente
     if (!validarFormulario()) {
       setShowError(true);
-      onClose(); // cerrar modal de edición
+      // ✅ Cambio: NO cerramos el modal si hay error de validación
       return;
     }
 
@@ -156,18 +215,29 @@ export default function ModalEditarUsuario({
       cambios = true;
     }
 
-    // ✅ Cuota (MB): unificada en PUT /usuarios/:id
     const cuotaMbActual = usuario.cuotaMb ?? usuario.cuota_mb;
-    const cuotaForm = String(form.cuotaMb).trim();
     const cuotaActualTexto =
       cuotaMbActual === null || cuotaMbActual === undefined
         ? "ilimitado"
         : String(cuotaMbActual);
 
-    // vacío => no se cambia
-    if (cuotaForm !== "" && cuotaForm !== cuotaActualTexto) {
-      data.append("cuotaMb", cuotaForm);
-      cambios = true;
+    const cuotaEnviar = normalizarCuotaParaEnviar(cuotaMbVista);
+
+    // Si queda admin, no enviamos cuota manual: el backend ya lo fuerza a ilimitado
+    if (!esAdminSeleccionado) {
+      // vacío => no cambia
+      if (cuotaEnviar !== "") {
+        // comparamos contra actual
+        const cuotaEnviarComparable =
+          cuotaEnviar === "ilimitado"
+            ? "ilimitado"
+            : String(Number(cuotaEnviar));
+
+        if (cuotaEnviarComparable !== cuotaActualTexto) {
+          data.append("cuotaMb", cuotaEnviar);
+          cambios = true;
+        }
+      }
     }
 
     if (!cambios) {
@@ -186,7 +256,7 @@ export default function ModalEditarUsuario({
       setErrorMsg(
         err.response?.data?.message ||
           err.response?.data?.error ||
-          "Error al actualizar usuario"
+          "Error al actualizar usuario",
       );
       setShowError(true);
       onClose();
@@ -343,19 +413,81 @@ export default function ModalEditarUsuario({
                 {/* ✅ Almacenamiento */}
                 <div className="col-span-2">
                   <label className="block mb-1 text-sm font-medium text-white">
-                    Almacenamiento (MB)
+                    Almacenamiento
                   </label>
-                  <input
-                    type="text"
-                    name="cuotaMb"
-                    value={form.cuotaMb}
-                    onChange={handleChange}
-                    disabled={isSubmitting}
-                    placeholder="Ej: 50  (o escribe 'ilimitado')"
-                    className="block w-full p-2.5 border rounded-lg bg-gray-600 border-gray-500 text-white"
-                  />
+
+                  <div className="relative">
+                    <input
+                      type="text"
+                      name="cuotaMbVista"
+                      value={cuotaMbVista}
+                      onChange={(e) => {
+                        const valor = e.target.value;
+
+                        // Si es admin (seleccionado), no se edita
+                        if (esAdminSeleccionado) return;
+
+                        // Permitir que escriba ∞ o números
+                        if (valor.trim() === "∞") {
+                          setCuotaMbVista("∞");
+                          setForm((prev) => ({
+                            ...prev,
+                            cuotaMb: "ilimitado",
+                          }));
+                          return;
+                        }
+
+                        const formateado = formatearEnteroBanco(valor);
+                        setCuotaMbVista(formateado);
+
+                        const limpio = normalizarCuotaParaEnviar(formateado);
+                        setForm((prev) => ({
+                          ...prev,
+                          cuotaMb: limpio === "" ? "" : limpio,
+                        }));
+                      }}
+                      disabled={isSubmitting || esAdminSeleccionado}
+                      placeholder="Ej: 12.000"
+                      className="block w-full p-2.5 pr-14 border rounded-lg bg-gray-600 border-gray-500 text-white disabled:opacity-60"
+                    />
+
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-200/80">
+                      {cuotaMbVista === "∞" ? "" : "MB"}
+                    </span>
+                  </div>
+
+                  <div className="mt-2 flex items-center gap-3">
+                    <button
+                      type="button"
+                      disabled={isSubmitting || esAdminSeleccionado}
+                      onClick={() => {
+                        if (esAdminSeleccionado) return;
+                        setCuotaMbVista("∞");
+                        setForm((prev) => ({ ...prev, cuotaMb: "ilimitado" }));
+                      }}
+                      className="px-3 py-1.5 text-xs rounded-lg bg-gray-700 text-gray-200 hover:bg-gray-600 disabled:opacity-60"
+                    >
+                      Ilimitado (∞)
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={isSubmitting || esAdminSeleccionado}
+                      onClick={() => {
+                        if (esAdminSeleccionado) return;
+                        setCuotaMbVista("");
+                        setForm((prev) => ({ ...prev, cuotaMb: "" }));
+                      }}
+                      className="px-3 py-1.5 text-xs rounded-lg bg-gray-700 text-gray-200 hover:bg-gray-600 disabled:opacity-60"
+                    >
+                      No cambiar
+                    </button>
+                  </div>
+
                   <p className="mt-1 text-xs text-gray-200/70">
-                    Vacío = no cambia. "ilimitado" = sin límite.
+                    {esAdminSeleccionado
+                      ? "Admin siempre es ilimitado (∞). Cambia el rol si necesitas asignar cuota."
+                      : "Dejar vacío = no cambia. Usa el botón “Ilimitado (∞)” si no deseas límite."}
                   </p>
                 </div>
 
