@@ -28,6 +28,7 @@ import almacenamientoRoutes from "./routes/almacenamiento.routes.js";
 import "./jobs/purgarPapeleras.js";
 import eventosArchivosRoutes from "./routes/eventosArchivos.routes.js";
 import perfilRoutes from "./routes/perfil.routes.js";
+import carpetasArchivosRoutes from "./routes/carpetasArchivos.routes.js";
 
 import authRoutes from "./routes/auth.routes.js";
 import usuariosRoutes from "./routes/usuarios.routes.js";
@@ -85,7 +86,7 @@ app.use(
     saveUninitialized: false,
     cookie: opcionesDeCookie,
     store: new RedisStore({ client: redisClient, prefix: "sess:" }),
-  })
+  }),
 );
 
 /* ───── Estáticos y parsers ─────────────────────────────── */
@@ -106,6 +107,7 @@ app.use("/api/cuentas", cxcRoutes);
 app.use("/api/solicitudes-pago", solicitudesPagoRoutes);
 app.use("/api/bancos", bancosRoutes);
 app.use("/api/archivos", archivosRoutes);
+app.use("/api/carpetas-archivos", carpetasArchivosRoutes);
 app.use("/api/almacenamiento", almacenamientoRoutes);
 app.use("/api/perfil", perfilRoutes);
 /* ───── Rutas de seguridad ──────────────────────────────── */
@@ -116,7 +118,6 @@ app.use("/api/permisos", permisosRoutes);
 app.use("/api/roles-permisos", rolesPermisosRoutes);
 app.use("/api/archivos/eventos", eventosArchivosRoutes);
 
-
 /* ───── 404 para API inexistente ─────────────────────────── */
 app.use((req, res, next) => {
   if (req.originalUrl.startsWith("/api/")) {
@@ -124,7 +125,6 @@ app.use((req, res, next) => {
   }
   next();
 });
-
 
 /* ───── Error handler global ────────────────────────────── */
 app.use(errorHandler);

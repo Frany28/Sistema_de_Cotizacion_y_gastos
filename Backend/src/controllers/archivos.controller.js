@@ -33,14 +33,14 @@ export async function moverObjetoEnS3({ origen, destino }) {
       CopySource: copySource,
       Key: destino,
       ACL: "private",
-    })
+    }),
   );
   // 2) Borrar original
   await s3.send(
     new DeleteObjectCommand({
       Bucket: bucket,
       Key: origen,
-    })
+    }),
   );
 }
 
@@ -68,7 +68,7 @@ export const sustituirArchivo = async (req, res) => {
           AND registroId = ?
           AND subTipoArchivo = ?
           AND estado = 'activo'`,
-      [req.params.registroTipo, req.params.registroId, subTipoArchivo]
+      [req.params.registroTipo, req.params.registroId, subTipoArchivo],
     );
 
     if (!archivoActivo) {
@@ -90,7 +90,7 @@ export const sustituirArchivo = async (req, res) => {
     // Cuota
     const [[usuario]] = await conexion.query(
       "SELECT cuotaMb, usoStorageBytes FROM usuarios WHERE id = ?",
-      [creadoPor]
+      [creadoPor],
     );
 
     const cuotaBytes = Number(usuario.cuotaMb || 0) * 1024 * 1024;
@@ -117,7 +117,7 @@ export const sustituirArchivo = async (req, res) => {
               rutaS3 = COALESCE(?, rutaS3),
               actualizadoEn = NOW()
         WHERE id = ?`,
-      [rutaPapelera, archivoActivo.id]
+      [rutaPapelera, archivoActivo.id],
     );
 
     // 3) siguiente versión del grupo
@@ -125,7 +125,7 @@ export const sustituirArchivo = async (req, res) => {
       `SELECT COALESCE(MAX(numeroVersion), 0) AS maxVersion
          FROM archivos
         WHERE grupoArchivoId = ?`,
-      [archivoActivo.grupoArchivoId]
+      [archivoActivo.grupoArchivoId],
     );
 
     const siguienteVersion = Number(maxVersion || 0) + 1;
@@ -148,7 +148,7 @@ export const sustituirArchivo = async (req, res) => {
         tamanioBytes,
         nuevaKey,
         creadoPor,
-      ]
+      ],
     );
 
     const nuevoArchivoId = resultadoArchivo.insertId;
@@ -166,7 +166,7 @@ export const sustituirArchivo = async (req, res) => {
         tamanioBytes,
         nuevaKey,
         creadoPor,
-      ]
+      ],
     );
 
     const versionId = resultadoVersion.insertId;
@@ -174,7 +174,7 @@ export const sustituirArchivo = async (req, res) => {
     // 6) actualizar uso storage
     await conexion.query(
       "UPDATE usuarios SET usoStorageBytes = ? WHERE id = ?",
-      [nuevoUso, creadoPor]
+      [nuevoUso, creadoPor],
     );
 
     // 7) auditoría (acción válida en tu ENUM)
@@ -196,7 +196,7 @@ export const sustituirArchivo = async (req, res) => {
           nombreOriginal: originalname,
           numeroVersion: siguienteVersion,
         }),
-      ]
+      ],
     );
 
     await conexion.commit();
@@ -224,7 +224,7 @@ export const descargarArchivo = async (req, res) => {
          FROM archivos
         WHERE id = ?
           AND estado = 'activo'`,
-      [archivoId]
+      [archivoId],
     );
 
     if (!archivo) {
@@ -274,7 +274,7 @@ export const listarArchivos = async (req, res) => {
 
     const [[{ total }]] = await db.query(
       `SELECT COUNT(*) AS total FROM archivos a ${where}`,
-      params
+      params,
     );
 
     const [data] = await db.query(
@@ -292,7 +292,7 @@ export const listarArchivos = async (req, res) => {
         ${where}
      ORDER BY a.creadoEn DESC
      LIMIT ? OFFSET ?`,
-      [...params, limit, offset]
+      [...params, limit, offset],
     );
 
     return res.json({ data, total, page, limit });
@@ -313,7 +313,7 @@ export const eliminarArchivo = async (req, res) => {
   try {
     const [[archivo]] = await db.query(
       "SELECT estado, subidoPor, tamanioBytes FROM archivos WHERE id = ?",
-      [archivoId]
+      [archivoId],
     );
 
     if (!archivo) {
@@ -335,12 +335,12 @@ export const eliminarArchivo = async (req, res) => {
 
     await db.execute(
       "UPDATE archivos SET estado = 'eliminado', eliminadoEn = NOW(), actualizadoEn = NOW() WHERE id = ?",
-      [archivoId]
+      [archivoId],
     );
 
     await db.execute(
       "UPDATE usuarios SET usoStorageBytes = usoStorageBytes - ? WHERE id = ?",
-      [archivo.tamanioBytes, archivo.subidoPor]
+      [archivo.tamanioBytes, archivo.subidoPor],
     );
 
     await db.execute(
@@ -352,7 +352,7 @@ export const eliminarArchivo = async (req, res) => {
         req.ip || null,
         req.get("User-Agent") || null,
         JSON.stringify({ motivo: "eliminacionManual" }),
-      ]
+      ],
     );
 
     return res.json({
@@ -376,7 +376,7 @@ export const restaurarArchivo = async (req, res) => {
     `SELECT *
        FROM archivos
       WHERE id = ? AND estado = 'reemplazado'`,
-    [archivoId]
+    [archivoId],
   );
 
   if (!archivoReemplazado) {
@@ -413,7 +413,7 @@ export const restaurarArchivo = async (req, res) => {
 
   const [[registroVivo]] = await db.query(
     `SELECT 1 FROM \`${tablaDestino}\` WHERE id = ? LIMIT 1`,
-    [archivoReemplazado.registroId]
+    [archivoReemplazado.registroId],
   );
 
   if (!registroVivo) {
@@ -434,7 +434,7 @@ export const restaurarArchivo = async (req, res) => {
         WHERE grupoArchivoId = ?
           AND estado = 'activo'
         FOR UPDATE`,
-      [archivoReemplazado.grupoArchivoId]
+      [archivoReemplazado.grupoArchivoId],
     );
 
     // si hay activo, mover a papelera y marcar reemplazado
@@ -452,7 +452,7 @@ export const restaurarArchivo = async (req, res) => {
                 rutaS3 = ?,
                 actualizadoEn = NOW()
           WHERE id = ?`,
-        [rutaPapelera, archivoActivo.id]
+        [rutaPapelera, archivoActivo.id],
       );
     }
 
@@ -470,7 +470,7 @@ export const restaurarArchivo = async (req, res) => {
               rutaS3 = ?,
               actualizadoEn = NOW()
         WHERE id = ?`,
-      [rutaDestino, archivoReemplazado.id]
+      [rutaDestino, archivoReemplazado.id],
     );
 
     // auditoría compatible: usamos sustitucionArchivo + detalles
@@ -488,7 +488,7 @@ export const restaurarArchivo = async (req, res) => {
           archivoActivoAnteriorId: archivoActivo ? archivoActivo.id : null,
           rutaRestaurada: rutaDestino,
         }),
-      ]
+      ],
     );
 
     await conexion.commit();
@@ -515,7 +515,7 @@ export const listarHistorialVersiones = async (req, res) => {
     // 1. Obtener grupo del archivo actual
     const [[archivo]] = await conexion.query(
       `SELECT grupoArchivoId, subidoPor FROM archivos WHERE id = ?`,
-      [archivoId]
+      [archivoId],
     );
 
     if (!archivo) {
@@ -541,7 +541,7 @@ export const listarHistorialVersiones = async (req, res) => {
          JOIN usuarios u ON u.id = a.subidoPor
         WHERE a.grupoArchivoId = ?
         ORDER BY a.numeroVersion DESC`,
-      [archivo.grupoArchivoId]
+      [archivo.grupoArchivoId],
     );
 
     // 4. Agregar URLs prefirmadas
@@ -549,7 +549,7 @@ export const listarHistorialVersiones = async (req, res) => {
       versiones.map(async (v) => {
         const urlTemporal = await generarUrlPrefirmadaLectura(v.rutaS3);
         return { ...v, urlTemporal };
-      })
+      }),
     );
 
     return res.json(versionesConUrl);
@@ -575,7 +575,7 @@ export const descargarVersion = async (req, res) => {
          FROM versionesArchivo v
     JOIN archivos a ON a.id = v.archivoId
         WHERE v.id = ?`,
-      [versionId]
+      [versionId],
     );
     if (!version)
       return res.status(404).json({ message: "Versión no encontrada." });
@@ -597,7 +597,7 @@ export const descargarVersion = async (req, res) => {
         req.ip,
         req.get("User-Agent"),
         JSON.stringify({ key: version.keyS3 }),
-      ]
+      ],
     );
 
     return res.json({ url });
@@ -623,7 +623,7 @@ export const restaurarVersion = async (req, res) => {
               rutaS3 AS keyS3, subidoPor, registroTipo, registroId
          FROM archivos
         WHERE id = ?`,
-      [versionId]
+      [versionId],
     );
 
     if (!version) {
@@ -643,7 +643,7 @@ export const restaurarVersion = async (req, res) => {
     // 3. Validar cuota
     const [[usuario]] = await conexion.query(
       "SELECT cuotaMb, usoStorageBytes FROM usuarios WHERE id = ?",
-      [creadoPor]
+      [creadoPor],
     );
     const cuotaBytes = usuario.cuotaMb * 1024 * 1024;
     const nuevoUso = usuario.usoStorageBytes + version.tamanioBytes;
@@ -660,7 +660,7 @@ export const restaurarVersion = async (req, res) => {
     const [[activoActual]] = await conexion.query(
       `SELECT id, rutaS3 FROM archivos
         WHERE grupoArchivoId = ? AND estado = 'activo'`,
-      [version.grupoArchivoId]
+      [version.grupoArchivoId],
     );
 
     if (activoActual) {
@@ -678,7 +678,7 @@ export const restaurarVersion = async (req, res) => {
         rutaS3 = ?,
         actualizadoEn = NOW()
          WHERE id = ?`,
-        [nuevaRutaPapelera, activoActual.id]
+        [nuevaRutaPapelera, activoActual.id],
       );
 
       // Evento
@@ -692,7 +692,7 @@ export const restaurarVersion = async (req, res) => {
           JSON.stringify({ nuevaRuta: nuevaRutaPapelera }),
           req.ip,
           req.get("User-Agent"),
-        ]
+        ],
       );
     }
 
@@ -708,7 +708,7 @@ export const restaurarVersion = async (req, res) => {
     // 6. Obtener nuevo número de versión
     const [[{ maxVersion }]] = await conexion.query(
       `SELECT MAX(numeroVersion) AS maxVersion FROM archivos WHERE grupoArchivoId = ?`,
-      [version.grupoArchivoId]
+      [version.grupoArchivoId],
     );
     const siguienteVersion = maxVersion + 1;
 
@@ -729,14 +729,14 @@ export const restaurarVersion = async (req, res) => {
         version.tamanioBytes,
         nuevaRuta,
         creadoPor,
-      ]
+      ],
     );
     const nuevoArchivoId = resultado.insertId;
 
     // 8. Actualizar almacenamiento
     await conexion.query(
       `UPDATE usuarios SET usoStorageBytes = ? WHERE id = ?`,
-      [nuevoUso, creadoPor]
+      [nuevoUso, creadoPor],
     );
 
     // 9. Registrar evento
@@ -756,7 +756,7 @@ export const restaurarVersion = async (req, res) => {
           nuevaVersion: siguienteVersion,
           nuevaRuta,
         }),
-      ]
+      ],
     );
 
     await conexion.commit();
@@ -787,7 +787,7 @@ export const eliminarDefinitivamente = async (req, res) => {
   try {
     const [[archivo]] = await db.query(
       "SELECT rutaS3 AS keyS3 FROM archivos WHERE id = ? AND estado = 'eliminado'",
-      [archivoId]
+      [archivoId],
     );
     if (!archivo) {
       return res
@@ -800,7 +800,7 @@ export const eliminarDefinitivamente = async (req, res) => {
       new DeleteObjectCommand({
         Bucket: process.env.S3_BUCKET,
         Key: archivo.keyS3,
-      })
+      }),
     );
 
     // Eliminar registro de BD
@@ -816,7 +816,7 @@ export const eliminarDefinitivamente = async (req, res) => {
         req.ip,
         req.get("User-Agent"),
         JSON.stringify({ key: archivo.keyS3 }),
-      ]
+      ],
     );
 
     return res.json({ message: "Eliminado permanentemente del sistema y S3." });
@@ -834,19 +834,26 @@ export const obtenerArbolArchivos = async (req, res) => {
   const esVistaCompleta = [ROL_ADMIN, ROL_SUPERVISOR].includes(rolId);
 
   try {
+    // 1) Traer archivos activos (todos viven en S3)
     const [rows] = await db.query(
-      `SELECT id, nombreOriginal, extension, tamanioBytes,
-              rutaS3, creadoEn
+      `SELECT id, nombreOriginal, extension, tamanioBytes, rutaS3, creadoEn,
+              carpetaId, registroTipo, registroId
          FROM archivos
         WHERE estado = 'activo'
           ${esVistaCompleta ? "" : "AND subidoPor = ?"}
      ORDER BY rutaS3`,
-      esVistaCompleta ? [] : [creadoPor]
+      esVistaCompleta ? [] : [creadoPor],
     );
 
-    const raiz = [];
+    // 2) Rama A: Árbol por prefijos S3 (tu lógica actual)
+    const nodoS3 = {
+      nombre: "Por rutas (S3)",
+      ruta: "s3",
+      tipo: "carpeta",
+      hijos: [],
+    };
 
-    const buscarOCrearCarpeta = (nivel, nombre, rutaAbs) => {
+    const buscarOCrearCarpetaS3 = (nivel, nombre, rutaAbs) => {
       let nodo = nivel.find((n) => n.tipo === "carpeta" && n.nombre === nombre);
       if (!nodo) {
         nodo = { nombre, ruta: rutaAbs, tipo: "carpeta", hijos: [] };
@@ -856,13 +863,15 @@ export const obtenerArbolArchivos = async (req, res) => {
     };
 
     for (const f of rows) {
-      const partes = f.rutaS3.split("/");
-      let nivelActual = raiz;
+      const partes = String(f.rutaS3 || "")
+        .split("/")
+        .filter(Boolean);
+      let nivelActual = nodoS3.hijos;
       let rutaAcum = "";
 
       for (let i = 0; i < partes.length - 1; i++) {
         rutaAcum = rutaAcum ? `${rutaAcum}/${partes[i]}` : partes[i];
-        nivelActual = buscarOCrearCarpeta(nivelActual, partes[i], rutaAcum);
+        nivelActual = buscarOCrearCarpetaS3(nivelActual, partes[i], rutaAcum);
       }
 
       nivelActual.push({
@@ -873,17 +882,104 @@ export const obtenerArbolArchivos = async (req, res) => {
         extension: f.extension,
         tamanioBytes: f.tamanioBytes,
         creadoEn: f.creadoEn,
+        carpetaId: f.carpetaId,
+        registroTipo: f.registroTipo,
+        registroId: f.registroId,
       });
     }
 
-    return res.json(raiz);
+    // 3) Rama B: Árbol por carpetas BD (repositorio “real”)
+    const [carpetas] = await db.query(
+      `SELECT id, nombre, padreId, rutaVirtual
+         FROM carpetasArchivos
+        WHERE estado = 'activa'
+        ORDER BY rutaVirtual ASC`,
+    );
+
+    const nodoBd = {
+      nombre: "Por carpetas (BD)",
+      ruta: "bd",
+      tipo: "carpeta",
+      hijos: [],
+    };
+
+    const mapaNodos = new Map();
+    const raizId = 0;
+
+    mapaNodos.set(raizId, {
+      id: raizId,
+      nombre: "Carpetas",
+      ruta: "/",
+      tipo: "carpeta",
+      hijos: [],
+    });
+
+    for (const c of carpetas) {
+      mapaNodos.set(c.id, {
+        id: c.id,
+        nombre: c.nombre,
+        ruta: c.rutaVirtual || `/carpeta/${c.id}`,
+        tipo: "carpeta",
+        padreId: c.padreId ?? raizId,
+        hijos: [],
+      });
+    }
+
+    for (const c of carpetas) {
+      const nodo = mapaNodos.get(c.id);
+      const padre = mapaNodos.get(nodo.padreId) || mapaNodos.get(raizId);
+      padre.hijos.push(nodo);
+    }
+
+    // Archivos que tienen carpetaId (general o incluso enlazados si algún día lo permites)
+    for (const f of rows) {
+      if (!f.carpetaId) continue;
+      if (!mapaNodos.has(f.carpetaId)) continue;
+
+      mapaNodos.get(f.carpetaId).hijos.push({
+        id: f.id,
+        nombre: f.nombreOriginal,
+        ruta: f.rutaS3,
+        tipo: "archivo",
+        extension: f.extension,
+        tamanioBytes: f.tamanioBytes,
+        creadoEn: f.creadoEn,
+        carpetaId: f.carpetaId,
+        registroTipo: f.registroTipo,
+        registroId: f.registroId,
+      });
+    }
+
+    nodoBd.hijos = mapaNodos.get(raizId).hijos;
+
+    // 4) Ordenar (carpetas primero)
+    const ordenar = (nodo) => {
+      if (!nodo?.hijos) return;
+      nodo.hijos.sort((a, b) => {
+        if (a.tipo !== b.tipo) return a.tipo === "carpeta" ? -1 : 1;
+        return String(a.nombre || "").localeCompare(
+          String(b.nombre || ""),
+          "es",
+        );
+      });
+      for (const hijo of nodo.hijos) {
+        if (hijo.tipo === "carpeta") ordenar(hijo);
+      }
+    };
+
+    ordenar(nodoS3);
+    ordenar(nodoBd);
+
+    // 5) Respuesta única: raíz con dos vistas
+    return res.json([nodoS3, nodoBd]);
   } catch (error) {
     console.error(error);
-    return res
-      .status(500)
-      .json({ message: "Error interno al obtener árbol de archivos." });
+    return res.status(500).json({
+      message: "Error interno al obtener árbol de archivos.",
+    });
   }
 };
+
 
 export const obtenerDetallesArchivo = async (req, res) => {
   const archivoId = Number(req.params.id);
@@ -908,7 +1004,7 @@ export const obtenerDetallesArchivo = async (req, res) => {
      FROM archivos a
      JOIN usuarios u ON u.id = a.subidoPor
     WHERE a.id = ? AND a.estado IN ('activo', 'eliminado', 'reemplazado')`,
-      [archivoId]
+      [archivoId],
     );
 
     if (!archivo) {
@@ -958,7 +1054,7 @@ export const contarVersionesArchivo = async (req, res) => {
       `SELECT subidoPor, numeroVersion
          FROM archivos
         WHERE id = ? AND estado != 'eliminado'`,
-      [archivoId]
+      [archivoId],
     );
 
     if (!archivo) {
@@ -1008,7 +1104,7 @@ export const listarArchivosEliminados = async (req, res) => {
       archivos.map(async (archivo) => {
         const urlTemporal = await generarUrlPrefirmadaLectura(archivo.rutaS3);
         return { ...archivo, urlTemporal };
-      })
+      }),
     );
 
     res.json(archivosConUrl);
@@ -1029,7 +1125,7 @@ export const listarVersionesPorGrupo = async (req, res) => {
     // Validar que el grupo exista y permisos si lo deseas
     const [[grupo]] = await conexion.query(
       `SELECT creadoPor FROM archivoGrupos WHERE id = ?`,
-      [grupoArchivoId]
+      [grupoArchivoId],
     );
 
     if (!grupo) {
@@ -1054,14 +1150,14 @@ export const listarVersionesPorGrupo = async (req, res) => {
      JOIN usuarios u ON u.id = a.subidoPor
     WHERE a.grupoArchivoId = ?
     ORDER BY a.numeroVersion DESC`,
-      [grupoArchivoId]
+      [grupoArchivoId],
     );
 
     const versionesConUrl = await Promise.all(
       versiones.map(async (v) => {
         const urlTemporal = await generarUrlPrefirmadaLectura(v.rutaS3);
         return { ...v, urlTemporal };
-      })
+      }),
     );
 
     res.json(versionesConUrl);
@@ -1081,7 +1177,7 @@ export const eliminarDefinitivoArchivo = async (req, res) => {
   const [[meta]] = await db.query(
     `SELECT rutaS3, subidoPor FROM archivos
       WHERE id=? AND estado IN ('eliminado','reemplazado')`,
-    [archivoId]
+    [archivoId],
   );
   if (!meta) return res.status(404).json({ message: "No está en papelera." });
   if (
@@ -1093,7 +1189,7 @@ export const eliminarDefinitivoArchivo = async (req, res) => {
   /* Rutas físicas (archivo + versiones) */
   const [versiones] = await db.query(
     `SELECT rutaS3 FROM versionesArchivo WHERE archivoId=?`,
-    [archivoId]
+    [archivoId],
   );
   const rutas = [meta.rutaS3, ...versiones.map((v) => v.rutaS3)];
 
@@ -1107,7 +1203,7 @@ export const eliminarDefinitivoArchivo = async (req, res) => {
             Key: r.startsWith("papelera/") ? r : `papelera/${r}`,
           })),
         },
-      })
+      }),
     );
   } catch (err) {
     console.error(err);
@@ -1127,7 +1223,7 @@ export const eliminarDefinitivoArchivo = async (req, res) => {
            SELECT COALESCE(SUM(tamanioBytes),0) FROM versionesArchivo WHERE archivoId=?
          )
        WHERE id = ?`,
-      [archivoId, meta.subidoPor]
+      [archivoId, meta.subidoPor],
     );
 
     // 3.2  Elimina versiones
@@ -1141,7 +1237,7 @@ export const eliminarDefinitivoArchivo = async (req, res) => {
       UPDATE archivos
          SET estado='borrado', rutaS3=NULL
        WHERE id=?`,
-      [archivoId]
+      [archivoId],
     );
 
     // 3.4  Audita
@@ -1157,7 +1253,7 @@ export const eliminarDefinitivoArchivo = async (req, res) => {
         req.ip,
         req.get("User-Agent"),
         JSON.stringify(rutas),
-      ]
+      ],
     );
 
     await cx.commit();
@@ -1197,7 +1293,7 @@ export const purgarPapelera = async (req, res) => {
   const [versiones] = await db.query(
     `SELECT archivoId, rutaS3, tamanioBytes FROM versionesArchivo
       WHERE archivoId IN (?)`,
-    [archivoIds]
+    [archivoIds],
   );
 
   const rutasTotales = [...rutasPrincipales, ...versiones.map((v) => v.rutaS3)];
@@ -1212,7 +1308,7 @@ export const purgarPapelera = async (req, res) => {
               Key: k.startsWith("papelera/") ? k : `papelera/${k}`,
             })),
           },
-        })
+        }),
       );
     }
   } catch (err) {
@@ -1241,7 +1337,7 @@ export const purgarPapelera = async (req, res) => {
         `UPDATE usuarios
             SET usoStorageBytes = GREATEST(usoStorageBytes - ?, 0)
           WHERE id = ?`,
-        [bytes, uid]
+        [bytes, uid],
       );
     }
 
@@ -1258,7 +1354,7 @@ export const purgarPapelera = async (req, res) => {
       `INSERT INTO eventosArchivo
          (archivoId, accion, creadoPor, ip, userAgent, detalles)
        VALUES ?`,
-      [eventoValores]
+      [eventoValores],
     );
 
     /*   Eliminar versiones y marcar archivos */
@@ -1271,7 +1367,7 @@ export const purgarPapelera = async (req, res) => {
               estado  = 'borrado',          -- mantiene la FK
               eliminadoEn = IFNULL(eliminadoEn, NOW())
         WHERE id IN (?)`,
-      [archivoIds]
+      [archivoIds],
     );
 
     await cx.commit();
@@ -1288,3 +1384,189 @@ export const purgarPapelera = async (req, res) => {
     cx.release();
   }
 };
+
+// ✅ Subir archivo al repositorio general (carpetasArchivos) con S3 + versionado + auditoría + cuota
+export const subirArchivoRepositorio = async (req, res) => {
+  const { id: creadoPor } = req.user;
+  const carpetaId = req.body.carpetaId ? Number(req.body.carpetaId) : null;
+
+  if (!req.file) {
+    return res.status(400).json({ message: "Debes enviar un archivo." });
+  }
+
+  const nombreOriginal = req.file.originalname;
+  const extension = nombreOriginal?.includes(".")
+    ? nombreOriginal.split(".").pop()
+    : null;
+
+  const tamanioBytes = Number(req.file.size || 0);
+  const rutaS3 = req.file.key; // clave generada por multer-s3
+
+  // Por consistencia con tu tabla:
+  const tipoDocumento = req.body.tipoDocumento || "comprobante";
+  const subTipoArchivo = req.body.subTipoArchivo || "comprobante";
+
+  // Conexión transaccional (igual que tu flujo seguro de purga)
+  const cx = await db.getConnection();
+
+  try {
+    // 1) Validar carpeta (si envían carpetaId)
+    if (carpetaId) {
+      const [[carpeta]] = await cx.query(
+        `SELECT id, estado
+           FROM carpetasArchivos
+          WHERE id = ?`,
+        [carpetaId]
+      );
+
+      if (!carpeta) {
+        return res.status(404).json({ message: "Carpeta no encontrada." });
+      }
+
+      // Ajusta si tus estados exactos difieren, pero por tu diseño esto es lo esperado:
+      if (["papelera", "borrado", "eliminado"].includes(String(carpeta.estado))) {
+        return res.status(400).json({
+          message: "No puedes subir archivos a una carpeta en papelera/borrada.",
+        });
+      }
+    }
+
+    await cx.beginTransaction();
+
+    // 2) Validar cuota / almacenamiento
+    // (Asumo que ya existen estas columnas porque tú vienes trabajando ese módulo.)
+    const [[usuario]] = await cx.query(
+      `SELECT usoStorageBytes, cuotaMb, ilimitado
+         FROM usuarios
+        WHERE id = ?`,
+      [creadoPor]
+    );
+
+    if (!usuario) {
+      await cx.rollback();
+      return res.status(404).json({ message: "Usuario no encontrado." });
+    }
+
+    const usoActualBytes = Number(usuario.usoStorageBytes || 0);
+    const nuevoUsoBytes = usoActualBytes + tamanioBytes;
+
+    const esIlimitado = Number(usuario.ilimitado || 0) === 1;
+
+    if (!esIlimitado) {
+      const cuotaMb = Number(usuario.cuotaMb || 0);
+      const cuotaBytes = cuotaMb * 1024 * 1024;
+
+      if (cuotaBytes > 0 && nuevoUsoBytes > cuotaBytes) {
+        await cx.rollback();
+        return res.status(413).json({
+          message:
+            "Has superado tu cuota de almacenamiento. Elimina archivos o solicita más espacio.",
+        });
+      }
+    }
+
+    // 3) Insert en archivos (repositorio = carpetaId, sin registroTipo/registroId)
+    const [resultadoArchivo] = await cx.query(
+      `INSERT INTO archivos (
+        registroTipo,
+        registroId,
+        subTipoArchivo,
+        tipoDocumento,
+        nombreOriginal,
+        extension,
+        tamanioBytes,
+        numeroVersion,
+        rutaS3,
+        estado,
+        esPublico,
+        subidoPor,
+        carpetaId
+      ) VALUES (
+        NULL,
+        NULL,
+        ?,
+        ?,
+        ?,
+        ?,
+        ?,
+        1,
+        ?,
+        'activo',
+        0,
+        ?,
+        ?
+      )`,
+      [
+        subTipoArchivo,
+        tipoDocumento,
+        nombreOriginal,
+        extension,
+        tamanioBytes,
+        rutaS3,
+        creadoPor,
+        carpetaId,
+      ]
+    );
+
+    const archivoId = resultadoArchivo.insertId;
+
+    // 4) Insert en versionesArchivo (versión 1)
+    const [resultadoVersion] = await cx.query(
+      `INSERT INTO versionesArchivo
+        (archivoId, numeroVersion, nombreOriginal, extension, tamanioBytes, rutaS3, subidoPor)
+       VALUES (?, 1, ?, ?, ?, ?, ?)`,
+      [archivoId, nombreOriginal, extension, tamanioBytes, rutaS3, creadoPor]
+    );
+
+    const versionId = resultadoVersion.insertId;
+
+    // 5) Actualizar usoStorageBytes
+    await cx.query(
+      `UPDATE usuarios
+          SET usoStorageBytes = ?
+        WHERE id = ?`,
+      [nuevoUsoBytes, creadoPor]
+    );
+
+    // 6) Evento auditoría (ENUM confirmado)
+    await cx.query(
+      `INSERT INTO eventosArchivo
+        (archivoId, versionId, accion, creadoPor, ip, userAgent, detalles)
+       VALUES (?, ?, 'subidaArchivo', ?, ?, ?, ?)`,
+      [
+        archivoId,
+        versionId,
+        creadoPor,
+        req.ip || null,
+        req.get("User-Agent") || null,
+        JSON.stringify({
+          carpetaId,
+          tipoDocumento,
+          subTipoArchivo,
+          rutaS3,
+          nombreOriginal,
+          tamanioBytes,
+        }),
+      ]
+    );
+
+    await cx.commit();
+
+    return res.status(201).json({
+      message: "Archivo subido al repositorio correctamente.",
+      archivoId,
+      versionId,
+      carpetaId,
+    });
+  } catch (error) {
+    await cx.rollback();
+    console.error("Error subirArchivoRepositorio:", error);
+    return res.status(500).json({
+      message: "Error interno al subir archivo al repositorio.",
+    });
+  } finally {
+    cx.release();
+  }
+};
+
+

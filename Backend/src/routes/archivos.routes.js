@@ -21,6 +21,7 @@ import {
   listarArchivosEliminados,
   listarVersionesPorGrupo,
   purgarPapelera,
+  subirArchivoRepositorio,
 } from "../controllers/archivos.controller.js";
 
 const router = express.Router();
@@ -30,14 +31,14 @@ router.get(
   "/arbol",
   autenticarUsuario,
   verificarPermiso("listarArchivos"),
-  obtenerArbolArchivos
+  obtenerArbolArchivos,
 );
 
 router.put(
   "/sustituir/:registroTipo/:registroId",
   autenticarUsuario,
   uploadGeneric.single("archivo"),
-  sustituirArchivo
+  sustituirArchivo,
 );
 
 /*─────────────────────── Descargas ────────────────────────────*/
@@ -45,14 +46,14 @@ router.get(
   "/descargar/:id",
   autenticarUsuario,
   verificarPermiso("verArchivos"),
-  descargarArchivo
+  descargarArchivo,
 );
 
 router.get(
   "/version/:versionId/descargar",
   autenticarUsuario,
   verificarPermiso("verArchivos"),
-  descargarVersion
+  descargarVersion,
 );
 
 /*─────────────────────── Listados ─────────────────────────────*/
@@ -62,21 +63,21 @@ router.get(
   "/",
   autenticarUsuario,
   verificarPermiso("verArchivos"),
-  listarArchivos
+  listarArchivos,
 );
 
 router.get(
   "/grupo/:grupoArchivoId/versiones",
   autenticarUsuario,
   verificarPermiso("verArchivos"),
-  listarVersionesPorGrupo
+  listarVersionesPorGrupo,
 );
 
 router.get(
   "/detalle/:id",
   autenticarUsuario,
   verificarPermiso("verArchivos"),
-  obtenerDetallesArchivo
+  obtenerDetallesArchivo,
 );
 
 /*─────────────────────── Eliminación / Restauración ───────────*/
@@ -85,7 +86,7 @@ router.delete(
   "/:id",
   autenticarUsuario,
   verificarPermiso("eliminarArchivos"),
-  eliminarArchivo
+  eliminarArchivo,
 );
 
 // src/routes/archivos.routes.js
@@ -93,7 +94,7 @@ router.delete(
   "/papelera/purgar",
   autenticarUsuario,
   verificarPermiso("eliminarArchivos"),
-  purgarPapelera
+  purgarPapelera,
 );
 
 // Restaurar archivo desde papelera
@@ -101,14 +102,14 @@ router.post(
   "/:id/restaurar",
   autenticarUsuario,
   verificarPermiso("restaurarArchivos"),
-  restaurarArchivo
+  restaurarArchivo,
 );
 
 router.delete(
   "/papelera/:id",
   autenticarUsuario,
   verificarPermiso("eliminarArchivos"),
-  eliminarDefinitivoArchivo
+  eliminarDefinitivoArchivo,
 );
 
 // Fallback global (solo-Admin) —mantener si lo usas en otras vistas
@@ -116,7 +117,7 @@ router.delete(
   "/eliminar-definitivo/:id",
   autenticarUsuario,
   verificarPermiso("eliminarArchivos"),
-  eliminarDefinitivamente
+  eliminarDefinitivamente,
 );
 
 /*─────────────────────── Versiones ────────────────────────────*/
@@ -126,14 +127,23 @@ router.get(
   "/:id/versiones",
   autenticarUsuario,
   verificarPermiso("verArchivos"),
-  listarHistorialVersiones
+  listarHistorialVersiones,
 );
 
 router.post(
   "/version/:versionId/restaurar",
   autenticarUsuario,
   verificarPermiso("editarArchivos"),
-  restaurarVersion
+  restaurarVersion,
+);
+
+// Subir archivo al repositorio general
+router.post(
+  "/repositorio",
+  autenticarUsuario,
+  verificarPermiso("editarArchivos"),
+  uploadGeneric.single("archivo"),
+  subirArchivoRepositorio,
 );
 
 export default router;
