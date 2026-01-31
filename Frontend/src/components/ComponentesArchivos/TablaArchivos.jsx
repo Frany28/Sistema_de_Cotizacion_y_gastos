@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import {
   ChevronRight,
   ChevronDown,
@@ -9,10 +9,12 @@ import {
   FileAudio,
   FileVideo,
   FileWarning,
+  Upload,
+  X,
 } from "lucide-react";
 import { format, formatDistanceToNowStrict } from "date-fns";
 import { es } from "date-fns/locale";
-import api from "../../api/index";
+import api from "././api/index";
 import { useNavigate } from "react-router-dom";
 
 function TablaArchivos() {
@@ -24,6 +26,15 @@ function TablaArchivos() {
   const [cargando, setCargando] = useState(true);
   const [terminoBusqueda, setTerminoBusqueda] = useState("");
   const [orden, setOrden] = useState({ campo: "nombre", asc: true });
+
+  // Modal subida
+  const [modalSubidaAbierto, setModalSubidaAbierto] = useState(false);
+  const [estaArrastrando, setEstaArrastrando] = useState(false);
+  const [archivoSeleccionado, setArchivoSeleccionado] = useState(null);
+  const [subiendoArchivo, setSubiendoArchivo] = useState(false);
+  const [mensajeErrorSubida, setMensajeErrorSubida] = useState("");
+
+  const inputArchivoRef = useRef(null);
 
   /* ----------------------------------------------------------------------- */
   /* Obtención de datos                                                      */
@@ -99,11 +110,74 @@ function TablaArchivos() {
     }
   };
 
+  // ✅ FIX 1: antes estaba ({ .prev, ... })
   const alternarNodo = (ruta) =>
     setNodosExpandidos((prev) => ({ ...prev, [ruta]: !prev[ruta] }));
 
   const coincideBusqueda = (cadena) =>
     cadena.toLowerCase().includes(terminoBusqueda.trim().toLowerCase());
+
+  /* ----------------------------------------------------------------------- */
+  /* Subida de archivos (repositorio general)                                */
+  /* ----------------------------------------------------------------------- */
+  const abrirModalSubida = () => {
+    setMensajeErrorSubida("");
+    setArchivoSeleccionado(null);
+    setEstaArrastrando(false);
+    setModalSubidaAbierto(true);
+  };
+
+  const cerrarModalSubida = () => {
+    if (subiendoArchivo) return;
+    setModalSubidaAbierto(false);
+  };
+
+  const onSeleccionarArchivo = (file) => {
+    if (!file) return;
+    setMensajeErrorSubida("");
+    setArchivoSeleccionado(file);
+  };
+
+  const onDropArchivo = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setEstaArrastrando(false);
+
+    const file = e.dataTransfer?.files?.[0];
+    onSeleccionarArchivo(file);
+  };
+
+  const subirArchivoAlRepositorio = async () => {
+    if (!archivoSeleccionado) {
+      setMensajeErrorSubida("Selecciona un archivo antes de subir.");
+      return;
+    }
+
+    setSubiendoArchivo(true);
+    setMensajeErrorSubida("");
+
+    try {
+      const formData = new FormData();
+      formData.append("archivo", archivoSeleccionado);
+
+      // Endpoint existente: POST /archivos/repositorio
+      await api.post("/archivos/repositorio", formData, {
+        withCredentials: true,
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      setModalSubidaAbierto(false);
+      await obtenerArbolArchivos();
+    } catch (error) {
+      console.error("Error subiendo archivo:", error);
+      setMensajeErrorSubida(
+        error?.response?.data?.message ||
+          "No se pudo subir el archivo. Revisa permisos o el backend.",
+      );
+    } finally {
+      setSubiendoArchivo(false);
+    }
+  };
 
   /* ----------------------------------------------------------------------- */
   /* Cálculos para carpetas                                                  */
@@ -154,8 +228,9 @@ function TablaArchivos() {
     (a, b) => {
       if (a.tipo !== b.tipo) return a.tipo === "carpeta" ? -1 : 1;
       const factor = orden.asc ? 1 : -1;
+
       switch (orden.campo) {
-        case "tamanioBytes":
+        case "tamanioBytes": {
           const tamanoA =
             a.tipo === "carpeta"
               ? calcularTamanoCarpeta(a)
@@ -165,7 +240,8 @@ function TablaArchivos() {
               ? calcularTamanoCarpeta(b)
               : b.tamanioBytes || 0;
           return factor * (tamanoA - tamanoB);
-        case "creadoEn":
+        }
+        case "creadoEn": {
           const fechaA =
             a.tipo === "carpeta"
               ? obtenerUltimaModificacion(a)
@@ -175,11 +251,12 @@ function TablaArchivos() {
               ? obtenerUltimaModificacion(b)
               : new Date(b.creadoEn);
           return factor * (fechaA - fechaB);
+        }
         default:
           return factor * a.nombre.localeCompare(b.nombre);
       }
     },
-    [orden, calcularTamanoCarpeta, obtenerUltimaModificacion]
+    [orden, calcularTamanoCarpeta, obtenerUltimaModificacion],
   );
 
   /* ----------------------------------------------------------------------- */
@@ -187,7 +264,6 @@ function TablaArchivos() {
   /* ----------------------------------------------------------------------- */
   const renderizarNodo = useCallback(
     (nodo, nivel = 0) => {
-      // Filtrado por búsqueda
       const tieneCoincidencia = coincideBusqueda(nodo.nombre);
 
       if (terminoBusqueda && nodo.tipo === "archivo" && !tieneCoincidencia) {
@@ -197,10 +273,9 @@ function TablaArchivos() {
       const sangriaPx = 16 + nivel * 24;
 
       if (nodo.tipo === "carpeta") {
-        // Renderizar hijos primero para determinar si hay coincidencias
-        const hijosFiltrados = (
-          Array.isArray(nodo.hijos) ? nodo.hijos : []
-        ).flatMap((h) => renderizarNodo(h, nivel + 1));
+        const hijosFiltrados = (Array.isArray(nodo.hijos) ? nodo.hijos : [])
+          .sort(ordenar)
+          .flatMap((h) => renderizarNodo(h, nivel + 1));
 
         const tieneHijosCoincidentes = hijosFiltrados.length > 0;
 
@@ -210,7 +285,6 @@ function TablaArchivos() {
 
         const abierta = !!nodosExpandidos[nodo.ruta] || terminoBusqueda;
 
-        // Calcular tamaño y fecha para la carpeta
         const tamanoCarpeta = calcularTamanoCarpeta(nodo);
         const ultimaModificacion = obtenerUltimaModificacion(nodo);
 
@@ -248,6 +322,7 @@ function TablaArchivos() {
 
         if (!abierta) return [filaCarpeta];
 
+        // ✅ FIX 2: antes era [filaCarpeta, .hijosFiltrados]
         return [filaCarpeta, ...hijosFiltrados];
       }
 
@@ -281,7 +356,8 @@ function TablaArchivos() {
       nodosExpandidos,
       calcularTamanoCarpeta,
       obtenerUltimaModificacion,
-    ]
+      ordenar,
+    ],
   );
 
   /* ----------------------------------------------------------------------- */
@@ -318,12 +394,13 @@ function TablaArchivos() {
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 sm:p-5 sm:pb-3 bg-gray-800 border-b border-gray-700">
         <input
           type="text"
-          placeholder="Buscar archivos o carpetas..."
+          placeholder="Buscar archivos o carpetas."
           value={terminoBusqueda}
           onChange={(e) => setTerminoBusqueda(e.target.value)}
           className="w-full sm:w-80 bg-gray-700 border border-gray-600 rounded-lg px-4 py-2.5 text-sm text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 shadow-inner"
         />
-        <div className="flex gap-2 text-sm text-gray-300 overflow-x-auto pb-2 sm:pb-0">
+
+        <div className="flex gap-2 text-sm text-gray-300 overflow-x-auto pb-2 sm:pb-0 items-center">
           <button
             onClick={() => setOrden({ campo: "nombre", asc: !orden.asc })}
             className={`px-3 py-2 rounded-lg transition-colors duration-200 flex items-center gap-1 flex-shrink-0 ${
@@ -335,6 +412,7 @@ function TablaArchivos() {
             <span>Nombre</span>
             {orden.campo === "nombre" && (orden.asc ? "↑" : "↓")}
           </button>
+
           <button
             onClick={() => setOrden({ campo: "creadoEn", asc: !orden.asc })}
             className={`px-3 py-2 rounded-lg transition-colors duration-200 flex items-center gap-1 flex-shrink-0 ${
@@ -346,6 +424,7 @@ function TablaArchivos() {
             <span>Fecha</span>
             {orden.campo === "creadoEn" && (orden.asc ? "↑" : "↓")}
           </button>
+
           <button
             onClick={() => setOrden({ campo: "tamanioBytes", asc: !orden.asc })}
             className={`px-3 py-2 rounded-lg transition-colors duration-200 flex items-center gap-1 flex-shrink-0 ${
@@ -356,6 +435,15 @@ function TablaArchivos() {
           >
             <span>Tamaño</span>
             {orden.campo === "tamanioBytes" && (orden.asc ? "↑" : "↓")}
+          </button>
+
+          {/* Botón de subida */}
+          <button
+            onClick={abrirModalSubida}
+            className="px-3 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2 flex-shrink-0 bg-blue-600/20 text-blue-300 border border-blue-500/30 hover:bg-blue-600/30"
+          >
+            <Upload size={16} />
+            <span>Subir archivo</span>
           </button>
         </div>
       </div>
@@ -394,6 +482,108 @@ function TablaArchivos() {
           </tbody>
         </table>
       </div>
+
+      {/* Modal subida */}
+      {modalSubidaAbierto && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+          <div className="w-full max-w-xl bg-gray-800 border border-gray-700 rounded-2xl shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-700">
+              <h3 className="text-lg font-semibold text-gray-100">
+                Subir archivo al repositorio
+              </h3>
+              <button
+                onClick={cerrarModalSubida}
+                className="p-2 rounded-lg hover:bg-gray-700/60 text-gray-300"
+                title="Cerrar"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div
+                onDragEnter={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setEstaArrastrando(true);
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setEstaArrastrando(true);
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setEstaArrastrando(false);
+                }}
+                onDrop={onDropArchivo}
+                className={`w-full rounded-xl border-2 border-dashed p-6 text-center transition-colors ${
+                  estaArrastrando
+                    ? "border-blue-400 bg-blue-500/10"
+                    : "border-gray-600 bg-gray-900/20"
+                }`}
+              >
+                <p className="text-gray-200 font-medium">
+                  Arrastra tu archivo aquí
+                </p>
+                <p className="text-gray-400 text-sm mt-1">
+                  o usa el botón para seleccionar desde tu PC
+                </p>
+
+                <div className="mt-4 flex items-center justify-center gap-3">
+                  <input
+                    ref={inputArchivoRef}
+                    type="file"
+                    className="hidden"
+                    onChange={(e) => onSeleccionarArchivo(e.target.files?.[0])}
+                  />
+                  <button
+                    onClick={() => inputArchivoRef.current?.click()}
+                    className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-100 border border-gray-600"
+                    disabled={subiendoArchivo}
+                  >
+                    Seleccionar archivo
+                  </button>
+                </div>
+
+                {archivoSeleccionado && (
+                  <div className="mt-4 text-sm text-gray-200">
+                    <span className="text-gray-400">Seleccionado:</span>{" "}
+                    {archivoSeleccionado.name}{" "}
+                    <span className="text-gray-400">
+                      ({formatoTamano(archivoSeleccionado.size)})
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {mensajeErrorSubida && (
+                <div className="text-sm text-red-300 bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+                  {mensajeErrorSubida}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  onClick={cerrarModalSubida}
+                  disabled={subiendoArchivo}
+                  className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-100 border border-gray-600 disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={subirArchivoAlRepositorio}
+                  disabled={subiendoArchivo}
+                  className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50"
+                >
+                  {subiendoArchivo ? "Subiendo..." : "Subir"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

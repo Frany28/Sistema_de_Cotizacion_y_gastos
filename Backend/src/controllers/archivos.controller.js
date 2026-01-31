@@ -829,157 +829,174 @@ export const eliminarDefinitivamente = async (req, res) => {
 };
 
 export const obtenerArbolArchivos = async (req, res) => {
-  const creadoPor = req.user.id;
+  const usuarioId = req.user.id;
   const rolId = req.user.rol_id;
   const esVistaCompleta = [ROL_ADMIN, ROL_SUPERVISOR].includes(rolId);
 
   try {
-    // 1) Traer archivos activos (todos viven en S3)
-    const [rows] = await db.query(
-      `SELECT id, nombreOriginal, extension, tamanioBytes, rutaS3, creadoEn,
-              carpetaId, registroTipo, registroId
-         FROM archivos
-        WHERE estado = 'activo'
-          ${esVistaCompleta ? "" : "AND subidoPor = ?"}
-     ORDER BY rutaS3`,
-      esVistaCompleta ? [] : [creadoPor],
+    /**
+     * 1) Traer carpetas del repositorio (BD) para que aparezcan aunque estén vacías
+     * - Admin/Supervisor: todas
+     * - Otros: solo las creadas por el usuario (si tu negocio es repositorio personal)
+     */
+    const [carpetasBd] = await db.query(
+      `
+      SELECT id, rutaVirtual
+        FROM carpetasArchivos
+       WHERE estado = 'activa'
+         ${esVistaCompleta ? "" : "AND creadoPor = ?"}
+       ORDER BY rutaVirtual ASC
+      `,
+      esVistaCompleta ? [] : [usuarioId],
     );
 
-    // 2) Rama A: Árbol por prefijos S3 (tu lógica actual)
-    const nodoS3 = {
-      nombre: "Por rutas (S3)",
-      ruta: "s3",
-      tipo: "carpeta",
-      hijos: [],
-    };
+    /**
+     * 2) Traer archivos activos (repositorio + enlazados)
+     * - Si NO es vista completa, solo los propios (igual que tu lógica actual)
+     */
+    const [archivosBd] = await db.query(
+      `
+      SELECT id, nombreOriginal, extension, tamanioBytes, rutaS3, creadoEn, carpetaId
+        FROM archivos
+       WHERE estado = 'activo'
+         ${esVistaCompleta ? "" : "AND subidoPor = ?"}
+       ORDER BY rutaS3 ASC
+      `,
+      esVistaCompleta ? [] : [usuarioId],
+    );
 
-    const buscarOCrearCarpetaS3 = (nivel, nombre, rutaAbs) => {
+    const raiz = [];
+
+    // Para poder insertar por carpetaId rápido
+    const mapaCarpetaIdANodo = new Map();
+
+    const buscarOCrearCarpeta = (nivel, nombre, rutaAbs) => {
       let nodo = nivel.find((n) => n.tipo === "carpeta" && n.nombre === nombre);
       if (!nodo) {
         nodo = { nombre, ruta: rutaAbs, tipo: "carpeta", hijos: [] };
         nivel.push(nodo);
       }
-      return nodo.hijos;
+      return nodo;
     };
 
-    for (const f of rows) {
-      const partes = String(f.rutaS3 || "")
+    const obtenerHijosPorRuta = (rutaVirtual) => {
+      // rutaVirtual viene tipo "/A/B/C"
+      const rutaLimpia = String(rutaVirtual || "").trim();
+      const partes = rutaLimpia.replace(/^\//, "").split("/").filter(Boolean);
+
+      let nivelActual = raiz;
+      let rutaAcumulada = "";
+
+      for (const parte of partes) {
+        rutaAcumulada = rutaAcumulada ? `${rutaAcumulada}/${parte}` : parte;
+        const nodoCarpeta = buscarOCrearCarpeta(
+          nivelActual,
+          parte,
+          `/${rutaAcumulada}`,
+        );
+        nivelActual = nodoCarpeta.hijos;
+      }
+
+      return nivelActual;
+    };
+
+    /**
+     * 3) Pintar carpetas del repositorio (aunque no tengan archivos)
+     * - Registramos un "ancla" por carpetaId -> nodo para insertar archivos por carpetaId luego
+     */
+    for (const carpeta of carpetasBd) {
+      const rutaVirtual = carpeta.rutaVirtual;
+      const rutaLimpia = String(rutaVirtual || "").trim();
+      const partes = rutaLimpia.replace(/^\//, "").split("/").filter(Boolean);
+
+      let nivelActual = raiz;
+      let rutaAcumulada = "";
+
+      for (let i = 0; i < partes.length; i++) {
+        const parte = partes[i];
+        rutaAcumulada = rutaAcumulada ? `${rutaAcumulada}/${parte}` : parte;
+
+        const nodoCarpeta = buscarOCrearCarpeta(
+          nivelActual,
+          parte,
+          `/${rutaAcumulada}`,
+        );
+
+        // Solo el último segmento corresponde a esa carpetaId real
+        if (i === partes.length - 1) {
+          nodoCarpeta.carpetaId = carpeta.id;
+          mapaCarpetaIdANodo.set(carpeta.id, nodoCarpeta);
+        }
+
+        nivelActual = nodoCarpeta.hijos;
+      }
+    }
+
+    /**
+     * 4) Insertar archivos:
+     * - Si tiene carpetaId => repositorio general (usar carpeta BD)
+     * - Si NO tiene carpetaId => usar rutaS3 para “carpetas raras” (firmas/facturasGastos/etc.)
+     */
+    for (const archivo of archivosBd) {
+      const nodoArchivo = {
+        id: archivo.id,
+        nombre: archivo.nombreOriginal,
+        ruta: archivo.rutaS3,
+        tipo: "archivo",
+        extension: archivo.extension,
+        tamanioBytes: archivo.tamanioBytes,
+        creadoEn: archivo.creadoEn,
+      };
+
+      // Caso A: repositorio (carpetaId)
+      if (archivo.carpetaId) {
+        const nodoCarpeta = mapaCarpetaIdANodo.get(archivo.carpetaId);
+
+        if (nodoCarpeta) {
+          nodoCarpeta.hijos.push(nodoArchivo);
+          continue;
+        }
+
+        // Si por permisos o desincronización no se encontró la carpeta, lo mandamos a raíz
+        raiz.push(nodoArchivo);
+        continue;
+      }
+
+      // Caso B: enlazados (carpetas raras por prefijo de rutaS3)
+      const partesRutaS3 = String(archivo.rutaS3 || "")
         .split("/")
         .filter(Boolean);
-      let nivelActual = nodoS3.hijos;
-      let rutaAcum = "";
-
-      for (let i = 0; i < partes.length - 1; i++) {
-        rutaAcum = rutaAcum ? `${rutaAcum}/${partes[i]}` : partes[i];
-        nivelActual = buscarOCrearCarpetaS3(nivelActual, partes[i], rutaAcum);
+      if (partesRutaS3.length === 0) {
+        raiz.push(nodoArchivo);
+        continue;
       }
 
-      nivelActual.push({
-        id: f.id,
-        nombre: f.nombreOriginal,
-        ruta: f.rutaS3,
-        tipo: "archivo",
-        extension: f.extension,
-        tamanioBytes: f.tamanioBytes,
-        creadoEn: f.creadoEn,
-        carpetaId: f.carpetaId,
-        registroTipo: f.registroTipo,
-        registroId: f.registroId,
-      });
-    }
+      let nivelActual = raiz;
+      let rutaAcumulada = "";
 
-    // 3) Rama B: Árbol por carpetas BD (repositorio “real”)
-    const [carpetas] = await db.query(
-      `SELECT id, nombre, padreId, rutaVirtual
-         FROM carpetasArchivos
-        WHERE estado = 'activa'
-        ORDER BY rutaVirtual ASC`,
-    );
+      for (let i = 0; i < partesRutaS3.length - 1; i++) {
+        const parte = partesRutaS3[i];
+        rutaAcumulada = rutaAcumulada ? `${rutaAcumulada}/${parte}` : parte;
 
-    const nodoBd = {
-      nombre: "Por carpetas (BD)",
-      ruta: "bd",
-      tipo: "carpeta",
-      hijos: [],
-    };
-
-    const mapaNodos = new Map();
-    const raizId = 0;
-
-    mapaNodos.set(raizId, {
-      id: raizId,
-      nombre: "Carpetas",
-      ruta: "/",
-      tipo: "carpeta",
-      hijos: [],
-    });
-
-    for (const c of carpetas) {
-      mapaNodos.set(c.id, {
-        id: c.id,
-        nombre: c.nombre,
-        ruta: c.rutaVirtual || `/carpeta/${c.id}`,
-        tipo: "carpeta",
-        padreId: c.padreId ?? raizId,
-        hijos: [],
-      });
-    }
-
-    for (const c of carpetas) {
-      const nodo = mapaNodos.get(c.id);
-      const padre = mapaNodos.get(nodo.padreId) || mapaNodos.get(raizId);
-      padre.hijos.push(nodo);
-    }
-
-    // Archivos que tienen carpetaId (general o incluso enlazados si algún día lo permites)
-    for (const f of rows) {
-      if (!f.carpetaId) continue;
-      if (!mapaNodos.has(f.carpetaId)) continue;
-
-      mapaNodos.get(f.carpetaId).hijos.push({
-        id: f.id,
-        nombre: f.nombreOriginal,
-        ruta: f.rutaS3,
-        tipo: "archivo",
-        extension: f.extension,
-        tamanioBytes: f.tamanioBytes,
-        creadoEn: f.creadoEn,
-        carpetaId: f.carpetaId,
-        registroTipo: f.registroTipo,
-        registroId: f.registroId,
-      });
-    }
-
-    nodoBd.hijos = mapaNodos.get(raizId).hijos;
-
-    // 4) Ordenar (carpetas primero)
-    const ordenar = (nodo) => {
-      if (!nodo?.hijos) return;
-      nodo.hijos.sort((a, b) => {
-        if (a.tipo !== b.tipo) return a.tipo === "carpeta" ? -1 : 1;
-        return String(a.nombre || "").localeCompare(
-          String(b.nombre || ""),
-          "es",
+        const nodoCarpeta = buscarOCrearCarpeta(
+          nivelActual,
+          parte,
+          rutaAcumulada,
         );
-      });
-      for (const hijo of nodo.hijos) {
-        if (hijo.tipo === "carpeta") ordenar(hijo);
+        nivelActual = nodoCarpeta.hijos;
       }
-    };
 
-    ordenar(nodoS3);
-    ordenar(nodoBd);
+      nivelActual.push(nodoArchivo);
+    }
 
-    // 5) Respuesta única: raíz con dos vistas
-    return res.json([nodoS3, nodoBd]);
+    return res.json(raiz);
   } catch (error) {
     console.error(error);
-    return res.status(500).json({
-      message: "Error interno al obtener árbol de archivos.",
-    });
+    return res
+      .status(500)
+      .json({ message: "Error interno al obtener árbol de archivos." });
   }
 };
-
 
 export const obtenerDetallesArchivo = async (req, res) => {
   const archivoId = Number(req.params.id);
@@ -1416,7 +1433,7 @@ export const subirArchivoRepositorio = async (req, res) => {
         `SELECT id, estado
            FROM carpetasArchivos
           WHERE id = ?`,
-        [carpetaId]
+        [carpetaId],
       );
 
       if (!carpeta) {
@@ -1424,9 +1441,12 @@ export const subirArchivoRepositorio = async (req, res) => {
       }
 
       // Ajusta si tus estados exactos difieren, pero por tu diseño esto es lo esperado:
-      if (["papelera", "borrado", "eliminado"].includes(String(carpeta.estado))) {
+      if (
+        ["papelera", "borrado", "eliminado"].includes(String(carpeta.estado))
+      ) {
         return res.status(400).json({
-          message: "No puedes subir archivos a una carpeta en papelera/borrada.",
+          message:
+            "No puedes subir archivos a una carpeta en papelera/borrada.",
         });
       }
     }
@@ -1439,7 +1459,7 @@ export const subirArchivoRepositorio = async (req, res) => {
       `SELECT usoStorageBytes, cuotaMb, ilimitado
          FROM usuarios
         WHERE id = ?`,
-      [creadoPor]
+      [creadoPor],
     );
 
     if (!usuario) {
@@ -1505,7 +1525,7 @@ export const subirArchivoRepositorio = async (req, res) => {
         rutaS3,
         creadoPor,
         carpetaId,
-      ]
+      ],
     );
 
     const archivoId = resultadoArchivo.insertId;
@@ -1515,7 +1535,7 @@ export const subirArchivoRepositorio = async (req, res) => {
       `INSERT INTO versionesArchivo
         (archivoId, numeroVersion, nombreOriginal, extension, tamanioBytes, rutaS3, subidoPor)
        VALUES (?, 1, ?, ?, ?, ?, ?)`,
-      [archivoId, nombreOriginal, extension, tamanioBytes, rutaS3, creadoPor]
+      [archivoId, nombreOriginal, extension, tamanioBytes, rutaS3, creadoPor],
     );
 
     const versionId = resultadoVersion.insertId;
@@ -1525,7 +1545,7 @@ export const subirArchivoRepositorio = async (req, res) => {
       `UPDATE usuarios
           SET usoStorageBytes = ?
         WHERE id = ?`,
-      [nuevoUsoBytes, creadoPor]
+      [nuevoUsoBytes, creadoPor],
     );
 
     // 6) Evento auditoría (ENUM confirmado)
@@ -1547,7 +1567,7 @@ export const subirArchivoRepositorio = async (req, res) => {
           nombreOriginal,
           tamanioBytes,
         }),
-      ]
+      ],
     );
 
     await cx.commit();
@@ -1568,5 +1588,3 @@ export const subirArchivoRepositorio = async (req, res) => {
     cx.release();
   }
 };
-
-
