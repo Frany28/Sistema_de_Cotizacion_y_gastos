@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { format, formatDistanceToNowStrict } from "date-fns";
 import { es } from "date-fns/locale";
-import api from "././api/index";
+import api from "../../api/index";
 import { useNavigate } from "react-router-dom";
 
 function TablaArchivos() {
