@@ -1384,7 +1384,11 @@ export const purgarPapelera = async (req, res) => {
 // ✅ Subir archivo al repositorio general (carpetasArchivos) con S3 + versionado + auditoría + cuota
 export const subirArchivoRepositorio = async (req, res) => {
   const { id: creadoPor } = req.user;
+
   const carpetaId = req.body.carpetaId ? Number(req.body.carpetaId) : null;
+
+  // 👇 NUEVO: permite subir dentro de “carpetas S3” (prefijos)
+  const prefijoS3 = req.body.prefijoS3 ? String(req.body.prefijoS3).trim() : null;
 
   if (!req.file) {
     return res.status(400).json({ message: "Debes enviar un archivo." });
@@ -1396,17 +1400,21 @@ export const subirArchivoRepositorio = async (req, res) => {
     : null;
 
   const tamanioBytes = Number(req.file.size || 0);
-  const rutaS3 = req.file.key; // clave generada por multer-s3
+
+  // Key generada por multer-s3 (objeto ya subido)
+  const rutaS3Original = req.file.key;
 
   // Por consistencia con tu tabla:
   const tipoDocumento = req.body.tipoDocumento || "comprobante";
   const subTipoArchivo = req.body.subTipoArchivo || "comprobante";
 
-  // Conexión transaccional (igual que tu flujo seguro de purga)
   const cx = await db.getConnection();
 
+  // Vamos a decidir a qué key final debe quedar el objeto
+  let rutaS3Final = rutaS3Original;
+
   try {
-    // 1) Validar carpeta (si envían carpetaId)
+    // 1) Validar carpeta BD (si envían carpetaId)
     if (carpetaId) {
       const [[carpeta]] = await cx.query(
         `SELECT id, estado
@@ -1419,21 +1427,14 @@ export const subirArchivoRepositorio = async (req, res) => {
         return res.status(404).json({ message: "Carpeta no encontrada." });
       }
 
-      // Ajusta si tus estados exactos difieren, pero por tu diseño esto es lo esperado:
-      if (
-        ["papelera", "borrado", "eliminado"].includes(String(carpeta.estado))
-      ) {
+      if (["papelera", "borrado", "eliminado"].includes(String(carpeta.estado))) {
         return res.status(400).json({
-          message:
-            "No puedes subir archivos a una carpeta en papelera/borrada.",
+          message: "No puedes subir archivos a una carpeta en papelera/borrada.",
         });
       }
     }
 
-    await cx.beginTransaction();
-
     // 2) Validar cuota / almacenamiento
-    // (Asumo que ya existen estas columnas porque tú vienes trabajando ese módulo.)
     const [[usuario]] = await cx.query(
       `SELECT usoStorageBytes, cuotaMb, ilimitado
          FROM usuarios
@@ -1442,7 +1443,6 @@ export const subirArchivoRepositorio = async (req, res) => {
     );
 
     if (!usuario) {
-      await cx.rollback();
       return res.status(404).json({ message: "Usuario no encontrado." });
     }
 
@@ -1456,7 +1456,6 @@ export const subirArchivoRepositorio = async (req, res) => {
       const cuotaBytes = cuotaMb * 1024 * 1024;
 
       if (cuotaBytes > 0 && nuevoUsoBytes > cuotaBytes) {
-        await cx.rollback();
         return res.status(413).json({
           message:
             "Has superado tu cuota de almacenamiento. Elimina archivos o solicita más espacio.",
@@ -1464,44 +1463,43 @@ export const subirArchivoRepositorio = async (req, res) => {
       }
     }
 
-    // 3) Insert en archivos (repositorio = carpetaId, sin registroTipo/registroId)
+    // 3) 👇 NUEVO: si viene prefijoS3, movemos el objeto a esa “carpeta” en S3
+    // Nota: esto aplica incluso si NO hay carpetaId (caso típico de carpeta S3)
+    if (prefijoS3) {
+      // Normalizar: quitar espacios, asegurar que termine con "/"
+      const prefijoNormalizado = prefijoS3.endsWith("/")
+        ? prefijoS3
+        : `${prefijoS3}/`;
+
+      // Nombre final: usamos el nombre original (puedes cambiarlo si tu sistema usa otro naming)
+      const nombreSeguro = nombreOriginal;
+
+      const destinoS3 = `${prefijoNormalizado}${nombreSeguro}`;
+
+      // Evitar mover si ya está exactamente allí
+      if (destinoS3 !== rutaS3Original) {
+        await moverObjetoEnS3({
+          origen: rutaS3Original,
+          destino: destinoS3,
+        });
+        rutaS3Final = destinoS3;
+      }
+    }
+
+    await cx.beginTransaction();
+
+    // 4) Insert en archivos (repositorio)
     const [resultadoArchivo] = await cx.query(
-      `INSERT INTO archivos (
-        registroTipo,
-        registroId,
-        subTipoArchivo,
-        tipoDocumento,
-        nombreOriginal,
-        extension,
-        tamanioBytes,
-        numeroVersion,
-        rutaS3,
-        estado,
-        esPublico,
-        subidoPor,
-        carpetaId
-      ) VALUES (
-        NULL,
-        NULL,
-        ?,
-        ?,
-        ?,
-        ?,
-        ?,
-        1,
-        ?,
-        'activo',
-        0,
-        ?,
-        ?
-      )`,
+      `INSERT INTO archivos
+        (subTipoArchivo, tipoDocumento, nombreOriginal, extension, tamanioBytes, rutaS3, subidoPor, carpetaId)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         subTipoArchivo,
         tipoDocumento,
         nombreOriginal,
         extension,
         tamanioBytes,
-        rutaS3,
+        rutaS3Final,
         creadoPor,
         carpetaId,
       ],
@@ -1509,17 +1507,17 @@ export const subirArchivoRepositorio = async (req, res) => {
 
     const archivoId = resultadoArchivo.insertId;
 
-    // 4) Insert en versionesArchivo (versión 1)
+    // 5) Insert en versionesArchivo (versión 1)
     const [resultadoVersion] = await cx.query(
       `INSERT INTO versionesArchivo
         (archivoId, numeroVersion, nombreOriginal, extension, tamanioBytes, rutaS3, subidoPor)
        VALUES (?, 1, ?, ?, ?, ?, ?)`,
-      [archivoId, nombreOriginal, extension, tamanioBytes, rutaS3, creadoPor],
+      [archivoId, nombreOriginal, extension, tamanioBytes, rutaS3Final, creadoPor],
     );
 
     const versionId = resultadoVersion.insertId;
 
-    // 5) Actualizar usoStorageBytes
+    // 6) Actualizar usoStorageBytes
     await cx.query(
       `UPDATE usuarios
           SET usoStorageBytes = ?
@@ -1527,7 +1525,7 @@ export const subirArchivoRepositorio = async (req, res) => {
       [nuevoUsoBytes, creadoPor],
     );
 
-    // 6) Evento auditoría (ENUM confirmado)
+    // 7) Auditoría
     await cx.query(
       `INSERT INTO eventosArchivo
         (archivoId, versionId, accion, creadoPor, ip, userAgent, detalles)
@@ -1540,9 +1538,10 @@ export const subirArchivoRepositorio = async (req, res) => {
         req.get("User-Agent") || null,
         JSON.stringify({
           carpetaId,
+          prefijoS3,
           tipoDocumento,
           subTipoArchivo,
-          rutaS3,
+          rutaS3: rutaS3Final,
           nombreOriginal,
           tamanioBytes,
         }),
@@ -1556,9 +1555,24 @@ export const subirArchivoRepositorio = async (req, res) => {
       archivoId,
       versionId,
       carpetaId,
+      rutaS3: rutaS3Final,
     });
   } catch (error) {
     await cx.rollback();
+
+    // Limpieza best-effort: si falló después de subir/mover, intentamos borrar el objeto
+    try {
+      const bucket = process.env.S3_BUCKET;
+      await s3.send(
+        new DeleteObjectCommand({
+          Bucket: bucket,
+          Key: rutaS3Final || rutaS3Original,
+        }),
+      );
+    } catch (_) {
+      // Si esto falla, no tumbamos el error principal. (El archivo quedará huérfano en S3)
+    }
+
     console.error("Error subirArchivoRepositorio:", error);
     return res.status(500).json({
       message: "Error interno al subir archivo al repositorio.",

@@ -14,10 +14,12 @@ import {
   FolderPlus,
   Home,
 } from "lucide-react";
+import ModalError from "../Modals/ModalError.jsx";
+import ModalExito from "../Modals/ModalExito.jsx";
 import { format, formatDistanceToNowStrict } from "date-fns";
 import { es } from "date-fns/locale";
 
-// ✅ FIX BUILD: ruta correcta (TablaArchivos está dentro de ComponentesArchivos)
+// ✅ FIX BUILD: ruta correcta
 import api from "../../api/index.js";
 
 import { useNavigate } from "react-router-dom";
@@ -35,7 +37,7 @@ function TablaArchivos() {
   // Carpeta actual (para subir al lugar correcto)
   const [carpetaActual, setCarpetaActual] = useState({
     carpetaId: null, // carpeta BD
-    esDestinoS3: false, // carpeta del árbol por rutaS3
+    esDestinoS3: false, // carpeta virtual S3
     prefijoS3: "",
     ruta: "/",
     nombre: "Raíz",
@@ -46,15 +48,39 @@ function TablaArchivos() {
   const [estaArrastrando, setEstaArrastrando] = useState(false);
   const [archivoSeleccionado, setArchivoSeleccionado] = useState(null);
   const [subiendoArchivo, setSubiendoArchivo] = useState(false);
-  const [mensajeErrorSubida, setMensajeErrorSubida] = useState("");
 
   // Modal crear carpeta
   const [modalCarpetaAbierto, setModalCarpetaAbierto] = useState(false);
   const [nombreCarpetaNueva, setNombreCarpetaNueva] = useState("");
   const [creandoCarpeta, setCreandoCarpeta] = useState(false);
-  const [mensajeErrorCarpeta, setMensajeErrorCarpeta] = useState("");
+
+  // Modal éxito / error
+  const [modalExitoVisible, setModalExitoVisible] = useState(false);
+  const [modalErrorVisible, setModalErrorVisible] = useState(false);
+  const [tituloModalExito, setTituloModalExito] = useState("¡Listo!");
+  const [mensajeModalExito, setMensajeModalExito] = useState("");
+  const [tituloModalError, setTituloModalError] = useState(
+    "¡Ha ocurrido un error!",
+  );
+  const [mensajeModalError, setMensajeModalError] = useState("");
 
   const inputArchivoRef = useRef(null);
+  const navegar = useNavigate();
+
+  /* ----------------------------------------------------------------------- */
+  /* Helpers de modales                                                      */
+  /* ----------------------------------------------------------------------- */
+  const mostrarExito = (mensaje, titulo = "¡Acción completada!") => {
+    setTituloModalExito(titulo);
+    setMensajeModalExito(mensaje);
+    setModalExitoVisible(true);
+  };
+
+  const mostrarError = (mensaje, titulo = "¡Ha ocurrido un error!") => {
+    setTituloModalError(titulo);
+    setMensajeModalError(mensaje);
+    setModalErrorVisible(true);
+  };
 
   /* ----------------------------------------------------------------------- */
   /* Obtención de datos                                                      */
@@ -68,20 +94,19 @@ function TablaArchivos() {
     } catch (error) {
       console.error("Error al traer árbol de archivos", error);
       setArbolArchivos([]);
+      mostrarError(
+        error?.response?.data?.message ||
+          "No se pudo cargar el árbol de archivos.",
+      );
     } finally {
       setCargando(false);
     }
   }, []);
 
-  const navegar = useNavigate();
-
   useEffect(() => {
     obtenerArbolArchivos();
   }, [obtenerArbolArchivos]);
 
-  /* ----------------------------------------------------------------------- */
-  /* Helpers                                                                 */
-  /* ----------------------------------------------------------------------- */
   const irARaiz = () => {
     setCarpetaActual({
       carpetaId: null,
@@ -94,7 +119,6 @@ function TablaArchivos() {
 
   const formatoFecha = (fecha) => {
     if (!fecha) return "-";
-
     const date = fecha instanceof Date ? fecha : new Date(fecha);
     if (isNaN(date.getTime())) return "-";
 
@@ -150,7 +174,6 @@ function TablaArchivos() {
   /* Subida de archivos                                                      */
   /* ----------------------------------------------------------------------- */
   const abrirModalSubida = () => {
-    setMensajeErrorSubida("");
     setArchivoSeleccionado(null);
     setEstaArrastrando(false);
     setModalSubidaAbierto(true);
@@ -163,7 +186,6 @@ function TablaArchivos() {
 
   const onSeleccionarArchivo = (file) => {
     if (!file) return;
-    setMensajeErrorSubida("");
     setArchivoSeleccionado(file);
   };
 
@@ -178,25 +200,28 @@ function TablaArchivos() {
 
   const subirArchivoAlRepositorio = async () => {
     if (!archivoSeleccionado) {
-      setMensajeErrorSubida("Selecciona un archivo antes de subir.");
+      mostrarError("Selecciona un archivo antes de subir.");
       return;
     }
 
     setSubiendoArchivo(true);
-    setMensajeErrorSubida("");
 
     try {
       const formData = new FormData();
       formData.append("archivo", archivoSeleccionado);
 
-      // A) Carpeta BD (carpetasArchivos)
+      // A) Carpeta BD
       if (carpetaActual?.carpetaId) {
         formData.append("carpetaId", String(carpetaActual.carpetaId));
       }
 
-      // B) Carpeta S3 (prefijo). Para subir dentro de rutas S3.
+      // B) Carpeta S3 (prefijo virtual)
       if (carpetaActual?.esDestinoS3 && carpetaActual?.prefijoS3) {
-        formData.append("prefijoS3", String(carpetaActual.prefijoS3));
+        const prefijoNormalizado = String(carpetaActual.prefijoS3).endsWith("/")
+          ? String(carpetaActual.prefijoS3)
+          : `${String(carpetaActual.prefijoS3)}/`;
+
+        formData.append("prefijoS3", prefijoNormalizado);
       }
 
       await api.post("/archivos/repositorio", formData, {
@@ -206,9 +231,11 @@ function TablaArchivos() {
 
       setModalSubidaAbierto(false);
       await obtenerArbolArchivos();
+
+      mostrarExito("Archivo subido correctamente.");
     } catch (error) {
       console.error("Error subiendo archivo:", error);
-      setMensajeErrorSubida(
+      mostrarError(
         error?.response?.data?.message ||
           "No se pudo subir el archivo. Revisa permisos o el backend.",
       );
@@ -221,7 +248,6 @@ function TablaArchivos() {
   /* Crear carpeta (BD)                                                      */
   /* ----------------------------------------------------------------------- */
   const abrirModalCarpeta = () => {
-    setMensajeErrorCarpeta("");
     setNombreCarpetaNueva("");
     setModalCarpetaAbierto(true);
   };
@@ -232,39 +258,36 @@ function TablaArchivos() {
   };
 
   const crearCarpetaNueva = async () => {
-    const nombreLimpio = nombreCarpetaNueva.trim();
-
-    if (!nombreLimpio) {
-      setMensajeErrorCarpeta("Debes escribir un nombre para la carpeta.");
-      return;
-    }
-
-    // Regla simple: evitar rutas raras
-    if (/[\\]/.test(nombreLimpio) || nombreLimpio.includes("..")) {
-      setMensajeErrorCarpeta("Nombre inválido.");
+    const nombre = String(nombreCarpetaNueva || "").trim();
+    if (!nombre) {
+      mostrarError("Debes escribir un nombre para la carpeta.");
       return;
     }
 
     setCreandoCarpeta(true);
-    setMensajeErrorCarpeta("");
 
     try {
-      // Solo permite anidar en carpeta BD (no en carpeta S3)
-      const carpetaPadreId = carpetaActual?.carpetaId
-        ? carpetaActual.carpetaId
-        : null;
+      // ✅ Backend espera { nombre, padreId }
+      // Si estás parado en carpeta S3, no se puede crear dentro de esa “carpeta”, así que se crea en raíz BD.
+      const padreId =
+        carpetaActual?.carpetaId && !carpetaActual?.esDestinoS3
+          ? Number(carpetaActual.carpetaId)
+          : null;
 
+      // ⚠️ Ajusta este path si tu app.js monta el router con otro nombre
       await api.post(
-        "/archivos/carpetas",
-        { nombreCarpeta: nombreLimpio, carpetaPadreId },
+        "/carpetas-archivos",
+        { nombre, padreId },
         { withCredentials: true },
       );
 
       setModalCarpetaAbierto(false);
       await obtenerArbolArchivos();
+
+      mostrarExito("Carpeta creada correctamente.");
     } catch (error) {
       console.error("Error creando carpeta:", error);
-      setMensajeErrorCarpeta(
+      mostrarError(
         error?.response?.data?.message ||
           "No se pudo crear la carpeta. Revisa backend/permisos.",
       );
@@ -272,52 +295,6 @@ function TablaArchivos() {
       setCreandoCarpeta(false);
     }
   };
-
-  /* ----------------------------------------------------------------------- */
-  /* Cálculos para carpetas                                                  */
-  /* ----------------------------------------------------------------------- */
-  const calcularTamanoCarpeta = useCallback((carpeta) => {
-    if (!carpeta.hijos || !Array.isArray(carpeta.hijos)) return 0;
-
-    return carpeta.hijos.reduce((total, hijo) => {
-      if (hijo.tipo === "archivo") {
-        return total + (hijo.tamanioBytes || 0);
-      } else if (hijo.tipo === "carpeta") {
-        return total + calcularTamanoCarpeta(hijo);
-      }
-      return total;
-    }, 0);
-  }, []);
-
-  // ✅ FIX "1969": carpeta vacía => null
-  const obtenerUltimaModificacion = useCallback((carpeta) => {
-    if (
-      !carpeta ||
-      !Array.isArray(carpeta.hijos) ||
-      carpeta.hijos.length === 0
-    ) {
-      return null;
-    }
-
-    let ultimaFecha = null;
-
-    carpeta.hijos.forEach((hijo) => {
-      let fechaHijo = null;
-
-      if (hijo.tipo === "carpeta") {
-        fechaHijo = obtenerUltimaModificacion(hijo);
-      } else {
-        const posible = new Date(hijo.creadoEn);
-        if (!isNaN(posible.getTime())) fechaHijo = posible;
-      }
-
-      if (fechaHijo && !isNaN(fechaHijo.getTime())) {
-        if (!ultimaFecha || fechaHijo > ultimaFecha) ultimaFecha = fechaHijo;
-      }
-    });
-
-    return ultimaFecha;
-  }, []);
 
   /* ----------------------------------------------------------------------- */
   /* Ordenación                                                              */
@@ -329,32 +306,20 @@ function TablaArchivos() {
 
       switch (orden.campo) {
         case "tamanioBytes": {
-          const tamanoA =
-            a.tipo === "carpeta"
-              ? calcularTamanoCarpeta(a)
-              : a.tamanioBytes || 0;
-          const tamanoB =
-            b.tipo === "carpeta"
-              ? calcularTamanoCarpeta(b)
-              : b.tamanioBytes || 0;
+          const tamanoA = a.tipo === "carpeta" ? 0 : a.tamanioBytes || 0;
+          const tamanoB = b.tipo === "carpeta" ? 0 : b.tamanioBytes || 0;
           return factor * (tamanoA - tamanoB);
         }
         case "creadoEn": {
-          const fechaA =
-            a.tipo === "carpeta"
-              ? obtenerUltimaModificacion(a)
-              : new Date(a.creadoEn);
-          const fechaB =
-            b.tipo === "carpeta"
-              ? obtenerUltimaModificacion(b)
-              : new Date(b.creadoEn);
+          const fechaA = a.tipo === "carpeta" ? 0 : new Date(a.creadoEn);
+          const fechaB = b.tipo === "carpeta" ? 0 : new Date(b.creadoEn);
           return factor * (fechaA - fechaB);
         }
         default:
           return factor * a.nombre.localeCompare(b.nombre);
       }
     },
-    [orden, calcularTamanoCarpeta, obtenerUltimaModificacion],
+    [orden],
   );
 
   /* ----------------------------------------------------------------------- */
@@ -383,31 +348,19 @@ function TablaArchivos() {
 
         const abierta = !!nodosExpandidos[nodo.ruta] || terminoBusqueda;
 
-        const tamanoCarpeta = calcularTamanoCarpeta(nodo);
-        const ultimaModificacion = obtenerUltimaModificacion(nodo);
-
-        // ✅ FIX destino:
-        // - carpetas BD vienen con `carpetaId` (no con `id`)
-        // - carpetas S3 no tienen carpetaId y su ruta NO inicia con "/"
-        const rutaNodo = nodo.ruta || "/";
-        const carpetaIdNodo = nodo.carpetaId ?? nodo.id ?? null;
-
-        const esCarpetaBd = rutaNodo.startsWith("/");
-        const esDestinoS3 = !esCarpetaBd;
-        const prefijoS3 = esDestinoS3
-          ? rutaNodo.endsWith("/")
-            ? rutaNodo
-            : `${rutaNodo}/`
-          : "";
-
         const filaCarpeta = (
           <tr
             key={nodo.ruta}
             className="cursor-pointer hover:bg-gray-700/50 transition-colors duration-200 select-none group"
             onClick={() => {
-              // Seleccionar carpeta como destino de subida
+              const rutaNodo = String(nodo.ruta || "/");
+              const esDestinoS3 = rutaNodo.startsWith("s3:");
+              const prefijoS3 = esDestinoS3
+                ? rutaNodo.replace(/^s3:/, "").replace(/^\//, "")
+                : "";
+
               setCarpetaActual({
-                carpetaId: esCarpetaBd ? carpetaIdNodo : null,
+                carpetaId: nodo.carpetaId ?? null,
                 esDestinoS3,
                 prefijoS3,
                 ruta: rutaNodo,
@@ -434,10 +387,10 @@ function TablaArchivos() {
               </span>
             </td>
             <td className="text-sm text-gray-300 whitespace-nowrap group-hover:text-gray-100 hidden sm:table-cell">
-              {ultimaModificacion ? formatoFecha(ultimaModificacion) : "-"}
+              {"-"}
             </td>
             <td className="text-sm text-gray-300 pr-6 text-right group-hover:text-gray-100 hidden sm:table-cell">
-              {formatoTamano(tamanoCarpeta)}
+              {"-"}
             </td>
           </tr>
         );
@@ -446,7 +399,6 @@ function TablaArchivos() {
         return [filaCarpeta, ...hijosFiltrados];
       }
 
-      // Archivo
       return [
         <tr
           key={nodo.ruta}
@@ -471,18 +423,9 @@ function TablaArchivos() {
         </tr>,
       ];
     },
-    [
-      terminoBusqueda,
-      nodosExpandidos,
-      calcularTamanoCarpeta,
-      obtenerUltimaModificacion,
-      ordenar,
-    ],
+    [terminoBusqueda, nodosExpandidos, ordenar],
   );
 
-  /* ----------------------------------------------------------------------- */
-  /* Memo filas                                                              */
-  /* ----------------------------------------------------------------------- */
   const filas = useMemo(() => {
     return Array.isArray(arbolArchivos)
       ? arbolArchivos.sort(ordenar).flatMap((n) => renderizarNodo(n))
@@ -496,18 +439,12 @@ function TablaArchivos() {
     renderizarNodo,
   ]);
 
-  /* ----------------------------------------------------------------------- */
-  /* Skeleton de carga                                                       */
-  /* ----------------------------------------------------------------------- */
   if (cargando) {
     return (
       <div className="w-full bg-gray-800 rounded-xl p-4 animate-pulse h-64 shadow-lg" />
     );
   }
 
-  /* ----------------------------------------------------------------------- */
-  /* Render tabla                                                            */
-  /* ----------------------------------------------------------------------- */
   return (
     <div className="w-full bg-gray-800 rounded-xl shadow-xl overflow-hidden border border-gray-700">
       {/* Barra de herramientas */}
@@ -534,27 +471,21 @@ function TablaArchivos() {
           </button>
 
           <button
-            onClick={() => setOrden({ campo: "creadoEn", asc: !orden.asc })}
-            className={`px-3 py-2 rounded-lg transition-colors duration-200 flex items-center gap-1 flex-shrink-0 ${
-              orden.campo === "creadoEn"
-                ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
-                : "hover:bg-gray-700/50 border border-gray-600"
-            }`}
+            onClick={irARaiz}
+            className="px-3 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2 flex-shrink-0 bg-gray-700/40 text-gray-200 border border-gray-600 hover:bg-gray-700/70"
+            title="Volver a raíz"
           >
-            <span>Fecha</span>
-            {orden.campo === "creadoEn" && (orden.asc ? "↑" : "↓")}
+            <Home size={16} />
+            <span>Raíz</span>
           </button>
 
+          {/* ✅ Nueva carpeta (BD) */}
           <button
-            onClick={() => setOrden({ campo: "tamanioBytes", asc: !orden.asc })}
-            className={`px-3 py-2 rounded-lg transition-colors duration-200 flex items-center gap-1 flex-shrink-0 ${
-              orden.campo === "tamanioBytes"
-                ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
-                : "hover:bg-gray-700/50 border border-gray-600"
-            }`}
+            onClick={abrirModalCarpeta}
+            className="px-3 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2 flex-shrink-0 bg-gray-700/40 text-gray-200 border border-gray-600 hover:bg-gray-700/70"
           >
-            <span>Tamaño</span>
-            {orden.campo === "tamanioBytes" && (orden.asc ? "↑" : "↓")}
+            <FolderPlus size={16} />
+            <span>Nueva carpeta</span>
           </button>
 
           {/* Destino actual */}
@@ -562,30 +493,12 @@ function TablaArchivos() {
             <span className="text-gray-400">Destino:</span>
             <span className="truncate max-w-[10rem] sm:max-w-[18rem]">
               {carpetaActual?.ruta && carpetaActual.ruta !== "/"
-                ? carpetaActual.ruta
+                ? carpetaActual.esDestinoS3
+                  ? `s3:/${carpetaActual.prefijoS3}`
+                  : carpetaActual.ruta
                 : "Raíz"}
             </span>
-
-            {/* ✅ Botón para volver a raíz */}
-            <button
-              onClick={irARaiz}
-              className="ml-2 px-2 py-1 rounded-md border border-gray-600 hover:bg-gray-700/60 text-gray-200 flex items-center gap-1"
-              title="Volver a raíz"
-            >
-              <Home size={14} />
-              <span className="text-xs">Raíz</span>
-            </button>
           </div>
-
-          {/* ✅ Crear carpeta */}
-          <button
-            onClick={abrirModalCarpeta}
-            className="px-3 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2 flex-shrink-0 bg-gray-700/40 text-gray-200 border border-gray-600 hover:bg-gray-700/70"
-            title="Crear carpeta"
-          >
-            <FolderPlus size={16} />
-            <span>Nueva carpeta</span>
-          </button>
 
           {/* Subir archivo */}
           <button
@@ -651,39 +564,30 @@ function TablaArchivos() {
 
             <div className="p-5 space-y-4">
               <div className="text-sm text-gray-300">
-                Destino:{" "}
+                Se creará en:{" "}
                 <span className="text-gray-100 font-medium">
-                  {carpetaActual?.ruta && carpetaActual.ruta !== "/"
+                  {carpetaActual?.carpetaId && !carpetaActual?.esDestinoS3
                     ? carpetaActual.ruta
                     : "Raíz"}
                 </span>
                 {carpetaActual?.esDestinoS3 && (
                   <span className="ml-2 text-amber-300">
-                    (Nota: carpeta S3 → la carpeta BD se creará en raíz o en
-                    carpeta BD)
+                    (Carpeta S3 seleccionada: se creará en BD raíz)
                   </span>
                 )}
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm text-gray-300">
-                  Nombre de carpeta
-                </label>
+                <label className="text-sm text-gray-300">Nombre</label>
                 <input
                   type="text"
                   value={nombreCarpetaNueva}
                   onChange={(e) => setNombreCarpetaNueva(e.target.value)}
                   className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2.5 text-sm text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 shadow-inner"
-                  placeholder="Ej: Documentos, Reportes, 2026..."
+                  placeholder="Ej: Reportes, 2026, Facturas..."
                   disabled={creandoCarpeta}
                 />
               </div>
-
-              {mensajeErrorCarpeta && (
-                <div className="text-sm text-red-300 bg-red-500/10 border border-red-500/30 rounded-lg p-3">
-                  {mensajeErrorCarpeta}
-                </div>
-              )}
 
               <div className="flex justify-end gap-2 pt-2">
                 <button
@@ -727,7 +631,9 @@ function TablaArchivos() {
                 Destino:{" "}
                 <span className="text-gray-100 font-medium">
                   {carpetaActual?.ruta && carpetaActual.ruta !== "/"
-                    ? carpetaActual.ruta
+                    ? carpetaActual.esDestinoS3
+                      ? `s3:/${carpetaActual.prefijoS3}`
+                      : carpetaActual.ruta
                     : "Raíz"}
                 </span>
               </div>
@@ -780,12 +686,6 @@ function TablaArchivos() {
                 )}
               </div>
 
-              {mensajeErrorSubida && (
-                <div className="text-sm text-red-300 bg-red-500/10 border border-red-500/30 rounded-lg p-3">
-                  {mensajeErrorSubida}
-                </div>
-              )}
-
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   onClick={cerrarModalSubida}
@@ -806,6 +706,23 @@ function TablaArchivos() {
           </div>
         </div>
       )}
+
+      {/* ✅ Modales globales (tú agregas import) */}
+      <ModalExito
+        visible={modalExitoVisible}
+        onClose={() => setModalExitoVisible(false)}
+        titulo={tituloModalExito}
+        mensaje={mensajeModalExito}
+        textoBoton="Continuar"
+      />
+
+      <ModalError
+        visible={modalErrorVisible}
+        onClose={() => setModalErrorVisible(false)}
+        titulo={tituloModalError}
+        mensaje={mensajeModalError}
+        textoBoton="Cerrar"
+      />
     </div>
   );
 }

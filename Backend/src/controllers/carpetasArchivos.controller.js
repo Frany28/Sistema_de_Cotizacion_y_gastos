@@ -1,4 +1,6 @@
 import db from "../config/database.js";
+import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { s3 } from "../utils/s3.js";
 
 // Roles autorizados (igual estilo que archivos.controller.js)
 const rolAdmin = 1;
@@ -91,7 +93,7 @@ export const crearCarpeta = async (req, res) => {
         .json({ message: "El nombre de la carpeta es obligatorio." });
     }
 
-    // validar padre si viene
+    // Validar padre si viene
     let rutaPadre = null;
 
     if (padreId) {
@@ -116,7 +118,7 @@ export const crearCarpeta = async (req, res) => {
 
     const rutaVirtual = construirRutaVirtual(rutaPadre, nombre);
 
-    // (opcional) evitar duplicados por mismo padre + nombre, solo si te interesa:
+    // Evitar duplicados por mismo padre + nombre (excepto si está borrada definitivamente)
     const [duplicados] = await conexion.query(
       `SELECT id
          FROM carpetasArchivos
@@ -132,18 +134,38 @@ export const crearCarpeta = async (req, res) => {
       });
     }
 
+    await conexion.beginTransaction();
+
     const [resultado] = await conexion.query(
       `INSERT INTO carpetasArchivos (nombre, padreId, rutaVirtual, creadoPor)
        VALUES (?, ?, ?, ?)`,
       [nombre, padreId, rutaVirtual, usuarioId],
     );
 
+    // ✅ BD + S3: materializar carpeta en S3 con placeholder ".keep"
+    // Regla: repositorio general vive bajo el prefijo "archivos/"
+    const rutaVirtualSinSlash = String(rutaVirtual || "").replace(/^\/+/, ""); // quita "/" inicial
+    const prefijoS3 = `archivos/${rutaVirtualSinSlash}`.replace(/\/?$/, "/"); // asegura "/"
+
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: process.env.S3_BUCKET,
+        Key: `${prefijoS3}.keep`,
+        Body: "",
+        ContentType: "text/plain",
+      }),
+    );
+
+    await conexion.commit();
+
     return res.status(201).json({
       message: "Carpeta creada.",
       carpetaId: resultado.insertId,
       rutaVirtual,
+      prefijoS3,
     });
   } catch (error) {
+    await conexion.rollback();
     console.error("Error creando carpeta:", error);
     return res.status(500).json({ message: "Error creando carpeta." });
   } finally {
@@ -151,10 +173,6 @@ export const crearCarpeta = async (req, res) => {
   }
 };
 
-/**
- * GET /carpetas
- * query: estado=activa|papelera (default activa)
- */
 export const listarCarpetas = async (req, res) => {
   const conexion = await db.getConnection();
 
