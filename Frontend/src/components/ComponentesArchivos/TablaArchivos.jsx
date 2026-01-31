@@ -353,7 +353,19 @@ function TablaArchivos() {
             key={nodo.ruta}
             className="cursor-pointer hover:bg-gray-700/50 transition-colors duration-200 select-none group"
             onClick={() => {
-              const rutaNodo = String(nodo.ruta || "/");
+              const rutaNodo = String(nodo.ruta || "");
+              const estabaAbierta = !!nodosExpandidos[rutaNodo];
+
+              // 1) Alternar el nodo (abre / cierra)
+              alternarNodo(rutaNodo);
+
+              // 2) Si se está cerrando → volver a raíz
+              if (estabaAbierta) {
+                irARaiz();
+                return;
+              }
+
+              // 3) Si se está abriendo → seleccionar como destino
               const esDestinoS3 = rutaNodo.startsWith("s3:");
               const prefijoS3 = esDestinoS3
                 ? rutaNodo.replace(/^s3:/, "").replace(/^\//, "")
@@ -366,7 +378,6 @@ function TablaArchivos() {
                 ruta: rutaNodo,
                 nombre: nodo.nombre || "Carpeta",
               });
-              alternarNodo(nodo.ruta);
             }}
           >
             <td
