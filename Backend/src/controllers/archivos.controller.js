@@ -1388,7 +1388,9 @@ export const subirArchivoRepositorio = async (req, res) => {
   const carpetaId = req.body.carpetaId ? Number(req.body.carpetaId) : null;
 
   // 👇 NUEVO: permite subir dentro de “carpetas S3” (prefijos)
-  const prefijoS3 = req.body.prefijoS3 ? String(req.body.prefijoS3).trim() : null;
+  const prefijoS3 = req.body.prefijoS3
+    ? String(req.body.prefijoS3).trim()
+    : null;
 
   if (!req.file) {
     return res.status(400).json({ message: "Debes enviar un archivo." });
@@ -1427,35 +1429,67 @@ export const subirArchivoRepositorio = async (req, res) => {
         return res.status(404).json({ message: "Carpeta no encontrada." });
       }
 
-      if (["papelera", "borrado", "eliminado"].includes(String(carpeta.estado))) {
+      if (
+        ["papelera", "borrado", "eliminado"].includes(String(carpeta.estado))
+      ) {
         return res.status(400).json({
-          message: "No puedes subir archivos a una carpeta en papelera/borrada.",
+          message:
+            "No puedes subir archivos a una carpeta en papelera/borrada.",
         });
       }
     }
 
     // 2) Validar cuota / almacenamiento
-    const [[usuario]] = await cx.query(
-      `SELECT usoStorageBytes, cuotaMb, ilimitado
-         FROM usuarios
-        WHERE id = ?`,
-      [creadoPor],
+    const [[columnaIlimitado]] = await cx.query(
+      `
+  SELECT 1 AS existe
+    FROM INFORMATION_SCHEMA.COLUMNS
+   WHERE TABLE_SCHEMA = DATABASE()
+     AND TABLE_NAME = 'usuarios'
+     AND COLUMN_NAME = 'ilimitado'
+   LIMIT 1
+  `,
     );
 
-    if (!usuario) {
+    let filaUsuario = null;
+
+    if (columnaIlimitado?.existe) {
+      const [[usuarioConIlimitado]] = await cx.query(
+        `SELECT usoStorageBytes, cuotaMb, ilimitado
+       FROM usuarios
+      WHERE id = ?`,
+        [creadoPor],
+      );
+      filaUsuario = usuarioConIlimitado;
+    } else {
+      const [[usuarioSinIlimitado]] = await cx.query(
+        `SELECT usoStorageBytes, cuotaMb
+       FROM usuarios
+      WHERE id = ?`,
+        [creadoPor],
+      );
+      filaUsuario = usuarioSinIlimitado
+        ? { ...usuarioSinIlimitado, ilimitado: 0 }
+        : null;
+    }
+
+    if (!filaUsuario) {
+      await cx.rollback();
       return res.status(404).json({ message: "Usuario no encontrado." });
     }
 
-    const usoActualBytes = Number(usuario.usoStorageBytes || 0);
+    const usoActualBytes = Number(filaUsuario.usoStorageBytes || 0);
     const nuevoUsoBytes = usoActualBytes + tamanioBytes;
 
-    const esIlimitado = Number(usuario.ilimitado || 0) === 1;
+    // si no existe la columna, queda como 0 => no ilimitado
+    const esIlimitado = Number(filaUsuario.ilimitado || 0) === 1;
 
     if (!esIlimitado) {
-      const cuotaMb = Number(usuario.cuotaMb || 0);
+      const cuotaMb = Number(filaUsuario.cuotaMb || 0);
       const cuotaBytes = cuotaMb * 1024 * 1024;
 
       if (cuotaBytes > 0 && nuevoUsoBytes > cuotaBytes) {
+        await cx.rollback();
         return res.status(413).json({
           message:
             "Has superado tu cuota de almacenamiento. Elimina archivos o solicita más espacio.",
@@ -1512,7 +1546,14 @@ export const subirArchivoRepositorio = async (req, res) => {
       `INSERT INTO versionesArchivo
         (archivoId, numeroVersion, nombreOriginal, extension, tamanioBytes, rutaS3, subidoPor)
        VALUES (?, 1, ?, ?, ?, ?, ?)`,
-      [archivoId, nombreOriginal, extension, tamanioBytes, rutaS3Final, creadoPor],
+      [
+        archivoId,
+        nombreOriginal,
+        extension,
+        tamanioBytes,
+        rutaS3Final,
+        creadoPor,
+      ],
     );
 
     const versionId = resultadoVersion.insertId;
