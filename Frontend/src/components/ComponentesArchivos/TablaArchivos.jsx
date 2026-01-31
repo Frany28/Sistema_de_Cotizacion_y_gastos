@@ -11,10 +11,15 @@ import {
   FileWarning,
   Upload,
   X,
+  FolderPlus,
+  Home,
 } from "lucide-react";
 import { format, formatDistanceToNowStrict } from "date-fns";
 import { es } from "date-fns/locale";
-import api from "../../api/index";
+
+// ✅ FIX BUILD: ruta correcta (TablaArchivos está dentro de ComponentesArchivos)
+import api from "../../api/index.js";
+
 import { useNavigate } from "react-router-dom";
 
 function TablaArchivos() {
@@ -29,8 +34,8 @@ function TablaArchivos() {
 
   // Carpeta actual (para subir al lugar correcto)
   const [carpetaActual, setCarpetaActual] = useState({
-    carpetaId: null,
-    esDestinoS3: false,
+    carpetaId: null, // carpeta BD
+    esDestinoS3: false, // carpeta del árbol por rutaS3
     prefijoS3: "",
     ruta: "/",
     nombre: "Raíz",
@@ -42,6 +47,12 @@ function TablaArchivos() {
   const [archivoSeleccionado, setArchivoSeleccionado] = useState(null);
   const [subiendoArchivo, setSubiendoArchivo] = useState(false);
   const [mensajeErrorSubida, setMensajeErrorSubida] = useState("");
+
+  // Modal crear carpeta
+  const [modalCarpetaAbierto, setModalCarpetaAbierto] = useState(false);
+  const [nombreCarpetaNueva, setNombreCarpetaNueva] = useState("");
+  const [creandoCarpeta, setCreandoCarpeta] = useState(false);
+  const [mensajeErrorCarpeta, setMensajeErrorCarpeta] = useState("");
 
   const inputArchivoRef = useRef(null);
 
@@ -71,6 +82,16 @@ function TablaArchivos() {
   /* ----------------------------------------------------------------------- */
   /* Helpers                                                                 */
   /* ----------------------------------------------------------------------- */
+  const irARaiz = () => {
+    setCarpetaActual({
+      carpetaId: null,
+      esDestinoS3: false,
+      prefijoS3: "",
+      ruta: "/",
+      nombre: "Raíz",
+    });
+  };
+
   const formatoFecha = (fecha) => {
     if (!fecha) return "-";
 
@@ -126,7 +147,7 @@ function TablaArchivos() {
     cadena.toLowerCase().includes(terminoBusqueda.trim().toLowerCase());
 
   /* ----------------------------------------------------------------------- */
-  /* Subida de archivos (repositorio general)                                */
+  /* Subida de archivos                                                      */
   /* ----------------------------------------------------------------------- */
   const abrirModalSubida = () => {
     setMensajeErrorSubida("");
@@ -167,17 +188,15 @@ function TablaArchivos() {
     try {
       const formData = new FormData();
       formData.append("archivo", archivoSeleccionado);
-      // 1) Carpeta BD (carpetasArchivos)
+
+      // A) Carpeta BD (carpetasArchivos)
       if (carpetaActual?.carpetaId) {
         formData.append("carpetaId", String(carpetaActual.carpetaId));
       }
 
-      // 2) Carpeta S3 (prefijo). Esto permite subir "dentro" de rutas S3.
-      // Nota: el backend debe usar este prefijo para construir la key en S3.
+      // B) Carpeta S3 (prefijo). Para subir dentro de rutas S3.
       if (carpetaActual?.esDestinoS3 && carpetaActual?.prefijoS3) {
         formData.append("prefijoS3", String(carpetaActual.prefijoS3));
-        // compat: por si tu middleware espera otro nombre
-        formData.append("rutaS3", String(carpetaActual.prefijoS3));
       }
 
       await api.post("/archivos/repositorio", formData, {
@@ -195,6 +214,62 @@ function TablaArchivos() {
       );
     } finally {
       setSubiendoArchivo(false);
+    }
+  };
+
+  /* ----------------------------------------------------------------------- */
+  /* Crear carpeta (BD)                                                      */
+  /* ----------------------------------------------------------------------- */
+  const abrirModalCarpeta = () => {
+    setMensajeErrorCarpeta("");
+    setNombreCarpetaNueva("");
+    setModalCarpetaAbierto(true);
+  };
+
+  const cerrarModalCarpeta = () => {
+    if (creandoCarpeta) return;
+    setModalCarpetaAbierto(false);
+  };
+
+  const crearCarpetaNueva = async () => {
+    const nombreLimpio = nombreCarpetaNueva.trim();
+
+    if (!nombreLimpio) {
+      setMensajeErrorCarpeta("Debes escribir un nombre para la carpeta.");
+      return;
+    }
+
+    // Regla simple: evitar rutas raras
+    if (/[\\]/.test(nombreLimpio) || nombreLimpio.includes("..")) {
+      setMensajeErrorCarpeta("Nombre inválido.");
+      return;
+    }
+
+    setCreandoCarpeta(true);
+    setMensajeErrorCarpeta("");
+
+    try {
+      // Solo permite anidar en carpeta BD (no en carpeta S3)
+      const carpetaPadreId = carpetaActual?.carpetaId
+        ? carpetaActual.carpetaId
+        : null;
+
+      await api.post(
+        "/archivos/carpetas",
+        { nombreCarpeta: nombreLimpio, carpetaPadreId },
+        { withCredentials: true },
+      );
+
+      setModalCarpetaAbierto(false);
+      await obtenerArbolArchivos();
+    } catch (error) {
+      console.error("Error creando carpeta:", error);
+      setMensajeErrorCarpeta(
+        error?.response?.data?.message ||
+          "No se pudo crear la carpeta. Revisa backend/permisos.",
+      );
+    } finally {
+      setCreandoCarpeta(false);
     }
   };
 
@@ -311,21 +386,28 @@ function TablaArchivos() {
         const tamanoCarpeta = calcularTamanoCarpeta(nodo);
         const ultimaModificacion = obtenerUltimaModificacion(nodo);
 
+        // ✅ FIX destino:
+        // - carpetas BD vienen con `carpetaId` (no con `id`)
+        // - carpetas S3 no tienen carpetaId y su ruta NO inicia con "/"
+        const rutaNodo = nodo.ruta || "/";
+        const carpetaIdNodo = nodo.carpetaId ?? nodo.id ?? null;
+
+        const esCarpetaBd = rutaNodo.startsWith("/");
+        const esDestinoS3 = !esCarpetaBd;
+        const prefijoS3 = esDestinoS3
+          ? rutaNodo.endsWith("/")
+            ? rutaNodo
+            : `${rutaNodo}/`
+          : "";
+
         const filaCarpeta = (
           <tr
             key={nodo.ruta}
             className="cursor-pointer hover:bg-gray-700/50 transition-colors duration-200 select-none group"
             onClick={() => {
               // Seleccionar carpeta como destino de subida
-              const rutaNodo = String(nodo.ruta || "/");
-              const esDestinoS3 = rutaNodo.startsWith("s3:");
-              const prefijoS3 = esDestinoS3
-                ? rutaNodo.replace(/^s3:/, "").replace(/^\//, "")
-                : "";
-
               setCarpetaActual({
-                // OJO: el árbol unificado usa carpetaId (no id) para carpetas de BD.
-                carpetaId: nodo.carpetaId ?? null,
+                carpetaId: esCarpetaBd ? carpetaIdNodo : null,
                 esDestinoS3,
                 prefijoS3,
                 ruta: rutaNodo,
@@ -480,14 +562,32 @@ function TablaArchivos() {
             <span className="text-gray-400">Destino:</span>
             <span className="truncate max-w-[10rem] sm:max-w-[18rem]">
               {carpetaActual?.ruta && carpetaActual.ruta !== "/"
-                ? carpetaActual.esDestinoS3
-                  ? `s3:/${carpetaActual.prefijoS3}`
-                  : carpetaActual.ruta
+                ? carpetaActual.ruta
                 : "Raíz"}
             </span>
+
+            {/* ✅ Botón para volver a raíz */}
+            <button
+              onClick={irARaiz}
+              className="ml-2 px-2 py-1 rounded-md border border-gray-600 hover:bg-gray-700/60 text-gray-200 flex items-center gap-1"
+              title="Volver a raíz"
+            >
+              <Home size={14} />
+              <span className="text-xs">Raíz</span>
+            </button>
           </div>
 
-          {/* Botón de subida */}
+          {/* ✅ Crear carpeta */}
+          <button
+            onClick={abrirModalCarpeta}
+            className="px-3 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2 flex-shrink-0 bg-gray-700/40 text-gray-200 border border-gray-600 hover:bg-gray-700/70"
+            title="Crear carpeta"
+          >
+            <FolderPlus size={16} />
+            <span>Nueva carpeta</span>
+          </button>
+
+          {/* Subir archivo */}
           <button
             onClick={abrirModalSubida}
             className="px-3 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2 flex-shrink-0 bg-blue-600/20 text-blue-300 border border-blue-500/30 hover:bg-blue-600/30"
@@ -533,6 +633,79 @@ function TablaArchivos() {
         </table>
       </div>
 
+      {/* Modal crear carpeta */}
+      {modalCarpetaAbierto && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+          <div className="w-full max-w-xl bg-gray-800 border border-gray-700 rounded-2xl shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-700">
+              <h3 className="text-lg font-semibold text-gray-100">
+                Crear carpeta
+              </h3>
+              <button
+                onClick={cerrarModalCarpeta}
+                className="p-2 rounded-lg hover:bg-gray-700 text-gray-300"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="text-sm text-gray-300">
+                Destino:{" "}
+                <span className="text-gray-100 font-medium">
+                  {carpetaActual?.ruta && carpetaActual.ruta !== "/"
+                    ? carpetaActual.ruta
+                    : "Raíz"}
+                </span>
+                {carpetaActual?.esDestinoS3 && (
+                  <span className="ml-2 text-amber-300">
+                    (Nota: carpeta S3 → la carpeta BD se creará en raíz o en
+                    carpeta BD)
+                  </span>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm text-gray-300">
+                  Nombre de carpeta
+                </label>
+                <input
+                  type="text"
+                  value={nombreCarpetaNueva}
+                  onChange={(e) => setNombreCarpetaNueva(e.target.value)}
+                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2.5 text-sm text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 shadow-inner"
+                  placeholder="Ej: Documentos, Reportes, 2026..."
+                  disabled={creandoCarpeta}
+                />
+              </div>
+
+              {mensajeErrorCarpeta && (
+                <div className="text-sm text-red-300 bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+                  {mensajeErrorCarpeta}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  onClick={cerrarModalCarpeta}
+                  disabled={creandoCarpeta}
+                  className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-100 border border-gray-600 disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={crearCarpetaNueva}
+                  disabled={creandoCarpeta}
+                  className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50"
+                >
+                  {creandoCarpeta ? "Creando..." : "Crear"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal subida */}
       {modalSubidaAbierto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
@@ -543,16 +716,15 @@ function TablaArchivos() {
               </h3>
               <button
                 onClick={cerrarModalSubida}
-                className="p-2 rounded-lg hover:bg-gray-700/60 text-gray-300"
-                title="Cerrar"
+                className="p-2 rounded-lg hover:bg-gray-700 text-gray-300"
               >
                 <X size={18} />
               </button>
             </div>
 
             <div className="p-5 space-y-4">
-              <div className="text-sm text-gray-300 bg-gray-900/30 border border-gray-700 rounded-lg px-4 py-3">
-                <span className="text-gray-400">Se subirá en:</span>{" "}
+              <div className="text-sm text-gray-300">
+                Destino:{" "}
                 <span className="text-gray-100 font-medium">
                   {carpetaActual?.ruta && carpetaActual.ruta !== "/"
                     ? carpetaActual.ruta
@@ -561,21 +733,12 @@ function TablaArchivos() {
               </div>
 
               <div
-                onDragEnter={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setEstaArrastrando(true);
-                }}
                 onDragOver={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
                   setEstaArrastrando(true);
                 }}
-                onDragLeave={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setEstaArrastrando(false);
-                }}
+                onDragLeave={() => setEstaArrastrando(false)}
                 onDrop={onDropArchivo}
                 className={`w-full rounded-xl border-2 border-dashed p-6 text-center transition-colors ${
                   estaArrastrando
