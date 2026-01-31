@@ -30,6 +30,8 @@ function TablaArchivos() {
   // Carpeta actual (para subir al lugar correcto)
   const [carpetaActual, setCarpetaActual] = useState({
     carpetaId: null,
+    esDestinoS3: false,
+    prefijoS3: "",
     ruta: "/",
     nombre: "Raíz",
   });
@@ -165,8 +167,17 @@ function TablaArchivos() {
     try {
       const formData = new FormData();
       formData.append("archivo", archivoSeleccionado);
+      // 1) Carpeta BD (carpetasArchivos)
       if (carpetaActual?.carpetaId) {
         formData.append("carpetaId", String(carpetaActual.carpetaId));
+      }
+
+      // 2) Carpeta S3 (prefijo). Esto permite subir "dentro" de rutas S3.
+      // Nota: el backend debe usar este prefijo para construir la key en S3.
+      if (carpetaActual?.esDestinoS3 && carpetaActual?.prefijoS3) {
+        formData.append("prefijoS3", String(carpetaActual.prefijoS3));
+        // compat: por si tu middleware espera otro nombre
+        formData.append("rutaS3", String(carpetaActual.prefijoS3));
       }
 
       await api.post("/archivos/repositorio", formData, {
@@ -306,9 +317,18 @@ function TablaArchivos() {
             className="cursor-pointer hover:bg-gray-700/50 transition-colors duration-200 select-none group"
             onClick={() => {
               // Seleccionar carpeta como destino de subida
+              const rutaNodo = String(nodo.ruta || "/");
+              const esDestinoS3 = rutaNodo.startsWith("s3:");
+              const prefijoS3 = esDestinoS3
+                ? rutaNodo.replace(/^s3:/, "").replace(/^\//, "")
+                : "";
+
               setCarpetaActual({
-                carpetaId: nodo.id ?? null,
-                ruta: nodo.ruta || "/",
+                // OJO: el árbol unificado usa carpetaId (no id) para carpetas de BD.
+                carpetaId: nodo.carpetaId ?? null,
+                esDestinoS3,
+                prefijoS3,
+                ruta: rutaNodo,
                 nombre: nodo.nombre || "Carpeta",
               });
               alternarNodo(nodo.ruta);
@@ -460,7 +480,9 @@ function TablaArchivos() {
             <span className="text-gray-400">Destino:</span>
             <span className="truncate max-w-[10rem] sm:max-w-[18rem]">
               {carpetaActual?.ruta && carpetaActual.ruta !== "/"
-                ? carpetaActual.ruta
+                ? carpetaActual.esDestinoS3
+                  ? `s3:/${carpetaActual.prefijoS3}`
+                  : carpetaActual.ruta
                 : "Raíz"}
             </span>
           </div>
