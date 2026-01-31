@@ -834,11 +834,7 @@ export const obtenerArbolArchivos = async (req, res) => {
   const esVistaCompleta = [ROL_ADMIN, ROL_SUPERVISOR].includes(rolId);
 
   try {
-    /**
-     * 1) Traer carpetas del repositorio (BD) para que aparezcan aunque estén vacías
-     * - Admin/Supervisor: todas
-     * - Otros: solo las creadas por el usuario (si tu negocio es repositorio personal)
-     */
+    // 1) Carpetas BD (para que existan aunque estén vacías)
     const [carpetasBd] = await db.query(
       `
       SELECT id, rutaVirtual
@@ -850,10 +846,7 @@ export const obtenerArbolArchivos = async (req, res) => {
       esVistaCompleta ? [] : [usuarioId],
     );
 
-    /**
-     * 2) Traer archivos activos (repositorio + enlazados)
-     * - Si NO es vista completa, solo los propios (igual que tu lógica actual)
-     */
+    // 2) Archivos activos (repositorio + enlazados)
     const [archivosBd] = await db.query(
       `
       SELECT id, nombreOriginal, extension, tamanioBytes, rutaS3, creadoEn, carpetaId
@@ -867,76 +860,86 @@ export const obtenerArbolArchivos = async (req, res) => {
 
     const raiz = [];
 
-    // Para poder insertar por carpetaId rápido
-    const mapaCarpetaIdANodo = new Map();
+    // Index para no duplicar nodos carpeta por ruta
+    const mapaCarpetaPorRuta = new Map(); // key: rutaNodo => nodoCarpeta
+    const mapaCarpetaIdANodo = new Map(); // carpetaId => nodoCarpeta (para insertar por carpetaId)
 
-    const buscarOCrearCarpeta = (nivel, nombre, rutaAbs) => {
-      let nodo = nivel.find((n) => n.tipo === "carpeta" && n.nombre === nombre);
-      if (!nodo) {
-        nodo = { nombre, ruta: rutaAbs, tipo: "carpeta", hijos: [] };
-        nivel.push(nodo);
+    const obtenerONuevoNodoCarpeta = (nivel, nombre, rutaNodo) => {
+      // rutaNodo es la "id lógica" de la carpeta en el árbol
+      const clave = rutaNodo;
+
+      if (mapaCarpetaPorRuta.has(clave)) {
+        const existente = mapaCarpetaPorRuta.get(clave);
+        // Asegura que exista en el nivel actual (por si se creó desde otro lado)
+        if (!nivel.includes(existente)) nivel.push(existente);
+        return existente;
       }
+
+      const nodo = {
+        tipo: "carpeta",
+        nombre,
+        ruta: rutaNodo,
+        hijos: [],
+      };
+
+      mapaCarpetaPorRuta.set(clave, nodo);
+      nivel.push(nodo);
       return nodo;
     };
 
-    const obtenerHijosPorRuta = (rutaVirtual) => {
-      // rutaVirtual viene tipo "/A/B/C"
-      const rutaLimpia = String(rutaVirtual || "").trim();
-      const partes = rutaLimpia.replace(/^\//, "").split("/").filter(Boolean);
+    // Helper: crea ruta por BD (/A/B/C) y devuelve el nodo final
+    const asegurarRutaBd = (rutaVirtual) => {
+      const limpia = String(rutaVirtual || "/").trim() || "/";
+      const partes = limpia.replace(/^\//, "").split("/").filter(Boolean);
 
       let nivelActual = raiz;
-      let rutaAcumulada = "";
+      let rutaAcum = "";
 
+      let nodoActual = null;
       for (const parte of partes) {
-        rutaAcumulada = rutaAcumulada ? `${rutaAcumulada}/${parte}` : parte;
-        const nodoCarpeta = buscarOCrearCarpeta(
-          nivelActual,
-          parte,
-          `/${rutaAcumulada}`,
-        );
-        nivelActual = nodoCarpeta.hijos;
+        rutaAcum = rutaAcum ? `${rutaAcum}/${parte}` : parte;
+        const rutaNodo = `/${rutaAcum}`; // BD usa rutas con /
+        nodoActual = obtenerONuevoNodoCarpeta(nivelActual, parte, rutaNodo);
+        nivelActual = nodoActual.hijos;
+      }
+
+      return nodoActual; // puede ser null si ruta "/"
+    };
+
+    // Helper: crea ruta por prefijo S3 (a/b/c) y devuelve el nivel hijos final
+    const asegurarRutaS3 = (rutaS3) => {
+      const limpia = String(rutaS3 || "").trim();
+      const partes = limpia.split("/").filter(Boolean);
+      if (partes.length <= 1) return raiz;
+
+      let nivelActual = raiz;
+      let rutaAcum = "";
+      let nodoActual = null;
+
+      for (let i = 0; i < partes.length - 1; i++) {
+        const parte = partes[i];
+        rutaAcum = rutaAcum ? `${rutaAcum}/${parte}` : parte;
+
+        // Para no chocar con rutas BD "/X", marcamos S3 con prefijo "s3:"
+        const rutaNodo = `s3:${rutaAcum}`;
+
+        nodoActual = obtenerONuevoNodoCarpeta(nivelActual, parte, rutaNodo);
+        nivelActual = nodoActual.hijos;
       }
 
       return nivelActual;
     };
 
-    /**
-     * 3) Pintar carpetas del repositorio (aunque no tengan archivos)
-     * - Registramos un "ancla" por carpetaId -> nodo para insertar archivos por carpetaId luego
-     */
+    // 3) Crear carpetas BD (aunque no tengan archivos)
     for (const carpeta of carpetasBd) {
-      const rutaVirtual = carpeta.rutaVirtual;
-      const rutaLimpia = String(rutaVirtual || "").trim();
-      const partes = rutaLimpia.replace(/^\//, "").split("/").filter(Boolean);
-
-      let nivelActual = raiz;
-      let rutaAcumulada = "";
-
-      for (let i = 0; i < partes.length; i++) {
-        const parte = partes[i];
-        rutaAcumulada = rutaAcumulada ? `${rutaAcumulada}/${parte}` : parte;
-
-        const nodoCarpeta = buscarOCrearCarpeta(
-          nivelActual,
-          parte,
-          `/${rutaAcumulada}`,
-        );
-
-        // Solo el último segmento corresponde a esa carpetaId real
-        if (i === partes.length - 1) {
-          nodoCarpeta.carpetaId = carpeta.id;
-          mapaCarpetaIdANodo.set(carpeta.id, nodoCarpeta);
-        }
-
-        nivelActual = nodoCarpeta.hijos;
+      const nodoFinal = asegurarRutaBd(carpeta.rutaVirtual);
+      if (nodoFinal) {
+        nodoFinal.carpetaId = carpeta.id;
+        mapaCarpetaIdANodo.set(carpeta.id, nodoFinal);
       }
     }
 
-    /**
-     * 4) Insertar archivos:
-     * - Si tiene carpetaId => repositorio general (usar carpeta BD)
-     * - Si NO tiene carpetaId => usar rutaS3 para “carpetas raras” (firmas/facturasGastos/etc.)
-     */
+    // 4) Insertar archivos: por carpetaId (repositorio) o por prefijo S3 (enlazados)
     for (const archivo of archivosBd) {
       const nodoArchivo = {
         id: archivo.id,
@@ -948,53 +951,29 @@ export const obtenerArbolArchivos = async (req, res) => {
         creadoEn: archivo.creadoEn,
       };
 
-      // Caso A: repositorio (carpetaId)
+      // A) Si tiene carpetaId: va dentro de la carpeta BD
       if (archivo.carpetaId) {
         const nodoCarpeta = mapaCarpetaIdANodo.get(archivo.carpetaId);
-
         if (nodoCarpeta) {
           nodoCarpeta.hijos.push(nodoArchivo);
-          continue;
+        } else {
+          // Si por permisos no te trajiste esa carpeta, lo tiramos a raíz como fallback
+          raiz.push(nodoArchivo);
         }
-
-        // Si por permisos o desincronización no se encontró la carpeta, lo mandamos a raíz
-        raiz.push(nodoArchivo);
         continue;
       }
 
-      // Caso B: enlazados (carpetas raras por prefijo de rutaS3)
-      const partesRutaS3 = String(archivo.rutaS3 || "")
-        .split("/")
-        .filter(Boolean);
-      if (partesRutaS3.length === 0) {
-        raiz.push(nodoArchivo);
-        continue;
-      }
-
-      let nivelActual = raiz;
-      let rutaAcumulada = "";
-
-      for (let i = 0; i < partesRutaS3.length - 1; i++) {
-        const parte = partesRutaS3[i];
-        rutaAcumulada = rutaAcumulada ? `${rutaAcumulada}/${parte}` : parte;
-
-        const nodoCarpeta = buscarOCrearCarpeta(
-          nivelActual,
-          parte,
-          rutaAcumulada,
-        );
-        nivelActual = nodoCarpeta.hijos;
-      }
-
-      nivelActual.push(nodoArchivo);
+      // B) Si NO tiene carpetaId: se organiza por prefijo S3
+      const nivelDestino = asegurarRutaS3(archivo.rutaS3);
+      nivelDestino.push(nodoArchivo);
     }
 
     return res.json(raiz);
   } catch (error) {
     console.error(error);
-    return res
-      .status(500)
-      .json({ message: "Error interno al obtener árbol de archivos." });
+    return res.status(500).json({
+      message: "Error interno al obtener árbol de archivos.",
+    });
   }
 };
 

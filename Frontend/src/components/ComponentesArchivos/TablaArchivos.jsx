@@ -27,6 +27,13 @@ function TablaArchivos() {
   const [terminoBusqueda, setTerminoBusqueda] = useState("");
   const [orden, setOrden] = useState({ campo: "nombre", asc: true });
 
+  // Carpeta actual (para subir al lugar correcto)
+  const [carpetaActual, setCarpetaActual] = useState({
+    carpetaId: null,
+    ruta: "/",
+    nombre: "Raíz",
+  });
+
   // Modal subida
   const [modalSubidaAbierto, setModalSubidaAbierto] = useState(false);
   const [estaArrastrando, setEstaArrastrando] = useState(false);
@@ -110,7 +117,6 @@ function TablaArchivos() {
     }
   };
 
-  // ✅ FIX 1: antes estaba ({ .prev, ... })
   const alternarNodo = (ruta) =>
     setNodosExpandidos((prev) => ({ ...prev, [ruta]: !prev[ruta] }));
 
@@ -159,8 +165,10 @@ function TablaArchivos() {
     try {
       const formData = new FormData();
       formData.append("archivo", archivoSeleccionado);
+      if (carpetaActual?.carpetaId) {
+        formData.append("carpetaId", String(carpetaActual.carpetaId));
+      }
 
-      // Endpoint existente: POST /archivos/repositorio
       await api.post("/archivos/repositorio", formData, {
         withCredentials: true,
         headers: { "Content-Type": "multipart/form-data" },
@@ -195,30 +203,34 @@ function TablaArchivos() {
     }, 0);
   }, []);
 
+  // ✅ FIX "1969": carpeta vacía => null
   const obtenerUltimaModificacion = useCallback((carpeta) => {
-    if (!carpeta.hijos || !Array.isArray(carpeta.hijos)) return null;
+    if (
+      !carpeta ||
+      !Array.isArray(carpeta.hijos) ||
+      carpeta.hijos.length === 0
+    ) {
+      return null;
+    }
 
-    let ultimaFecha = new Date(carpeta.creadoEn);
-    if (isNaN(ultimaFecha.getTime())) ultimaFecha = new Date(0);
+    let ultimaFecha = null;
 
     carpeta.hijos.forEach((hijo) => {
-      let fechaHijo;
+      let fechaHijo = null;
 
       if (hijo.tipo === "carpeta") {
-        const fechaSubcarpeta = obtenerUltimaModificacion(hijo);
-        if (fechaSubcarpeta && !isNaN(fechaSubcarpeta.getTime())) {
-          fechaHijo = fechaSubcarpeta;
-        }
+        fechaHijo = obtenerUltimaModificacion(hijo);
       } else {
-        fechaHijo = new Date(hijo.creadoEn);
+        const posible = new Date(hijo.creadoEn);
+        if (!isNaN(posible.getTime())) fechaHijo = posible;
       }
 
-      if (fechaHijo && !isNaN(fechaHijo.getTime()) && fechaHijo > ultimaFecha) {
-        ultimaFecha = fechaHijo;
+      if (fechaHijo && !isNaN(fechaHijo.getTime())) {
+        if (!ultimaFecha || fechaHijo > ultimaFecha) ultimaFecha = fechaHijo;
       }
     });
 
-    return isNaN(ultimaFecha.getTime()) ? null : ultimaFecha;
+    return ultimaFecha;
   }, []);
 
   /* ----------------------------------------------------------------------- */
@@ -292,7 +304,15 @@ function TablaArchivos() {
           <tr
             key={nodo.ruta}
             className="cursor-pointer hover:bg-gray-700/50 transition-colors duration-200 select-none group"
-            onClick={() => alternarNodo(nodo.ruta)}
+            onClick={() => {
+              // Seleccionar carpeta como destino de subida
+              setCarpetaActual({
+                carpetaId: nodo.id ?? null,
+                ruta: nodo.ruta || "/",
+                nombre: nodo.nombre || "Carpeta",
+              });
+              alternarNodo(nodo.ruta);
+            }}
           >
             <td
               className="py-3 flex items-center gap-2 font-medium text-gray-50 group-hover:text-white"
@@ -321,8 +341,6 @@ function TablaArchivos() {
         );
 
         if (!abierta) return [filaCarpeta];
-
-        // ✅ FIX 2: antes era [filaCarpeta, .hijosFiltrados]
         return [filaCarpeta, ...hijosFiltrados];
       }
 
@@ -437,6 +455,16 @@ function TablaArchivos() {
             {orden.campo === "tamanioBytes" && (orden.asc ? "↑" : "↓")}
           </button>
 
+          {/* Destino actual */}
+          <div className="px-3 py-2 rounded-lg border border-gray-600 bg-gray-700/40 text-gray-200 flex items-center gap-2 flex-shrink-0">
+            <span className="text-gray-400">Destino:</span>
+            <span className="truncate max-w-[10rem] sm:max-w-[18rem]">
+              {carpetaActual?.ruta && carpetaActual.ruta !== "/"
+                ? carpetaActual.ruta
+                : "Raíz"}
+            </span>
+          </div>
+
           {/* Botón de subida */}
           <button
             onClick={abrirModalSubida}
@@ -501,6 +529,15 @@ function TablaArchivos() {
             </div>
 
             <div className="p-5 space-y-4">
+              <div className="text-sm text-gray-300 bg-gray-900/30 border border-gray-700 rounded-lg px-4 py-3">
+                <span className="text-gray-400">Se subirá en:</span>{" "}
+                <span className="text-gray-100 font-medium">
+                  {carpetaActual?.ruta && carpetaActual.ruta !== "/"
+                    ? carpetaActual.ruta
+                    : "Raíz"}
+                </span>
+              </div>
+
               <div
                 onDragEnter={(e) => {
                   e.preventDefault();
