@@ -58,15 +58,22 @@ const DetalleArchivo = () => {
   };
 
   const formatoTamano = (bytes) => {
-    if (!bytes) return "0 B";
-    const unidades = ["B", "KB", "MB", "GB"];
-    let i = 0;
-    let valor = bytes;
-    while (valor >= 1024 && i < unidades.length - 1) {
-      valor /= 1024;
-      i++;
+    const numeroBytes = Number(bytes);
+
+    if (!Number.isFinite(numeroBytes) || numeroBytes <= 0) {
+      return "0 B";
     }
-    return `${valor.toFixed(1)} ${unidades[i]}`;
+
+    const unidades = ["B", "KB", "MB", "GB"];
+    let indice = 0;
+    let valor = numeroBytes;
+
+    while (valor >= 1024 && indice < unidades.length - 1) {
+      valor /= 1024;
+      indice++;
+    }
+
+    return `${valor.toFixed(1)} ${unidades[indice]}`;
   };
 
   const obtenerIconoPorTipo = (extension) => {
