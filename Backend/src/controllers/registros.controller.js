@@ -20,7 +20,7 @@ export const getDatosRegistro = async (req, res) => {
     if (hit) return res.json(hit);
 
     const [servicios] = await db.query(
-      "SELECT id, nombre, precio, porcentaje_iva FROM servicios_productos"
+      "SELECT id, nombre, precio, porcentaje_iva FROM servicios_productos",
     );
 
     const [clientes] = await db.query(`
@@ -106,7 +106,7 @@ export const createRegistro = async (req, res) => {
             Body: req.file.buffer,
             ContentType: req.file.mimetype,
             ACL: "private",
-          })
+          }),
         );
 
         // 3) Actualizar gasto con ruta del archivo
@@ -123,7 +123,7 @@ export const createRegistro = async (req, res) => {
         const grupoArchivoId = await obtenerOcrearGrupoFactura(
           conexion,
           registroId,
-          datos.creadoPor
+          datos.creadoPor,
         );
 
         // 4.2 Calcular número de versión = max + 1
@@ -131,7 +131,7 @@ export const createRegistro = async (req, res) => {
           `SELECT IFNULL(MAX(numeroVersion),0) AS maxVer
            FROM archivos
            WHERE registroTipo = 'facturasGastos' AND registroId = ?`,
-          [registroId]
+          [registroId],
         );
         const numeroVersion = maxVer + 1;
 
@@ -153,7 +153,7 @@ export const createRegistro = async (req, res) => {
             claveS3,
             numeroVersion,
             datos.creadoPor,
-          ]
+          ],
         );
         const archivoId = resArchivo.insertId;
 
@@ -171,7 +171,7 @@ export const createRegistro = async (req, res) => {
             tamanioBytes,
             claveS3,
             datos.creadoPor,
-          ]
+          ],
         );
         const versionId = resVersion.insertId;
 
@@ -191,7 +191,7 @@ export const createRegistro = async (req, res) => {
               extension,
               ruta: claveS3,
             }),
-          ]
+          ],
         );
 
         // 4.6 Actualizar cuota de almacenamiento del usuario
@@ -199,7 +199,7 @@ export const createRegistro = async (req, res) => {
           `UPDATE usuarios
              SET usoStorageBytes = usoStorageBytes + ?
            WHERE id = ?`,
-          [tamanioBytes, datos.creadoPor]
+          [tamanioBytes, datos.creadoPor],
         );
       }
 
@@ -221,7 +221,7 @@ export const createRegistro = async (req, res) => {
           new DeleteObjectCommand({
             Bucket: process.env.S3_BUCKET,
             Key: claveS3,
-          })
+          }),
         );
       } catch (err) {
         console.error("Error al eliminar archivo de S3 tras fallo:", err);
@@ -265,7 +265,7 @@ const crearGasto = async (datos, conn) => {
   // Consultar tipo de gasto para determinar reglas
   const [[tipoGasto]] = await conn.query(
     "SELECT id, rentable, nombre FROM tipos_gasto WHERE id = ?",
-    [tipo_gasto_id]
+    [tipo_gasto_id],
   );
 
   if (!tipoGasto) {
@@ -317,7 +317,7 @@ const crearGasto = async (datos, conn) => {
       creadoPor,
       new Date(),
       new Date(),
-    ]
+    ],
   );
 
   const gastoId = result.insertId;
@@ -351,7 +351,7 @@ export const getTiposGasto = async (req, res) => {
     const hit = cacheMemoria.get(key);
     if (hit) return res.json(hit);
     const [tipos] = await db.query(
-      "SELECT id, nombre, descripcion, rentable FROM tipos_gasto"
+      "SELECT id, nombre, descripcion, rentable FROM tipos_gasto",
     );
 
     cacheMemoria.set(key, tipos, 3600);
@@ -389,7 +389,7 @@ export const crearCotizacionDesdeRegistro = async (datos) => {
     ) {
       const [cliente] = await db.query(
         "SELECT sucursal_id FROM clientes WHERE id = ?",
-        [cliente_id]
+        [cliente_id],
       );
       if (cliente.length === 0) {
         throw new Error("Cliente no encontrado para asignar sucursal.");
@@ -423,7 +423,7 @@ export const crearCotizacionDesdeRegistro = async (datos) => {
         bl,
         mercancia,
         contenedor,
-      ]
+      ],
     );
 
     const cotizacionId = result.insertId;
@@ -431,7 +431,7 @@ export const crearCotizacionDesdeRegistro = async (datos) => {
     const codigo = `COT-${String(cotizacionId).padStart(4, "0")}`;
     await db.query(
       `UPDATE cotizaciones SET codigo_referencia = ? WHERE id = ?`,
-      [codigo, cotizacionId]
+      [codigo, cotizacionId],
     );
 
     for (const item of detalle) {
@@ -448,32 +448,18 @@ export const crearCotizacionDesdeRegistro = async (datos) => {
 
       if (isNaN(cant) || isNaN(precio) || isNaN(iva)) {
         throw new Error(
-          `Error en los valores del detalle para el servicio con ID ${servicio_productos_id}`
+          `Error en los valores del detalle para el servicio con ID ${servicio_productos_id}`,
         );
       }
 
-      const [productos] = await db.query(
-        `SELECT tipo, cantidad_actual FROM servicios_productos WHERE id = ?`,
-        [servicio_productos_id]
+      // ✅ Validación mínima: solo verificamos que exista el servicio/producto.
+      const [productoServicio] = await db.query(
+        `SELECT id FROM servicios_productos WHERE id = ?`,
+        [servicio_productos_id],
       );
 
-      if (productos.length === 0) {
+      if (productoServicio.length === 0) {
         throw new Error("Producto o servicio no encontrado");
-      }
-
-      const { tipo, cantidad_actual } = productos[0];
-
-      if (tipo === "producto" && cant > cantidad_actual) {
-        throw new Error(
-          `Stock insuficiente para el producto con ID ${servicio_productos_id}`
-        );
-      }
-
-      if (tipo === "producto") {
-        await db.query(
-          `UPDATE servicios_productos SET cantidad_actual = cantidad_actual - ? WHERE id = ?`,
-          [cant, servicio_productos_id]
-        );
       }
 
       const subtotal = cant * precio;
@@ -496,14 +482,14 @@ export const crearCotizacionDesdeRegistro = async (datos) => {
           subtotal,
           impuesto,
           totalItem,
-        ]
+        ],
       );
     }
 
     const totalGlobal = subtotalGlobal + impuestoGlobal;
     await db.query(
       `UPDATE cotizaciones SET subtotal = ?, impuesto = ?, total = ? WHERE id = ?`,
-      [subtotalGlobal, impuestoGlobal, totalGlobal, cotizacionId]
+      [subtotalGlobal, impuestoGlobal, totalGlobal, cotizacionId],
     );
 
     for (const k of cacheMemoria.keys()) {
