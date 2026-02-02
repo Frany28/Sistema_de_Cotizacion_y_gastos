@@ -376,18 +376,23 @@ export const crearCotizacionDesdeRegistro = async (datos) => {
     mercancia,
     contenedor,
     detalle,
-    total,
+    total, // ⚠️ Se recibe, pero el total real se calcula en backend para evitar inconsistencias
     fecha = new Date(),
   } = datos;
 
+  const conexion = await db.getConnection();
+
   try {
+    await conexion.beginTransaction();
+
+    // 1) Validar/obtener sucursal si no viene
     if (
       !sucursal_id ||
       sucursal_id === "null" ||
       sucursal_id === "" ||
       sucursal_id === 0
     ) {
-      const [cliente] = await db.query(
+      const [cliente] = await conexion.query(
         "SELECT sucursal_id FROM clientes WHERE id = ?",
         [cliente_id],
       );
@@ -401,20 +406,20 @@ export const crearCotizacionDesdeRegistro = async (datos) => {
       throw new Error("El cliente no tiene una sucursal asignada.");
     }
 
+    // 2) Crear cabecera con importes en 0 (se actualizan al final, ya calculados en backend)
     let subtotalGlobal = 0;
     let impuestoGlobal = 0;
 
-    const [result] = await db.query(
+    const [result] = await conexion.query(
       `INSERT INTO cotizaciones 
        (cliente_id, creadoPor, sucursal_id, fecha, subtotal, impuesto, total, estado, confirmacion_cliente, observaciones,
         operacion, puerto, bl, mercancia, contenedor) 
-       VALUES (?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, 0, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         cliente_id,
         creadoPor,
         sucursal_id,
         fecha,
-        total,
         estado,
         confirmacion_cliente,
         observaciones,
@@ -428,12 +433,14 @@ export const crearCotizacionDesdeRegistro = async (datos) => {
 
     const cotizacionId = result.insertId;
 
+    // 3) Generar código
     const codigo = `COT-${String(cotizacionId).padStart(4, "0")}`;
-    await db.query(
+    await conexion.query(
       `UPDATE cotizaciones SET codigo_referencia = ? WHERE id = ?`,
       [codigo, cotizacionId],
     );
 
+    // 4) Insertar detalle (SIN validación de stock)
     for (const item of detalle) {
       const {
         servicio_productos_id,
@@ -453,7 +460,7 @@ export const crearCotizacionDesdeRegistro = async (datos) => {
       }
 
       // ✅ Validación mínima: solo verificamos que exista el servicio/producto.
-      const [productoServicio] = await db.query(
+      const [productoServicio] = await conexion.query(
         `SELECT id FROM servicios_productos WHERE id = ?`,
         [servicio_productos_id],
       );
@@ -469,7 +476,7 @@ export const crearCotizacionDesdeRegistro = async (datos) => {
       subtotalGlobal += subtotal;
       impuestoGlobal += impuesto;
 
-      await db.query(
+      await conexion.query(
         `INSERT INTO detalle_cotizacion 
          (cotizacion_id, servicio_productos_id, cantidad, precio_unitario, porcentaje_iva, subtotal, impuesto, total)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -486,12 +493,16 @@ export const crearCotizacionDesdeRegistro = async (datos) => {
       );
     }
 
+    // 5) Actualizar totales en cabecera (valores reales)
     const totalGlobal = subtotalGlobal + impuestoGlobal;
-    await db.query(
+    await conexion.query(
       `UPDATE cotizaciones SET subtotal = ?, impuesto = ?, total = ? WHERE id = ?`,
       [subtotalGlobal, impuestoGlobal, totalGlobal, cotizacionId],
     );
 
+    await conexion.commit();
+
+    // 6) Limpiar cache de servicios/productos (si aplica)
     for (const k of cacheMemoria.keys()) {
       if (k.startsWith("servicios_") || k.startsWith("servicio_")) {
         cacheMemoria.del(k);
@@ -505,8 +516,11 @@ export const crearCotizacionDesdeRegistro = async (datos) => {
       tipo: "cotizacion",
     };
   } catch (error) {
+    await conexion.rollback();
     console.error("Error en crearCotizacionDesdeRegistro:", error);
     throw error;
+  } finally {
+    conexion.release();
   }
 };
 
