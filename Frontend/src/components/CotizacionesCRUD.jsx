@@ -33,6 +33,7 @@ function ListaCotizaciones() {
   const [puedeEliminar, setPuedeEliminar] = useState(false);
   const [puedeAprobar, setPuedeAprobar] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const [mostrarModalRechazo, setMostrarModalRechazo] = useState(false);
   const [estadoSeleccionado, setEstadoSeleccionado] = useState("");
   const [serviciosProductos, setServiciosProductos] = useState([]);
@@ -138,7 +139,7 @@ function ListaCotizaciones() {
 
   useEffect(() => {
     fetchCotizaciones();
-  }, []);
+  }, [fetchCotizaciones, location.key]);
 
   const cambiarLimite = (nuevoLimite) => {
     setLimit(nuevoLimite);
@@ -193,14 +194,14 @@ function ListaCotizaciones() {
 
   const cotizacionesFiltradas = cotizaciones.filter((c) =>
     [c.codigo, c.cliente_nombre, c.estado].some((campo) =>
-      campo?.toString().toLowerCase().includes(busqueda.toLowerCase())
-    )
+      campo?.toString().toLowerCase().includes(busqueda.toLowerCase()),
+    ),
   );
 
   const totalPaginas = Math.ceil(cotizacionesFiltradas.length / limit);
   const cotizacionesPaginadas = cotizacionesFiltradas.slice(
     (page - 1) * limit,
-    page * limit
+    page * limit,
   );
 
   const mostrarMontoLatam = (valor) => {
@@ -316,8 +317,8 @@ function ListaCotizaciones() {
                       c.estado === "aprobada"
                         ? "bg-green-100 text-green-800"
                         : c.estado === "pendiente"
-                        ? "bg-yellow-100 text-yellow-800"
-                        : "bg-red-100 text-red-800"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : "bg-red-100 text-red-800"
                     }`}
                   >
                     {c.estado}
@@ -357,7 +358,7 @@ function ListaCotizaciones() {
                       } catch (error) {
                         console.error(
                           "Error al cargar detalle de cotización:",
-                          error
+                          error,
                         );
                         mostrarError({
                           titulo: "Error",
@@ -383,7 +384,7 @@ function ListaCotizaciones() {
                         setLoading(true);
                         try {
                           const { data } = await api.get(
-                            `/cotizaciones/${c.id}`
+                            `/cotizaciones/${c.id}`,
                           );
                           setCotizacionSeleccionada({
                             id: data.id,
@@ -457,8 +458,8 @@ function ListaCotizaciones() {
                     c.estado === "aprobada"
                       ? "bg-green-100 text-green-800"
                       : c.estado === "pendiente"
-                      ? "bg-yellow-100 text-yellow-800"
-                      : "bg-red-100 text-red-800"
+                        ? "bg-yellow-100 text-yellow-800"
+                        : "bg-red-100 text-red-800"
                   }`}
                 >
                   {c.estado}
@@ -529,7 +530,7 @@ function ListaCotizaciones() {
                     } catch (error) {
                       console.error(
                         "Error al cargar detalle de cotización:",
-                        error
+                        error,
                       );
                       mostrarError({
                         titulo: "Error",
@@ -626,8 +627,8 @@ function ListaCotizaciones() {
                   c.estado === "aprobada"
                     ? "bg-green-100 text-green-800"
                     : c.estado === "pendiente"
-                    ? "bg-yellow-100 text-yellow-800"
-                    : "bg-red-100 text-red-800"
+                      ? "bg-yellow-100 text-yellow-800"
+                      : "bg-red-100 text-red-800"
                 }`}
               >
                 {c.estado}
@@ -666,7 +667,7 @@ function ListaCotizaciones() {
                   } catch (error) {
                     console.error(
                       "Error al cargar detalle de cotización:",
-                      error
+                      error,
                     );
                     mostrarError({
                       titulo: "Error",
@@ -845,7 +846,7 @@ function ListaCotizaciones() {
               if (error.response && error.response.data) {
                 console.error(
                   "Respuesta 400 del servidor (error.response.data):",
-                  error.response.data
+                  error.response.data,
                 );
               }
               mostrarError({
@@ -928,7 +929,7 @@ function ListaCotizaciones() {
               await api.patch(
                 `/cotizaciones/${cotizacionAActualizar.id}/estado`,
                 { estado: estadoSeleccionado, motivo_rechazo: motivo },
-                { withCredentials: true }
+                { withCredentials: true },
               );
               mostrarMensajeExito({
                 titulo: "Rechazo registrado",
