@@ -986,10 +986,10 @@ export const obtenerDetallesArchivo = async (req, res) => {
 
   try {
     const [[archivo]] = await conexion.query(
-      `SELECT a.id,
+        `SELECT a.id,
           a.nombreOriginal,
           a.extension,
-          a.tamanioBytes,
+          CAST(a.tamanioBytes AS UNSIGNED) AS tamanioBytes,
           a.numeroVersion,
           a.rutaS3,
           a.estado,
