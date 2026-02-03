@@ -506,37 +506,46 @@ export const obtenerAlmacenamientoTotalPorDocumento = async (req, res) => {
   }
 
   try {
-    // ✅ Suma: tamaño del archivo (si existe) + suma de tamaños de todas las versiones del archivo
-    const [[fila]] = await db.query(
-      `SELECT
-         (COALESCE(CAST(a.tamanioBytes AS UNSIGNED), 0) +
-          COALESCE(SUM(CAST(v.tamanioBytes AS UNSIGNED)), 0)
-         ) AS totalBytes
-       FROM archivos a
-       LEFT JOIN versionesArchivo v ON v.archivoId = a.id
-      WHERE a.id = ?
-      GROUP BY a.id`,
+    // ✅ 1) Verificar que existe el archivo
+    const [[archivo]] = await db.query(
+      `SELECT id, tamanioBytes
+         FROM archivos
+        WHERE id = ?`,
       [archivoId],
     );
 
-    if (!fila) {
+    if (!archivo) {
       return res.status(404).json({ mensaje: "Archivo no encontrado" });
     }
 
-    const totalBytesNormalizado = Number(fila.totalBytes);
-    const respuesta = {
-      totalBytes: Number.isFinite(totalBytesNormalizado)
-        ? totalBytesNormalizado
-        : 0,
-    };
+    // ✅ 2) Calcular total SOLO desde versiones (fuente de verdad)
+    const [[sumaVersiones]] = await db.query(
+      `SELECT 
+         COALESCE(SUM(CAST(tamanioBytes AS UNSIGNED)), 0) AS totalBytes
+       FROM versionesArchivo
+       WHERE archivoId = ?`,
+      [archivoId],
+    );
 
+    // ✅ 3) Fallback: si no hay versiones aún, usar tamanioBytes del archivo
+    const totalVersionesBytes = Number(sumaVersiones?.totalBytes);
+    const tamanioArchivoBytes = Number(archivo?.tamanioBytes);
+
+    const totalBytesFinal =
+      Number.isFinite(totalVersionesBytes) && totalVersionesBytes > 0
+        ? totalVersionesBytes
+        : Number.isFinite(tamanioArchivoBytes)
+          ? tamanioArchivoBytes
+          : 0;
+
+    const respuesta = { totalBytes: totalBytesFinal };
     cacheMemoria.set(claveCache, respuesta, 300);
     return res.json(respuesta);
   } catch (error) {
     console.error("Error al calcular almacenamiento total:", error);
-    return res.status(500).json({
-      mensaje: "Error al calcular almacenamiento total",
-    });
+    return res
+      .status(500)
+      .json({ mensaje: "Error al calcular almacenamiento total" });
   }
 };
 
