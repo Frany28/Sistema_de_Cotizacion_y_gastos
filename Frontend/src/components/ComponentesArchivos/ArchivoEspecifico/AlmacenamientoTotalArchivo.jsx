@@ -6,7 +6,7 @@ import { HardDrive } from "lucide-react";
 
 const AlmacenamientoTotalArchivo = () => {
   const { id } = useParams();
-  const [almacenamientoBytes, setAlmacenamientoBytes] = useState(0);
+  const [almacenamiento, setAlmacenamiento] = useState(null);
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
@@ -15,15 +15,9 @@ const AlmacenamientoTotalArchivo = () => {
         const res = await api.get(
           `/archivos/eventos/${id}/almacenamiento-total`,
         );
-
-        // Blindaje: totalBytes puede venir como string (BIGINT) o null
-        const totalBytesSeguro = Number(res.data?.totalBytes);
-        setAlmacenamientoBytes(
-          Number.isFinite(totalBytesSeguro) ? totalBytesSeguro : 0,
-        );
+        setAlmacenamiento(res.data.totalBytes);
       } catch (error) {
         console.error("Error al obtener almacenamiento:", error);
-        setAlmacenamientoBytes(0);
       } finally {
         setCargando(false);
       }
@@ -33,20 +27,15 @@ const AlmacenamientoTotalArchivo = () => {
   }, [id]);
 
   const formatearTamanio = (bytes) => {
-    const numeroBytes = Number(bytes);
-
-    if (!Number.isFinite(numeroBytes) || numeroBytes <= 0) return "0 B";
-
+    if (bytes == null || isNaN(bytes)) return "0 B";
     const unidades = ["B", "KB", "MB", "GB", "TB"];
-    let indice = 0;
-    let valor = numeroBytes;
-
-    while (valor >= 1024 && indice < unidades.length - 1) {
+    let i = 0;
+    let valor = bytes;
+    while (valor >= 1024 && i < unidades.length - 1) {
       valor /= 1024;
-      indice++;
+      i++;
     }
-
-    return `${valor.toFixed(1)} ${unidades[indice]}`;
+    return `${valor.toFixed(1)} ${unidades[i]}`;
   };
 
   return (
@@ -57,12 +46,11 @@ const AlmacenamientoTotalArchivo = () => {
 
       <div className="flex flex-col justify-center h-full">
         <p className="text-sm text-gray-400">Almacenamiento utilizado</p>
-
         {cargando ? (
           <div className="h-8 bg-gray-700/50 rounded w-2/3 animate-pulse" />
         ) : (
           <h1 className="text-white text-3xl font-bold mt-1">
-            {formatearTamanio(almacenamientoBytes)}
+            {formatearTamanio(almacenamiento)}
           </h1>
         )}
 

@@ -31,7 +31,7 @@ const normalizarParaClave = (valor) => {
     return `[${valor.map(normalizarParaClave).join(",")}]`;
   if (typeof valor === "object") {
     const entradasOrdenadas = Object.entries(valor).sort(([a], [b]) =>
-      a.localeCompare(b)
+      a.localeCompare(b),
     );
     return `{${entradasOrdenadas
       .map(([k, v]) => `${k}:${normalizarParaClave(v)}`)
@@ -43,7 +43,7 @@ const normalizarParaClave = (valor) => {
 /** Construye clave determinística: prefijo_param=valor|... */
 const construirClaveCache = (prefijo, objetoParams = {}) => {
   const entradas = Object.entries(objetoParams).sort(([a], [b]) =>
-    a.localeCompare(b)
+    a.localeCompare(b),
   );
   const partes = entradas.map(([k, v]) => `${k}=${normalizarParaClave(v)}`);
   return `${prefijo}_${partes.join("|")}`;
@@ -72,7 +72,7 @@ export const limpiarCacheEventos = (prefijo = null) => {
   const lista = Object.values(prefijosEventos);
   if (prefijo && typeof prefijo === "string") {
     const coincide = lista.find(
-      (p) => p.startsWith(prefijo) || prefijo.startsWith(p)
+      (p) => p.startsWith(prefijo) || prefijo.startsWith(p),
     );
     if (coincide) {
       borrarPorPrefijo(coincide);
@@ -141,14 +141,14 @@ export const obtenerMetricasTablero = async (req, res) => {
       `SELECT COUNT(*) AS totalArchivosActivos
          FROM archivos a
         WHERE a.estado = 'activo' ${filtroTipoSql}`,
-      paramsTipo
+      paramsTipo,
     );
 
     const [[mEventos]] = await db.query(
       `SELECT COUNT(*) AS totalEventosMes
          FROM eventosArchivo e
         WHERE e.fechaHora >= ? AND e.fechaHora < ?`,
-      [fechaInicio, fechaFin]
+      [fechaInicio, fechaFin],
     );
 
     const [[mVersiones]] = await db.query(
@@ -157,14 +157,14 @@ export const obtenerMetricasTablero = async (req, res) => {
          JOIN archivos a ON a.id = v.archivoId
         WHERE v.creadoEn >= ? AND v.creadoEn < ?
               ${filtroTipoSql}`,
-      [fechaInicio, fechaFin, ...paramsTipo]
+      [fechaInicio, fechaFin, ...paramsTipo],
     );
 
     const [[mAlmacen]] = await db.query(
       `SELECT COALESCE(SUM(a.tamanioBytes),0) AS totalAlmacenamientoBytes
          FROM archivos a
         WHERE 1=1 ${filtroTipoSql}`,
-      paramsTipo
+      paramsTipo,
     );
 
     const respuesta = {
@@ -215,7 +215,7 @@ export const obtenerTendenciaActividad = async (req, res) => {
 
     if (String(todo) === "1") {
       const [[minRow]] = await db.query(
-        `SELECT MIN(DATE(fechaHora)) AS fechaMin FROM eventosArchivo`
+        `SELECT MIN(DATE(fechaHora)) AS fechaMin FROM eventosArchivo`,
       );
       if (minRow?.fechaMin) {
         const fechaMinDb = new Date(minRow.fechaMin);
@@ -233,7 +233,7 @@ export const obtenerTendenciaActividad = async (req, res) => {
       params.push(accion);
     } else {
       filtrosEv.push(
-        `ev.accionNorm IN ('subidaArchivo','eliminacionArchivo','sustitucionArchivo','borradoDefinitivo')`
+        `ev.accionNorm IN ('subidaArchivo','eliminacionArchivo','sustitucionArchivo','borradoDefinitivo')`,
       );
     }
     if (registroTipo) {
@@ -286,7 +286,7 @@ export const obtenerTendenciaActividad = async (req, res) => {
       GROUP BY f.f
       ORDER BY f.f ASC
       `,
-      [fechaInicio, fechaFin, fechaInicio, fechaFin, ...params]
+      [fechaInicio, fechaFin, fechaInicio, fechaFin, ...params],
     );
 
     const respuesta = {
@@ -405,14 +405,14 @@ export const listarActividadReciente = async (req, res) => {
 
     const [[{ total }]] = await db.query(
       `SELECT COUNT(*) AS total FROM (${baseSql}) AS t`,
-      params
+      params,
     );
 
     const [tiposRows] = await db.query(
       `SELECT DISTINCT tipoEvento FROM (${baseSql}) AS t
        WHERE tipoEvento IN ('subidaArchivo','eliminacionArchivo','sustitucionArchivo','borradoDefinitivo')
        ORDER BY tipoEvento ASC`,
-      params
+      params,
     );
     const tiposDisponibles = tiposRows.map((r) => r.tipoEvento);
 
@@ -420,7 +420,7 @@ export const listarActividadReciente = async (req, res) => {
       `${baseSql}
        ORDER BY fechaEvento DESC
        LIMIT ? OFFSET ?`,
-      [...params, limit, offset]
+      [...params, limit, offset],
     );
 
     const respuesta = { eventos, limit, offset, total, tiposDisponibles };
@@ -472,7 +472,7 @@ export const contarVersionesDelMesPorArchivo = async (req, res) => {
          FROM versionesArchivo
         WHERE archivoId = ?
           AND creadoEn >= ? AND creadoEn < ?`,
-      [archivoId, fechaInicio, fechaFin]
+      [archivoId, fechaInicio, fechaFin],
     );
 
     const respuesta = { totalDelMes: fila.totalDelMes };
@@ -506,30 +506,37 @@ export const obtenerAlmacenamientoTotalPorDocumento = async (req, res) => {
   }
 
   try {
-    const [[base]] = await db.query(
-      `SELECT registroTipo, registroId
-         FROM archivos
-        WHERE id = ?`,
-      [archivoId]
+    // ✅ Suma: tamaño del archivo (si existe) + suma de tamaños de todas las versiones del archivo
+    const [[fila]] = await db.query(
+      `SELECT
+         (COALESCE(CAST(a.tamanioBytes AS UNSIGNED), 0) +
+          COALESCE(SUM(CAST(v.tamanioBytes AS UNSIGNED)), 0)
+         ) AS totalBytes
+       FROM archivos a
+       LEFT JOIN versionesArchivo v ON v.archivoId = a.id
+      WHERE a.id = ?
+      GROUP BY a.id`,
+      [archivoId],
     );
-    if (!base)
+
+    if (!fila) {
       return res.status(404).json({ mensaje: "Archivo no encontrado" });
+    }
 
-    const [[suma]] = await db.query(
-      `SELECT COALESCE(SUM(tamanioBytes),0) AS totalBytes
-         FROM archivos
-        WHERE registroTipo = ? AND registroId = ?`,
-      [base.registroTipo, base.registroId]
-    );
+    const totalBytesNormalizado = Number(fila.totalBytes);
+    const respuesta = {
+      totalBytes: Number.isFinite(totalBytesNormalizado)
+        ? totalBytesNormalizado
+        : 0,
+    };
 
-    const respuesta = { totalBytes: suma.totalBytes };
     cacheMemoria.set(claveCache, respuesta, 300);
     return res.json(respuesta);
   } catch (error) {
     console.error("Error al calcular almacenamiento total:", error);
-    return res
-      .status(500)
-      .json({ mensaje: "Error al calcular almacenamiento total" });
+    return res.status(500).json({
+      mensaje: "Error al calcular almacenamiento total",
+    });
   }
 };
 
@@ -579,7 +586,7 @@ export const obtenerContadoresTarjetas = async (req, res) => {
       `SELECT COUNT(*) AS totalArchivosActivos
          FROM archivos a
         WHERE a.estado = 'activo' ${filtroTipoSql}`,
-      paramsTipo
+      paramsTipo,
     );
 
     const baseParams = [fechaInicio, fechaFin, ...paramsTipo];
@@ -590,7 +597,7 @@ export const obtenerContadoresTarjetas = async (req, res) => {
          JOIN archivos a ON a.id = e.archivoId
         WHERE e.fechaHora >= ? AND e.fechaHora < ?
           AND e.accion = 'subidaArchivo' ${filtroTipoSql}`,
-      baseParams
+      baseParams,
     );
 
     const [[mEliminados]] = await db.query(
@@ -599,7 +606,7 @@ export const obtenerContadoresTarjetas = async (req, res) => {
          JOIN archivos a ON a.id = e.archivoId
         WHERE e.fechaHora >= ? AND e.fechaHora < ?
          AND e.accion = 'eliminacionArchivo'  ${filtroTipoSql}`,
-      baseParams
+      baseParams,
     );
 
     const [[mReemplazados]] = await db.query(
@@ -608,7 +615,7 @@ export const obtenerContadoresTarjetas = async (req, res) => {
          JOIN archivos a ON a.id = e.archivoId
         WHERE e.fechaHora >= ? AND e.fechaHora < ?
           AND e.accion = 'sustitucionArchivo'  ${filtroTipoSql}`,
-      baseParams
+      baseParams,
     );
 
     const respuesta = {
@@ -754,7 +761,7 @@ export const generarPdfMovimientosArchivos = async (req, res) => {
           WHERE ${whereJoin}
         ) t
         `,
-        paramsJoin
+        paramsJoin,
       );
 
       const [detalle] = await db.query(
@@ -773,7 +780,7 @@ export const generarPdfMovimientosArchivos = async (req, res) => {
         ORDER BY e.fechaHora DESC
         LIMIT 500
         `,
-        paramsJoin
+        paramsJoin,
       );
 
       datosPdf = {
