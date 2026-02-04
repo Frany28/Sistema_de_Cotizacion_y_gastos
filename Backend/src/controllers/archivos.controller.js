@@ -834,7 +834,6 @@ export const obtenerArbolArchivos = async (req, res) => {
   const esVistaCompleta = [ROL_ADMIN, ROL_SUPERVISOR].includes(rolId);
 
   try {
-    // 1) Carpetas BD (para que existan aunque estén vacías)
     const [carpetasBd] = await db.query(
       `
       SELECT id, rutaVirtual
@@ -846,7 +845,6 @@ export const obtenerArbolArchivos = async (req, res) => {
       esVistaCompleta ? [] : [usuarioId],
     );
 
-    // 2) Archivos activos (repositorio + enlazados)
     const [archivosBd] = await db.query(
       `
       SELECT id, nombreOriginal, extension, tamanioBytes, rutaS3, creadoEn, carpetaId
@@ -860,86 +858,93 @@ export const obtenerArbolArchivos = async (req, res) => {
 
     const raiz = [];
 
-    // Index para no duplicar nodos carpeta por ruta
-    const mapaCarpetaPorRuta = new Map(); // key: rutaNodo => nodoCarpeta
-    const mapaCarpetaIdANodo = new Map(); // carpetaId => nodoCarpeta (para insertar por carpetaId)
+    const mapaCarpetaPorRuta = new Map(); // rutaNodo -> nodoCarpeta
+    const mapaCarpetaIdANodo = new Map(); // carpetaId -> nodoCarpeta
+    const mapaRutaVirtualANodo = new Map(); // "/a/b" -> nodoCarpeta
 
     const obtenerONuevoNodoCarpeta = (nivel, nombre, rutaNodo) => {
-      // rutaNodo es la "id lógica" de la carpeta en el árbol
       const clave = rutaNodo;
 
       if (mapaCarpetaPorRuta.has(clave)) {
         const existente = mapaCarpetaPorRuta.get(clave);
-        // Asegura que exista en el nivel actual (por si se creó desde otro lado)
         if (!nivel.includes(existente)) nivel.push(existente);
         return existente;
       }
 
-      const nodo = {
-        tipo: "carpeta",
-        nombre,
-        ruta: rutaNodo,
-        hijos: [],
-      };
-
+      const nodo = { tipo: "carpeta", nombre, ruta: rutaNodo, hijos: [] };
       mapaCarpetaPorRuta.set(clave, nodo);
       nivel.push(nodo);
       return nodo;
     };
 
-    // Helper: crea ruta por BD (/A/B/C) y devuelve el nodo final
     const asegurarRutaBd = (rutaVirtual) => {
-      const limpia = String(rutaVirtual || "/").trim() || "/";
-      const partes = limpia.replace(/^\//, "").split("/").filter(Boolean);
-
+      const partes = rutaVirtual.replace(/^\/+/, "").split("/").filter(Boolean);
       let nivelActual = raiz;
       let rutaAcum = "";
 
-      let nodoActual = null;
       for (const parte of partes) {
-        rutaAcum = rutaAcum ? `${rutaAcum}/${parte}` : parte;
-        const rutaNodo = `/${rutaAcum}`; // BD usa rutas con /
-        nodoActual = obtenerONuevoNodoCarpeta(nivelActual, parte, rutaNodo);
-        nivelActual = nodoActual.hijos;
-      }
-
-      return nodoActual; // puede ser null si ruta "/"
-    };
-
-    // Helper: crea ruta por prefijo S3 (a/b/c) y devuelve el nivel hijos final
-    const asegurarRutaS3 = (rutaS3) => {
-      const limpia = String(rutaS3 || "").trim();
-      const partes = limpia.split("/").filter(Boolean);
-      if (partes.length <= 1) return raiz;
-
-      let nivelActual = raiz;
-      let rutaAcum = "";
-      let nodoActual = null;
-
-      for (let i = 0; i < partes.length - 1; i++) {
-        const parte = partes[i];
-        rutaAcum = rutaAcum ? `${rutaAcum}/${parte}` : parte;
-
-        // Para no chocar con rutas BD "/X", marcamos S3 con prefijo "s3:"
-        const rutaNodo = `s3:${rutaAcum}`;
-
-        nodoActual = obtenerONuevoNodoCarpeta(nivelActual, parte, rutaNodo);
-        nivelActual = nodoActual.hijos;
+        rutaAcum += `/${parte}`;
+        const rutaNodo = rutaAcum; // BD usa "/..."
+        const nodoCarpeta = obtenerONuevoNodoCarpeta(
+          nivelActual,
+          parte,
+          rutaNodo,
+        );
+        nivelActual = nodoCarpeta.hijos;
       }
 
       return nivelActual;
     };
 
-    // 3) Crear carpetas BD (aunque no tengan archivos)
+    const asegurarRutaS3 = (rutaS3Completa) => {
+      const rutaSinArchivo = rutaS3Completa.split("/").slice(0, -1).join("/");
+      const partes = rutaSinArchivo.split("/").filter(Boolean);
+
+      let nivelActual = raiz;
+      let rutaAcum = "";
+
+      for (const parte of partes) {
+        rutaAcum += (rutaAcum ? "/" : "") + parte;
+        const rutaNodo = `s3:${rutaAcum}`; // S3 usa "s3:..."
+        const nodoCarpeta = obtenerONuevoNodoCarpeta(
+          nivelActual,
+          parte,
+          rutaNodo,
+        );
+        nivelActual = nodoCarpeta.hijos;
+      }
+
+      return nivelActual;
+    };
+
+    // 1) Crear nodos de carpetas BD
     for (const carpeta of carpetasBd) {
-      const nodoFinal = asegurarRutaBd(carpeta.rutaVirtual);
+      if (!carpeta.rutaVirtual) continue;
+      asegurarRutaBd(carpeta.rutaVirtual);
+
+      // Guardar el nodo final para inserciones por carpetaId
+      const nodoFinal = mapaCarpetaPorRuta.get(carpeta.rutaVirtual);
       if (nodoFinal) {
         nodoFinal.carpetaId = carpeta.id;
         mapaCarpetaIdANodo.set(carpeta.id, nodoFinal);
+        mapaRutaVirtualANodo.set(carpeta.rutaVirtual, nodoFinal);
       }
     }
 
-    // 4) Insertar archivos: por carpetaId (repositorio) o por prefijo S3 (enlazados)
+    // Helper: encontrar carpeta BD más específica para una rutaS3 (por prefijo)
+    const buscarNodoBdPorRutaS3 = (rutaS3Completa) => {
+      const rutaSinArchivo = rutaS3Completa.split("/").slice(0, -1).join("/");
+      const partes = rutaSinArchivo.split("/").filter(Boolean);
+
+      for (let i = partes.length; i >= 1; i--) {
+        const rutaVirtualCandidata = "/" + partes.slice(0, i).join("/");
+        const nodo = mapaRutaVirtualANodo.get(rutaVirtualCandidata);
+        if (nodo) return nodo;
+      }
+      return null;
+    };
+
+    // 2) Insertar archivos
     for (const archivo of archivosBd) {
       const nodoArchivo = {
         id: archivo.id,
@@ -951,19 +956,20 @@ export const obtenerArbolArchivos = async (req, res) => {
         creadoEn: archivo.creadoEn,
       };
 
-      // A) Si tiene carpetaId: va dentro de la carpeta BD
       if (archivo.carpetaId) {
         const nodoCarpeta = mapaCarpetaIdANodo.get(archivo.carpetaId);
-        if (nodoCarpeta) {
-          nodoCarpeta.hijos.push(nodoArchivo);
-        } else {
-          // Si por permisos no te trajiste esa carpeta, lo tiramos a raíz como fallback
-          raiz.push(nodoArchivo);
-        }
+        if (nodoCarpeta) nodoCarpeta.hijos.push(nodoArchivo);
+        else raiz.push(nodoArchivo);
         continue;
       }
 
-      // B) Si NO tiene carpetaId: se organiza por prefijo S3
+      // 🔥 Si ya existe una carpeta BD que representa ese prefijo, úsala y NO crees rama S3 duplicada
+      const nodoBdCoincidente = buscarNodoBdPorRutaS3(archivo.rutaS3);
+      if (nodoBdCoincidente) {
+        nodoBdCoincidente.hijos.push(nodoArchivo);
+        continue;
+      }
+
       const nivelDestino = asegurarRutaS3(archivo.rutaS3);
       nivelDestino.push(nodoArchivo);
     }
@@ -971,9 +977,9 @@ export const obtenerArbolArchivos = async (req, res) => {
     return res.json(raiz);
   } catch (error) {
     console.error(error);
-    return res.status(500).json({
-      message: "Error interno al obtener árbol de archivos.",
-    });
+    return res
+      .status(500)
+      .json({ message: "Error interno al obtener árbol de archivos." });
   }
 };
 
@@ -1382,254 +1388,101 @@ export const purgarPapelera = async (req, res) => {
 };
 
 export const subirArchivoRepositorio = async (req, res) => {
-  const { id: creadoPor } = req.user;
-
-  const carpetaId = req.body.carpetaId ? Number(req.body.carpetaId) : null;
-  const prefijoS3 = req.body.prefijoS3
-    ? String(req.body.prefijoS3).trim()
-    : null;
-
-  if (!req.file) {
-    return res.status(400).json({ message: "Debes enviar un archivo." });
-  }
-
-  const nombreOriginal = req.file.originalname;
-  const extension = nombreOriginal?.includes(".")
-    ? nombreOriginal.split(".").pop()
-    : null;
-
-  const tamanioBytes = Number(req.file.size || 0);
-  const rutaS3Original = req.file.key;
-
-  const tipoDocumento = req.body.tipoDocumento || "comprobante";
-  const subTipoArchivo = req.body.subTipoArchivo || "comprobante";
-
-  const cx = await db.getConnection();
-  let rutaS3Final = rutaS3Original;
+  const usuarioId = req.user.id;
 
   try {
-    // 1) Validar carpeta BD si viene carpetaId
-    if (carpetaId) {
-      const [[carpeta]] = await cx.query(
-        `SELECT id, estado
-           FROM carpetasArchivos
-          WHERE id = ?`,
-        [carpetaId],
-      );
-
-      if (!carpeta) {
-        return res.status(404).json({ message: "Carpeta no encontrada." });
-      }
-
-      if (["papelera", "borrado"].includes(String(carpeta.estado))) {
-        return res.status(400).json({
-          message:
-            "No puedes subir archivos a una carpeta en papelera/borrada.",
-        });
-      }
+    if (!req.file) {
+      return res.status(400).json({ mensaje: "No se recibió ningún archivo." });
     }
 
-    // 2) Validar cuota / almacenamiento (se mantiene tu lógica)
-    const [[columnaIlimitado]] = await cx.query(
-      `
-      SELECT 1 AS existe
-        FROM INFORMATION_SCHEMA.COLUMNS
-       WHERE TABLE_SCHEMA = DATABASE()
-         AND TABLE_NAME = 'usuarios'
-         AND COLUMN_NAME = 'ilimitado'
-       LIMIT 1
-      `,
-    );
+    // Datos del archivo
+    const nombreOriginal = req.file.originalname;
+    const extension = nombreOriginal.includes(".")
+      ? nombreOriginal.split(".").pop()
+      : null;
 
-    let filaUsuario = null;
+    const tamanioBytes = req.file.size;
+    const rutaS3 = req.file.key; // ya viene del upload middleware
 
-    if (columnaIlimitado?.existe) {
-      const [[usuarioConIlimitado]] = await cx.query(
-        `SELECT usoStorageBytes, cuotaMb, ilimitado
-           FROM usuarios
-          WHERE id = ?`,
-        [creadoPor],
-      );
-      filaUsuario = usuarioConIlimitado;
-    } else {
-      const [[usuarioSinIlimitado]] = await cx.query(
-        `SELECT usoStorageBytes, cuotaMb
-           FROM usuarios
-          WHERE id = ?`,
-        [creadoPor],
-      );
-      filaUsuario = usuarioSinIlimitado
-        ? { ...usuarioSinIlimitado, ilimitado: 0 }
-        : null;
-    }
+    // Entradas esperadas desde el frontend
+    // - carpetaId: si seleccionaron una carpeta BD explícita
+    // - prefijoS3: si seleccionaron una carpeta “S3” (ruta/prefijo)
+    const carpetaIdEntrada = req.body.carpetaId
+      ? Number(req.body.carpetaId)
+      : null;
+    const prefijoS3 = req.body.prefijoS3
+      ? String(req.body.prefijoS3).trim()
+      : null;
 
-    if (!filaUsuario) {
-      return res.status(404).json({ message: "Usuario no encontrado." });
-    }
+    let carpetaIdFinal = carpetaIdEntrada;
 
-    const usoActualBytes = Number(filaUsuario.usoStorageBytes || 0);
-    const nuevoUsoBytes = usoActualBytes + tamanioBytes;
-
-    const esIlimitado = Number(filaUsuario.ilimitado || 0) === 1;
-
-    if (!esIlimitado) {
-      const cuotaMb = Number(filaUsuario.cuotaMb || 0);
-      const cuotaBytes = cuotaMb * 1024 * 1024;
-
-      if (cuotaBytes > 0 && nuevoUsoBytes > cuotaBytes) {
-        return res.status(413).json({
-          message:
-            "Has superado tu cuota de almacenamiento. Elimina archivos o solicita más espacio.",
-        });
-      }
-    }
-
-    // ✅ 3) Determinar carpetaIdFinal (CLAVE para cumplir chk_archivos_dueno)
-    let carpetaIdFinal = carpetaId;
-
+    // Si vienen navegando por una carpeta S3, la convertimos a carpeta BD (repositorio)
     if (!carpetaIdFinal && prefijoS3) {
-      carpetaIdFinal = await obtenerOCrearCadenaCarpetasPorRutaVirtual({
-        conexion: cx,
-        rutaVirtual: prefijoS3,
-        usuarioId: creadoPor,
-      });
+      // Normalizar: sin "s3:" y sin "/" final
+      const prefijoNormalizado = prefijoS3
+        .replace(/^s3:/, "")
+        .replace(/\/+$/, "");
+
+      const rutaVirtual = `/${prefijoNormalizado}`;
+
+      // 1) Buscar si existe la carpeta BD por rutaVirtual
+      const [[carpetaExistente]] = await db.query(
+        `SELECT id FROM carpetasArchivos
+          WHERE rutaVirtual = ?
+            AND estado = 'activa'
+          LIMIT 1`,
+        [rutaVirtual],
+      );
+
+      if (carpetaExistente) {
+        carpetaIdFinal = carpetaExistente.id;
+      } else {
+        // 2) Crear carpeta BD si no existe
+        const [resultadoCarpeta] = await db.query(
+          `INSERT INTO carpetasArchivos (nombre, padreId, rutaVirtual, creadoPor, estado)
+           VALUES (?, NULL, ?, ?, 'activa')`,
+          [prefijoNormalizado.split("/").pop(), rutaVirtual, usuarioId],
+        );
+
+        carpetaIdFinal = resultadoCarpeta.insertId;
+      }
     }
 
+    // VALIDACIÓN CLAVE: repositorio exige carpetaIdFinal NO NULL
     if (!carpetaIdFinal) {
       return res.status(400).json({
-        message:
-          "Debes enviar carpetaId o prefijoS3 válido para subir al repositorio.",
+        mensaje:
+          "Para subir al repositorio debes seleccionar una carpeta válida (carpetaId o prefijoS3).",
       });
     }
 
-    // 4) Si viene prefijoS3, mover el objeto a esa “carpeta” en S3
-    if (prefijoS3) {
-      const prefijoNormalizado = prefijoS3.endsWith("/")
-        ? prefijoS3
-        : `${prefijoS3}/`;
-
-      const destinoS3 = `${prefijoNormalizado}${nombreOriginal}`;
-
-      if (destinoS3 !== rutaS3Original) {
-        const bucket = process.env.S3_BUCKET;
-
-        await s3.send(
-          new CopyObjectCommand({
-            Bucket: bucket,
-            CopySource: `${bucket}/${rutaS3Original}`,
-            Key: destinoS3,
-          }),
-        );
-
-        await s3.send(
-          new DeleteObjectCommand({
-            Bucket: bucket,
-            Key: rutaS3Original,
-          }),
-        );
-
-        rutaS3Final = destinoS3;
-      }
-    }
-
-    await cx.beginTransaction();
-
-    // 5) Insert archivo en repositorio (carpetaId NO NULL, registroTipo/registroId quedan NULL)
-    const [resultadoArchivo] = await cx.query(
+    // Insert en BD cumpliendo chk_archivos_dueno:
+    // carpetaId != null y registroTipo/registroId null
+    const [resultado] = await db.query(
       `INSERT INTO archivos
-        (subTipoArchivo, tipoDocumento, nombreOriginal, extension, tamanioBytes, rutaS3, subidoPor, carpetaId)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        (subTipoArchivo, tipoDocumento, nombreOriginal, extension, tamanioBytes, rutaS3, subidoPor, carpetaId, registroTipo, registroId)
+       VALUES ('comprobante', 'comprobante', ?, ?, ?, ?, ?, ?, NULL, NULL)`,
       [
-        subTipoArchivo,
-        tipoDocumento,
         nombreOriginal,
         extension,
         tamanioBytes,
-        rutaS3Final,
-        creadoPor,
+        rutaS3,
+        usuarioId,
         carpetaIdFinal,
       ],
     );
 
-    const archivoId = resultadoArchivo.insertId;
-
-    // 6) Insert versión 1
-    const [resultadoVersion] = await cx.query(
-      `INSERT INTO versionesArchivo
-        (archivoId, numeroVersion, nombreOriginal, extension, tamanioBytes, rutaS3, subidoPor)
-       VALUES (?, 1, ?, ?, ?, ?, ?)`,
-      [
-        archivoId,
-        nombreOriginal,
-        extension,
-        tamanioBytes,
-        rutaS3Final,
-        creadoPor,
-      ],
-    );
-
-    const versionId = resultadoVersion.insertId;
-
-    // 7) Actualizar usoStorageBytes
-    await cx.query(
-      `UPDATE usuarios
-          SET usoStorageBytes = ?
-        WHERE id = ?`,
-      [nuevoUsoBytes, creadoPor],
-    );
-
-    // 8) Auditoría
-    await cx.query(
-      `INSERT INTO eventosArchivo
-        (archivoId, versionId, accion, creadoPor, ip, userAgent, detalles)
-       VALUES (?, ?, 'subidaArchivo', ?, ?, ?, ?)`,
-      [
-        archivoId,
-        versionId,
-        creadoPor,
-        req.ip || null,
-        req.get("User-Agent") || null,
-        JSON.stringify({
-          carpetaId: carpetaIdFinal,
-          prefijoS3,
-          tipoDocumento,
-          subTipoArchivo,
-          rutaS3: rutaS3Final,
-          nombreOriginal,
-          tamanioBytes,
-        }),
-      ],
-    );
-
-    await cx.commit();
-
-    return res.status(201).json({
-      message: "Archivo subido al repositorio correctamente.",
-      archivoId,
-      versionId,
+    return res.json({
+      mensaje: "Archivo subido correctamente.",
+      archivoId: resultado.insertId,
       carpetaId: carpetaIdFinal,
-      rutaS3: rutaS3Final,
+      rutaS3,
     });
   } catch (error) {
-    await cx.rollback();
-
-    // Limpieza best-effort en S3 (si algo falló después de mover/subir)
-    try {
-      const bucket = process.env.S3_BUCKET;
-      await s3.send(
-        new DeleteObjectCommand({
-          Bucket: bucket,
-          Key: rutaS3Final || rutaS3Original,
-        }),
-      );
-    } catch (_) {}
-
     console.error("Error subirArchivoRepositorio:", error);
-    return res.status(500).json({
-      message: "Error interno al subir archivo al repositorio.",
-    });
-  } finally {
-    cx.release();
+    return res
+      .status(500)
+      .json({ mensaje: "Error al subir archivo al repositorio." });
   }
 };
 

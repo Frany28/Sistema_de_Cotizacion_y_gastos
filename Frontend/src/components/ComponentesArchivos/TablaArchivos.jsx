@@ -223,16 +223,14 @@ function TablaArchivos() {
       const formData = new FormData();
       formData.append("archivo", archivoSeleccionado);
 
-      // A) Carpeta BD
       if (carpetaActual?.carpetaId) {
+        // Prioridad: carpeta BD (repositorio real)
         formData.append("carpetaId", String(carpetaActual.carpetaId));
-      }
-
-      // B) Carpeta S3 (prefijo virtual)
-      if (carpetaActual?.esDestinoS3 && carpetaActual?.prefijoS3) {
-        const prefijoNormalizado = String(carpetaActual.prefijoS3).endsWith("/")
-          ? String(carpetaActual.prefijoS3)
-          : `${String(carpetaActual.prefijoS3)}/`;
+      } else if (carpetaActual?.esDestinoS3 && carpetaActual?.prefijoS3) {
+        // Solo si NO hay carpetaId, usamos prefijo S3
+        const prefijoNormalizado = String(carpetaActual.prefijoS3)
+          .replace(/^\/+/, "")
+          .replace(/\/+$/, "");
 
         formData.append("prefijoS3", prefijoNormalizado);
       }
@@ -379,13 +377,21 @@ function TablaArchivos() {
               }
 
               // 3) Si se está abriendo → seleccionar como destino
-              const esDestinoS3 = rutaNodo.startsWith("s3:");
+              const tieneCarpetaBd = nodo.carpetaId != null;
+
+              // Si el nodo ya tiene carpetaId, lo tratamos como carpeta BD,
+              // aunque su ruta sea "s3:" (evita doble origen).
+              const esDestinoS3 = !tieneCarpetaBd && rutaNodo.startsWith("s3:");
+
               const prefijoS3 = esDestinoS3
-                ? rutaNodo.replace(/^s3:/, "").replace(/^\//, "")
+                ? rutaNodo
+                    .replace(/^s3:/, "")
+                    .replace(/^\/+/, "")
+                    .replace(/\/+$/, "")
                 : "";
 
               setCarpetaActual({
-                carpetaId: nodo.carpetaId ?? null,
+                carpetaId: tieneCarpetaBd ? Number(nodo.carpetaId) : null,
                 esDestinoS3,
                 prefijoS3,
                 ruta: rutaNodo,
