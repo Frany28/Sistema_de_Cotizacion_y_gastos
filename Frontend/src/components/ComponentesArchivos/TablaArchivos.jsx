@@ -129,14 +129,18 @@ function TablaArchivos() {
   };
 
   const formatoTamano = (bytes) => {
-    if (bytes == null || bytes === 0) return "-";
+    const bytesNormalizado = Number(bytes);
+    if (!Number.isFinite(bytesNormalizado) || bytesNormalizado <= 0) return "-";
+
     const unidades = ["B", "KB", "MB", "GB", "TB"];
     let indice = 0;
-    let valor = bytes;
+    let valor = bytesNormalizado;
+
     while (valor >= 1024 && indice < unidades.length - 1) {
       valor /= 1024;
       indice++;
     }
+
     return `${valor.toFixed(indice ? 1 : 0)} ${unidades[indice]}`;
   };
 
@@ -201,6 +205,15 @@ function TablaArchivos() {
   const subirArchivoAlRepositorio = async () => {
     if (!archivoSeleccionado) {
       mostrarError("Selecciona un archivo antes de subir.");
+      return;
+    }
+
+    const tieneDestino =
+      !!carpetaActual?.carpetaId ||
+      (carpetaActual?.esDestinoS3 && !!carpetaActual?.prefijoS3);
+
+    if (!tieneDestino) {
+      mostrarError("Selecciona una carpeta destino (BD o S3) antes de subir.");
       return;
     }
 
