@@ -833,6 +833,22 @@ export const obtenerArbolArchivos = async (req, res) => {
   const rolId = req.user.rol_id;
   const esVistaCompleta = [ROL_ADMIN, ROL_SUPERVISOR].includes(rolId);
 
+  const normalizarRutaBd = (ruta) => {
+    if (!ruta) return null;
+    let rutaNormalizada = String(ruta).trim();
+    // quitar prefijo s3: si llega por error
+    rutaNormalizada = rutaNormalizada.replace(/^s3:/, "");
+    // asegurar que empiece con /
+    rutaNormalizada = rutaNormalizada.startsWith("/")
+      ? rutaNormalizada
+      : `/${rutaNormalizada}`;
+    // quitar slashes finales repetidos
+    rutaNormalizada = rutaNormalizada.replace(/\/+$/, "");
+    // colapsar múltiples //
+    rutaNormalizada = rutaNormalizada.replace(/\/{2,}/g, "/");
+    return rutaNormalizada === "" ? "/" : rutaNormalizada;
+  };
+
   try {
     const [carpetasBd] = await db.query(
       `
@@ -858,7 +874,7 @@ export const obtenerArbolArchivos = async (req, res) => {
 
     const raiz = [];
 
-    const mapaCarpetaPorRuta = new Map(); // rutaNodo -> nodoCarpeta
+    const mapaCarpetaPorRuta = new Map(); // rutaNodo ("/a/b") -> nodoCarpeta
     const mapaCarpetaIdANodo = new Map(); // carpetaId -> nodoCarpeta
     const mapaRutaVirtualANodo = new Map(); // "/a/b" -> nodoCarpeta
 
@@ -878,7 +894,10 @@ export const obtenerArbolArchivos = async (req, res) => {
     };
 
     const asegurarRutaBd = (rutaVirtual) => {
-      const partes = rutaVirtual.replace(/^\/+/, "").split("/").filter(Boolean);
+      const rutaBd = normalizarRutaBd(rutaVirtual);
+      if (!rutaBd || rutaBd === "/") return raiz;
+
+      const partes = rutaBd.replace(/^\/+/, "").split("/").filter(Boolean);
       let nivelActual = raiz;
       let rutaAcum = "";
 
@@ -896,8 +915,12 @@ export const obtenerArbolArchivos = async (req, res) => {
       return nivelActual;
     };
 
+    // ✅ CLAVE: S3 se cuelga bajo rutas BD "/..."
     const asegurarRutaS3 = (rutaS3Completa) => {
-      const rutaSinArchivo = rutaS3Completa.split("/").slice(0, -1).join("/");
+      const rutaSinArchivo = String(rutaS3Completa || "")
+        .split("/")
+        .slice(0, -1)
+        .join("/");
       const partes = rutaSinArchivo.split("/").filter(Boolean);
 
       let nivelActual = raiz;
@@ -905,39 +928,50 @@ export const obtenerArbolArchivos = async (req, res) => {
 
       for (const parte of partes) {
         rutaAcum += (rutaAcum ? "/" : "") + parte;
-        const rutaNodo = `s3:${rutaAcum}`; // S3 usa "s3:..."
+
+        // En vez de "s3:...", usamos ruta BD "/..."
+        const rutaNodoBd = normalizarRutaBd(rutaAcum); // => "/comprobantes_pagos/2025/..."
+
         const nodoCarpeta = obtenerONuevoNodoCarpeta(
           nivelActual,
           parte,
-          rutaNodo,
+          rutaNodoBd,
         );
+
         nivelActual = nodoCarpeta.hijos;
       }
 
       return nivelActual;
     };
 
-    // 1) Crear nodos de carpetas BD
+    // 1) Crear nodos de carpetas BD (normalizadas)
     for (const carpeta of carpetasBd) {
-      if (!carpeta.rutaVirtual) continue;
-      asegurarRutaBd(carpeta.rutaVirtual);
+      const rutaBd = normalizarRutaBd(carpeta.rutaVirtual);
+      if (!rutaBd || rutaBd === "/") continue;
 
-      // Guardar el nodo final para inserciones por carpetaId
-      const nodoFinal = mapaCarpetaPorRuta.get(carpeta.rutaVirtual);
+      asegurarRutaBd(rutaBd);
+
+      // Guardar nodo final para inserciones por carpetaId
+      const nodoFinal = mapaCarpetaPorRuta.get(rutaBd);
       if (nodoFinal) {
         nodoFinal.carpetaId = carpeta.id;
         mapaCarpetaIdANodo.set(carpeta.id, nodoFinal);
-        mapaRutaVirtualANodo.set(carpeta.rutaVirtual, nodoFinal);
+        mapaRutaVirtualANodo.set(rutaBd, nodoFinal);
       }
     }
 
     // Helper: encontrar carpeta BD más específica para una rutaS3 (por prefijo)
     const buscarNodoBdPorRutaS3 = (rutaS3Completa) => {
-      const rutaSinArchivo = rutaS3Completa.split("/").slice(0, -1).join("/");
+      const rutaSinArchivo = String(rutaS3Completa || "")
+        .split("/")
+        .slice(0, -1)
+        .join("/");
       const partes = rutaSinArchivo.split("/").filter(Boolean);
 
       for (let i = partes.length; i >= 1; i--) {
-        const rutaVirtualCandidata = "/" + partes.slice(0, i).join("/");
+        const rutaVirtualCandidata = normalizarRutaBd(
+          partes.slice(0, i).join("/"),
+        ); // => "/a/b"
         const nodo = mapaRutaVirtualANodo.get(rutaVirtualCandidata);
         if (nodo) return nodo;
       }
@@ -956,6 +990,7 @@ export const obtenerArbolArchivos = async (req, res) => {
         creadoEn: archivo.creadoEn,
       };
 
+      // A) Repositorio (carpetaId)
       if (archivo.carpetaId) {
         const nodoCarpeta = mapaCarpetaIdANodo.get(archivo.carpetaId);
         if (nodoCarpeta) nodoCarpeta.hijos.push(nodoArchivo);
@@ -963,13 +998,14 @@ export const obtenerArbolArchivos = async (req, res) => {
         continue;
       }
 
-      // 🔥 Si ya existe una carpeta BD que representa ese prefijo, úsala y NO crees rama S3 duplicada
+      // B) Archivos enlazados sin carpetaId: si existe ruta BD, úsala
       const nodoBdCoincidente = buscarNodoBdPorRutaS3(archivo.rutaS3);
       if (nodoBdCoincidente) {
         nodoBdCoincidente.hijos.push(nodoArchivo);
         continue;
       }
 
+      // C) Si no existe BD, crear virtuales bajo "/..." (sin "s3:")
       const nivelDestino = asegurarRutaS3(archivo.rutaS3);
       nivelDestino.push(nodoArchivo);
     }
