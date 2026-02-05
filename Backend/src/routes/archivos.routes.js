@@ -3,6 +3,7 @@ import express from "express";
 import { autenticarUsuario } from "../Middleware/autenticarUsuario.js";
 import { verificarPermiso } from "../Middleware/verificarPermiso.js";
 import { uploadGeneric } from "../utils/s3.js";
+import { validarDestinoRepositorio } from "../Middleware/validarDestinoRepositorio.js";
 
 import {
   obtenerArbolArchivos,
@@ -143,6 +144,7 @@ router.post(
   autenticarUsuario,
   verificarPermiso("editarArchivos"),
   uploadGeneric.single("archivo"),
+  validarDestinoRepositorio,
   subirArchivoRepositorio,
 );
 

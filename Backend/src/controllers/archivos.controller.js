@@ -903,7 +903,7 @@ export const obtenerArbolArchivos = async (req, res) => {
 
       for (const parte of partes) {
         rutaAcum += `/${parte}`;
-        const rutaNodo = rutaAcum; // BD usa "/..."
+        const rutaNodo = rutaAcum;
         const nodoCarpeta = obtenerONuevoNodoCarpeta(
           nivelActual,
           parte,
@@ -915,7 +915,7 @@ export const obtenerArbolArchivos = async (req, res) => {
       return nivelActual;
     };
 
-    // ✅ CLAVE: S3 se cuelga bajo rutas BD "/..."
+    // ✅ CLAVE: S3 se cuelga bajo rutas BD "/."
     const asegurarRutaS3 = (rutaS3Completa) => {
       const rutaSinArchivo = String(rutaS3Completa || "")
         .split("/")
@@ -928,16 +928,13 @@ export const obtenerArbolArchivos = async (req, res) => {
 
       for (const parte of partes) {
         rutaAcum += (rutaAcum ? "/" : "") + parte;
-
-        // En vez de "s3:...", usamos ruta BD "/..."
-        const rutaNodoBd = normalizarRutaBd(rutaAcum); // => "/comprobantes_pagos/2025/..."
+        const rutaNodoBd = normalizarRutaBd(rutaAcum);
 
         const nodoCarpeta = obtenerONuevoNodoCarpeta(
           nivelActual,
           parte,
           rutaNodoBd,
         );
-
         nivelActual = nodoCarpeta.hijos;
       }
 
@@ -951,7 +948,6 @@ export const obtenerArbolArchivos = async (req, res) => {
 
       asegurarRutaBd(rutaBd);
 
-      // Guardar nodo final para inserciones por carpetaId
       const nodoFinal = mapaCarpetaPorRuta.get(rutaBd);
       if (nodoFinal) {
         nodoFinal.carpetaId = carpeta.id;
@@ -971,7 +967,7 @@ export const obtenerArbolArchivos = async (req, res) => {
       for (let i = partes.length; i >= 1; i--) {
         const rutaVirtualCandidata = normalizarRutaBd(
           partes.slice(0, i).join("/"),
-        ); // => "/a/b"
+        );
         const nodo = mapaRutaVirtualANodo.get(rutaVirtualCandidata);
         if (nodo) return nodo;
       }
@@ -1005,10 +1001,32 @@ export const obtenerArbolArchivos = async (req, res) => {
         continue;
       }
 
-      // C) Si no existe BD, crear virtuales bajo "/..." (sin "s3:")
+      // C) Si no existe BD, crear virtuales bajo "/." (sin "s3:")
       const nivelDestino = asegurarRutaS3(archivo.rutaS3);
       nivelDestino.push(nodoArchivo);
     }
+
+    /**
+     * ✅ CAMBIO CLAVE: orden estilo “administrador de archivos”
+     * - Carpetas primero, luego archivos
+     * - Por nombre (case-insensitive)
+     */
+    const ordenarNodos = (nodos) => {
+      nodos.sort((a, b) => {
+        if (a.tipo !== b.tipo) return a.tipo === "carpeta" ? -1 : 1;
+        const nombreA = String(a.nombre ?? "").toLowerCase();
+        const nombreB = String(b.nombre ?? "").toLowerCase();
+        return nombreA.localeCompare(nombreB);
+      });
+
+      for (const nodo of nodos) {
+        if (nodo.tipo === "carpeta" && Array.isArray(nodo.hijos)) {
+          ordenarNodos(nodo.hijos);
+        }
+      }
+    };
+
+    ordenarNodos(raiz);
 
     return res.json(raiz);
   } catch (error) {
@@ -1424,63 +1442,66 @@ export const purgarPapelera = async (req, res) => {
 };
 
 export const subirArchivoRepositorio = async (req, res) => {
-  const usuarioId = req.user.id;
-
   try {
+    const usuarioId = req.user?.id;
+
     if (!req.file) {
       return res.status(400).json({ mensaje: "No se recibió ningún archivo." });
     }
 
-    // Datos del archivo
-    const nombreOriginal = req.file.originalname;
-    const extension = nombreOriginal.includes(".")
+    const nombreOriginal = req.file.originalname ?? null;
+    const extension = nombreOriginal?.includes(".")
       ? nombreOriginal.split(".").pop()
       : null;
 
-    const tamanioBytes = req.file.size;
-    const rutaS3 = req.file.key; // ya viene del upload middleware
+    // En tu flujo, el middleware ya asigna la key final en S3
+    const rutaS3 = req.file.key ?? null;
+    const tamanioBytes = Number(req.file.size ?? 0);
 
-    // Entradas esperadas desde el frontend
-    // - carpetaId: si seleccionaron una carpeta BD explícita
-    // - prefijoS3: si seleccionaron una carpeta “S3” (ruta/prefijo)
-    const carpetaIdEntrada = req.body.carpetaId
+    const carpetaIdEntrada = req.body?.carpetaId
       ? Number(req.body.carpetaId)
       : null;
-    const prefijoS3 = req.body.prefijoS3
+
+    const prefijoS3 = req.body?.prefijoS3
       ? String(req.body.prefijoS3).trim()
       : null;
 
     let carpetaIdFinal = carpetaIdEntrada;
 
-    // Si vienen navegando por una carpeta S3, la convertimos a carpeta BD (repositorio)
+    /**
+     * ✅ CAMBIO CLAVE:
+     * Si viene prefijoS3 (navegación por árbol tipo S3), NO creamos una sola carpeta con padreId NULL.
+     * Creamos/obtenemos TODA la cadena en BD usando tu helper:
+     * obtenerOCrearCadenaCarpetasPorRutaVirtual({ conexion, rutaVirtual, usuarioId })
+     */
     if (!carpetaIdFinal && prefijoS3) {
-      // Normalizar: sin "s3:" y sin "/" final
       const prefijoNormalizado = prefijoS3
         .replace(/^s3:/, "")
-        .replace(/\/+$/, "");
+        .replace(/\/+$/, "")
+        .replace(/^\/+/, ""); // sin "/" inicial por tu normalizador
 
-      const rutaVirtual = `/${prefijoNormalizado}`;
+      // rutaVirtual en BD se guarda sin slash inicial por tu helper normalizarRutaVirtual
+      // pero nosotros le mandamos una ruta "limpia" (tu helper se encarga)
+      const conexion = await db.getConnection();
+      try {
+        await conexion.beginTransaction();
 
-      // 1) Buscar si existe la carpeta BD por rutaVirtual
-      const [[carpetaExistente]] = await db.query(
-        `SELECT id FROM carpetasArchivos
-          WHERE rutaVirtual = ?
-            AND estado = 'activa'
-          LIMIT 1`,
-        [rutaVirtual],
-      );
-
-      if (carpetaExistente) {
-        carpetaIdFinal = carpetaExistente.id;
-      } else {
-        // 2) Crear carpeta BD si no existe
-        const [resultadoCarpeta] = await db.query(
-          `INSERT INTO carpetasArchivos (nombre, padreId, rutaVirtual, creadoPor, estado)
-           VALUES (?, NULL, ?, ?, 'activa')`,
-          [prefijoNormalizado.split("/").pop(), rutaVirtual, usuarioId],
+        // crea/obtiene la cadena completa y devuelve el ID del último nodo
+        const carpetaIdCadena = await obtenerOCrearCadenaCarpetasPorRutaVirtual(
+          {
+            conexion,
+            rutaVirtual: prefijoNormalizado,
+            usuarioId,
+          },
         );
 
-        carpetaIdFinal = resultadoCarpeta.insertId;
+        await conexion.commit();
+        carpetaIdFinal = carpetaIdCadena;
+      } catch (errorCadena) {
+        await conexion.rollback();
+        throw errorCadena;
+      } finally {
+        conexion.release();
       }
     }
 
