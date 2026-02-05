@@ -207,13 +207,15 @@ function TablaArchivos() {
       mostrarError("Selecciona un archivo antes de subir.");
       return;
     }
+    const tieneDestinoBd = !!carpetaActual?.carpetaId;
+    const tieneDestinoVirtual =
+      !tieneDestinoBd &&
+      !!carpetaActual?.ruta &&
+      carpetaActual.ruta !== "/" &&
+      String(carpetaActual.ruta).trim() !== "";
 
-    const tieneDestino =
-      !!carpetaActual?.carpetaId ||
-      (carpetaActual?.esDestinoS3 && !!carpetaActual?.prefijoS3);
-
-    if (!tieneDestino) {
-      mostrarError("Selecciona una carpeta destino (BD o S3) antes de subir.");
+    if (!tieneDestinoBd && !tieneDestinoVirtual) {
+      mostrarError("Selecciona una carpeta destino antes de subir.");
       return;
     }
 
@@ -223,12 +225,12 @@ function TablaArchivos() {
       const formData = new FormData();
       formData.append("archivo", archivoSeleccionado);
 
-      if (carpetaActual?.carpetaId) {
-        // Prioridad: carpeta BD (repositorio real)
+      if (tieneDestinoBd) {
+        // Prioridad: carpeta BD
         formData.append("carpetaId", String(carpetaActual.carpetaId));
-      } else if (carpetaActual?.esDestinoS3 && carpetaActual?.prefijoS3) {
-        // Solo si NO hay carpetaId, usamos prefijo S3
-        const prefijoNormalizado = String(carpetaActual.prefijoS3)
+      } else {
+        // ✅ Virtual: derivar prefijoS3 desde la ruta "/a/b/c"
+        const prefijoNormalizado = String(carpetaActual.ruta)
           .replace(/^\/+/, "")
           .replace(/\/+$/, "");
 
@@ -379,15 +381,13 @@ function TablaArchivos() {
               // 3) Si se está abriendo → seleccionar como destino
               const tieneCarpetaBd = nodo.carpetaId != null;
 
-              // Si el nodo ya tiene carpetaId, lo tratamos como carpeta BD,
-              // aunque su ruta sea "s3:" (evita doble origen).
-              const esDestinoS3 = !tieneCarpetaBd && rutaNodo.startsWith("s3:");
+              // ✅ NUEVO: si NO tiene carpetaId, es carpeta virtual (proviene del orden S3)
+              const esDestinoS3 = !tieneCarpetaBd;
 
               const prefijoS3 = esDestinoS3
-                ? rutaNodo
-                    .replace(/^s3:/, "")
-                    .replace(/^\/+/, "")
-                    .replace(/\/+$/, "")
+                ? String(rutaNodo)
+                    .replace(/^\/+/, "") // quita "/" inicial
+                    .replace(/\/+$/, "") // quita "/" final
                 : "";
 
               setCarpetaActual({
