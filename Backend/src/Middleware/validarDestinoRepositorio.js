@@ -1,4 +1,4 @@
-const validarDestinoRepositorio = (req, res, next) => {
+export const validarDestinoRepositorio = (req, res, next) => {
   const carpetaId = req.body?.carpetaId ? Number(req.body.carpetaId) : null;
   const prefijoS3 = req.body?.prefijoS3
     ? String(req.body.prefijoS3).trim()
