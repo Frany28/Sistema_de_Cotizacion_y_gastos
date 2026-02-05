@@ -836,15 +836,11 @@ export const obtenerArbolArchivos = async (req, res) => {
   const normalizarRutaBd = (ruta) => {
     if (!ruta) return null;
     let rutaNormalizada = String(ruta).trim();
-    // quitar prefijo s3: si llega por error
     rutaNormalizada = rutaNormalizada.replace(/^s3:/, "");
-    // asegurar que empiece con /
     rutaNormalizada = rutaNormalizada.startsWith("/")
       ? rutaNormalizada
       : `/${rutaNormalizada}`;
-    // quitar slashes finales repetidos
     rutaNormalizada = rutaNormalizada.replace(/\/+$/, "");
-    // colapsar múltiples //
     rutaNormalizada = rutaNormalizada.replace(/\/{2,}/g, "/");
     return rutaNormalizada === "" ? "/" : rutaNormalizada;
   };
@@ -874,9 +870,9 @@ export const obtenerArbolArchivos = async (req, res) => {
 
     const raiz = [];
 
-    const mapaCarpetaPorRuta = new Map(); // rutaNodo ("/a/b") -> nodoCarpeta
-    const mapaCarpetaIdANodo = new Map(); // carpetaId -> nodoCarpeta
-    const mapaRutaVirtualANodo = new Map(); // "/a/b" -> nodoCarpeta
+    const mapaCarpetaPorRuta = new Map();
+    const mapaCarpetaIdANodo = new Map();
+    const mapaRutaVirtualANodo = new Map();
 
     const obtenerONuevoNodoCarpeta = (nivel, nombre, rutaNodo) => {
       const clave = rutaNodo;
@@ -915,12 +911,13 @@ export const obtenerArbolArchivos = async (req, res) => {
       return nivelActual;
     };
 
-    // ✅ CLAVE: S3 se cuelga bajo rutas BD "/."
+    // ✅ ESTA es la clave: siempre construye la ruta real por S3
     const asegurarRutaS3 = (rutaS3Completa) => {
       const rutaSinArchivo = String(rutaS3Completa || "")
         .split("/")
         .slice(0, -1)
         .join("/");
+
       const partes = rutaSinArchivo.split("/").filter(Boolean);
 
       let nivelActual = raiz;
@@ -935,13 +932,14 @@ export const obtenerArbolArchivos = async (req, res) => {
           parte,
           rutaNodoBd,
         );
+
         nivelActual = nodoCarpeta.hijos;
       }
 
       return nivelActual;
     };
 
-    // 1) Crear nodos de carpetas BD (normalizadas)
+    // 1) Crear nodos de carpetas BD
     for (const carpeta of carpetasBd) {
       const rutaBd = normalizarRutaBd(carpeta.rutaVirtual);
       if (!rutaBd || rutaBd === "/") continue;
@@ -956,24 +954,6 @@ export const obtenerArbolArchivos = async (req, res) => {
       }
     }
 
-    // Helper: encontrar carpeta BD más específica para una rutaS3 (por prefijo)
-    const buscarNodoBdPorRutaS3 = (rutaS3Completa) => {
-      const rutaSinArchivo = String(rutaS3Completa || "")
-        .split("/")
-        .slice(0, -1)
-        .join("/");
-      const partes = rutaSinArchivo.split("/").filter(Boolean);
-
-      for (let i = partes.length; i >= 1; i--) {
-        const rutaVirtualCandidata = normalizarRutaBd(
-          partes.slice(0, i).join("/"),
-        );
-        const nodo = mapaRutaVirtualANodo.get(rutaVirtualCandidata);
-        if (nodo) return nodo;
-      }
-      return null;
-    };
-
     // 2) Insertar archivos
     for (const archivo of archivosBd) {
       const nodoArchivo = {
@@ -986,7 +966,7 @@ export const obtenerArbolArchivos = async (req, res) => {
         creadoEn: archivo.creadoEn,
       };
 
-      // A) Repositorio (carpetaId)
+      // A) Repositorio (carpetaId): cuélgalo en BD
       if (archivo.carpetaId) {
         const nodoCarpeta = mapaCarpetaIdANodo.get(archivo.carpetaId);
         if (nodoCarpeta) nodoCarpeta.hijos.push(nodoArchivo);
@@ -994,23 +974,13 @@ export const obtenerArbolArchivos = async (req, res) => {
         continue;
       }
 
-      // B) Archivos enlazados sin carpetaId: si existe ruta BD, úsala
-      const nodoBdCoincidente = buscarNodoBdPorRutaS3(archivo.rutaS3);
-      if (nodoBdCoincidente) {
-        nodoBdCoincidente.hijos.push(nodoArchivo);
-        continue;
-      }
-
-      // C) Si no existe BD, crear virtuales bajo "/." (sin "s3:")
+      // ✅ FIX: NO lo pegues al padre “más cercano”.
+      // Siempre cuélgalo en su ruta real según rutaS3.
       const nivelDestino = asegurarRutaS3(archivo.rutaS3);
       nivelDestino.push(nodoArchivo);
     }
 
-    /**
-     * ✅ CAMBIO CLAVE: orden estilo “administrador de archivos”
-     * - Carpetas primero, luego archivos
-     * - Por nombre (case-insensitive)
-     */
+    // 3) Orden tipo explorador (carpetas primero)
     const ordenarNodos = (nodos) => {
       nodos.sort((a, b) => {
         if (a.tipo !== b.tipo) return a.tipo === "carpeta" ? -1 : 1;
