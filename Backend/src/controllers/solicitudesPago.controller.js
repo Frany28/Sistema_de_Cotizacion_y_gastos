@@ -68,7 +68,7 @@ export const generarPDFSolicitudPago = async (req, res) => {
     LEFT JOIN usuarios ur      ON ur.id = sp.usuario_revisa_id
     LEFT JOIN usuarios up      ON up.id = sp.usuario_aprueba_id
     WHERE sp.id = ?`,
-    [id]
+    [id],
   );
 
   if (!row) {
@@ -93,7 +93,7 @@ export const generarPDFSolicitudPago = async (req, res) => {
       "..",
       "..",
       "styles",
-      "Logo Operaciones Logisticas Falcon.jpg"
+      "Logo Operaciones Logisticas Falcon.jpg",
     );
     const bufferLogo = fs.readFileSync(rutaLogo);
     const base64Logo = bufferLogo.toString("base64");
@@ -107,7 +107,7 @@ export const generarPDFSolicitudPago = async (req, res) => {
   if (row.ruta_comprobante) {
     comprobanteUrl = await generarUrlPrefirmadaLectura(
       row.ruta_comprobante,
-      600
+      600,
     );
   }
 
@@ -115,7 +115,7 @@ export const generarPDFSolicitudPago = async (req, res) => {
   if (row.gasto_documento) {
     gastoDocumentoUrl = await generarUrlPrefirmadaLectura(
       row.gasto_documento,
-      600
+      600,
     );
   }
 
@@ -224,7 +224,7 @@ export const generarPDFSolicitudPago = async (req, res) => {
     ORDER BY fecha_pago ASC, id ASC
     LIMIT 1
     `,
-      [id]
+      [id],
     );
 
     // Si aún no hay abonos, solo devolvemos el PDF sin guardar.
@@ -235,7 +235,7 @@ export const generarPDFSolicitudPago = async (req, res) => {
       const grupoId = await obtenerOcrearGrupoComprobante(
         conexion,
         id,
-        usuarioId
+        usuarioId,
       );
 
       // 3) Construir ruta S3 en la MISMA “carpeta” de la solicitud
@@ -264,7 +264,7 @@ export const generarPDFSolicitudPago = async (req, res) => {
       const timestamp = Date.now();
 
       const nombreOriginal = `ordenPago-${row.codigo}-abono-${String(
-        numeroAbono
+        numeroAbono,
       ).padStart(4, "0")}-${idPagoRealizado}-${timestamp}.pdf`;
       const extension = "pdf";
       const tamanioBytes = pdfBuffer.length;
@@ -287,7 +287,7 @@ export const generarPDFSolicitudPago = async (req, res) => {
         AND registroId = ?
         AND subTipoArchivo = 'ordenPago'
       `,
-        [idPagoRealizado]
+        [idPagoRealizado],
       );
 
       const numeroVersion = Number(ver?.maxVer || 0) + 1;
@@ -311,7 +311,7 @@ export const generarPDFSolicitudPago = async (req, res) => {
           numeroVersion,
           clavePdfOrdenPago,
           usuarioId,
-        ]
+        ],
       );
 
       const archivoId = aRes.insertId;
@@ -333,7 +333,7 @@ export const generarPDFSolicitudPago = async (req, res) => {
           tamanioBytes,
           clavePdfOrdenPago,
           usuarioId,
-        ]
+        ],
       );
 
       const versionId = vRes.insertId;
@@ -360,7 +360,7 @@ export const generarPDFSolicitudPago = async (req, res) => {
             codigoSolicitudPago: row.codigo,
             origen: "sistema",
           }),
-        ]
+        ],
       );
 
       // 9) Sumar almacenamiento al usuario
@@ -370,7 +370,7 @@ export const generarPDFSolicitudPago = async (req, res) => {
       SET usoStorageBytes = usoStorageBytes + ?
       WHERE id = ?
       `,
-        [tamanioBytes, usuarioId]
+        [tamanioBytes, usuarioId],
       );
     }
 
@@ -449,7 +449,7 @@ async function guardarPdfOrdenPagoPrimerAbono({
       LEFT JOIN usuarios up      ON up.id = sp.usuario_aprueba_id
       WHERE sp.id = ?
       `,
-      [solicitudPagoId]
+      [solicitudPagoId],
     );
 
     if (!row) {
@@ -466,7 +466,7 @@ async function guardarPdfOrdenPagoPrimerAbono({
       ORDER BY fecha_pago ASC, id ASC
       LIMIT 1
       `,
-      [solicitudPagoId]
+      [solicitudPagoId],
     );
 
     if (!primerAbono) {
@@ -492,7 +492,7 @@ async function guardarPdfOrdenPagoPrimerAbono({
         AND estado = 'activo'
       LIMIT 1
       `,
-      [pagoRealizadoId]
+      [pagoRealizadoId],
     );
 
     if (yaExiste?.id) {
@@ -614,7 +614,7 @@ async function guardarPdfOrdenPagoPrimerAbono({
     const timestamp = Date.now();
 
     const nombreOriginal = `ordenPago-${row.codigo}-abono-${String(
-      numeroAbono
+      numeroAbono,
     ).padStart(4, "0")}-${pagoRealizadoId}-${timestamp}.pdf`;
 
     const extension = "pdf";
@@ -633,7 +633,7 @@ async function guardarPdfOrdenPagoPrimerAbono({
     const grupoId = await obtenerOcrearGrupoComprobante(
       conexion,
       solicitudPagoId,
-      usuarioId
+      usuarioId,
     );
 
     // 11) Versionado
@@ -645,7 +645,7 @@ async function guardarPdfOrdenPagoPrimerAbono({
         AND registroId = ?
         AND subTipoArchivo = 'ordenPago'
       `,
-      [pagoRealizadoId]
+      [pagoRealizadoId],
     );
 
     const numeroVersion = Number(ver?.maxVer || 0) + 1;
@@ -669,7 +669,7 @@ async function guardarPdfOrdenPagoPrimerAbono({
         numeroVersion,
         clavePdfOrdenPago,
         usuarioId,
-      ]
+      ],
     );
 
     const archivoId = aRes.insertId;
@@ -691,7 +691,7 @@ async function guardarPdfOrdenPagoPrimerAbono({
         tamanioBytes,
         clavePdfOrdenPago,
         usuarioId,
-      ]
+      ],
     );
 
     const versionId = vRes.insertId;
@@ -718,7 +718,7 @@ async function guardarPdfOrdenPagoPrimerAbono({
           codigoSolicitudPago: row.codigo,
           origen: "abono",
         }),
-      ]
+      ],
     );
 
     // 15) Storage
@@ -728,7 +728,7 @@ async function guardarPdfOrdenPagoPrimerAbono({
       SET usoStorageBytes = usoStorageBytes + ?
       WHERE id = ?
       `,
-      [tamanioBytes, usuarioId]
+      [tamanioBytes, usuarioId],
     );
 
     await conexion.commit();
@@ -788,7 +788,7 @@ export const obtenerSolicitudesPago = async (req, res) => {
         `%${search}%`,
         `%${search}%`,
         `%${search}%`,
-        `%${search}%`
+        `%${search}%`,
       );
     }
 
@@ -798,7 +798,7 @@ export const obtenerSolicitudesPago = async (req, res) => {
          FROM solicitudes_pago sp
          LEFT JOIN proveedores p ON p.id = sp.proveedor_id
          ${whereSQL}`,
-      whereParams
+      whereParams,
     );
 
     // Data
@@ -823,7 +823,7 @@ export const obtenerSolicitudesPago = async (req, res) => {
       ORDER BY sp.fecha_solicitud DESC
       LIMIT ${limit} OFFSET ${offset}
       `,
-      whereParams
+      whereParams,
     );
 
     return res.json({ solicitudes, total, page, limit });
@@ -861,7 +861,7 @@ export const obtenerSolicitudPagoPorId = async (req, res) => {
         LEFT JOIN bancos      b  ON b.id  = sp.banco_id
        WHERE sp.id = ?
       `,
-      [id]
+      [id],
     );
 
     if (!solicitud) {
@@ -879,7 +879,7 @@ export const obtenerSolicitudPagoPorId = async (req, res) => {
        WHERE (moneda = ? OR ? IS NULL)
          AND estado = 'activo'
       `,
-      [solicitud.moneda, solicitud.moneda]
+      [solicitud.moneda, solicitud.moneda],
     );
 
     // 4) Comprobante de la solicitud (si aplica)
@@ -912,7 +912,7 @@ export const obtenerSolicitudPagoPorId = async (req, res) => {
        WHERE pr.solicitud_pago_id = ?
        ORDER BY pr.fecha_pago DESC, pr.id DESC
       `,
-      [id]
+      [id],
     );
 
     // 6) Generar URL prefirmada por cada comprobante de abono
@@ -926,7 +926,7 @@ export const obtenerSolicitudPagoPorId = async (req, res) => {
           ...pago,
           comprobante_url: comprobanteUrl,
         };
-      })
+      }),
     );
 
     // 7) Totales en USD (la fuente de verdad para validar sobrepagos)
@@ -936,7 +936,7 @@ export const obtenerSolicitudPagoPorId = async (req, res) => {
         FROM pagos_realizados
        WHERE solicitud_pago_id = ?
       `,
-      [id]
+      [id],
     );
 
     const montoTotalUsd = parseFloat(solicitud.monto_total_usd) || 0;
@@ -987,7 +987,7 @@ export const actualizarSolicitudPago = async (req, res) => {
 
   const [[s]] = await db.execute(
     "SELECT estado FROM solicitudes_pago WHERE id = ?",
-    [id]
+    [id],
   );
   if (!s) return res.status(404).json({ message: "Solicitud no encontrada" });
   if (s.estado !== "por_pagar") {
@@ -1016,7 +1016,7 @@ export const cancelarSolicitudPago = async (req, res) => {
 
   const [[s]] = await db.execute(
     "SELECT estado FROM solicitudes_pago WHERE id = ?",
-    [id]
+    [id],
   );
   if (!s) return res.status(404).json({ message: "Solicitud no encontrada" });
   if (s.estado !== "por_pagar") {
@@ -1033,7 +1033,7 @@ export const cancelarSolicitudPago = async (req, res) => {
               '\nCancelada: ', ?
             )
       WHERE id = ?`,
-    [motivo || "Sin motivo especificado", id]
+    [motivo || "Sin motivo especificado", id],
   );
 
   return res.json({ message: "Solicitud cancelada" });
@@ -1042,7 +1042,7 @@ export const cancelarSolicitudPago = async (req, res) => {
 export const pagarSolicitudPago = async (req, res) => {
   const { id } = req.params;
 
-  // ✅ Toma el usuario desde middleware o sesión (para que NO sea null)
+  // Toma el usuario desde middleware o sesión (para que NO sea null)
   const usuarioApruebaId = req.user?.id ?? req.session?.usuario?.id ?? null;
 
   const ip = req.ip || null;
@@ -1059,7 +1059,7 @@ export const pagarSolicitudPago = async (req, res) => {
   const observaciones = req.body?.observaciones ?? null;
   const fechaPagoRaw = req.body?.fecha_pago ?? null;
 
-  // Si mandas comprobante en el abono
+  // Comprobante subido (S3)
   const rutaComprobante = req.file?.key ?? null;
 
   const normalizarFechaMySql = (fechaIso) => {
@@ -1070,6 +1070,9 @@ export const pagarSolicitudPago = async (req, res) => {
 
   const conexion = await db.getConnection();
   let pagoRealizadoId = null;
+
+  // Para limpiar S3 si falla BD
+  let claveComprobanteSubida = rutaComprobante;
 
   try {
     if (!usuarioApruebaId) {
@@ -1093,7 +1096,7 @@ export const pagarSolicitudPago = async (req, res) => {
 
     await conexion.beginTransaction();
 
-    // 1) Bloquear la solicitud para actualizar montos sin condiciones de carrera
+    // 1) Bloquear la solicitud
     const [[solicitud]] = await conexion.execute(
       `
       SELECT id, codigo, monto_total, monto_pagado, estado, moneda
@@ -1101,7 +1104,7 @@ export const pagarSolicitudPago = async (req, res) => {
       WHERE id = ?
       FOR UPDATE
       `,
-      [id]
+      [id],
     );
 
     if (!solicitud) {
@@ -1134,10 +1137,134 @@ export const pagarSolicitudPago = async (req, res) => {
         fechaPagoMySql,
         rutaComprobante,
         observaciones,
-      ]
+      ],
     );
 
     pagoRealizadoId = pRes.insertId;
+
+    // ✅ Registrar comprobante en tabla "archivos" (para que aparezca en el administrador)
+    if (rutaComprobante) {
+      await conexion.execute(
+        `
+    INSERT INTO archivos (registroTipo, registroId, subTipoArchivo, rutaS3, estado, subidoPor)
+    VALUES ('comprobantesPagos', ?, 'comprobantePago', ?, 'activo', ?)
+    `,
+        [pagoRealizadoId, rutaComprobante, usuarioApruebaId],
+      );
+    }
+
+    // 2.1) Registrar el comprobante en tabla "archivos" (para que aparezca en el administrador)
+    if (rutaComprobante && req.file) {
+      const nombreOriginal = req.file.originalname ?? "comprobante";
+      const extension = nombreOriginal.includes(".")
+        ? nombreOriginal.split(".").pop()
+        : null;
+      const tamanioBytes = req.file.size ?? null;
+
+      // Grupo (mismo criterio que ordenPago)
+      const grupoId = await obtenerOcrearGrupoComprobante(
+        conexion,
+        Number(id),
+        Number(usuarioApruebaId),
+      );
+
+      // Versionado por pagoRealizadoId + subTipoArchivo
+      const [[ver]] = await conexion.execute(
+        `
+        SELECT IFNULL(MAX(numeroVersion), 0) AS maxVer
+        FROM archivos
+        WHERE registroTipo = 'comprobantesPagos'
+          AND registroId = ?
+          AND subTipoArchivo = 'comprobantePago'
+        `,
+        [pagoRealizadoId],
+      );
+
+      const numeroVersion = Number(ver?.maxVer || 0) + 1;
+
+      // Insert archivos
+      const [aRes] = await conexion.execute(
+        `
+        INSERT INTO archivos
+          (registroTipo, subTipoArchivo, registroId, grupoArchivoId,
+           nombreOriginal, extension, tamanioBytes, numeroVersion,
+           rutaS3, estado, esPublico, subidoPor)
+        VALUES
+          ('comprobantesPagos', 'comprobantePago', ?, ?, ?, ?, ?, ?, ?, 'activo', 0, ?)
+        `,
+        [
+          pagoRealizadoId,
+          grupoId,
+          nombreOriginal,
+          extension,
+          tamanioBytes,
+          numeroVersion,
+          rutaComprobante,
+          usuarioApruebaId,
+        ],
+      );
+
+      const archivoId = aRes.insertId;
+
+      // Insert versionesArchivo
+      const [vRes] = await conexion.execute(
+        `
+        INSERT INTO versionesArchivo
+          (archivoId, numeroVersion, nombreOriginal, extension,
+           tamanioBytes, rutaS3, subidoPor)
+        VALUES
+          (?, ?, ?, ?, ?, ?, ?)
+        `,
+        [
+          archivoId,
+          numeroVersion,
+          nombreOriginal,
+          extension,
+          tamanioBytes,
+          rutaComprobante,
+          usuarioApruebaId,
+        ],
+      );
+
+      const versionId = vRes.insertId;
+
+      // Auditoría eventosArchivo
+      await conexion.execute(
+        `
+        INSERT INTO eventosArchivo
+          (archivoId, versionId, accion, creadoPor, ip, userAgent, detalles)
+        VALUES
+          (?, ?, 'subidaArchivo', ?, ?, ?, ?)
+        `,
+        [
+          archivoId,
+          versionId,
+          usuarioApruebaId,
+          ip || null,
+          userAgent || null,
+          JSON.stringify({
+            registroTipo: "comprobantesPagos",
+            subTipoArchivo: "comprobantePago",
+            solicitudPagoId: Number(id),
+            pagoRealizadoId: Number(pagoRealizadoId),
+            codigoSolicitudPago: solicitud.codigo,
+            origen: "abono",
+          }),
+        ],
+      );
+
+      // Storage
+      if (tamanioBytes) {
+        await conexion.execute(
+          `
+          UPDATE usuarios
+          SET usoStorageBytes = usoStorageBytes + ?
+          WHERE id = ?
+          `,
+          [tamanioBytes, usuarioApruebaId],
+        );
+      }
+    }
 
     // 3) Recalcular estado
     const nuevoMontoPagado =
@@ -1146,7 +1273,7 @@ export const pagarSolicitudPago = async (req, res) => {
     const quedaPagada = nuevoMontoPagado >= Number(solicitud.monto_total || 0);
     const nuevoEstado = quedaPagada ? "pagada" : "parcialmente_pagada";
 
-    // 4) ✅ Actualizar solicitud incluyendo el usuario que aprueba
+    // 4) Actualizar solicitud
     await conexion.execute(
       `
       UPDATE solicitudes_pago
@@ -1156,13 +1283,12 @@ export const pagarSolicitudPago = async (req, res) => {
           updated_at = NOW()
       WHERE id = ?
       `,
-      [nuevoMontoPagado, nuevoEstado, usuarioApruebaId, id]
+      [nuevoMontoPagado, nuevoEstado, usuarioApruebaId, id],
     );
 
     await conexion.commit();
 
-    // 5) ✅ Generar PDF automático y guardarlo en S3 (si tienes esa función creada)
-    // Si no existe, comenta este bloque.
+    // 5) Generar PDF automático (mantengo tu lógica)
     let resultadoPdf = null;
     if (typeof guardarPdfOrdenPagoPorAbono === "function") {
       resultadoPdf = await guardarPdfOrdenPagoPorAbono({
@@ -1198,6 +1324,13 @@ export const pagarSolicitudPago = async (req, res) => {
       await conexion.rollback();
     } catch (_) {}
 
+    // Si se subió el comprobante a S3 pero falló BD, intenta limpiar
+    if (claveComprobanteSubida) {
+      try {
+        await borrarObjetoAS3(claveComprobanteSubida);
+      } catch (_) {}
+    }
+
     console.error("Error al registrar abono:", error);
     return res.status(500).json({
       message: "No se pudo registrar el abono.",
@@ -1224,7 +1357,7 @@ export const obtenerOrdenesPagoSolicitud = async (req, res) => {
        FROM solicitudes_pago
        WHERE id = ?
        LIMIT 1`,
-      [solicitudPagoId]
+      [solicitudPagoId],
     );
 
     if (!solicitud) {
@@ -1247,7 +1380,7 @@ export const obtenerOrdenesPagoSolicitud = async (req, res) => {
        FROM pagos_realizados pr
        WHERE pr.solicitud_pago_id = ?
        ORDER BY pr.fecha_pago ASC, pr.id ASC`,
-      [solicitudPagoId]
+      [solicitudPagoId],
     );
 
     // 3) Por cada abono, buscar el PDF ordenPago en archivos
@@ -1271,7 +1404,7 @@ export const obtenerOrdenesPagoSolicitud = async (req, res) => {
              AND a.estado = 'activo'
            ORDER BY a.numeroVersion DESC, a.id DESC
            LIMIT 1`,
-          [pagoRealizadoId]
+          [pagoRealizadoId],
         );
 
         let urlPdf = null;
@@ -1298,7 +1431,7 @@ export const obtenerOrdenesPagoSolicitud = async (req, res) => {
           numeroVersion: archivoPdf?.numeroVersion ?? null,
           urlPdf,
         };
-      })
+      }),
     );
 
     return res.json(ordenesPago);
@@ -1356,7 +1489,7 @@ async function guardarPdfOrdenPagoPorAbono({
       LEFT JOIN usuarios up      ON up.id = sp.usuario_aprueba_id
       WHERE sp.id = ?
       `,
-      [solicitudPagoId]
+      [solicitudPagoId],
     );
 
     if (!row) {
@@ -1364,7 +1497,7 @@ async function guardarPdfOrdenPagoPorAbono({
       return { ok: false, motivo: "Solicitud no encontrada" };
     }
 
-    // 2) ✅ Traer el abono actual + banco (nombre + identificador + tipo_identificador)
+    // 2)Traer el abono actual + banco (nombre + identificador + tipo_identificador)
     const [[abono]] = await conexion.execute(
       `
       SELECT
@@ -1393,7 +1526,7 @@ async function guardarPdfOrdenPagoPorAbono({
       WHERE pr.id = ? AND pr.solicitud_pago_id = ?
       LIMIT 1
       `,
-      [pagoRealizadoId, solicitudPagoId]
+      [pagoRealizadoId, solicitudPagoId],
     );
 
     if (!abono) {
@@ -1414,7 +1547,7 @@ async function guardarPdfOrdenPagoPorAbono({
       WHERE t.id = ?
       LIMIT 1
       `,
-      [solicitudPagoId, pagoRealizadoId]
+      [solicitudPagoId, pagoRealizadoId],
     );
 
     const numeroAbono = Number(rankRow?.rn || 1);
@@ -1430,7 +1563,7 @@ async function guardarPdfOrdenPagoPorAbono({
         AND estado = 'activo'
       LIMIT 1
       `,
-      [pagoRealizadoId]
+      [pagoRealizadoId],
     );
 
     if (yaExiste?.id) {
@@ -1455,7 +1588,7 @@ async function guardarPdfOrdenPagoPorAbono({
         "..",
         "..",
         "styles",
-        "Logo Operaciones Logisticas Falcon.jpg"
+        "Logo Operaciones Logisticas Falcon.jpg",
       );
       const bufferLogo = fs.readFileSync(rutaLogo);
       logo = `data:image/jpeg;base64,${bufferLogo.toString("base64")}`;
@@ -1463,7 +1596,7 @@ async function guardarPdfOrdenPagoPorAbono({
       console.error("No se pudo cargar el logo de Orden de Pago:", err);
     }
 
-    // 7) ✅ URLs prefirmadas: comprobante desde el ABONO
+    // 7) URLs prefirmadas: comprobante desde el ABONO
     const comprobanteUrl = abono.ruta_comprobante
       ? await generarUrlPrefirmadaLectura(abono.ruta_comprobante, 600)
       : null;
@@ -1496,7 +1629,7 @@ async function guardarPdfOrdenPagoPorAbono({
       referencia: abono.referencia_pago || "—",
       comprobanteUrl,
 
-      // ✅ Nuevo: tu HTML actualizado lo prioriza
+      // Nuevo: tu HTML actualizado lo prioriza
       pagoRealizado: {
         metodoPago: abono.metodo_pago ?? "N/A",
         referenciaPago: abono.referencia_pago ?? "—",
@@ -1509,8 +1642,8 @@ async function guardarPdfOrdenPagoPorAbono({
       },
 
       montoSolicitado: row.monto_total,
-      montoAbono: abono.monto_pagado, 
-      montoPagado: row.monto_pagado, 
+      montoAbono: abono.monto_pagado,
+      montoPagado: row.monto_pagado,
       diferencia,
 
       moneda: abono.moneda ?? row.moneda,
@@ -1590,7 +1723,7 @@ async function guardarPdfOrdenPagoPorAbono({
     const timestamp = Date.now();
 
     const nombreOriginal = `ordenPago-${row.codigo}-abono-${String(
-      numeroAbono
+      numeroAbono,
     ).padStart(4, "0")}-${pagoRealizadoId}-${timestamp}.pdf`;
 
     const extension = "pdf";
@@ -1609,7 +1742,7 @@ async function guardarPdfOrdenPagoPorAbono({
     const grupoId = await obtenerOcrearGrupoComprobante(
       conexion,
       solicitudPagoId,
-      usuarioId
+      usuarioId,
     );
 
     // 14) Versionado
@@ -1621,7 +1754,7 @@ async function guardarPdfOrdenPagoPorAbono({
         AND registroId = ?
         AND subTipoArchivo = 'ordenPago'
       `,
-      [pagoRealizadoId]
+      [pagoRealizadoId],
     );
 
     const numeroVersion = Number(ver?.maxVer || 0) + 1;
@@ -1645,7 +1778,7 @@ async function guardarPdfOrdenPagoPorAbono({
         numeroVersion,
         clavePdfOrdenPago,
         usuarioId,
-      ]
+      ],
     );
 
     const archivoId = aRes.insertId;
@@ -1667,7 +1800,7 @@ async function guardarPdfOrdenPagoPorAbono({
         tamanioBytes,
         clavePdfOrdenPago,
         usuarioId,
-      ]
+      ],
     );
 
     const versionId = vRes.insertId;
@@ -1695,7 +1828,7 @@ async function guardarPdfOrdenPagoPorAbono({
           numeroAbono,
           origen: "abono",
         }),
-      ]
+      ],
     );
 
     // 18) Storage
@@ -1705,7 +1838,7 @@ async function guardarPdfOrdenPagoPorAbono({
       SET usoStorageBytes = usoStorageBytes + ?
       WHERE id = ?
       `,
-      [tamanioBytes, usuarioId]
+      [tamanioBytes, usuarioId],
     );
 
     await conexion.commit();
