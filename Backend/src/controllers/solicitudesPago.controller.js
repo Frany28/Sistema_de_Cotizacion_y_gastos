@@ -1142,6 +1142,106 @@ export const pagarSolicitudPago = async (req, res) => {
 
     pagoRealizadoId = pRes.insertId;
 
+    // ✅ Registrar comprobante en tabla "archivos" con versionado
+    if (rutaComprobante && req.file) {
+      const nombreOriginal = req.file.originalname ?? "comprobante";
+      const extension = nombreOriginal.includes(".")
+        ? nombreOriginal.split(".").pop()
+        : null;
+      const tamanioBytes = Number(req.file.size ?? 0);
+
+      // 1) Calcular siguiente versión (evita Duplicate entry)
+      const [[filaVersion]] = await conexion.execute(
+        `
+    SELECT IFNULL(MAX(numeroVersion), 0) AS maxVersion
+    FROM archivos
+    WHERE registroTipo = 'comprobantesPagos'
+      AND registroId = ?
+      AND tipoDocumento = 'comprobante'
+    `,
+        [pagoRealizadoId],
+      );
+
+      const numeroVersion = Number(filaVersion?.maxVersion || 0) + 1;
+
+      // 2) Insertar en archivos
+      const [resultadoArchivo] = await conexion.execute(
+        `
+    INSERT INTO archivos
+      (registroTipo, registroId, tipoDocumento, subTipoArchivo,
+       nombreOriginal, extension, tamanioBytes, numeroVersion,
+       rutaS3, estado, subidoPor)
+    VALUES
+      ('comprobantesPagos', ?, 'comprobante', 'comprobantePago',
+       ?, ?, ?, ?, ?, 'activo', ?)
+    `,
+        [
+          pagoRealizadoId,
+          nombreOriginal,
+          extension,
+          tamanioBytes,
+          numeroVersion,
+          rutaComprobante,
+          usuarioApruebaId,
+        ],
+      );
+
+      const archivoId = resultadoArchivo.insertId;
+
+      // 3) Insertar versionesArchivo (si tu sistema lo usa)
+      const [resultadoVersion] = await conexion.execute(
+        `
+    INSERT INTO versionesArchivo
+      (archivoId, numeroVersion, nombreOriginal, extension, tamanioBytes, rutaS3, subidoPor)
+    VALUES
+      (?, ?, ?, ?, ?, ?, ?)
+    `,
+        [
+          archivoId,
+          numeroVersion,
+          nombreOriginal,
+          extension,
+          tamanioBytes,
+          rutaComprobante,
+          usuarioApruebaId,
+        ],
+      );
+
+      const versionId = resultadoVersion.insertId;
+
+      // 4) Evento de auditoría (si lo usas)
+      await conexion.execute(
+        `
+    INSERT INTO eventosArchivo
+      (archivoId, versionId, accion, creadoPor, ip, userAgent, detalles)
+    VALUES
+      (?, ?, 'subidaArchivo', ?, ?, ?, ?)
+    `,
+        [
+          archivoId,
+          versionId,
+          usuarioApruebaId,
+          ip ?? null,
+          userAgent ?? null,
+          JSON.stringify({
+            registroTipo: "comprobantesPagos",
+            registroId: pagoRealizadoId,
+            tipoDocumento: "comprobante",
+            numeroVersion,
+            origen: "pagarSolicitudPago",
+          }),
+        ],
+      );
+
+      // 5) Storage (opcional si manejas cuota)
+      if (tamanioBytes > 0) {
+        await conexion.execute(
+          `UPDATE usuarios SET usoStorageBytes = usoStorageBytes + ? WHERE id = ?`,
+          [tamanioBytes, usuarioApruebaId],
+        );
+      }
+    }
+
     // ✅ Registrar comprobante en tabla "archivos" (para que aparezca en el administrador)
     if (rutaComprobante) {
       await conexion.execute(
