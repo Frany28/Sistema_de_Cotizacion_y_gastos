@@ -1042,7 +1042,6 @@ export const cancelarSolicitudPago = async (req, res) => {
 export const pagarSolicitudPago = async (req, res) => {
   const { id } = req.params;
 
-  // Toma el usuario desde middleware o sesión (para que NO sea null)
   const usuarioApruebaId = req.user?.id ?? req.session?.usuario?.id ?? null;
 
   const ip = req.ip || null;
@@ -1059,7 +1058,7 @@ export const pagarSolicitudPago = async (req, res) => {
   const observaciones = req.body?.observaciones ?? null;
   const fechaPagoRaw = req.body?.fecha_pago ?? null;
 
-  // Comprobante subido (S3)
+  // ✅ Comprobante subido (S3)
   const rutaComprobante = req.file?.key ?? null;
 
   const normalizarFechaMySql = (fechaIso) => {
@@ -1070,9 +1069,6 @@ export const pagarSolicitudPago = async (req, res) => {
 
   const conexion = await db.getConnection();
   let pagoRealizadoId = null;
-
-  // Para limpiar S3 si falla BD
-  let claveComprobanteSubida = rutaComprobante;
 
   try {
     if (!usuarioApruebaId) {
@@ -1096,7 +1092,7 @@ export const pagarSolicitudPago = async (req, res) => {
 
     await conexion.beginTransaction();
 
-    // 1) Bloquear la solicitud
+    // 1) Bloquear solicitud
     const [[solicitud]] = await conexion.execute(
       `
       SELECT id, codigo, monto_total, monto_pagado, estado, moneda
@@ -1114,7 +1110,7 @@ export const pagarSolicitudPago = async (req, res) => {
 
     const monedaFinal = monedaBody ?? solicitud.moneda ?? "VES";
 
-    // 2) Insertar el abono
+    // 2) Insertar abono
     const [pRes] = await conexion.execute(
       `
       INSERT INTO pagos_realizados
@@ -1142,159 +1138,46 @@ export const pagarSolicitudPago = async (req, res) => {
 
     pagoRealizadoId = pRes.insertId;
 
-    // ✅ Registrar comprobante en tabla "archivos" con versionado
+    // ✅ 2.1) Registrar el comprobante en "archivos" con versionado real
     if (rutaComprobante && req.file) {
       const nombreOriginal = req.file.originalname ?? "comprobante";
       const extension = nombreOriginal.includes(".")
         ? nombreOriginal.split(".").pop()
         : null;
-      const tamanioBytes = Number(req.file.size ?? 0);
 
-      // 1) Calcular siguiente versión (evita Duplicate entry)
+      const tamanioBytes = Number(req.file.size ?? 0);
+      if (!Number.isFinite(tamanioBytes) || tamanioBytes <= 0) {
+        throw new Error("Tamaño de comprobante inválido.");
+      }
+
+      // 1) Calcular la siguiente versión para evitar DUPLICADOS
       const [[filaVersion]] = await conexion.execute(
         `
-    SELECT IFNULL(MAX(numeroVersion), 0) AS maxVersion
-    FROM archivos
-    WHERE registroTipo = 'comprobantesPagos'
-      AND registroId = ?
-      AND tipoDocumento = 'comprobante'
-    `,
+        SELECT IFNULL(MAX(numeroVersion), 0) AS maxVersion
+        FROM archivos
+        WHERE registroTipo = 'comprobantesPagos'
+          AND registroId = ?
+          AND tipoDocumento = 'comprobante'
+        `,
         [pagoRealizadoId],
       );
 
       const numeroVersion = Number(filaVersion?.maxVersion || 0) + 1;
 
-      // 2) Insertar en archivos
-      const [resultadoArchivo] = await conexion.execute(
-        `
-    INSERT INTO archivos
-      (registroTipo, registroId, tipoDocumento, subTipoArchivo,
-       nombreOriginal, extension, tamanioBytes, numeroVersion,
-       rutaS3, estado, subidoPor)
-    VALUES
-      ('comprobantesPagos', ?, 'comprobante', 'comprobantePago',
-       ?, ?, ?, ?, ?, 'activo', ?)
-    `,
-        [
-          pagoRealizadoId,
-          nombreOriginal,
-          extension,
-          tamanioBytes,
-          numeroVersion,
-          rutaComprobante,
-          usuarioApruebaId,
-        ],
-      );
-
-      const archivoId = resultadoArchivo.insertId;
-
-      // 3) Insertar versionesArchivo (si tu sistema lo usa)
-      const [resultadoVersion] = await conexion.execute(
-        `
-    INSERT INTO versionesArchivo
-      (archivoId, numeroVersion, nombreOriginal, extension, tamanioBytes, rutaS3, subidoPor)
-    VALUES
-      (?, ?, ?, ?, ?, ?, ?)
-    `,
-        [
-          archivoId,
-          numeroVersion,
-          nombreOriginal,
-          extension,
-          tamanioBytes,
-          rutaComprobante,
-          usuarioApruebaId,
-        ],
-      );
-
-      const versionId = resultadoVersion.insertId;
-
-      // 4) Evento de auditoría (si lo usas)
+      // 2) Insertar en archivos (OJO: subTipoArchivo permitido: 'comprobante')
       await conexion.execute(
-        `
-    INSERT INTO eventosArchivo
-      (archivoId, versionId, accion, creadoPor, ip, userAgent, detalles)
-    VALUES
-      (?, ?, 'subidaArchivo', ?, ?, ?, ?)
-    `,
-        [
-          archivoId,
-          versionId,
-          usuarioApruebaId,
-          ip ?? null,
-          userAgent ?? null,
-          JSON.stringify({
-            registroTipo: "comprobantesPagos",
-            registroId: pagoRealizadoId,
-            tipoDocumento: "comprobante",
-            numeroVersion,
-            origen: "pagarSolicitudPago",
-          }),
-        ],
-      );
-
-      // 5) Storage (opcional si manejas cuota)
-      if (tamanioBytes > 0) {
-        await conexion.execute(
-          `UPDATE usuarios SET usoStorageBytes = usoStorageBytes + ? WHERE id = ?`,
-          [tamanioBytes, usuarioApruebaId],
-        );
-      }
-    }
-
-    // ✅ Registrar comprobante en tabla "archivos" (para que aparezca en el administrador)
-    if (rutaComprobante) {
-      await conexion.execute(
-        `
-    INSERT INTO archivos (registroTipo, registroId, subTipoArchivo, rutaS3, estado, subidoPor)
-    VALUES ('comprobantesPagos', ?, 'comprobantePago', ?, 'activo', ?)
-    `,
-        [pagoRealizadoId, rutaComprobante, usuarioApruebaId],
-      );
-    }
-
-    // 2.1) Registrar el comprobante en tabla "archivos" (para que aparezca en el administrador)
-    if (rutaComprobante && req.file) {
-      const nombreOriginal = req.file.originalname ?? "comprobante";
-      const extension = nombreOriginal.includes(".")
-        ? nombreOriginal.split(".").pop()
-        : null;
-      const tamanioBytes = req.file.size ?? null;
-
-      // Grupo (mismo criterio que ordenPago)
-      const grupoId = await obtenerOcrearGrupoComprobante(
-        conexion,
-        Number(id),
-        Number(usuarioApruebaId),
-      );
-
-      // Versionado por pagoRealizadoId + subTipoArchivo
-      const [[ver]] = await conexion.execute(
-        `
-        SELECT IFNULL(MAX(numeroVersion), 0) AS maxVer
-        FROM archivos
-        WHERE registroTipo = 'comprobantesPagos'
-          AND registroId = ?
-          AND subTipoArchivo = 'comprobantePago'
-        `,
-        [pagoRealizadoId],
-      );
-
-      const numeroVersion = Number(ver?.maxVer || 0) + 1;
-
-      // Insert archivos
-      const [aRes] = await conexion.execute(
         `
         INSERT INTO archivos
-          (registroTipo, subTipoArchivo, registroId, grupoArchivoId,
+          (registroTipo, subTipoArchivo, registroId, tipoDocumento,
            nombreOriginal, extension, tamanioBytes, numeroVersion,
            rutaS3, estado, esPublico, subidoPor)
         VALUES
-          ('comprobantesPagos', 'comprobantePago', ?, ?, ?, ?, ?, ?, ?, 'activo', 0, ?)
+          ('comprobantesPagos', 'comprobante', ?, 'comprobante',
+           ?, ?, ?, ?,
+           ?, 'activo', 0, ?)
         `,
         [
           pagoRealizadoId,
-          grupoId,
           nombreOriginal,
           extension,
           tamanioBytes,
@@ -1304,66 +1187,15 @@ export const pagarSolicitudPago = async (req, res) => {
         ],
       );
 
-      const archivoId = aRes.insertId;
-
-      // Insert versionesArchivo
-      const [vRes] = await conexion.execute(
-        `
-        INSERT INTO versionesArchivo
-          (archivoId, numeroVersion, nombreOriginal, extension,
-           tamanioBytes, rutaS3, subidoPor)
-        VALUES
-          (?, ?, ?, ?, ?, ?, ?)
-        `,
-        [
-          archivoId,
-          numeroVersion,
-          nombreOriginal,
-          extension,
-          tamanioBytes,
-          rutaComprobante,
-          usuarioApruebaId,
-        ],
-      );
-
-      const versionId = vRes.insertId;
-
-      // Auditoría eventosArchivo
+      // 3) Sumar almacenamiento (si manejas cuota)
       await conexion.execute(
         `
-        INSERT INTO eventosArchivo
-          (archivoId, versionId, accion, creadoPor, ip, userAgent, detalles)
-        VALUES
-          (?, ?, 'subidaArchivo', ?, ?, ?, ?)
+        UPDATE usuarios
+        SET usoStorageBytes = IFNULL(usoStorageBytes, 0) + ?
+        WHERE id = ?
         `,
-        [
-          archivoId,
-          versionId,
-          usuarioApruebaId,
-          ip || null,
-          userAgent || null,
-          JSON.stringify({
-            registroTipo: "comprobantesPagos",
-            subTipoArchivo: "comprobantePago",
-            solicitudPagoId: Number(id),
-            pagoRealizadoId: Number(pagoRealizadoId),
-            codigoSolicitudPago: solicitud.codigo,
-            origen: "abono",
-          }),
-        ],
+        [tamanioBytes, usuarioApruebaId],
       );
-
-      // Storage
-      if (tamanioBytes) {
-        await conexion.execute(
-          `
-          UPDATE usuarios
-          SET usoStorageBytes = usoStorageBytes + ?
-          WHERE id = ?
-          `,
-          [tamanioBytes, usuarioApruebaId],
-        );
-      }
     }
 
     // 3) Recalcular estado
@@ -1388,7 +1220,7 @@ export const pagarSolicitudPago = async (req, res) => {
 
     await conexion.commit();
 
-    // 5) Generar PDF automático (mantengo tu lógica)
+    // 5) Generar PDF orden de pago (tu lógica actual)
     let resultadoPdf = null;
     if (typeof guardarPdfOrdenPagoPorAbono === "function") {
       resultadoPdf = await guardarPdfOrdenPagoPorAbono({
@@ -1423,13 +1255,6 @@ export const pagarSolicitudPago = async (req, res) => {
     try {
       await conexion.rollback();
     } catch (_) {}
-
-    // Si se subió el comprobante a S3 pero falló BD, intenta limpiar
-    if (claveComprobanteSubida) {
-      try {
-        await borrarObjetoAS3(claveComprobanteSubida);
-      } catch (_) {}
-    }
 
     console.error("Error al registrar abono:", error);
     return res.status(500).json({
