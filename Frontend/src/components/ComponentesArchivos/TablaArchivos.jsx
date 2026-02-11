@@ -542,9 +542,9 @@ function TablaArchivos() {
       </div>
 
       {/* Tabla */}
-      <div className="overflow-auto max-h-[calc(100vh-200px)]">
+      <div className="w-full">
         <table className="min-w-full w-full text-left border-collapse text-sm table-fixed">
-          <thead className="sticky top-0 bg-gray-700 backdrop-blur-sm z-10 border-b border-gray-600">
+          <thead className="bg-gray-700 border-b border-gray-600">
             <tr className="text-gray-300 font-medium">
               <th className="py-3 pl-4 sm:pl-6 text-base font-semibold text-gray-200">
                 Nombre
