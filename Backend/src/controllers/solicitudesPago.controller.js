@@ -1477,14 +1477,14 @@ async function guardarPdfOrdenPagoPorAbono({
 
     const numeroAbono = Number(rankRow?.rn || 1);
 
-    // 4) Evitar duplicado: si ya existe un ordenPago activo para este pagoRealizadoId, no regenerar
+    // ✅ 4) Evitar duplicado: validar por tipoDocumento (clave del UNIQUE)
     const [[yaExiste]] = await conexion.execute(
       `
       SELECT id
       FROM archivos
       WHERE registroTipo = 'comprobantesPagos'
         AND registroId = ?
-        AND subTipoArchivo = 'ordenPago'
+        AND tipoDocumento = 'ordenPago'
         AND estado = 'activo'
       LIMIT 1
       `,
@@ -1670,29 +1670,31 @@ async function guardarPdfOrdenPagoPorAbono({
       usuarioId,
     );
 
-    // 14) Versionado
+    // ✅ 14) Versionado (por tipoDocumento, no por subTipoArchivo)
     const [[ver]] = await conexion.execute(
       `
       SELECT IFNULL(MAX(numeroVersion), 0) AS maxVer
       FROM archivos
       WHERE registroTipo = 'comprobantesPagos'
         AND registroId = ?
-        AND subTipoArchivo = 'ordenPago'
+        AND tipoDocumento = 'ordenPago'
       `,
       [pagoRealizadoId],
     );
 
     const numeroVersion = Number(ver?.maxVer || 0) + 1;
 
-    // 15) Insert archivos
+    // ✅ 15) Insert archivos (incluyendo tipoDocumento explícito)
     const [aRes] = await conexion.execute(
       `
       INSERT INTO archivos
-        (registroTipo, subTipoArchivo, registroId, grupoArchivoId,
+        (registroTipo, subTipoArchivo, registroId, tipoDocumento, grupoArchivoId,
          nombreOriginal, extension, tamanioBytes, numeroVersion,
          rutaS3, estado, esPublico, subidoPor)
       VALUES
-        ('comprobantesPagos', 'ordenPago', ?, ?, ?, ?, ?, ?, ?, 'activo', 0, ?)
+        ('comprobantesPagos', 'ordenPago', ?, 'ordenPago', ?,
+         ?, ?, ?, ?,
+         ?, 'activo', 0, ?)
       `,
       [
         pagoRealizadoId,
@@ -1747,6 +1749,7 @@ async function guardarPdfOrdenPagoPorAbono({
         JSON.stringify({
           registroTipo: "comprobantesPagos",
           subTipoArchivo: "ordenPago",
+          tipoDocumento: "ordenPago",
           solicitudPagoId: Number(solicitudPagoId),
           pagoRealizadoId: Number(pagoRealizadoId),
           codigoSolicitudPago: row.codigo,
@@ -1760,7 +1763,7 @@ async function guardarPdfOrdenPagoPorAbono({
     await conexion.execute(
       `
       UPDATE usuarios
-      SET usoStorageBytes = usoStorageBytes + ?
+      SET usoStorageBytes = IFNULL(usoStorageBytes, 0) + ?
       WHERE id = ?
       `,
       [tamanioBytes, usuarioId],
@@ -1770,35 +1773,15 @@ async function guardarPdfOrdenPagoPorAbono({
 
     return {
       ok: true,
+      claveS3: clavePdfOrdenPago,
+      numeroVersion,
       archivoId,
-      versionId,
-      clavePdfOrdenPago,
-      numeroAbono,
-      nombreOriginal,
-      tamanioBytes,
     };
   } catch (error) {
-    try {
-      await conexion.rollback();
-    } catch (_) {}
-
-    // Limpieza si subió a S3 pero falló BD
-    if (clavePdfOrdenPago) {
-      try {
-        await borrarObjetoAS3(clavePdfOrdenPago);
-      } catch (_) {}
-    }
-
+    await conexion.rollback();
     console.error("Error guardando PDF Orden de Pago (auto por abono):", error);
-
-    return {
-      ok: false,
-      motivo: "No se pudo generar/guardar el PDF de la orden de pago.",
-      error: error?.message ?? String(error),
-    };
+    return { ok: false, error };
   } finally {
-    try {
-      conexion.release();
-    } catch (_) {}
+    conexion.release();
   }
 }
