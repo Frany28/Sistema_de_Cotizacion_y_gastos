@@ -229,10 +229,12 @@ export default function ModalRegistrarAbono({
 
       data.append("moneda_pago", form.moneda_pago);
       data.append("monto_abonado", monto);
-      data.append(
-        "tasa_cambio",
-        form.moneda_pago === "VES" ? parseFloat(form.tasa_cambio) : 1
-      );
+
+      // ✅ CAMBIO ÚNICO: solo enviar tasa_cambio cuando la moneda sea VES
+      if (form.moneda_pago === "VES") {
+        data.append("tasa_cambio", parseFloat(form.tasa_cambio));
+      }
+
       if (form.observaciones) data.append("observaciones", form.observaciones);
       data.append("fecha_abono", form.fecha_abono);
       if (archivo) data.append("comprobante", archivo);
@@ -362,7 +364,7 @@ export default function ModalRegistrarAbono({
                                   </option>
                                 ))}
                               </optgroup>
-                            )
+                            ),
                           )}
                         </select>
                       ) : (
@@ -435,7 +437,7 @@ export default function ModalRegistrarAbono({
                                   {
                                     minimumFractionDigits: 2,
                                     maximumFractionDigits: 2,
-                                  }
+                                  },
                                 )
                               : ""
                           }

@@ -243,6 +243,10 @@ export const renombrarCarpeta = async (req, res) => {
     const carpetaId = Number(req.params.id);
     const nombreNuevo = normalizarNombreCarpeta(req.body.nombre);
 
+    if (!carpetaId || Number.isNaN(carpetaId)) {
+      return res.status(400).json({ message: "ID de carpeta inválido." });
+    }
+
     if (!nombreNuevo) {
       return res
         .status(400)
@@ -262,11 +266,47 @@ export const renombrarCarpeta = async (req, res) => {
       await conexion.rollback();
       return res.status(404).json({ message: "Carpeta no encontrada." });
     }
+
     if (carpeta.estado !== "activa") {
       await conexion.rollback();
       return res
         .status(400)
         .json({ message: "Solo puedes renombrar carpetas activas." });
+    }
+
+    /**
+     * ✅ VALIDACIÓN CLAVE:
+     * Bloquear si la carpeta contiene archivos anclados a:
+     * firmas, facturasGastos, comprobantesPagos, abonosCXC
+     */
+    const rutaVirtualActual = String(carpeta.rutaVirtual || "").trim();
+    const prefijoRutaSinSlash = rutaVirtualActual
+      .replace(/^\/+/, "")
+      .replace(/\/+$/, "");
+
+    if (prefijoRutaSinSlash) {
+      const [[anclado]] = await conexion.query(
+        `
+        SELECT 1 AS existe
+          FROM archivos
+         WHERE registroTipo IN ('firmas','facturasGastos','comprobantesPagos','abonosCXC')
+           AND registroId IS NOT NULL
+           AND (
+             rutaS3 = ?
+             OR rutaS3 LIKE CONCAT(?, '/%')
+           )
+         LIMIT 1
+        `,
+        [prefijoRutaSinSlash, prefijoRutaSinSlash],
+      );
+
+      if (anclado?.existe) {
+        await conexion.rollback();
+        return res.status(400).json({
+          message:
+            "No puedes renombrar esta carpeta porque contiene archivos anclados (firmas, facturas de gastos, comprobantes o abonos).",
+        });
+      }
     }
 
     // Validar duplicado en mismo padre
@@ -280,6 +320,7 @@ export const renombrarCarpeta = async (req, res) => {
         LIMIT 1`,
       [carpeta.padreId, nombreNuevo, carpetaId],
     );
+
     if (duplicados.length) {
       await conexion.rollback();
       return res.status(409).json({
@@ -289,17 +330,20 @@ export const renombrarCarpeta = async (req, res) => {
 
     // Recalcular nueva rutaVirtual
     let rutaPadre = null;
+
     if (carpeta.padreId) {
       const [[padre]] = await conexion.query(
         `SELECT rutaVirtual, estado FROM carpetasArchivos WHERE id = ?`,
         [carpeta.padreId],
       );
+
       if (!padre || padre.estado !== "activa") {
         await conexion.rollback();
         return res
           .status(400)
           .json({ message: "La carpeta padre no es válida." });
       }
+
       rutaPadre = padre.rutaVirtual;
     }
 
@@ -320,6 +364,30 @@ export const renombrarCarpeta = async (req, res) => {
       carpetaId,
       rutaAntigua,
       rutaNueva,
+    );
+
+    /**
+     * ✅ Registrar evento (ip + userAgent)
+     * Requiere: eventosArchivo.carpetaId y archivoId nullable + enum accion incluye 'renombrarCarpeta'
+     */
+    await conexion.query(
+      `INSERT INTO eventosArchivo
+         (archivoId, carpetaId, versionId, accion, creadoPor, ip, userAgent, detalles)
+       VALUES (?, ?, ?, 'renombrarCarpeta', ?, ?, ?, ?)`,
+      [
+        null,
+        carpetaId,
+        null,
+        usuarioId,
+        req.ip,
+        req.get("User-Agent"),
+        JSON.stringify({
+          nombreAnterior: carpeta.nombre,
+          nombreNuevo,
+          rutaAntigua,
+          rutaNueva,
+        }),
+      ],
     );
 
     await conexion.commit();
