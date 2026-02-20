@@ -760,78 +760,82 @@ async function guardarPdfOrdenPagoPrimerAbono({
  * 1. LISTAR SOLICITUDES DE PAGO
  * ========================================================== */
 export const obtenerSolicitudesPago = async (req, res) => {
-  const page = parseInt(req.query.page, 10) || 1;
-  const limit = parseInt(req.query.limit, 10) || 10;
-  const offset = (page - 1) * limit;
-  const { estado } = req.query;
-  const search = (req.query.search || "").trim();
-
   try {
-    let whereSQL = "";
-    const whereParams = [];
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.max(1, Number(req.query.limit) || 10);
+    const q = (req.query.q || "").trim();
+    const offset = (page - 1) * limit;
 
-    if (estado && estado !== "todos") {
-      whereSQL += (whereSQL ? " AND " : " WHERE ") + "sp.estado = ?";
-      whereParams.push(estado);
-    }
-
-    if (search) {
-      whereSQL +=
-        (whereSQL ? " AND " : " WHERE ") +
-        `(
-          sp.codigo LIKE ? OR
-          p.nombre LIKE ? OR
-          sp.moneda LIKE ? OR
-          sp.estado LIKE ?
-        )`;
-      whereParams.push(
-        `%${search}%`,
-        `%${search}%`,
-        `%${search}%`,
-        `%${search}%`,
-      );
-    }
-
-    // Total
-    const [[{ total }]] = await db.query(
-      `SELECT COUNT(*) AS total
-         FROM solicitudes_pago sp
-         LEFT JOIN proveedores p ON p.id = sp.proveedor_id
-         ${whereSQL}`,
-      whereParams,
+    const esAdmin = Number(req.user?.rolId ?? req.user?.rol_id) === 1;
+    const sucursalIdUsuario = Number(
+      req.user?.sucursalId ?? req.user?.sucursal_id,
     );
 
-    // Data
+    const claveCache = esAdmin
+      ? `solicitudesPago_${page}_${limit}_${q || "all"}_admin`
+      : `solicitudesPago_${page}_${limit}_${q || "all"}_sucursal_${sucursalIdUsuario}`;
+
+    const enCache = cacheMemoria.get(claveCache);
+    if (enCache) return res.json(enCache);
+
+    const where = [];
+    const params = [];
+
+    // ✅ filtro por sucursal (no admin)
+    if (!esAdmin) {
+      where.push("g.sucursal_id = ?");
+      params.push(sucursalIdUsuario);
+    }
+
+    // ✅ filtro de búsqueda (si lo tienes ya, lo integras aquí)
+    if (q) {
+      where.push(`(
+        sp.codigo LIKE ? OR
+        p.nombre LIKE ?
+      )`);
+      params.push(`%${q}%`, `%${q}%`);
+    }
+
+    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+    const [[{ total }]] = await db.query(
+      `
+      SELECT COUNT(*) AS total
+      FROM solicitudes_pago sp
+      LEFT JOIN gastos g ON g.id = sp.gasto_id
+      LEFT JOIN proveedores p ON p.id = g.proveedor_id
+      ${whereSql}
+      `,
+      params,
+    );
+
     const [solicitudes] = await db.query(
       `
-      SELECT 
-        sp.id,
-        sp.codigo,
-        sp.gasto_id,
-        sp.usuario_solicita_id,
-        sp.usuario_revisa_id,
-        sp.usuario_aprueba_id,
-        p.nombre AS proveedor_nombre,
-        sp.monto_total    AS monto,
-        sp.monto_pagado   AS pagado,
-        sp.moneda,
-        sp.fecha_solicitud AS fecha,
-        sp.estado
+      SELECT
+        sp.*,
+        g.codigo AS gasto_codigo,
+        g.sucursal_id,
+        s.nombre AS sucursal_nombre,
+        p.nombre AS proveedor_nombre
       FROM solicitudes_pago sp
-      LEFT JOIN proveedores p ON p.id = sp.proveedor_id
-      ${whereSQL}
-      ORDER BY sp.fecha_solicitud DESC
+      LEFT JOIN gastos g ON g.id = sp.gasto_id
+      LEFT JOIN sucursales s ON s.id = g.sucursal_id
+      LEFT JOIN proveedores p ON p.id = g.proveedor_id
+      ${whereSql}
+      ORDER BY sp.id DESC
       LIMIT ${limit} OFFSET ${offset}
       `,
-      whereParams,
+      params,
     );
 
-    return res.json({ solicitudes, total, page, limit });
+    const respuesta = { data: solicitudes, total, page, limit };
+    cacheMemoria.set(claveCache, respuesta);
+    return res.json(respuesta);
   } catch (error) {
-    console.error("Error al listar solicitudes de pago:", error);
+    console.error("Error en obtenerSolicitudesPago:", error);
     return res
       .status(500)
-      .json({ message: "Error al listar solicitudes de pago" });
+      .json({ message: "Error al obtener solicitudes de pago" });
   }
 };
 

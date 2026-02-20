@@ -281,24 +281,34 @@ export const listaCuentasPorCobrar = async (req, res) => {
   const offset = (page - 1) * limit;
   const { cliente_id } = req.query;
 
-  const claveCache = `cxc_${cliente_id}_${page}_${limit}`;
-  const enCache = cacheMemoria.get(claveCache);
-  if (enCache) return res.json(enCache);
-
   if (!cliente_id) {
     return res.status(400).json({ message: "cliente_id es requerido" });
   }
 
+  const esAdmin = Number(req.user?.rol_id) === 1;
+  const sucursalIdUsuario = Number(req.user?.sucursal_id);
+
+  const claveCache = esAdmin
+    ? `cxc_${cliente_id}_${page}_${limit}_admin`
+    : `cxc_${cliente_id}_${page}_${limit}_sucursal_${sucursalIdUsuario}`;
+
+  const enCache = cacheMemoria.get(claveCache);
+  if (enCache) return res.json(enCache);
+
   try {
-    // 1. Total de cuentas
+    const whereSucursal = esAdmin ? "" : "AND cxc.sucursal_id = ?";
+    const paramsBase = esAdmin ? [cliente_id] : [cliente_id, sucursalIdUsuario];
+
+    // 1) Total de cuentas
     const [[{ total }]] = await db.query(
       `SELECT COUNT(*) AS total
-       FROM cuentas_por_cobrar
-       WHERE cliente_id = ?`,
-      [cliente_id],
+       FROM cuentas_por_cobrar cxc
+       WHERE cxc.cliente_id = ?
+       ${whereSucursal}`,
+      paramsBase,
     );
 
-    // 2. Obtener cuentas paginadas
+    // 2) Obtener cuentas paginadas
     const [cuentas] = await db.query(
       `SELECT 
         cxc.id,
@@ -308,21 +318,24 @@ export const listaCuentasPorCobrar = async (req, res) => {
         cxc.monto,
         cxc.estado,
         cxc.fecha_emision,
-        cxc.fecha_vencimiento
+        cxc.fecha_vencimiento,
+        cxc.sucursal_id
        FROM cuentas_por_cobrar cxc
        JOIN clientes cli ON cli.id = cxc.cliente_id
        WHERE cxc.cliente_id = ?
+       ${whereSucursal}
        ORDER BY cxc.fecha_vencimiento ASC
        LIMIT ${limit} OFFSET ${offset}`,
-      [cliente_id],
+      paramsBase,
     );
 
-    // 3. Si no hay cuentas
     if (cuentas.length === 0) {
-      return res.json({ cuentas: [], total, page, limit });
+      const respuestaVacia = { cuentas: [], total, page, limit };
+      cacheMemoria.set(claveCache, respuestaVacia);
+      return res.json(respuestaVacia);
     }
 
-    // 4. Obtener abonos por cuenta
+    // 3) Abonos por cuenta (solo de las cuentas visibles)
     const [abonos] = await db.query(
       `SELECT cuenta_id, SUM(monto_usd_calculado) AS abonado
        FROM abonos_cuentas
@@ -335,15 +348,16 @@ export const listaCuentasPorCobrar = async (req, res) => {
       abonosMap[row.cuenta_id] = parseFloat(row.abonado);
     });
 
-    // 5. Calcular saldo restante
+    // 4) saldo_restante
     cuentas.forEach((cuenta) => {
       const abonado = abonosMap[cuenta.id] || 0;
       cuenta.saldo_restante = parseFloat((cuenta.monto - abonado).toFixed(2));
     });
 
-    cacheMemoria.set(claveCache, { cuentas, total, page, limit });
+    const respuesta = { cuentas, total, page, limit };
+    cacheMemoria.set(claveCache, respuesta);
 
-    return res.json({ cuentas, total, page, limit });
+    return res.json(respuesta);
   } catch (error) {
     console.error("Error al obtener cuentas por cobrar:", error);
     return res
@@ -356,11 +370,20 @@ export const listaCuentasPorCobrar = async (req, res) => {
 /* CLIENTES CON CUENTAS POR COBRAR (APROBADAS)                                */
 /* ========================================================================== */
 export const clientesConCXC = async (req, res) => {
-  const clave = "clientesConCxc";
+  const esAdmin = Number(req.user?.rol_id) === 1;
+  const sucursalIdUsuario = Number(req.user?.sucursal_id);
+
+  const clave = esAdmin
+    ? "clientesConCxc_admin"
+    : `clientesConCxc_sucursal_${sucursalIdUsuario}`;
+
   const hit = cacheMemoria.get(clave);
   if (hit) return res.json(hit);
 
   try {
+    const whereSucursal = esAdmin ? "" : "AND cot.sucursal_id = ?";
+    const params = esAdmin ? [] : [sucursalIdUsuario];
+
     const [rows] = await db.query(
       `SELECT DISTINCT 
          cli.id,
@@ -370,7 +393,9 @@ export const clientesConCXC = async (req, res) => {
        JOIN clientes cli ON cli.id = cxc.cliente_id
        JOIN cotizaciones cot ON cot.id = cxc.cotizacion_id
        WHERE cot.estado = 'aprobada'
+       ${whereSucursal}
        ORDER BY cli.nombre ASC`,
+      params,
     );
 
     cacheMemoria.set(clave, rows, 600);
@@ -391,42 +416,61 @@ export const clientesConCXC = async (req, res) => {
 /* ========================================================================== */
 export const getTotalesPorCliente = async (req, res) => {
   const { cliente_id } = req.params;
-  const clave = `totales_${cliente_id}`;
+
+  if (!cliente_id) {
+    return res.status(400).json({ message: "Cliente no especificado" });
+  }
+
+  const esAdmin = Number(req.user?.rol_id) === 1;
+  const sucursalIdUsuario = Number(req.user?.sucursal_id);
+
+  const clave = esAdmin
+    ? `totales_${cliente_id}_admin`
+    : `totales_${cliente_id}_sucursal_${sucursalIdUsuario}`;
+
   const hit = cacheMemoria.get(clave);
   if (hit) return res.json(hit);
 
   try {
-    if (!cliente_id) {
-      return res.status(400).json({ message: "Cliente no especificado" });
-    }
+    const whereSucursal = esAdmin ? "" : "AND sucursal_id = ?";
+    const paramsDebe = esAdmin ? [cliente_id] : [cliente_id, sucursalIdUsuario];
 
-    // 1. Total DEBE
+    // 1) Total DEBE
     const [debeResult] = await db.query(
       `SELECT COALESCE(SUM(monto), 0) AS debe
        FROM cuentas_por_cobrar
-       WHERE cliente_id = ? AND estado != 'pagado'`,
-      [cliente_id],
+       WHERE cliente_id = ? AND estado != 'pagado'
+       ${whereSucursal}`,
+      paramsDebe,
     );
 
     const debe = parseFloat(debeResult[0].debe);
 
-    // 2. Total HABER
+    // 2) Total HABER (solo abonos de cuentas visibles en esa sucursal)
+    const paramsHaber = esAdmin
+      ? [cliente_id]
+      : [cliente_id, sucursalIdUsuario];
+
     const [haberResult] = await db.query(
-      `SELECT COALESCE(SUM(monto_usd_calculado), 0) AS haber
-       FROM abonos_cuentas
-       WHERE cuenta_id IN (
-         SELECT id FROM cuentas_por_cobrar WHERE cliente_id = ?
+      `SELECT COALESCE(SUM(a.monto_usd_calculado), 0) AS haber
+       FROM abonos_cuentas a
+       WHERE a.cuenta_id IN (
+         SELECT id
+         FROM cuentas_por_cobrar
+         WHERE cliente_id = ?
+         ${whereSucursal}
        )`,
-      [cliente_id],
+      paramsHaber,
     );
 
     const haber = parseFloat(haberResult[0].haber);
 
-    // 3. SALDO
+    // 3) SALDO
     const saldo = parseFloat((debe - haber).toFixed(2));
-    cacheMemoria.set(clave, { debe, haber, saldo });
+    const respuesta = { debe, haber, saldo };
 
-    return res.json({ debe, haber, saldo });
+    cacheMemoria.set(clave, respuesta);
+    return res.json(respuesta);
   } catch (error) {
     console.error("Error al calcular totales del cliente:", error);
     return res.status(500).json({ message: "Error al calcular totales" });
@@ -438,18 +482,31 @@ export const getTotalesPorCliente = async (req, res) => {
 /* ========================================================================== */
 export const getSaldoCuenta = async (req, res) => {
   const { cuenta_id } = req.params;
-  const clave = `saldo_${cuenta_id}`;
+
+  const esAdmin = Number(req.user?.rol_id) === 1;
+  const sucursalIdUsuario = Number(req.user?.sucursal_id);
+
+  const clave = esAdmin
+    ? `saldo_${cuenta_id}_admin`
+    : `saldo_${cuenta_id}_sucursal_${sucursalIdUsuario}`;
+
   const hit = cacheMemoria.get(clave);
   if (hit) return res.json(hit);
 
   try {
-    const [[{ monto }]] = await db.query(
-      "SELECT monto FROM cuentas_por_cobrar WHERE id = ?",
+    const [[cuenta]] = await db.query(
+      "SELECT monto, sucursal_id FROM cuentas_por_cobrar WHERE id = ?",
       [cuenta_id],
     );
 
-    if (!monto) {
+    if (!cuenta) {
       return res.status(404).json({ message: "Cuenta no encontrada" });
+    }
+
+    if (!esAdmin && Number(cuenta.sucursal_id) !== sucursalIdUsuario) {
+      return res
+        .status(403)
+        .json({ message: "No tienes acceso a esta cuenta" });
     }
 
     const [[{ abonado }]] = await db.query(
@@ -458,7 +515,9 @@ export const getSaldoCuenta = async (req, res) => {
       [cuenta_id],
     );
 
-    const saldo = parseFloat((monto - abonado).toFixed(2));
+    const saldo = parseFloat(
+      (Number(cuenta.monto) - Number(abonado)).toFixed(2),
+    );
     cacheMemoria.set(clave, { saldo }, 120);
 
     return res.json({ saldo });

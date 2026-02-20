@@ -20,7 +20,7 @@ try {
     "..",
     "..",
     "styles",
-    "Logo Operaciones Logisticas Falcon.jpg"
+    "Logo Operaciones Logisticas Falcon.jpg",
   );
   const bufferLogo = fs.readFileSync(rutaLogo);
   logo = `data:image/jpeg;base64,${bufferLogo.toString("base64")}`;
@@ -30,104 +30,75 @@ try {
 
 // Obtener todas las cotizaciones con detalle
 
+
 export const getCotizaciones = async (req, res) => {
-  // 1) Parámetros de paginación
-  const page = Number.isNaN(Number(req.query.page))
-    ? 1
-    : Number(req.query.page);
-  const limit = Number.isNaN(Number(req.query.limit))
-    ? 10
-    : Number(req.query.limit);
-  const offset = (page - 1) * limit;
-
-  // 2) Parámetro de búsqueda (opcional)
-  const q = (req.query.search || "").trim();
-
-  const claveCache = `cotizaciones_${page}_${limit}_${q}`;
-  const enCache = cacheMemoria.get(claveCache);
-  if (enCache) return res.json(enCache);
-
   try {
-    // 3) Total de registros (filtrado si hay búsqueda)
-    let total;
-    if (q) {
-      const [[{ total: count }]] = await db.query(
-        `SELECT COUNT(*) AS total
-           FROM cotizaciones c
-           JOIN clientes cli ON c.cliente_id = cli.id
-          WHERE c.codigo_referencia LIKE ? OR cli.nombre LIKE ?`,
-        [`%${q}%`, `%${q}%`]
-      );
-      total = count;
-    } else {
-      const [[{ total: count }]] = await db.query(
-        `SELECT COUNT(*) AS total FROM cotizaciones`
-      );
-      total = count;
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.max(1, Number(req.query.limit) || 10);
+    const q = (req.query.q || "").trim();
+    const offset = (page - 1) * limit;
+
+    const esAdmin = Number(req.user?.rolId ?? req.user?.rol_id) === 1;
+    const sucursalIdUsuario = Number(
+      req.user?.sucursalId ?? req.user?.sucursal_id,
+    );
+
+    const claveCache = esAdmin
+      ? `cotizaciones_${page}_${limit}_${q || "all"}_admin`
+      : `cotizaciones_${page}_${limit}_${q || "all"}_sucursal_${sucursalIdUsuario}`;
+
+    const enCache = cacheMemoria.get(claveCache);
+    if (enCache) return res.json(enCache);
+
+    const where = [];
+    const params = [];
+
+    if (!esAdmin) {
+      where.push("c.sucursal_id = ?");
+      params.push(sucursalIdUsuario);
     }
 
-    // 4) Listado paginado y (opcional) filtrado
-    let cotizaciones;
     if (q) {
-      [cotizaciones] = await db.query(
-        `
-          SELECT 
-            c.id,
-            c.fecha,
-            c.total,
-            c.estado,
-            c.motivo_rechazo,
-            c.codigo_referencia AS codigo,
-            c.subtotal,
-            c.impuesto,
-            c.cliente_id,
-            c.sucursal_id,
-            c.confirmacion_cliente,
-            c.observaciones,
-            s.nombre AS sucursal,
-            cli.nombre AS cliente_nombre
-          FROM cotizaciones c
-          JOIN clientes cli ON c.cliente_id = cli.id
-          LEFT JOIN sucursales s ON c.sucursal_id = s.id
-         WHERE c.codigo_referencia LIKE ? OR cli.nombre LIKE ?
-         ORDER BY c.fecha DESC
-         LIMIT ${limit} OFFSET ${offset}
-        `,
-        [`%${q}%`, `%${q}%`]
-      );
-    } else {
-      [cotizaciones] = await db.query(
-        `
-          SELECT 
-            c.id,
-            c.fecha,
-            c.total,
-            c.estado,
-            c.motivo_rechazo,
-            c.codigo_referencia AS codigo,
-            c.subtotal,
-            c.impuesto,
-            c.cliente_id,
-            c.sucursal_id,
-            c.confirmacion_cliente,
-            c.observaciones,
-            s.nombre AS sucursal,
-            cli.nombre AS cliente_nombre
-          FROM cotizaciones c
-          JOIN clientes cli ON c.cliente_id = cli.id
-          LEFT JOIN sucursales s ON c.sucursal_id = s.id
-         ORDER BY c.fecha DESC
-         LIMIT ${limit} OFFSET ${offset}
-        `
-      );
+      where.push(`(
+        c.codigo_referencia LIKE ? OR
+        cli.nombre LIKE ?
+      )`);
+      params.push(`%${q}%`, `%${q}%`);
     }
 
-    cacheMemoria.set(claveCache, { cotizaciones, total, page, limit });
+    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
-    // 5) Enviar respuesta
-    return res.json({ cotizaciones, total, page, limit });
+    const [[{ total }]] = await db.query(
+      `
+      SELECT COUNT(*) AS total
+      FROM cotizaciones c
+      LEFT JOIN clientes cli ON cli.id = c.cliente_id
+      ${whereSql}
+      `,
+      params,
+    );
+
+    const [cotizaciones] = await db.query(
+      `
+      SELECT
+        c.*,
+        cli.nombre AS cliente_nombre,
+        s.nombre AS sucursal_nombre
+      FROM cotizaciones c
+      LEFT JOIN clientes cli ON cli.id = c.cliente_id
+      LEFT JOIN sucursales s ON s.id = c.sucursal_id
+      ${whereSql}
+      ORDER BY c.fecha DESC, c.id DESC
+      LIMIT ${limit} OFFSET ${offset}
+      `,
+      params,
+    );
+
+    const respuesta = { data: cotizaciones, total, page, limit };
+    cacheMemoria.set(claveCache, respuesta);
+    return res.json(respuesta);
   } catch (error) {
-    console.error("Error al obtener cotizaciones:", error);
+    console.error("Error en getCotizaciones:", error);
     return res.status(500).json({ message: "Error al obtener cotizaciones" });
   }
 };
@@ -169,7 +140,7 @@ export const getCotizacionById = async (req, res) => {
        LEFT JOIN sucursales s ON c.sucursal_id = s.id
       LEFT JOIN usuarios u   ON u.id = c.creadoPor
        WHERE c.id = ?`,
-      [id]
+      [id],
     );
     if (!cot)
       return res.status(404).json({ message: "No existe esa cotización" });
@@ -190,7 +161,7 @@ export const getCotizacionById = async (req, res) => {
        FROM detalle_cotizacion dc
        JOIN servicios_productos sp ON sp.id = dc.servicio_productos_id
        WHERE dc.cotizacion_id = ?`,
-      [id]
+      [id],
     );
 
     // 3) Ajustes de tipos si los necesitas…
@@ -214,7 +185,7 @@ export const actualizarEstadoCotizacion = async (req, res) => {
 
   const [estadoRow] = await db.query(
     "SELECT estado FROM cotizaciones WHERE id = ?",
-    [id]
+    [id],
   );
   if (!estadoRow.length) {
     return res.status(404).json({ message: "Cotización no encontrada" });
@@ -241,7 +212,7 @@ export const actualizarEstadoCotizacion = async (req, res) => {
           SET estado = ?,
               motivo_rechazo = ?
         WHERE id = ?`,
-      [estado, estado === "rechazada" ? motivo_rechazo.trim() : null, id]
+      [estado, estado === "rechazada" ? motivo_rechazo.trim() : null, id],
     );
 
     if (result.affectedRows === 0) {
@@ -251,7 +222,7 @@ export const actualizarEstadoCotizacion = async (req, res) => {
     if (estado === "aprobada") {
       const [cotizacionData] = await db.query(
         `SELECT cliente_id, total FROM cotizaciones WHERE id = ?`,
-        [id]
+        [id],
       );
 
       if (cotizacionData.length > 0) {
@@ -269,7 +240,7 @@ export const actualizarEstadoCotizacion = async (req, res) => {
             cot.total,
             `Cuenta generada por cotización #${id}`,
             "pendiente",
-          ]
+          ],
         );
 
         const nuevoId = insertResult.insertId;
@@ -277,7 +248,7 @@ export const actualizarEstadoCotizacion = async (req, res) => {
 
         await db.query(
           `UPDATE cuentas_por_cobrar SET codigo = ? WHERE id = ?`,
-          [codigoGenerado, nuevoId]
+          [codigoGenerado, nuevoId],
         );
 
         cacheMemoria.del(`cotizacion_${id}`);
@@ -312,7 +283,7 @@ export const buscarCotizaciones = async (req, res) => {
       JOIN clientes cli ON cli.id = c.cliente_id
       WHERE c.codigo_referencia LIKE ? OR cli.nombre LIKE ?
       ORDER BY c.id DESC LIMIT 20`,
-    [`%${q}%`, `%${q}%`]
+    [`%${q}%`, `%${q}%`],
   );
 
   cacheMemoria.set(clave, rows, 120);
@@ -345,7 +316,7 @@ export const editarCotizacion = async (req, res) => {
     // 1) Validar estado actual
     const [rowsEstado] = await conn.query(
       `SELECT estado FROM cotizaciones WHERE id = ?`,
-      [id]
+      [id],
     );
     if (rowsEstado.length === 0) {
       await conn.rollback();
@@ -387,7 +358,7 @@ export const editarCotizacion = async (req, res) => {
         confirmacionClienteVal,
         observaciones,
         id,
-      ]
+      ],
     );
 
     // 3) Leer detalle actual (viejo)
@@ -395,7 +366,7 @@ export const editarCotizacion = async (req, res) => {
       `SELECT id, servicio_productos_id, cantidad, precio_unitario, porcentaje_iva
          FROM detalle_cotizacion
         WHERE cotizacion_id = ?`,
-      [id]
+      [id],
     );
     const viejoPorId = new Map(detalleOldRows.map((r) => [r.id, r]));
 
@@ -446,7 +417,7 @@ export const editarCotizacion = async (req, res) => {
       const cant = Number(cantidad);
       const precio = Number(precio_unitario);
       const iva = Number(
-        typeof porcentaje_iva === "number" ? porcentaje_iva : 16
+        typeof porcentaje_iva === "number" ? porcentaje_iva : 16,
       );
       const sub = cant * precio;
       const imp = sub * (iva / 100);
@@ -460,7 +431,16 @@ export const editarCotizacion = async (req, res) => {
                 impuesto              = ?,
                 total                 = ?
           WHERE id = ?`,
-        [servicio_productos_id, cant, precio, iva, sub, imp, sub + imp, lineaId]
+        [
+          servicio_productos_id,
+          cant,
+          precio,
+          iva,
+          sub,
+          imp,
+          sub + imp,
+          lineaId,
+        ],
       );
     }
 
@@ -480,7 +460,7 @@ export const editarCotizacion = async (req, res) => {
         `INSERT INTO detalle_cotizacion
            (cotizacion_id, servicio_productos_id, cantidad, precio_unitario, porcentaje_iva, subtotal, impuesto, total)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [id, servicio_productos_id, cant, precio, iva, sub, imp, sub + imp]
+        [id, servicio_productos_id, cant, precio, iva, sub, imp, sub + imp],
       );
     }
 
@@ -491,7 +471,7 @@ export const editarCotizacion = async (req, res) => {
          IFNULL(SUM(impuesto), 0) AS impuesto
        FROM detalle_cotizacion
       WHERE cotizacion_id = ?`,
-      [id]
+      [id],
     );
 
     const subtotalCalc = Number(totales.subtotal || 0);
@@ -505,7 +485,7 @@ export const editarCotizacion = async (req, res) => {
               total    = ?,
               fechaActualizacion = NOW()
         WHERE id = ?`,
-      [subtotalCalc, impuestoCalc, totalCalc, id]
+      [subtotalCalc, impuestoCalc, totalCalc, id],
     );
 
     await conn.commit();
@@ -537,7 +517,7 @@ export const deleteCotizacion = async (req, res) => {
     // 1) Verificar si existe y cuál es su estado
     const [rows] = await db.query(
       "SELECT estado FROM cotizaciones WHERE id = ?",
-      [id]
+      [id],
     );
     if (rows.length === 0) {
       return res.status(404).json({ message: "Cotización no encontrada" });
@@ -606,7 +586,7 @@ export const generarPDFCotizacion = async (req, res) => {
       LEFT JOIN sucursales s ON c.sucursal_id = s.id
       LEFT JOIN usuarios u ON u.id = c.creadoPor
       WHERE c.id = ?`,
-      [id]
+      [id],
     );
 
     if (cotizacionData.length === 0) {
@@ -629,7 +609,7 @@ export const generarPDFCotizacion = async (req, res) => {
        JOIN servicios_productos sp ON sp.id = dc.servicio_productos_id
        WHERE dc.cotizacion_id = ?
        ORDER BY sp.nombre`,
-      [id]
+      [id],
     );
 
     const datosCotizacion = {

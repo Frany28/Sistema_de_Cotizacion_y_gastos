@@ -9,74 +9,97 @@ import { obtenerOcrearGrupoFactura } from "../utils/gruposArchivos.js";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 import cacheMemoria from "../utils/cacheMemoria.js";
 
-// controllers/gastos.controller.js
+
 export const getGastos = async (req, res) => {
-  const page = +req.query.page || 1;
-  const limit = +req.query.limit || 5;
-  const offset = (page - 1) * limit;
-  const q = (req.query.search || "").trim();
-
-  const claveCache = `gastos_${page}_${limit}_${q}`;
-  const respuestaEnCache = cacheMemoria.get(claveCache);
-  if (respuestaEnCache) return res.json(respuestaEnCache);
-
   try {
-    // 1) TOTAL filtrado
-    const [[{ total }]] = await db.query(
-      q
-        ? `SELECT COUNT(*) AS total
-            FROM gastos g
-            LEFT JOIN proveedores p ON p.id = g.proveedor_id
-            WHERE g.codigo        LIKE ? OR
-            p.nombre        LIKE ? OR
-            g.concepto_pago LIKE ?`
-        : `SELECT COUNT(*) AS total FROM gastos`,
-      q ? [`%${q}%`, `%${q}%`, `%${q}%`] : []
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.max(1, Number(req.query.limit) || 10);
+    const q = (req.query.q || "").trim();
+    const offset = (page - 1) * limit;
+
+    const esAdmin = Number(req.user?.rolId ?? req.user?.rol_id) === 1;
+    const sucursalIdUsuario = Number(
+      req.user?.sucursalId ?? req.user?.sucursal_id,
     );
 
-    // 2) LISTA paginada filtrada
+    const claveCache = esAdmin
+      ? `gastos_${page}_${limit}_${q || "all"}_admin`
+      : `gastos_${page}_${limit}_${q || "all"}_sucursal_${sucursalIdUsuario}`;
+
+    const enCache = cacheMemoria.get(claveCache);
+    if (enCache) return res.json(enCache);
+
+    // ✅ Armado de WHERE dinámico (sucursal + búsqueda)
+    const where = [];
+    const params = [];
+
+    if (!esAdmin) {
+      where.push("g.sucursal_id = ?");
+      params.push(sucursalIdUsuario);
+    }
+
+    if (q) {
+      where.push(`(
+        g.codigo LIKE ? OR
+        p.nombre LIKE ? OR
+        g.concepto_pago LIKE ?
+      )`);
+      params.push(`%${q}%`, `%${q}%`, `%${q}%`);
+    }
+
+    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+    // 1) TOTAL
+    const [[{ total }]] = await db.query(
+      `
+      SELECT COUNT(*) AS total
+      FROM gastos g
+      LEFT JOIN proveedores p ON p.id = g.proveedor_id
+      ${whereSql}
+      `,
+      params,
+    );
+
+    // 2) LISTA
     const [gastos] = await db.query(
       `
-      SELECT g.id,
-      g.codigo,
+      SELECT
+        g.id,
+        g.codigo,
         g.fecha,
         g.total,
         g.estado,
         g.motivo_rechazo,
-        g.tipo_gasto_id,                 
-        tg.nombre        AS tipo_gasto,  
-        p.nombre         AS proveedor,
-        s.nombre         AS sucursal,
+        g.tipo_gasto_id,
+        tg.nombre AS tipo_gasto,
+        p.nombre AS proveedor,
+        s.nombre AS sucursal,
         g.concepto_pago,
-        g.descripcion, 
+        g.descripcion,
         g.subtotal,
         g.impuesto,
         g.moneda,
-        g.porcentaje_iva, 
+        g.porcentaje_iva,
         g.tasa_cambio,
         g.cotizacion_id,
         g.documento
-        FROM gastos g
-        LEFT JOIN proveedores p ON p.id = g.proveedor_id
-        LEFT JOIN sucursales  s ON s.id = g.sucursal_id
-        LEFT JOIN tipos_gasto tg ON tg.id = g.tipo_gasto_id
-      ${
-        q
-          ? `WHERE g.codigo        LIKE ? OR
-            p.nombre        LIKE ? OR
-            g.concepto_pago LIKE ?`
-          : ""
-      }
+      FROM gastos g
+      LEFT JOIN proveedores p ON p.id = g.proveedor_id
+      LEFT JOIN sucursales  s ON s.id = g.sucursal_id
+      LEFT JOIN tipos_gasto tg ON tg.id = g.tipo_gasto_id
+      ${whereSql}
       ORDER BY g.fecha DESC, g.id DESC
       LIMIT ${limit} OFFSET ${offset}
       `,
-      q ? [`%${q}%`, `%${q}%`, `%${q}%`] : []
+      params,
     );
-    cacheMemoria.set(claveCache, { data: gastos, total, page, limit });
-    res.json({ data: gastos, total, page, limit });
+
+    const respuesta = { data: gastos, total, page, limit };
+    cacheMemoria.set(claveCache, respuesta);
+    return res.json(respuesta);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Error interno" });
+    return res.status(500).json({ message: "Error interno" });
   }
 };
 
@@ -90,7 +113,7 @@ export const obtenerUrlComprobante = async (req, res) => {
   // 1) Buscar la key que guardaste en la BD
   const [[fila]] = await db.query(
     "SELECT documento AS keyS3 FROM gastos WHERE id = ?",
-    [id]
+    [id],
   );
 
   if (!fila || !fila.keyS3) {
@@ -118,7 +141,7 @@ export const updateGasto = async (req, res) => {
 
     const [[gastoExistente]] = await conexion.query(
       "SELECT * FROM gastos WHERE id = ?",
-      [id]
+      [id],
     );
     if (!gastoExistente) {
       await conexion.rollback();
@@ -209,7 +232,7 @@ export const updateGasto = async (req, res) => {
         motivoRechazoFinal,
         ...(documentoNuevo ? [documentoNuevo] : []),
         id,
-      ]
+      ],
     );
 
     if (documentoNuevo) {
@@ -221,7 +244,7 @@ export const updateGasto = async (req, res) => {
         const rutaPapelera = await moverArchivoAPapelera(
           gastoExistente.documento,
           "facturasGastos",
-          id
+          id,
         );
 
         await conexion.query(
@@ -230,7 +253,7 @@ export const updateGasto = async (req, res) => {
            WHERE registroTipo = 'facturasGastos'
              AND registroId   = ?
              AND estado       = 'activo'`,
-          [rutaPapelera, id]
+          [rutaPapelera, id],
         );
 
         const [antArchivo] = await conexion.query(
@@ -241,7 +264,7 @@ export const updateGasto = async (req, res) => {
               AND estado       = 'reemplazado'
             ORDER BY id DESC
             LIMIT 1`,
-          [id]
+          [id],
         );
 
         if (antArchivo.length) {
@@ -258,7 +281,7 @@ export const updateGasto = async (req, res) => {
                 motivo: "Sustitución de la factura al editar gasto",
                 nuevaRuta: rutaPapelera,
               }),
-            ]
+            ],
           );
         }
       }
@@ -267,7 +290,7 @@ export const updateGasto = async (req, res) => {
       const grupoArchivoId = await obtenerOcrearGrupoFactura(
         conexion,
         id,
-        req.user?.id || null
+        req.user?.id || null,
       );
 
       const [[{ maxVer }]] = await conexion.query(
@@ -275,7 +298,7 @@ export const updateGasto = async (req, res) => {
            FROM archivos
           WHERE registroTipo = 'facturasGastos'
             AND registroId   = ?`,
-        [id]
+        [id],
       );
       const numeroVersion = maxVer + 1;
 
@@ -299,7 +322,7 @@ export const updateGasto = async (req, res) => {
           claveS3Nueva,
           numeroVersion,
           req.user?.id || null,
-        ]
+        ],
       );
       const archivoId = resArchivo.insertId;
 
@@ -316,7 +339,7 @@ export const updateGasto = async (req, res) => {
           tamanioBytes,
           claveS3Nueva,
           req.user?.id || null,
-        ]
+        ],
       );
 
       const accionNueva = huboReemplazo
@@ -337,14 +360,14 @@ export const updateGasto = async (req, res) => {
             extension,
             ruta: claveS3Nueva,
           }),
-        ]
+        ],
       );
 
       await conexion.query(
         `UPDATE usuarios
             SET usoStorageBytes = usoStorageBytes + ?
           WHERE id = ?`,
-        [tamanioBytes, req.user?.id || null]
+        [tamanioBytes, req.user?.id || null],
       );
     }
 
@@ -357,7 +380,7 @@ export const updateGasto = async (req, res) => {
 
     const [[gastoActualizado]] = await conexion.query(
       "SELECT * FROM gastos WHERE id = ?",
-      [id]
+      [id],
     );
     const urlFacturaFirmada = gastoActualizado.documento
       ? await generarUrlPrefirmadaLectura(gastoActualizado.documento)
@@ -377,7 +400,7 @@ export const updateGasto = async (req, res) => {
           new DeleteObjectCommand({
             Bucket: process.env.S3_BUCKET,
             Key: claveS3Nueva,
-          })
+          }),
         );
       } catch (err) {
         console.error("Error al borrar archivo nuevo tras fallo:", err);
@@ -404,7 +427,7 @@ export const deleteGasto = async (req, res) => {
 
     const [[gastoExistente]] = await conexion.query(
       "SELECT estado, documento FROM gastos WHERE id = ?",
-      [id]
+      [id],
     );
     if (!gastoExistente) {
       await conexion.rollback();
@@ -421,14 +444,14 @@ export const deleteGasto = async (req, res) => {
       const nuevaClave = await moverArchivoAPapelera(
         gastoExistente.documento,
         "facturasGastos",
-        id
+        id,
       );
 
       await conexion.query(
         `UPDATE archivos
             SET estado = 'eliminado', rutaS3 = ?
           WHERE registroTipo = ? AND registroId = ?`,
-        [nuevaClave, "facturasGastos", id]
+        [nuevaClave, "facturasGastos", id],
       );
 
       const [archivos] = await conexion.query(
@@ -437,7 +460,7 @@ export const deleteGasto = async (req, res) => {
           WHERE registroTipo = ? AND registroId = ?
           ORDER BY id DESC
           LIMIT 1`,
-        ["facturasGastos", id]
+        ["facturasGastos", id],
       );
 
       if (archivos.length > 0) {
@@ -455,7 +478,7 @@ export const deleteGasto = async (req, res) => {
               motivo: "Eliminación del gasto",
               nuevaRuta: nuevaClave,
             }),
-          ]
+          ],
         );
       }
     }
@@ -515,7 +538,7 @@ export const getGastoById = async (req, res) => {
       LEFT JOIN tipos_gasto  tg ON tg.id = g.tipo_gasto_id
       WHERE g.id = ?;
       `,
-      [id]
+      [id],
     );
 
     if (!gasto) {
@@ -530,11 +553,11 @@ export const getGastoById = async (req, res) => {
 
     const [tiposGasto] = await db.query("SELECT id, nombre FROM tipos_gasto");
     const [proveedores] = await db.query(
-      "SELECT id, nombre FROM proveedores WHERE estado = 'activo'"
+      "SELECT id, nombre FROM proveedores WHERE estado = 'activo'",
     );
     const [sucursales] = await db.query("SELECT id, nombre FROM sucursales");
     const [cotizaciones] = await db.query(
-      "SELECT id, codigo_referencia AS codigo FROM cotizaciones"
+      "SELECT id, codigo_referencia AS codigo FROM cotizaciones",
     );
     /* ----------------------------------------- */
 
@@ -576,7 +599,7 @@ export const getTiposGasto = async (req, res) => {
 export const getProveedores = async (req, res) => {
   try {
     const [proveedores] = await db.query(
-      "SELECT id, nombre FROM proveedores WHERE estado = 'activo'"
+      "SELECT id, nombre FROM proveedores WHERE estado = 'activo'",
     );
     res.json(proveedores);
   } catch (error) {
@@ -599,7 +622,7 @@ export const actualizarEstadoGasto = async (req, res) => {
              updated_at     = NOW()
        WHERE id = ?
       `,
-      [estado, motivo_rechazo || null, id]
+      [estado, motivo_rechazo || null, id],
     );
 
     /* 1.1 Invalidar caché (detalle + listados) */
@@ -613,7 +636,7 @@ export const actualizarEstadoGasto = async (req, res) => {
       /* 2.1  Evitar duplicados */
       const [yaExiste] = await db.query(
         "SELECT id FROM solicitudes_pago WHERE gasto_id = ?",
-        [id]
+        [id],
       );
       if (yaExiste.length === 0) {
         /* 2.2  Datos necesarios del gasto */
@@ -629,12 +652,12 @@ export const actualizarEstadoGasto = async (req, res) => {
           FROM gastos
           WHERE id = ?
           `,
-          [id]
+          [id],
         );
 
         /* 2.3  Generar código consecutivo SP-00001 */
         const [[{ maxId }]] = await db.query(
-          "SELECT MAX(id) AS maxId FROM solicitudes_pago"
+          "SELECT MAX(id) AS maxId FROM solicitudes_pago",
         );
         const nextId = (maxId || 0) + 1;
         const codigo = `SP-${String(nextId).padStart(5, "0")}`;
@@ -672,7 +695,7 @@ export const actualizarEstadoGasto = async (req, res) => {
             "por_pagar",
             gasto.moneda,
             gasto.tasa_cambio,
-          ]
+          ],
         );
       }
     }
