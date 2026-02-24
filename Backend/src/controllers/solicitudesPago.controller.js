@@ -11,7 +11,7 @@ import { GetObjectCommand } from "@aws-sdk/client-s3";
 import puppeteer from "puppeteer-core";
 import chromium from "@sparticuz/chromium";
 import { generarHTMLOrdenPago } from "../../templates/generarHTMLOrdenDePago.js";
-import cacheMemoria from "./utils/cacheMemoria.js";
+import cacheMemoria from "../utils/cacheMemoria.js";
 // 🔹 NUEVOS IMPORTS PARA EL LOGO LOCAL
 import fs from "fs";
 import path from "path";
