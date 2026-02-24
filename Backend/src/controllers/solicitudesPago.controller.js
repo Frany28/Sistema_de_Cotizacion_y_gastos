@@ -11,7 +11,7 @@ import { GetObjectCommand } from "@aws-sdk/client-s3";
 import puppeteer from "puppeteer-core";
 import chromium from "@sparticuz/chromium";
 import { generarHTMLOrdenPago } from "../../templates/generarHTMLOrdenDePago.js";
-
+import cacheMemoria from "./utils/cacheMemoria.js";
 // 🔹 NUEVOS IMPORTS PARA EL LOGO LOCAL
 import fs from "fs";
 import path from "path";
@@ -756,10 +756,9 @@ async function guardarPdfOrdenPagoPrimerAbono({
   }
 }
 
-/* ============================================================
- * 1. LISTAR SOLICITUDES DE PAGO
- * ========================================================== */
-// solicitudesPago.controller.js
+/*─────────────────────────────────────────────────────────────
+  Listado de usuarios (filtrado por sucursal)
+─────────────────────────────────────────────────────────────*/
 export const obtenerSolicitudesPago = async (req, res) => {
   try {
     const page = Math.max(1, Number(req.query.page) || 1);
@@ -782,13 +781,13 @@ export const obtenerSolicitudesPago = async (req, res) => {
     const where = [];
     const params = [];
 
-    // ✅ filtro por sucursal (no admin)
+    // ✅ filtro por sucursal (no admin) vía gasto
     if (!esAdmin) {
       where.push("g.sucursal_id = ?");
       params.push(sucursalIdUsuario);
     }
 
-    // ✅ filtro de búsqueda (si lo tienes ya, lo integras aquí)
+    // filtro de búsqueda
     if (q) {
       where.push(`(
         sp.codigo LIKE ? OR
