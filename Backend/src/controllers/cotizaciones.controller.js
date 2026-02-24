@@ -30,7 +30,7 @@ try {
 
 // Obtener todas las cotizaciones con detalle
 
-
+// cotizaciones.controller.js
 export const getCotizaciones = async (req, res) => {
   try {
     const page = Math.max(1, Number(req.query.page) || 1);

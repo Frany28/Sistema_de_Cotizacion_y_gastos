@@ -651,47 +651,83 @@ export const actualizarUsuario = async (req, res) => {
 /*─────────────────────────────────────────────────────────────
   Listado de usuarios (filtrado por sucursal)
 ─────────────────────────────────────────────────────────────*/
-export const obtenerUsuarios = async (req, res) => {
+export const obtenerSolicitudesPago = async (req, res) => {
   try {
-    const contexto = obtenerContextoAcceso(req);
-    validarSucursalRequerida(contexto); // solo bloquea si no-admin sin sucursal
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.max(1, Number(req.query.limit) || 10);
+    const q = (req.query.q || "").trim();
+    const offset = (page - 1) * limit;
 
-    const whereSucursal = contexto.esAdmin ? "" : "WHERE u.sucursal_id = ?";
-    const params = contexto.esAdmin ? [] : [contexto.sucursalId];
+    const esAdmin = Number(req.user?.rolId ?? req.user?.rol_id) === 1;
+    const sucursalIdUsuario = Number(
+      req.user?.sucursalId ?? req.user?.sucursal_id,
+    );
 
-    const [filasUsuarios] = await db.query(
+    const claveCache = esAdmin
+      ? `solicitudesPago_${page}_${limit}_${q || "all"}_admin`
+      : `solicitudesPago_${page}_${limit}_${q || "all"}_sucursal_${sucursalIdUsuario}`;
+
+    const enCache = cacheMemoria.get(claveCache);
+    if (enCache) return res.json(enCache);
+
+    const where = [];
+    const params = [];
+
+    // ✅ filtro por sucursal (no admin) vía gasto
+    if (!esAdmin) {
+      where.push("g.sucursal_id = ?");
+      params.push(sucursalIdUsuario);
+    }
+
+    // filtro de búsqueda
+    if (q) {
+      where.push(`(
+        sp.codigo LIKE ? OR
+        p.nombre LIKE ?
+      )`);
+      params.push(`%${q}%`, `%${q}%`);
+    }
+
+    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+    const [[{ total }]] = await db.query(
       `
-      SELECT
-        u.id,
-        u.codigo,
-        u.nombre,
-        u.email,
-        u.estado,
-        u.cuotaMb,
-        u.usoStorageBytes,
-        u.sucursal_id AS sucursalId,
-        s.nombre      AS sucursalNombre,
-        u.fechaCreacion      AS fechaCreacion,
-        u.fechaActualizacion AS fechaActualizacion,
-        u.creadoPor,
-        u.actualizadoPor,
-        r.nombre             AS rol
-      FROM usuarios u
-      LEFT JOIN roles r ON u.rol_id = r.id
-      LEFT JOIN sucursales s ON s.id = u.sucursal_id
-      ${whereSucursal}
-      ORDER BY u.id DESC
+      SELECT COUNT(*) AS total
+      FROM solicitudes_pago sp
+      LEFT JOIN gastos g ON g.id = sp.gasto_id
+      LEFT JOIN proveedores p ON p.id = g.proveedor_id
+      ${whereSql}
       `,
       params,
     );
 
-    return res.json(filasUsuarios);
+    const [solicitudes] = await db.query(
+      `
+      SELECT
+        sp.*,
+        g.codigo AS gasto_codigo,
+        g.sucursal_id,
+        s.nombre AS sucursal_nombre,
+        p.nombre AS proveedor_nombre
+      FROM solicitudes_pago sp
+      LEFT JOIN gastos g ON g.id = sp.gasto_id
+      LEFT JOIN sucursales s ON s.id = g.sucursal_id
+      LEFT JOIN proveedores p ON p.id = g.proveedor_id
+      ${whereSql}
+      ORDER BY sp.id DESC
+      LIMIT ${limit} OFFSET ${offset}
+      `,
+      params,
+    );
+
+    const respuesta = { data: solicitudes, total, page, limit };
+    cacheMemoria.set(claveCache, respuesta);
+    return res.json(respuesta);
   } catch (error) {
-    const status = error?.statusCode || 500;
-    console.error("Error al obtener usuarios:", error);
+    console.error("Error en obtenerSolicitudesPago:", error);
     return res
-      .status(status)
-      .json({ message: error.message || "Error al obtener usuarios" });
+      .status(500)
+      .json({ message: "Error al obtener solicitudes de pago" });
   }
 };
 

@@ -9,7 +9,7 @@ import { obtenerOcrearGrupoFactura } from "../utils/gruposArchivos.js";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 import cacheMemoria from "../utils/cacheMemoria.js";
 
-
+// gastos.controller.js
 export const getGastos = async (req, res) => {
   try {
     const page = Math.max(1, Number(req.query.page) || 1);

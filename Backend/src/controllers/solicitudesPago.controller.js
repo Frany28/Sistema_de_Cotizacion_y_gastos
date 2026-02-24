@@ -759,6 +759,7 @@ async function guardarPdfOrdenPagoPrimerAbono({
 /* ============================================================
  * 1. LISTAR SOLICITUDES DE PAGO
  * ========================================================== */
+// solicitudesPago.controller.js
 export const obtenerSolicitudesPago = async (req, res) => {
   try {
     const page = Math.max(1, Number(req.query.page) || 1);
@@ -846,16 +847,30 @@ export const obtenerSolicitudPagoPorId = async (req, res) => {
   const { id } = req.params;
 
   try {
-    // 1) Solicitud
+    const esAdmin = Number(req.user?.rolId ?? req.user?.rol_id) === 1;
+    const sucursalIdUsuario = Number(
+      req.user?.sucursalId ?? req.user?.sucursal_id,
+    );
+
+    // ✅ cache por sucursal para evitar mezcla entre sucursales
+    const claveCache = esAdmin
+      ? `solicitudPago_${id}_admin`
+      : `solicitudPago_${id}_sucursal_${sucursalIdUsuario}`;
+
+    const enCache = cacheMemoria.get(claveCache);
+    if (enCache) return res.json(enCache);
+
+    // 1) Solicitud + gasto (incluye sucursal del gasto)
     const [[solicitud]] = await db.execute(
       `
       SELECT sp.*,
-             g.codigo  AS gasto_codigo,
-             p.nombre  AS proveedor_nombre,
-             us.nombre AS usuario_solicita_nombre,
-             ur.nombre AS usuario_revisa_nombre,
-             up.nombre AS usuario_aprueba_nombre,
-             b.nombre  AS banco_nombre
+             g.codigo      AS gasto_codigo,
+             g.sucursal_id AS sucursal_id_gasto,
+             p.nombre      AS proveedor_nombre,
+             us.nombre     AS usuario_solicita_nombre,
+             ur.nombre     AS usuario_revisa_nombre,
+             up.nombre     AS usuario_aprueba_nombre,
+             b.nombre      AS banco_nombre
         FROM solicitudes_pago sp
         LEFT JOIN gastos      g  ON g.id  = sp.gasto_id
         LEFT JOIN proveedores p  ON p.id  = sp.proveedor_id
@@ -870,6 +885,20 @@ export const obtenerSolicitudPagoPorId = async (req, res) => {
 
     if (!solicitud) {
       return res.status(404).json({ message: "Solicitud no encontrada" });
+    }
+
+    // ✅ Validación de sucursal (solo lectura; mantiene permisos existentes)
+    if (!esAdmin) {
+      if (!sucursalIdUsuario) {
+        return res
+          .status(403)
+          .json({ message: "Tu usuario no tiene sucursal asignada." });
+      }
+      if (Number(solicitud.sucursal_id_gasto) !== Number(sucursalIdUsuario)) {
+        return res
+          .status(403)
+          .json({ message: "No tienes acceso a esta solicitud." });
+      }
     }
 
     // 2) Firma del usuario (sesión)
@@ -904,36 +933,32 @@ export const obtenerSolicitudPagoPorId = async (req, res) => {
              b.nombre AS banco_nombre,
              pr.monto_pagado,
              pr.moneda,
-             pr.tasa_cambio,
              pr.monto_pagado_usd,
+             pr.tasa_cambio,
              pr.fecha_pago,
              pr.ruta_comprobante,
-             pr.observaciones,
-             pr.created_at
+             pr.observaciones
         FROM pagos_realizados pr
         LEFT JOIN usuarios u ON u.id = pr.usuario_id
-        LEFT JOIN bancos   b ON b.id = pr.banco_id
+        LEFT JOIN bancos b ON b.id = pr.banco_id
        WHERE pr.solicitud_pago_id = ?
        ORDER BY pr.fecha_pago DESC, pr.id DESC
       `,
       [id],
     );
 
-    // 6) Generar URL prefirmada por cada comprobante de abono
+    // 6) URL prefirmada por comprobante
     const pagosRealizadosConUrl = await Promise.all(
       pagosRealizados.map(async (pago) => {
         const comprobanteUrl = pago.ruta_comprobante
           ? await generarUrlPrefirmadaLectura(pago.ruta_comprobante, 600)
           : null;
 
-        return {
-          ...pago,
-          comprobante_url: comprobanteUrl,
-        };
+        return { ...pago, comprobante_url: comprobanteUrl };
       }),
     );
 
-    // 7) Totales en USD (la fuente de verdad para validar sobrepagos)
+    // 7) Totales/saldos en USD
     const [[sumas]] = await db.execute(
       `
       SELECT IFNULL(SUM(monto_pagado_usd), 0) AS total_pagado_usd
@@ -947,33 +972,29 @@ export const obtenerSolicitudPagoPorId = async (req, res) => {
     const totalPagadoUsd = parseFloat(sumas.total_pagado_usd) || 0;
     const saldoPendienteUsd = Math.max(montoTotalUsd - totalPagadoUsd, 0);
 
-    // 8) Saldo pendiente “en moneda” (referencia con tasa de la solicitud)
+    // 8) Saldo pendiente en moneda (referencia con tasa guardada en solicitud)
     let saldoPendienteMoneda = saldoPendienteUsd;
-
     if (solicitud.moneda === "VES") {
       const tasaSolicitud = parseFloat(solicitud.tasa_cambio) || 0;
       saldoPendienteMoneda =
         tasaSolicitud > 0 ? saldoPendienteUsd * tasaSolicitud : 0;
     }
 
-    return res.json({
+    const respuesta = {
+      // ✅ FIX: spread correcto (tu archivo tiene ".solicitud" y rompe):contentReference[oaicite:5]{index=5}
       ...solicitud,
       usuario_firma: usuarioFirma,
       bancosDisponibles,
       comprobante_url: comprobanteUrlSolicitud,
-
       pagos_realizados: pagosRealizadosConUrl,
-
-      // ✅ Totales/saldos en USD (fuente de verdad)
       total_pagado_usd: totalPagadoUsd,
       saldo_pendiente_usd: saldoPendienteUsd,
-
-      // ✅ Compatibilidad: algunos componentes esperan esto como “cabecera”
       monto_pagado_usd: totalPagadoUsd,
-
-      // ✅ Referencia “en moneda” usando la tasa guardada en solicitud (no es la tasa del día)
       saldo_pendiente_moneda: saldoPendienteMoneda,
-    });
+    };
+
+    cacheMemoria.set(claveCache, respuesta, 120);
+    return res.json(respuesta);
   } catch (error) {
     console.error("Error al obtener solicitud de pago:", error);
     return res

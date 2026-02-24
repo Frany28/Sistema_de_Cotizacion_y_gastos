@@ -12,8 +12,7 @@ import cacheMemoria from "../utils/cacheMemoria.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Obtener datos para formulario de nuevo registro
-
+// registros.controller.js
 export const getDatosRegistro = async (req, res) => {
   try {
     const esAdmin = Number(req.user?.rolId ?? req.user?.rol_id) === 1;
