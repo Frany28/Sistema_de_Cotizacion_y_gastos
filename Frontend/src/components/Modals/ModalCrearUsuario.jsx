@@ -7,13 +7,15 @@ import Loader from "../general/Loader";
 
 const regexEmail = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
 
-export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
-  // Permisos y catálogos
+export default function ModalCrearUsuario({
+  visible,
+  onCancel,
+  onSuccess,
+  sucursales = [],
+}) {
   const [permisoConcedido, setPermisoConcedido] = useState(null);
   const [roles, setRoles] = useState([]);
-  const [sucursales, setSucursales] = useState([]);
 
-  // Formulario
   const [formulario, setFormulario] = useState({
     nombre: "",
     email: "",
@@ -22,9 +24,9 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
     sucursal_id: "",
     estado: "activo",
   });
+
   const [archivoFirma, setArchivoFirma] = useState(null);
 
-  // Validación / UX
   const [errores, setErrores] = useState({});
   const [enviando, setEnviando] = useState(false);
   const [mostrarExito, setMostrarExito] = useState(false);
@@ -45,12 +47,6 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
       .get("roles", { withCredentials: true })
       .then(({ data }) => setRoles(Array.isArray(data) ? data : []))
       .catch(() => setRoles([]));
-
-    // ✅ Catálogo de sucursales (para asignar en usuarios NO admin)
-    api
-      .get("sucursales", { withCredentials: true })
-      .then(({ data }) => setSucursales(Array.isArray(data) ? data : []))
-      .catch(() => setSucursales([]));
   }, [visible]);
 
   const manejarCambio = (e) => {
@@ -59,7 +55,7 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
     setFormulario((f) => {
       const nuevo = { ...f, [name]: value };
 
-      // ✅ Si selecciona Admin, no se pide sucursal
+      // ✅ si elige Admin => no sucursal
       if (name === "rol_id" && String(value) === "1") {
         nuevo.sucursal_id = "";
       }
@@ -89,13 +85,8 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
       nuevosErrores.password = "Mínimo 6 caracteres";
     if (!formulario.rol_id) nuevosErrores.rol_id = "Seleccione un rol";
 
-    // ✅ Sucursal obligatoria si NO es admin (cuando hay catálogo cargado)
     const esAdminSeleccionado = String(formulario.rol_id) === "1";
-    if (
-      !esAdminSeleccionado &&
-      sucursales.length > 0 &&
-      !formulario.sucursal_id
-    ) {
+    if (!esAdminSeleccionado && !formulario.sucursal_id) {
       nuevosErrores.sucursal_id = "Seleccione una sucursal";
     }
 
@@ -103,7 +94,6 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
     return Object.keys(nuevosErrores).length === 0;
   };
 
-  // Pre-chequeo en backend: /usuarios/check?nombre=..&email=..
   const verificarDuplicados = async () => {
     const params = {
       nombre: formulario.nombre.trim(),
@@ -177,11 +167,10 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
       const ok = await verificarDuplicados();
       if (!ok) return;
 
-      const formData = new FormData();
       const esAdminSeleccionado = String(formulario.rol_id) === "1";
 
+      const formData = new FormData();
       Object.entries(formulario).forEach(([k, v]) => {
-        // Admin no envía sucursal_id (backend lo fuerza a NULL)
         if (k === "sucursal_id" && esAdminSeleccionado) return;
         formData.append(k, v);
       });
@@ -248,20 +237,7 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                     onClick={onCancel}
                     className="cursor-pointer absolute right-4 top-4 text-gray-400 rounded-lg w-8 h-8 flex justify-center items-center hover:bg-gray-700"
                   >
-                    <svg
-                      className="w-3 h-3"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 14 14"
-                    >
-                      <path
-                        stroke="currentColor"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"
-                      />
-                    </svg>
+                    <span className="text-lg">×</span>
                   </button>
                 </div>
 
@@ -281,13 +257,10 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                     <input
                       type="text"
                       name="nombre"
-                      placeholder="Nombre del usuario"
                       value={formulario.nombre}
                       onChange={manejarCambio}
                       disabled={deshabilitado}
-                      className={`block w-full p-2.5 border rounded-lg bg-gray-700 border-gray-500 text-white disabled:opacity-60 ${
-                        errores.nombre ? "ring-1 ring-red-500" : ""
-                      }`}
+                      className="block w-full p-2.5 border rounded-lg bg-gray-700 border-gray-500 text-white"
                     />
                     {errores.nombre && (
                       <p className="text-red-500 text-sm">{errores.nombre}</p>
@@ -301,13 +274,10 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                     <input
                       type="email"
                       name="email"
-                      placeholder="correo@email.com"
                       value={formulario.email}
                       onChange={manejarCambio}
                       disabled={deshabilitado}
-                      className={`block w-full p-2.5 border rounded-lg bg-gray-700 border-gray-500 text-white disabled:opacity-60 ${
-                        errores.email ? "ring-1 ring-red-500" : ""
-                      }`}
+                      className="block w-full p-2.5 border rounded-lg bg-gray-700 border-gray-500 text-white"
                     />
                     {errores.email && (
                       <p className="text-red-500 text-sm">{errores.email}</p>
@@ -323,11 +293,8 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                       name="password"
                       value={formulario.password}
                       onChange={manejarCambio}
-                      placeholder="Mínimo 6 caracteres"
                       disabled={deshabilitado}
-                      className={`block w-full p-2.5 border rounded-lg bg-gray-700 border-gray-500 text-white disabled:opacity-60 ${
-                        errores.password ? "ring-1 ring-red-500" : ""
-                      }`}
+                      className="block w-full p-2.5 border rounded-lg bg-gray-700 border-gray-500 text-white"
                     />
                     {errores.password && (
                       <p className="text-red-500 text-sm">{errores.password}</p>
@@ -343,9 +310,7 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                       value={formulario.rol_id}
                       onChange={manejarCambio}
                       disabled={deshabilitado}
-                      className={`cursor-pointer block w-full p-2.5 border rounded-lg bg-gray-700 border-gray-500 text-white disabled:opacity-60 ${
-                        errores.rol_id ? "ring-1 ring-red-500" : ""
-                      }`}
+                      className="cursor-pointer block w-full p-2.5 border rounded-lg bg-gray-700 border-gray-500 text-white"
                     >
                       <option value="">Seleccione un rol</option>
                       {roles.map((r) => (
@@ -359,7 +324,7 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                     )}
                   </div>
 
-                  {/* ✅ Sucursal (obligatoria si NO es admin) */}
+                  {/* ✅ Sucursal solo si NO es admin */}
                   {!esAdminSeleccionado && (
                     <div>
                       <label className="block mb-1 text-sm font-medium text-white">
@@ -370,9 +335,7 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                         value={formulario.sucursal_id}
                         onChange={manejarCambio}
                         disabled={deshabilitado}
-                        className={`cursor-pointer block w-full p-2.5 border rounded-lg bg-gray-700 border-gray-500 text-white disabled:opacity-60 ${
-                          errores.sucursal_id ? "ring-1 ring-red-500" : ""
-                        }`}
+                        className="cursor-pointer block w-full p-2.5 border rounded-lg bg-gray-700 border-gray-500 text-white"
                       >
                         <option value="">Seleccione una sucursal</option>
                         {sucursales.map((s) => (
@@ -381,7 +344,6 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                           </option>
                         ))}
                       </select>
-
                       {errores.sucursal_id && (
                         <p className="text-red-500 text-sm">
                           {errores.sucursal_id}
@@ -400,13 +362,8 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                       name="firma"
                       onChange={manejarArchivo}
                       disabled={deshabilitado}
-                      className="block w-full p-2.5 text-gray-200 rounded file:px-4 file:py-2 file:bg-gray-700 file:text-gray-200 file:border file:border-gray-500 file:rounded file:cursor-pointer file:hover:bg-gray-500 transition duration-200 ease-in-out disabled:opacity-60"
+                      className="block w-full p-2.5 text-gray-200 rounded file:px-4 file:py-2 file:bg-gray-700 file:text-gray-200 file:border file:border-gray-500 file:rounded file:cursor-pointer"
                     />
-                    {errores.firma && (
-                      <p className="text-red-500 text-sm mt-1">
-                        {errores.firma}
-                      </p>
-                    )}
                   </div>
 
                   <button
@@ -415,7 +372,7 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                     className={`cursor-pointer col-span-2 w-full text-white font-medium rounded-lg p-2.5 text-center ${
                       enviando
                         ? "bg-gray-400 cursor-not-allowed"
-                        : "focus:ring-4 bg-blue-600 hover:bg-blue-700 focus:ring-blue-800"
+                        : "bg-blue-600 hover:bg-blue-700"
                     }`}
                   >
                     {enviando ? "Creando..." : "Crear Usuario"}

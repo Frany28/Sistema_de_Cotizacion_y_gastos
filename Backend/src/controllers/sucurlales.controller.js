@@ -264,7 +264,7 @@ export const eliminarSucursal = async (req, res) => {
   }
 };
 
-// Obtener sucursales para dropdown (solo id y nombre)
+// controllers/sucurlales.controller.js
 export const obtenerSucursalesDropdown = async (req, res) => {
   try {
     const [sucursales] = await db.execute(

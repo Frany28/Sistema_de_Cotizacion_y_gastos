@@ -30,28 +30,27 @@ export default function UsuariosCRUD() {
   const [puedeEditar, setPuedeEditar] = useState(false);
   const [puedeEliminar, setPuedeEliminar] = useState(false);
 
-  // Estados para eliminación
   const [showModalEliminar, setShowModalEliminar] = useState(false);
   const [usuarioEliminarId, setUsuarioEliminarId] = useState(null);
 
-  // Estados para éxito/error de borrado
   const [showDeleteExito, setShowDeleteExito] = useState(false);
   const [showDeleteError, setShowDeleteError] = useState(false);
   const [deleteErrorMsg, setDeleteErrorMsg] = useState("");
 
   const [roles, setRoles] = useState([]);
 
+  // ✅ NUEVO: sucursales para selects
+  const [sucursalesDropdown, setSucursalesDropdown] = useState([]);
+
   const fetchUsuarios = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await api.get("/usuarios", {
-        withCredentials: true,
-      });
+      const response = await api.get("/usuarios", { withCredentials: true });
       setUsuarios(
         Array.isArray(response.data) ? response.data : response.data.usuarios,
       );
     } catch (error) {
-      console.error(error);
+      console.error("Error fetchUsuarios:", error);
     } finally {
       setLoading(false);
     }
@@ -60,16 +59,31 @@ export default function UsuariosCRUD() {
   const fetchRoles = async () => {
     try {
       const { data } = await api.get("/roles", { withCredentials: true });
-      setRoles(data);
+      setRoles(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error(error);
+      console.error("Error fetchRoles:", error);
+      setRoles([]);
     }
   };
+
+  // ✅ NUEVO: traer sucursales tipo dropdown (como en otros módulos)
+  const fetchSucursalesDropdown = useCallback(async () => {
+    try {
+      const { data } = await api.get("/sucursales/dropdown/list", {
+        withCredentials: true,
+      });
+      setSucursalesDropdown(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Error fetchSucursalesDropdown:", error);
+      setSucursalesDropdown([]);
+    }
+  }, []);
 
   useEffect(() => {
     fetchUsuarios();
     fetchRoles();
-  }, [fetchUsuarios]);
+    fetchSucursalesDropdown();
+  }, [fetchUsuarios, fetchSucursalesDropdown]);
 
   useEffect(() => {
     (async () => {
@@ -98,7 +112,7 @@ export default function UsuariosCRUD() {
       setUsuarioEditar(data);
       setShowModalEditar(true);
     } catch (error) {
-      console.error(error);
+      console.error("Error abrirModalEditar:", error);
     }
   };
 
@@ -130,37 +144,19 @@ export default function UsuariosCRUD() {
     }
   };
 
-  const handleDeleteExitoClose = () => {
-    setShowDeleteExito(false);
-  };
+  const handleDeleteExitoClose = () => setShowDeleteExito(false);
+  const handleDeleteErrorClose = () => setShowDeleteError(false);
 
-  const handleDeleteErrorClose = () => {
-    setShowDeleteError(false);
-  };
-
-  // Filtrado y paginado (✅ incluye sucursal)
   const filtrados = usuarios.filter((u) =>
-    [
-      "codigo",
-      "nombre",
-      "email",
-      "rol",
-      "estado",
-      "sucursalNombre",
-      "sucursalCodigo",
-    ].some((campo) => u[campo]?.toLowerCase().includes(busqueda.toLowerCase())),
+    ["codigo", "nombre", "email", "rol", "estado"].some((campo) =>
+      u[campo]?.toLowerCase().includes(busqueda.toLowerCase()),
+    ),
   );
 
   const totalPaginas = Math.ceil(filtrados.length / limit);
   const paginados = filtrados.slice((page - 1) * limit, page * limit);
   const formatearFecha = (iso) =>
     iso ? new Date(iso).toLocaleDateString("es-ES") : "-";
-
-  const formatearSucursal = (u) => {
-    if (!u?.sucursalNombre) return "-";
-    if (u?.sucursalCodigo) return `${u.sucursalCodigo} - ${u.sucursalNombre}`;
-    return u.sucursalNombre;
-  };
 
   if (loading) {
     return (
@@ -187,8 +183,10 @@ export default function UsuariosCRUD() {
         textoBoton="Entendido"
       />
 
+      {/* ✅ PASAMOS sucursales */}
       <ModalCrearUsuario
         visible={showModalCrear}
+        sucursales={sucursalesDropdown}
         onCancel={() => setShowModalCrear(false)}
         onSuccess={() => {
           setShowModalCrear(false);
@@ -196,6 +194,7 @@ export default function UsuariosCRUD() {
         }}
       />
 
+      {/* ✅ PASAMOS sucursales */}
       <ModalEditarUsuario
         visible={showModalEditar}
         onClose={() => {
@@ -204,6 +203,7 @@ export default function UsuariosCRUD() {
         }}
         usuario={usuarioEditar}
         roles={roles}
+        sucursales={sucursalesDropdown}
         onUsuarioActualizado={() => {
           setShowModalEditar(false);
           setUsuarioEditar(null);
@@ -221,6 +221,7 @@ export default function UsuariosCRUD() {
         textoCancelar="Cancelar"
       />
 
+      {/* ... el resto de tu render queda igual ... */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 p-4 gap-2">
         {puedeCrear && (
           <BotonAgregar
@@ -252,25 +253,12 @@ export default function UsuariosCRUD() {
           </div>
 
           <div className="relative w-full">
-            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-              <svg
-                className="w-5 h-5 text-gray-400"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
-                  clipRule="evenodd"
-                />
-              </svg>
-            </div>
             <input
               type="text"
               placeholder="Buscar..."
               value={busqueda}
               onChange={manejarBusqueda}
-              className="pl-10 border rounded-lg text-sm focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 bg-gray-700 border-gray-600 text-white"
+              className="pl-3 border rounded-lg text-sm block w-full p-2.5 bg-gray-700 border-gray-600 text-white"
             />
           </div>
         </div>
