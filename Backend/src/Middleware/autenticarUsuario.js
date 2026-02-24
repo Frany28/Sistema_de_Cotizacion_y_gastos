@@ -15,7 +15,7 @@ export const autenticarUsuario = async (req, res, next) => {
 
     // 3) Traer datos del usuario de la BD
     const [[usuario]] = await db.execute(
-      `SELECT id, nombre, email, rol_id, firma
+      `SELECT id, nombre, email, rol_id, sucursal_id, firma
          FROM usuarios
         WHERE id = ? AND estado = 'activo'`,
       [userId],
@@ -30,7 +30,11 @@ export const autenticarUsuario = async (req, res, next) => {
       nombre: usuario.nombre,
       email: usuario.email,
       rol_id: usuario.rol_id,
-      firma: usuario.firma, // p.ej. "/uploads/firmas/1747165769476-firma.jpg"
+      sucursal_id: usuario.sucursal_id,
+      // Aliases en camelCase (por comodidad en controladores)
+      rolId: usuario.rol_id,
+      sucursalId: usuario.sucursal_id,
+      firma: usuario.firma,
     };
 
     next();

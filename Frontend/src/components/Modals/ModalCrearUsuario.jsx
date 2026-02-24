@@ -11,6 +11,7 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
   // Permisos y catálogos
   const [permisoConcedido, setPermisoConcedido] = useState(null);
   const [roles, setRoles] = useState([]);
+  const [sucursales, setSucursales] = useState([]);
 
   // Formulario
   const [formulario, setFormulario] = useState({
@@ -18,6 +19,7 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
     email: "",
     password: "",
     rol_id: "",
+    sucursal_id: "",
     estado: "activo",
   });
   const [archivoFirma, setArchivoFirma] = useState(null);
@@ -43,11 +45,28 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
       .get("roles", { withCredentials: true })
       .then(({ data }) => setRoles(Array.isArray(data) ? data : []))
       .catch(() => setRoles([]));
+
+    // ✅ Catálogo de sucursales (para asignar en usuarios NO admin)
+    api
+      .get("sucursales", { withCredentials: true })
+      .then(({ data }) => setSucursales(Array.isArray(data) ? data : []))
+      .catch(() => setSucursales([]));
   }, [visible]);
 
   const manejarCambio = (e) => {
     const { name, value } = e.target;
-    setFormulario((f) => ({ ...f, [name]: value }));
+
+    setFormulario((f) => {
+      const nuevo = { ...f, [name]: value };
+
+      // ✅ Si selecciona Admin, no se pide sucursal
+      if (name === "rol_id" && String(value) === "1") {
+        nuevo.sucursal_id = "";
+      }
+
+      return nuevo;
+    });
+
     if (errores[name]) setErrores((prev) => ({ ...prev, [name]: "" }));
     if (errorServidor) setErrorServidor("");
   };
@@ -69,6 +88,17 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
     else if (formulario.password.length < 6)
       nuevosErrores.password = "Mínimo 6 caracteres";
     if (!formulario.rol_id) nuevosErrores.rol_id = "Seleccione un rol";
+
+    // ✅ Sucursal obligatoria si NO es admin (cuando hay catálogo cargado)
+    const esAdminSeleccionado = String(formulario.rol_id) === "1";
+    if (
+      !esAdminSeleccionado &&
+      sucursales.length > 0 &&
+      !formulario.sucursal_id
+    ) {
+      nuevosErrores.sucursal_id = "Seleccione una sucursal";
+    }
+
     setErrores(nuevosErrores);
     return Object.keys(nuevosErrores).length === 0;
   };
@@ -84,7 +114,7 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
       withCredentials: true,
       validateStatus: (s) => s < 500,
     });
-    // { exists:boolean, campos:{nombre:boolean, email:boolean} }
+
     if (data?.exists) {
       const nuevosErrores = { ...errores };
       let mensaje = "Ya existe un usuario con los datos ingresados:\n";
@@ -103,7 +133,6 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
     return true;
   };
 
-  // Parser de errores POST (incluye ER_DUP_ENTRY)
   const construirMensajeError = (err) => {
     const data = err?.response?.data;
     const texto =
@@ -126,7 +155,6 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
       /Duplicate entry/i.test(texto);
 
     if (esDuplicado) {
-      // Backend ya intenta decir qué campo es; si no, damos uno neutral.
       if (/email/i.test(texto))
         return "El correo ya existe. Por favor, usa otro.";
       if (/nombre/i.test(texto))
@@ -146,19 +174,25 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
 
     setEnviando(true);
     try {
-      // 1) Pre-chequeo duplicados
       const ok = await verificarDuplicados();
       if (!ok) return;
 
-      // 2) Envío
       const formData = new FormData();
-      Object.entries(formulario).forEach(([k, v]) => formData.append(k, v));
+      const esAdminSeleccionado = String(formulario.rol_id) === "1";
+
+      Object.entries(formulario).forEach(([k, v]) => {
+        // Admin no envía sucursal_id (backend lo fuerza a NULL)
+        if (k === "sucursal_id" && esAdminSeleccionado) return;
+        formData.append(k, v);
+      });
+
       if (archivoFirma) formData.append("firma", archivoFirma);
 
       await api.post("usuarios", formData, {
         withCredentials: true,
         headers: { "Content-Type": "multipart/form-data" },
       });
+
       setMostrarExito(true);
     } catch (err) {
       setErrorServidor(construirMensajeError(err));
@@ -182,6 +216,7 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
   }
 
   const deshabilitado = permisoConcedido === false || enviando;
+  const esAdminSeleccionado = String(formulario.rol_id) === "1";
 
   return (
     <>
@@ -323,6 +358,37 @@ export default function ModalCrearUsuario({ visible, onCancel, onSuccess }) {
                       <p className="text-red-500 text-sm">{errores.rol_id}</p>
                     )}
                   </div>
+
+                  {/* ✅ Sucursal (obligatoria si NO es admin) */}
+                  {!esAdminSeleccionado && (
+                    <div>
+                      <label className="block mb-1 text-sm font-medium text-white">
+                        Sucursal
+                      </label>
+                      <select
+                        name="sucursal_id"
+                        value={formulario.sucursal_id}
+                        onChange={manejarCambio}
+                        disabled={deshabilitado}
+                        className={`cursor-pointer block w-full p-2.5 border rounded-lg bg-gray-700 border-gray-500 text-white disabled:opacity-60 ${
+                          errores.sucursal_id ? "ring-1 ring-red-500" : ""
+                        }`}
+                      >
+                        <option value="">Seleccione una sucursal</option>
+                        {sucursales.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.codigo ? `${s.codigo} - ${s.nombre}` : s.nombre}
+                          </option>
+                        ))}
+                      </select>
+
+                      {errores.sucursal_id && (
+                        <p className="text-red-500 text-sm">
+                          {errores.sucursal_id}
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   <div className="col-span-2">
                     <label className="block mb-1 text-sm font-medium text-white">

@@ -21,10 +21,13 @@ export default function ModalEditarUsuario({
     email: "",
     password: "",
     rol_id: "",
+    sucursal_id: "",
     estado: "",
     cuotaMb: "",
     firma: null,
   });
+
+  const [sucursales, setSucursales] = useState([]);
 
   // ─────────────────────────────────────────────
   // Cuota MB: input "tipo banco" + MB + ∞
@@ -49,12 +52,11 @@ export default function ModalEditarUsuario({
     if (texto === "∞" || texto.toLowerCase() === "ilimitado")
       return "ilimitado";
 
-    // permitir que el usuario escriba "12.000", "12000", "12 000", "12000 MB"
     const sinMb = texto.replace(/mb/gi, "").trim();
     const soloDigitos = sinMb.replace(/[^\d]/g, "");
     if (!soloDigitos) return "";
 
-    return String(Number(soloDigitos)); // número limpio
+    return String(Number(soloDigitos));
   };
 
   const [firmaArchivo, setFirmaArchivo] = useState(null);
@@ -73,8 +75,9 @@ export default function ModalEditarUsuario({
     setForm({
       nombre: usuario.nombre || "",
       email: usuario.email || "",
-      password: "", // nunca cargamos la contraseña actual
+      password: "",
       rol_id: rolIdActual ? String(rolIdActual) : "",
+      sucursal_id: usuario.sucursalId ? String(usuario.sucursalId) : "",
       estado: usuario.estado || "activo",
       cuotaMb:
         cuotaMbActual === null || cuotaMbActual === undefined
@@ -83,7 +86,6 @@ export default function ModalEditarUsuario({
       firma: usuario.firma || null,
     });
 
-    // cuota vista (formato banco o ∞)
     if (cuotaMbActual === null || cuotaMbActual === undefined) {
       setCuotaMbVista("∞");
     } else {
@@ -92,6 +94,16 @@ export default function ModalEditarUsuario({
 
     setFirmaArchivo(null);
   }, [usuario]);
+
+  // Cargar sucursales cuando abre el modal
+  useEffect(() => {
+    if (!visible) return;
+
+    api
+      .get("/sucursales", { withCredentials: true })
+      .then(({ data }) => setSucursales(Array.isArray(data) ? data : []))
+      .catch(() => setSucursales([]));
+  }, [visible]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -110,12 +122,12 @@ export default function ModalEditarUsuario({
     if (!usuario) return;
 
     if (esAdminSeleccionado) {
-      // Bloqueo visual y lógico
       setCuotaMbVista("∞");
       setForm((prev) => ({ ...prev, cuotaMb: "ilimitado" }));
+
+      // ✅ Admin no tiene sucursal
+      setForm((prev) => ({ ...prev, sucursal_id: "" }));
     } else {
-      // Si venía siendo admin y lo cambian a NO admin, dejamos el campo listo para editar
-      // (no tocamos cuota si ya tenía algo numérico; si estaba ∞, lo dejamos vacío para que el usuario decida)
       if (cuotaMbVista === "∞") {
         setCuotaMbVista("");
         setForm((prev) => ({ ...prev, cuotaMb: "" }));
@@ -124,7 +136,6 @@ export default function ModalEditarUsuario({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.rol_id]);
 
-  // Validaciones antes de enviar
   const validarFormulario = () => {
     if (!form.nombre.trim()) {
       setErrorMsg("El nombre es obligatorio");
@@ -141,12 +152,26 @@ export default function ModalEditarUsuario({
       return false;
     }
 
+    // ✅ Sucursal obligatoria para NO admin (si hay catálogo)
+    if (!esAdminSeleccionado && sucursales.length > 0) {
+      const sucursalTexto = String(form.sucursal_id ?? "").trim();
+      if (!sucursalTexto) {
+        setErrorMsg(
+          "La sucursal es obligatoria para usuarios que no sean admin",
+        );
+        return false;
+      }
+      if (Number.isNaN(Number(sucursalTexto))) {
+        setErrorMsg("La sucursal seleccionada no es válida");
+        return false;
+      }
+    }
+
     if (form.password && form.password.length < 6) {
       setErrorMsg("La contraseña debe tener al menos 6 caracteres");
       return false;
     }
 
-    // cuotaMb: permite número (>=0), vacío (no cambiar) o ilimitado (∞/ilimitado)
     if (cuotaMbVista !== "") {
       const cuotaEnviar = normalizarCuotaParaEnviar(cuotaMbVista);
 
@@ -165,10 +190,8 @@ export default function ModalEditarUsuario({
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // 1) Validación en cliente
     if (!validarFormulario()) {
       setShowError(true);
-      // ✅ Cambio: NO cerramos el modal si hay error de validación
       return;
     }
 
@@ -179,37 +202,45 @@ export default function ModalEditarUsuario({
 
     const rolIdActual = usuario.rolId ?? usuario.rol_id;
 
-    // Nombre
     if (form.nombre !== usuario.nombre) {
       data.append("nombre", form.nombre);
       cambios = true;
     }
 
-    // Email
     if (form.email !== usuario.email) {
       data.append("email", form.email);
       cambios = true;
     }
 
-    // Contraseña (solo si escribe algo)
     if (form.password) {
       data.append("password", form.password);
       cambios = true;
     }
 
-    // Rol
     if (form.rol_id !== String(rolIdActual ?? "")) {
       data.append("rol_id", form.rol_id);
       cambios = true;
     }
 
-    // Estado
+    // ✅ Sucursal (solo si NO es admin seleccionado)
+    const sucursalIdActual = usuario?.sucursalId ?? usuario?.sucursal_id;
+    if (!esAdminSeleccionado) {
+      const sucursalActualTexto =
+        sucursalIdActual === null || sucursalIdActual === undefined
+          ? ""
+          : String(sucursalIdActual);
+
+      if (String(form.sucursal_id) !== sucursalActualTexto) {
+        data.append("sucursal_id", form.sucursal_id);
+        cambios = true;
+      }
+    }
+
     if (form.estado !== usuario.estado) {
       data.append("estado", form.estado);
       cambios = true;
     }
 
-    // Nueva firma
     if (firmaArchivo) {
       data.append("firma", firmaArchivo);
       cambios = true;
@@ -223,11 +254,8 @@ export default function ModalEditarUsuario({
 
     const cuotaEnviar = normalizarCuotaParaEnviar(cuotaMbVista);
 
-    // Si queda admin, no enviamos cuota manual: el backend ya lo fuerza a ilimitado
     if (!esAdminSeleccionado) {
-      // vacío => no cambia
       if (cuotaEnviar !== "") {
-        // comparamos contra actual
         const cuotaEnviarComparable =
           cuotaEnviar === "ilimitado"
             ? "ilimitado"
@@ -326,7 +354,6 @@ export default function ModalEditarUsuario({
                 encType="multipart/form-data"
                 className="grid grid-cols-2 gap-4"
               >
-                {/* Nombre */}
                 <div>
                   <label className="block mb-1 text-sm font-medium text-white">
                     Nombre
@@ -341,7 +368,6 @@ export default function ModalEditarUsuario({
                   />
                 </div>
 
-                {/* Email */}
                 <div>
                   <label className="block mb-1 text-sm font-medium text-white">
                     Email
@@ -356,7 +382,6 @@ export default function ModalEditarUsuario({
                   />
                 </div>
 
-                {/* Contraseña */}
                 <div className="col-span-2">
                   <label className="block mb-1 text-sm font-medium text-white">
                     Contraseña
@@ -372,7 +397,6 @@ export default function ModalEditarUsuario({
                   />
                 </div>
 
-                {/* Rol */}
                 <div>
                   <label className="block mb-1 text-sm font-medium text-white">
                     Rol
@@ -393,7 +417,29 @@ export default function ModalEditarUsuario({
                   </select>
                 </div>
 
-                {/* Estado */}
+                {/* ✅ Sucursal */}
+                {!esAdminSeleccionado && (
+                  <div>
+                    <label className="block mb-1 text-sm font-medium text-white">
+                      Sucursal
+                    </label>
+                    <select
+                      name="sucursal_id"
+                      value={form.sucursal_id}
+                      onChange={handleChange}
+                      disabled={isSubmitting}
+                      className="block w-full p-2.5 border rounded-lg bg-gray-600 border-gray-500 text-white"
+                    >
+                      <option value="">Seleccione sucursal</option>
+                      {sucursales.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.codigo ? `${s.codigo} - ${s.nombre}` : s.nombre}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 <div>
                   <label className="block mb-1 text-sm font-medium text-white">
                     Estado
@@ -410,6 +456,7 @@ export default function ModalEditarUsuario({
                   </select>
                 </div>
 
+                {/* (resto del modal igual) */}
                 {/* ✅ Almacenamiento */}
                 <div className="col-span-2">
                   <label className="block mb-1 text-sm font-medium text-white">
@@ -424,10 +471,8 @@ export default function ModalEditarUsuario({
                       onChange={(e) => {
                         const valor = e.target.value;
 
-                        // Si es admin (seleccionado), no se edita
                         if (esAdminSeleccionado) return;
 
-                        // Permitir que escriba ∞ o números
                         if (valor.trim() === "∞") {
                           setCuotaMbVista("∞");
                           setForm((prev) => ({
@@ -491,7 +536,6 @@ export default function ModalEditarUsuario({
                   </p>
                 </div>
 
-                {/* Firma previa (si existe) */}
                 {form.firma && !firmaArchivo && (
                   <div className="col-span-2">
                     <label className="block mb-1 text-sm font-medium text-white">
@@ -508,7 +552,6 @@ export default function ModalEditarUsuario({
                   </div>
                 )}
 
-                {/* Input para subir/cambiar firma */}
                 <div className="col-span-2">
                   <label className="block mb-1 text-sm font-medium text-white">
                     {form.firma && !firmaArchivo
@@ -524,7 +567,6 @@ export default function ModalEditarUsuario({
                   />
                 </div>
 
-                {/* Botón Guardar */}
                 <div className="col-span-2 flex justify-center pt-4">
                   <button
                     type="submit"

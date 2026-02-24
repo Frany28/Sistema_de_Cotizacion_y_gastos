@@ -48,7 +48,7 @@ export default function UsuariosCRUD() {
         withCredentials: true,
       });
       setUsuarios(
-        Array.isArray(response.data) ? response.data : response.data.usuarios
+        Array.isArray(response.data) ? response.data : response.data.usuarios,
       );
     } catch (error) {
       console.error(error);
@@ -124,7 +124,7 @@ export default function UsuariosCRUD() {
     } catch (error) {
       setShowModalEliminar(false);
       setDeleteErrorMsg(
-        error.response?.data?.error || "Error al eliminar usuario"
+        error.response?.data?.error || "Error al eliminar usuario",
       );
       setShowDeleteError(true);
     }
@@ -138,16 +138,29 @@ export default function UsuariosCRUD() {
     setShowDeleteError(false);
   };
 
-  // Filtrado y paginado
+  // Filtrado y paginado (✅ incluye sucursal)
   const filtrados = usuarios.filter((u) =>
-    ["codigo", "nombre", "email", "rol", "estado"].some((campo) =>
-      u[campo]?.toLowerCase().includes(busqueda.toLowerCase())
-    )
+    [
+      "codigo",
+      "nombre",
+      "email",
+      "rol",
+      "estado",
+      "sucursalNombre",
+      "sucursalCodigo",
+    ].some((campo) => u[campo]?.toLowerCase().includes(busqueda.toLowerCase())),
   );
+
   const totalPaginas = Math.ceil(filtrados.length / limit);
   const paginados = filtrados.slice((page - 1) * limit, page * limit);
   const formatearFecha = (iso) =>
     iso ? new Date(iso).toLocaleDateString("es-ES") : "-";
+
+  const formatearSucursal = (u) => {
+    if (!u?.sucursalNombre) return "-";
+    if (u?.sucursalCodigo) return `${u.sucursalCodigo} - ${u.sucursalNombre}`;
+    return u.sucursalNombre;
+  };
 
   if (loading) {
     return (
@@ -159,7 +172,6 @@ export default function UsuariosCRUD() {
 
   return (
     <div>
-      {/* Modales de éxito/error borrado */}
       <ModalExito
         visible={showDeleteExito}
         onClose={handleDeleteExitoClose}
@@ -175,7 +187,6 @@ export default function UsuariosCRUD() {
         textoBoton="Entendido"
       />
 
-      {/* Crear usuario */}
       <ModalCrearUsuario
         visible={showModalCrear}
         onCancel={() => setShowModalCrear(false)}
@@ -185,8 +196,6 @@ export default function UsuariosCRUD() {
         }}
       />
 
-      {/* Editar usuario */}
-      {/* Editar usuario */}
       <ModalEditarUsuario
         visible={showModalEditar}
         onClose={() => {
@@ -202,7 +211,6 @@ export default function UsuariosCRUD() {
         }}
       />
 
-      {/* Confirmación eliminación */}
       <ModalConfirmacion
         visible={showModalEliminar}
         onClose={() => setShowModalEliminar(false)}
@@ -213,7 +221,6 @@ export default function UsuariosCRUD() {
         textoCancelar="Cancelar"
       />
 
-      {/* Controles de búsqueda y paginación */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 p-4 gap-2">
         {puedeCrear && (
           <BotonAgregar
@@ -243,6 +250,7 @@ export default function UsuariosCRUD() {
               ))}
             </select>
           </div>
+
           <div className="relative w-full">
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
               <svg
@@ -268,12 +276,11 @@ export default function UsuariosCRUD() {
         </div>
       </div>
 
-      {/* Resumen */}
       <div className="px-4 pb-2 text-sm text-gray-400">
         Mostrando {paginados.length} de {filtrados.length} resultados
       </div>
 
-      {/* Vista de tabla para pantallas grandes */}
+      {/* Tabla escritorio */}
       <div className="hidden lg:block">
         <table className="w-full text-sm text-left text-gray-400">
           <thead className="text-xs uppercase bg-gray-700 text-gray-400">
@@ -282,6 +289,7 @@ export default function UsuariosCRUD() {
               <th className="px-4 py-3">Nombre</th>
               <th className="px-4 py-3">Email</th>
               <th className="px-4 py-3">Rol</th>
+              <th className="px-4 py-3">Sucursal</th>
               <th className="px-4 py-3">Estado</th>
               <th className="px-4 py-3">Creado</th>
               <th className="px-4 py-3">Acciones</th>
@@ -296,6 +304,8 @@ export default function UsuariosCRUD() {
                 <td className="px-4 py-3">{u.nombre}</td>
                 <td className="px-4 py-3">{u.email}</td>
                 <td className="px-4 py-3">{u.rol}</td>
+                <td className="px-4 py-3">{formatearSucursal(u)}</td>
+
                 <td className="px-4 py-3 capitalize">
                   <span
                     className={`px-2 py-1 rounded-full text-xs ${
@@ -331,7 +341,7 @@ export default function UsuariosCRUD() {
         </table>
       </div>
 
-      {/* Vista de tarjetas para tablets */}
+      {/* Tarjetas tablet */}
       <div className="hidden md:block lg:hidden">
         <div className="grid grid-cols-1 gap-4 p-2">
           {paginados.map((u) => (
@@ -363,6 +373,14 @@ export default function UsuariosCRUD() {
                   <span className="text-gray-400">Rol:</span>
                   <span className="text-white ml-1">{u.rol}</span>
                 </div>
+
+                <div className="col-span-2">
+                  <span className="text-gray-400">Sucursal:</span>
+                  <span className="text-white ml-1">
+                    {formatearSucursal(u)}
+                  </span>
+                </div>
+
                 <div>
                   <span className="text-gray-400">Creado:</span>
                   <span className="text-white ml-1">
@@ -394,7 +412,7 @@ export default function UsuariosCRUD() {
         </div>
       </div>
 
-      {/* Vista de tarjetas para móviles */}
+      {/* Tarjetas móvil */}
       <div className="md:hidden space-y-3 p-2">
         {paginados.map((u) => (
           <div key={u.id} className="bg-gray-800 rounded-lg p-4 shadow">
@@ -424,6 +442,10 @@ export default function UsuariosCRUD() {
               <div>
                 <span className="text-gray-400">Rol:</span>
                 <span className="text-white ml-1">{u.rol}</span>
+              </div>
+              <div>
+                <span className="text-gray-400">Sucursal:</span>
+                <span className="text-white ml-1">{formatearSucursal(u)}</span>
               </div>
               <div>
                 <span className="text-gray-400">Estado:</span>
@@ -459,7 +481,6 @@ export default function UsuariosCRUD() {
         ))}
       </div>
 
-      {/* Paginación */}
       <Paginacion
         paginaActual={page}
         totalPaginas={totalPaginas}

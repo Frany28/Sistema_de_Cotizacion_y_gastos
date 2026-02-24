@@ -117,24 +117,56 @@ export const crearUsuario = async (req, res) => {
     }
 
     // ✅ Sucursal final
-    // - Admin: puede asignar sucursal a no-admin; si crea admin, puede dejar null
-    // - No-admin: se fuerza su sucursal (ignora body)
+    // Regla: TODO usuario NO-admin debe tener sucursal.
+    // Excepción: admin (rol_id=1) SIEMPRE va con sucursal_id = NULL.
     let sucursalIdFinal = null;
 
-    if (contexto.esAdmin) {
-      if (rolIdNuevo === 1) {
-        sucursalIdFinal = sucursalIdBody ?? null;
-      } else {
-        if (!sucursalIdBody) {
-          await conexion.rollback();
-          return res.status(400).json({
-            message: "Debe asignarse sucursal_id al crear un usuario no admin.",
-          });
-        }
-        sucursalIdFinal = Number(sucursalIdBody);
+    if (rolIdNuevo === 1) {
+      // Admin: NO se vincula a sucursal
+      sucursalIdFinal = null;
+    } else if (contexto.esAdmin) {
+      // Admin creando usuario NO-admin: debe indicar sucursal
+      if (!sucursalIdBody) {
+        await conexion.rollback();
+        return res.status(400).json({
+          message: "Debe asignarse sucursal_id al crear un usuario no admin.",
+        });
       }
+
+      const [[sucursalValida]] = await conexion.query(
+        `SELECT id
+           FROM sucursales
+          WHERE id = ? AND estado = 'activo'
+          LIMIT 1`,
+        [Number(sucursalIdBody)],
+      );
+
+      if (!sucursalValida) {
+        await conexion.rollback();
+        return res.status(400).json({
+          message: "La sucursal indicada no existe o está inactiva.",
+        });
+      }
+
+      sucursalIdFinal = Number(sucursalIdBody);
     } else {
+      // No-admin: se fuerza su sucursal (ignora body)
       sucursalIdFinal = Number(contexto.sucursalId);
+
+      const [[sucursalValida]] = await conexion.query(
+        `SELECT id
+           FROM sucursales
+          WHERE id = ? AND estado = 'activo'
+          LIMIT 1`,
+        [sucursalIdFinal],
+      );
+
+      if (!sucursalValida) {
+        await conexion.rollback();
+        return res.status(403).json({
+          message: "Tu sucursal no existe o está inactiva.",
+        });
+      }
     }
 
     // ── Duplicados básicos
@@ -160,7 +192,7 @@ export const crearUsuario = async (req, res) => {
         .json({ message: "Ya existe un usuario con ese email." });
     }
 
-    // Opcionales (si existen en tu tabla, ya tu código previo lo manejaba)
+    // Opcionales
     if (numero) {
       const [[dupNumero]] = await conexion.query(
         `SELECT id FROM usuarios WHERE numero = ? LIMIT 1`,
@@ -382,6 +414,14 @@ export const actualizarUsuario = async (req, res) => {
         .json({ message: "Si envías rol_id, debe ser un valor válido" });
     }
 
+    // 🚫 No-admin no puede asignar rol administrador
+    if (!contexto.esAdmin && rol_id !== undefined && Number(rol_id) === 1) {
+      await conexion.rollback();
+      return res.status(403).json({
+        message: "No tienes permiso para asignar el rol de administrador.",
+      });
+    }
+
     // ─────────────────────────────────────────────
     // Cuota (MB)
     // ─────────────────────────────────────────────
@@ -389,6 +429,16 @@ export const actualizarUsuario = async (req, res) => {
 
     const rolIdFinal =
       rol_id !== undefined ? Number(rol_id) : Number(filaUsuario.rol_id);
+
+    // Normalizar sucursal_id del body (si viene)
+    const sucursalIdBodyNormalizada =
+      sucursal_id === undefined
+        ? undefined
+        : sucursal_id === null ||
+            String(sucursal_id).toLowerCase() === "null" ||
+            String(sucursal_id).trim() === ""
+          ? null
+          : Number(sucursal_id);
 
     if (cuotaMb !== undefined) {
       const texto = cuotaMb === null ? null : String(cuotaMb).trim();
@@ -473,22 +523,65 @@ export const actualizarUsuario = async (req, res) => {
       firmaKeyNueva = firmaKey;
     }
 
-    // ✅ SOLO ADMIN puede cambiar sucursal_id (y permitir null si quiere)
-    if (sucursal_id !== undefined) {
-      if (!contexto.esAdmin) {
-        await conexion.rollback();
-        return res.status(403).json({
-          message: "No tienes permiso para cambiar la sucursal.",
-        });
-      }
-
-      const sucursalIdFinal =
-        sucursal_id === null || String(sucursal_id).toLowerCase() === "null"
-          ? null
-          : Number(sucursal_id);
-
+    // ✅ Regla por rol:
+    // - Admin (rol_id=1): sucursal_id SIEMPRE NULL
+    // - No-admin: sucursal_id OBLIGATORIA
+    if (rolIdFinal === 1) {
+      // Si va a ser admin, se limpia sucursal sí o sí
       campos.push("sucursal_id = ?");
-      valores.push(sucursalIdFinal);
+      valores.push(null);
+    } else {
+      // Si NO es admin, debe quedar con sucursal
+      if (contexto.esAdmin) {
+        // Admin puede asignar / cambiar sucursal
+        let sucursalIdParaGuardar = filaUsuario.sucursal_id;
+
+        if (sucursalIdBodyNormalizada !== undefined) {
+          sucursalIdParaGuardar = sucursalIdBodyNormalizada;
+        }
+
+        if (!sucursalIdParaGuardar) {
+          await conexion.rollback();
+          return res.status(400).json({
+            message:
+              "Debe asignarse sucursal_id para usuarios que no sean admin.",
+          });
+        }
+
+        const [[sucursalValida]] = await conexion.query(
+          `SELECT id
+             FROM sucursales
+            WHERE id = ? AND estado = 'activo'
+            LIMIT 1`,
+          [Number(sucursalIdParaGuardar)],
+        );
+
+        if (!sucursalValida) {
+          await conexion.rollback();
+          return res.status(400).json({
+            message: "La sucursal indicada no existe o está inactiva.",
+          });
+        }
+
+        // Solo setear en UPDATE si:
+        // - vino en body, o
+        // - el usuario estaba sin sucursal (p.ej. era admin y lo pasan a no-admin)
+        if (
+          sucursalIdBodyNormalizada !== undefined ||
+          !filaUsuario.sucursal_id
+        ) {
+          campos.push("sucursal_id = ?");
+          valores.push(Number(sucursalIdParaGuardar));
+        }
+      } else {
+        // No-admin: no puede tocar sucursal
+        if (sucursalIdBodyNormalizada !== undefined) {
+          await conexion.rollback();
+          return res.status(403).json({
+            message: "No tienes permiso para cambiar la sucursal.",
+          });
+        }
+      }
     }
 
     if (campos.length === 0) {
@@ -670,6 +763,7 @@ export const obtenerUsuarios = async (req, res) => {
         u.cuotaMb,
         u.usoStorageBytes,
         u.sucursal_id AS sucursalId,
+        s.codigo      AS sucursalCodigo,
         s.nombre      AS sucursalNombre,
         u.fechaCreacion      AS fechaCreacion,
         u.fechaActualizacion AS fechaActualizacion,
