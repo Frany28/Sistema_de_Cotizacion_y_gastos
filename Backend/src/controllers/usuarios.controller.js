@@ -648,7 +648,52 @@ export const actualizarUsuario = async (req, res) => {
   }
 };
 
+/*─────────────────────────────────────────────────────────────
+  Listado de usuarios (filtrado por sucursal)
+─────────────────────────────────────────────────────────────*/
+export const obtenerUsuarios = async (req, res) => {
+  try {
+    const contexto = obtenerContextoAcceso(req);
+    validarSucursalRequerida(contexto); // solo bloquea si no-admin sin sucursal
 
+    const whereSucursal = contexto.esAdmin ? "" : "WHERE u.sucursal_id = ?";
+    const params = contexto.esAdmin ? [] : [contexto.sucursalId];
+
+    const [filasUsuarios] = await db.query(
+      `
+      SELECT
+        u.id,
+        u.codigo,
+        u.nombre,
+        u.email,
+        u.estado,
+        u.cuotaMb,
+        u.usoStorageBytes,
+        u.sucursal_id AS sucursalId,
+        s.nombre      AS sucursalNombre,
+        u.fechaCreacion      AS fechaCreacion,
+        u.fechaActualizacion AS fechaActualizacion,
+        u.creadoPor,
+        u.actualizadoPor,
+        r.nombre             AS rol
+      FROM usuarios u
+      LEFT JOIN roles r ON u.rol_id = r.id
+      LEFT JOIN sucursales s ON s.id = u.sucursal_id
+      ${whereSucursal}
+      ORDER BY u.id DESC
+      `,
+      params,
+    );
+
+    return res.json(filasUsuarios);
+  } catch (error) {
+    const status = error?.statusCode || 500;
+    console.error("Error al obtener usuarios:", error);
+    return res
+      .status(status)
+      .json({ message: error.message || "Error al obtener usuarios" });
+  }
+};
 
 /*─────────────────────────────────────────────────────────────
   Detalle de usuario (incluye URL prefirmada de firma activa)
@@ -794,48 +839,3 @@ export const eliminarUsuario = async (req, res) => {
     conexion.release();
   }
 };
-
-export const obtenerUsuarios = async (req, res) => {
-  try {
-    const contexto = obtenerContextoAcceso(req);
-    validarSucursalRequerida(contexto); // solo bloquea si no-admin sin sucursal
-
-    const whereSucursal = contexto.esAdmin ? "" : "WHERE u.sucursal_id = ?";
-    const params = contexto.esAdmin ? [] : [contexto.sucursalId];
-
-    const [filasUsuarios] = await db.query(
-      `
-      SELECT
-        u.id,
-        u.codigo,
-        u.nombre,
-        u.email,
-        u.estado,
-        u.cuotaMb,
-        u.usoStorageBytes,
-        u.sucursal_id AS sucursalId,
-        s.nombre      AS sucursalNombre,
-        u.fechaCreacion      AS fechaCreacion,
-        u.fechaActualizacion AS fechaActualizacion,
-        u.creadoPor,
-        u.actualizadoPor,
-        r.nombre             AS rol
-      FROM usuarios u
-      LEFT JOIN roles r ON u.rol_id = r.id
-      LEFT JOIN sucursales s ON s.id = u.sucursal_id
-      ${whereSucursal}
-      ORDER BY u.id DESC
-      `,
-      params,
-    );
-
-    return res.json(filasUsuarios);
-  } catch (error) {
-    const status = error?.statusCode || 500;
-    console.error("Error al obtener usuarios:", error);
-    return res
-      .status(status)
-      .json({ message: error.message || "Error al obtener usuarios" });
-  }
-};
-

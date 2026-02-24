@@ -30,75 +30,104 @@ try {
 
 // Obtener todas las cotizaciones con detalle
 
-// cotizaciones.controller.js
 export const getCotizaciones = async (req, res) => {
+  // 1) Parámetros de paginación
+  const page = Number.isNaN(Number(req.query.page))
+    ? 1
+    : Number(req.query.page);
+  const limit = Number.isNaN(Number(req.query.limit))
+    ? 10
+    : Number(req.query.limit);
+  const offset = (page - 1) * limit;
+
+  // 2) Parámetro de búsqueda (opcional)
+  const q = (req.query.search || "").trim();
+
+  const claveCache = `cotizaciones_${page}_${limit}_${q}`;
+  const enCache = cacheMemoria.get(claveCache);
+  if (enCache) return res.json(enCache);
+
   try {
-    const page = Math.max(1, Number(req.query.page) || 1);
-    const limit = Math.max(1, Number(req.query.limit) || 10);
-    const q = (req.query.q || "").trim();
-    const offset = (page - 1) * limit;
-
-    const esAdmin = Number(req.user?.rolId ?? req.user?.rol_id) === 1;
-    const sucursalIdUsuario = Number(
-      req.user?.sucursalId ?? req.user?.sucursal_id,
-    );
-
-    const claveCache = esAdmin
-      ? `cotizaciones_${page}_${limit}_${q || "all"}_admin`
-      : `cotizaciones_${page}_${limit}_${q || "all"}_sucursal_${sucursalIdUsuario}`;
-
-    const enCache = cacheMemoria.get(claveCache);
-    if (enCache) return res.json(enCache);
-
-    const where = [];
-    const params = [];
-
-    if (!esAdmin) {
-      where.push("c.sucursal_id = ?");
-      params.push(sucursalIdUsuario);
-    }
-
+    // 3) Total de registros (filtrado si hay búsqueda)
+    let total;
     if (q) {
-      where.push(`(
-        c.codigo_referencia LIKE ? OR
-        cli.nombre LIKE ?
-      )`);
-      params.push(`%${q}%`, `%${q}%`);
+      const [[{ total: count }]] = await db.query(
+        `SELECT COUNT(*) AS total
+           FROM cotizaciones c
+           JOIN clientes cli ON c.cliente_id = cli.id
+          WHERE c.codigo_referencia LIKE ? OR cli.nombre LIKE ?`,
+        [`%${q}%`, `%${q}%`],
+      );
+      total = count;
+    } else {
+      const [[{ total: count }]] = await db.query(
+        `SELECT COUNT(*) AS total FROM cotizaciones`,
+      );
+      total = count;
     }
 
-    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+    // 4) Listado paginado y (opcional) filtrado
+    let cotizaciones;
+    if (q) {
+      [cotizaciones] = await db.query(
+        `
+          SELECT 
+            c.id,
+            c.fecha,
+            c.total,
+            c.estado,
+            c.motivo_rechazo,
+            c.codigo_referencia AS codigo,
+            c.subtotal,
+            c.impuesto,
+            c.cliente_id,
+            c.sucursal_id,
+            c.confirmacion_cliente,
+            c.observaciones,
+            s.nombre AS sucursal,
+            cli.nombre AS cliente_nombre
+          FROM cotizaciones c
+          JOIN clientes cli ON c.cliente_id = cli.id
+          LEFT JOIN sucursales s ON c.sucursal_id = s.id
+         WHERE c.codigo_referencia LIKE ? OR cli.nombre LIKE ?
+         ORDER BY c.fecha DESC
+         LIMIT ${limit} OFFSET ${offset}
+        `,
+        [`%${q}%`, `%${q}%`],
+      );
+    } else {
+      [cotizaciones] = await db.query(
+        `
+          SELECT 
+            c.id,
+            c.fecha,
+            c.total,
+            c.estado,
+            c.motivo_rechazo,
+            c.codigo_referencia AS codigo,
+            c.subtotal,
+            c.impuesto,
+            c.cliente_id,
+            c.sucursal_id,
+            c.confirmacion_cliente,
+            c.observaciones,
+            s.nombre AS sucursal,
+            cli.nombre AS cliente_nombre
+          FROM cotizaciones c
+          JOIN clientes cli ON c.cliente_id = cli.id
+          LEFT JOIN sucursales s ON c.sucursal_id = s.id
+         ORDER BY c.fecha DESC
+         LIMIT ${limit} OFFSET ${offset}
+        `,
+      );
+    }
 
-    const [[{ total }]] = await db.query(
-      `
-      SELECT COUNT(*) AS total
-      FROM cotizaciones c
-      LEFT JOIN clientes cli ON cli.id = c.cliente_id
-      ${whereSql}
-      `,
-      params,
-    );
+    cacheMemoria.set(claveCache, { cotizaciones, total, page, limit });
 
-    const [cotizaciones] = await db.query(
-      `
-      SELECT
-        c.*,
-        cli.nombre AS cliente_nombre,
-        s.nombre AS sucursal_nombre
-      FROM cotizaciones c
-      LEFT JOIN clientes cli ON cli.id = c.cliente_id
-      LEFT JOIN sucursales s ON s.id = c.sucursal_id
-      ${whereSql}
-      ORDER BY c.fecha DESC, c.id DESC
-      LIMIT ${limit} OFFSET ${offset}
-      `,
-      params,
-    );
-
-    const respuesta = { data: cotizaciones, total, page, limit };
-    cacheMemoria.set(claveCache, respuesta);
-    return res.json(respuesta);
+    // 5) Enviar respuesta
+    return res.json({ cotizaciones, total, page, limit });
   } catch (error) {
-    console.error("Error en getCotizaciones:", error);
+    console.error("Error al obtener cotizaciones:", error);
     return res.status(500).json({ message: "Error al obtener cotizaciones" });
   }
 };

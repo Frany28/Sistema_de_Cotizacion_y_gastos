@@ -12,18 +12,10 @@ import cacheMemoria from "../utils/cacheMemoria.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// registros.controller.js
+// Obtener datos para formulario de nuevo registro
 export const getDatosRegistro = async (req, res) => {
   try {
-    const esAdmin = Number(req.user?.rolId ?? req.user?.rol_id) === 1;
-    const sucursalIdUsuario = Number(
-      req.user?.sucursalId ?? req.user?.sucursal_id,
-    );
-
-    const key = esAdmin
-      ? "datosRegistro_v1_admin"
-      : `datosRegistro_v1_sucursal_${sucursalIdUsuario}`;
-
+    const key = "datosRegistro_v1";
     const hit = cacheMemoria.get(key);
     if (hit) return res.json(hit);
 
@@ -31,23 +23,16 @@ export const getDatosRegistro = async (req, res) => {
       "SELECT id, nombre, precio, porcentaje_iva FROM servicios_productos",
     );
 
-    // ✅ Clientes filtrados por sucursal (solo no-admin)
-    const [clientes] = await db.query(
-      `
+    const [clientes] = await db.query(`
       SELECT 
-        c.id, c.nombre, c.email, c.telefono, c.direccion, c.identificacion, c.codigo_referencia,
-        c.sucursal_id,
+        c.id, c.nombre, c.email, c.telefono, c.direccion, c.identificacion, c.codigo_referencia, 
         s.nombre AS sucursal_nombre
       FROM clientes c
       LEFT JOIN sucursales s ON s.id = c.sucursal_id
-      ${esAdmin ? "" : "WHERE c.sucursal_id = ?"}
       ORDER BY c.id DESC
-      `,
-      esAdmin ? [] : [sucursalIdUsuario],
-    );
+    `);
 
     const [proveedores] = await db.query("SELECT id, nombre FROM proveedores");
-
     const respuesta = {
       servicios,
       clientes,
@@ -59,10 +44,10 @@ export const getDatosRegistro = async (req, res) => {
     };
 
     cacheMemoria.set(key, respuesta, 300); // TTL 5 min
-    return res.json(respuesta);
+    res.json(respuesta);
   } catch (error) {
     console.error("Error en getDatosRegistro:", error);
-    return res
+    res
       .status(500)
       .json({ message: "Error al obtener datos para nuevo registro" });
   }
@@ -79,13 +64,7 @@ export const createRegistro = async (req, res) => {
   const datos = { ...req.combinedData };
   if (datos.usuario && !datos.creadoPor)
     datos.creadoPor = Number(datos.usuario);
-
   const tipoNormalizado = (datos.tipo || "").trim().toLowerCase();
-
-  const esAdmin = Number(req.user?.rolId ?? req.user?.rol_id) === 1;
-  const sucursalIdUsuario = Number(
-    req.user?.sucursalId ?? req.user?.sucursal_id,
-  );
 
   const conexion = await db.getConnection();
   let claveS3 = null;
@@ -94,31 +73,11 @@ export const createRegistro = async (req, res) => {
     if (tipoNormalizado === "gasto") {
       await conexion.beginTransaction();
 
-      // ✅ Validación/forzado de sucursal en GASTO
-      // - admin: puede elegir
-      // - no admin: debe ser su sucursal
-      const sucursalIdEnviada =
-        datos.sucursal_id == null ? null : Number(datos.sucursal_id);
-
-      if (!esAdmin) {
-        if (sucursalIdEnviada && sucursalIdEnviada !== sucursalIdUsuario) {
-          await conexion.rollback();
-          return res.status(403).json({
-            message:
-              "No tienes permiso para registrar gastos en otra sucursal.",
-          });
-        }
-        datos.sucursal_id = sucursalIdUsuario;
-      } else {
-        // admin: si no envía sucursal, usamos la suya (por defecto)
-        if (!sucursalIdEnviada) datos.sucursal_id = sucursalIdUsuario;
-      }
-
       const resultado = await crearGasto(datos, conexion);
       const { registro_id: registroId, codigo } = resultado;
 
-      // (Tu bloque actual de subida a S3 y auditoría se mantiene igual)
       if (req.file) {
+        // 1) Construir clave S3: facturas_gastos/año/mes/CODIGO/timestamp-nombre
         const meses = [
           "enero",
           "febrero",
@@ -139,6 +98,7 @@ export const createRegistro = async (req, res) => {
         const nombreSeguro = req.file.originalname.replace(/\s+/g, "_");
         claveS3 = `facturas_gastos/${anio}/${mesPalabra}/${codigo}/${Date.now()}-${nombreSeguro}`;
 
+        // 2) Subir a S3 (privado)
         await s3.send(
           new PutObjectCommand({
             Bucket: process.env.S3_BUCKET,
@@ -149,28 +109,33 @@ export const createRegistro = async (req, res) => {
           }),
         );
 
+        // 3) Actualizar gasto con ruta del archivo
         await conexion.query(`UPDATE gastos SET documento = ? WHERE id = ?`, [
           claveS3,
           registroId,
         ]);
 
+        // 4) Registrar en archivos y versiones
         const extension = path.extname(req.file.originalname).substring(1);
         const tamanioBytes = req.file.size;
 
+        // 4.1 Grupo de archivo por gasto (crea o reutiliza)
         const grupoArchivoId = await obtenerOcrearGrupoFactura(
           conexion,
           registroId,
           datos.creadoPor,
         );
 
+        // 4.2 Calcular número de versión = max + 1
         const [[{ maxVer }]] = await conexion.query(
           `SELECT IFNULL(MAX(numeroVersion),0) AS maxVer
            FROM archivos
            WHERE registroTipo = 'facturasGastos' AND registroId = ?`,
           [registroId],
         );
-        const numeroVersion = (maxVer || 0) + 1;
+        const numeroVersion = maxVer + 1;
 
+        // 4.3 Insertar en archivos (estado activo)
         const [resArchivo] = await conexion.query(
           `INSERT INTO archivos
            (registroTipo, registroId, grupoArchivoId,
@@ -192,6 +157,7 @@ export const createRegistro = async (req, res) => {
         );
         const archivoId = resArchivo.insertId;
 
+        // 4.4 Insertar en versionesArchivo
         const [resVersion] = await conexion.query(
           `INSERT INTO versionesArchivo
            (archivoId, numeroVersion, nombreOriginal, extension,
@@ -209,6 +175,7 @@ export const createRegistro = async (req, res) => {
         );
         const versionId = resVersion.insertId;
 
+        // 4.5 Registrar evento con NUEVO nombre de acción: subidaArchivo
         await conexion.query(
           `INSERT INTO eventosArchivo
            (archivoId, versionId, accion, creadoPor, ip, userAgent, detalles)
@@ -227,6 +194,7 @@ export const createRegistro = async (req, res) => {
           ],
         );
 
+        // 4.6 Actualizar cuota de almacenamiento del usuario
         await conexion.query(
           `UPDATE usuarios
              SET usoStorageBytes = usoStorageBytes + ?
@@ -236,104 +204,17 @@ export const createRegistro = async (req, res) => {
       }
 
       await conexion.commit();
-
-      // ✅ Adjuntar sucursal al response
-      const [[filaSucursal]] = await db.query(
-        `SELECT s.id AS sucursalId, s.nombre AS sucursalNombre
-           FROM gastos g
-           LEFT JOIN sucursales s ON s.id = g.sucursal_id
-          WHERE g.id = ?
-          LIMIT 1`,
-        [registroId],
-      );
-
-      return res.status(201).json({
-        ...resultado,
-        sucursalId: filaSucursal?.sucursalId ?? datos.sucursal_id ?? null,
-        sucursalNombre: filaSucursal?.sucursalNombre ?? null,
-      });
-    }
-
-    if (tipoNormalizado === "cotizacion") {
-      // ✅ Nueva lógica:
-      // - clientes.sucursal_id = sucursalBase (informativa / pertenencia)
-      // - cotizaciones.sucursal_id = sucursalAtencion (donde se emitió)
-      // - no-admin: sucursalAtencion SIEMPRE debe ser la del usuario
-      const clienteId = Number(datos.cliente_id);
-      if (!clienteId) {
-        return res.status(400).json({ message: "cliente_id es requerido." });
-      }
-
-      // 1) Validar que el cliente exista (y opcionalmente que tenga sucursal base)
-      const [[filaCliente]] = await db.query(
-        `SELECT id, sucursal_id
-       FROM clientes
-      WHERE id = ?
-      LIMIT 1`,
-        [clienteId],
-      );
-
-      if (!filaCliente?.id) {
-        return res.status(404).json({ message: "Cliente no encontrado." });
-      }
-
-      // Si quieres mantener la regla de “cliente debe tener sucursal base”, déjalo:
-      if (!filaCliente?.sucursal_id) {
-        return res.status(400).json({
-          message: "El cliente no tiene una sucursal asignada (sucursal base).",
-        });
-      }
-
-      // 2) Determinar sucursalAtencion (la que va en la cotización)
-      const sucursalAtencionEnviada =
-        datos.sucursal_id == null ||
-        datos.sucursal_id === "" ||
-        datos.sucursal_id === "null"
-          ? null
-          : Number(datos.sucursal_id);
-
-      let sucursalAtencionId = sucursalAtencionEnviada;
-
-      if (!esAdmin) {
-        // no-admin: forzamos la sucursal del usuario (solo puede atender en su sucursal)
-        if (sucursalAtencionId && sucursalAtencionId !== sucursalIdUsuario) {
-          return res.status(403).json({
-            message: "No tienes permiso para cotizar en otra sucursal.",
-          });
-        }
-        sucursalAtencionId = sucursalIdUsuario;
-      } else {
-        // admin: si no envía sucursal, por defecto usamos la suya
-        if (!sucursalAtencionId) sucursalAtencionId = sucursalIdUsuario;
-      }
-
-      // 3) Forzar sucursalAtencion en el payload que baja a crearCotizacionDesdeRegistro
-      datos.sucursal_id = sucursalAtencionId;
-
+      return res.status(201).json(resultado);
+    } else if (tipoNormalizado === "cotizacion") {
       const resultado = await crearCotizacionDesdeRegistro(datos);
-
-      // 4) Adjuntar sucursalAtencion al response (la sucursal real de la cotización)
-      const [[filaSucursal]] = await db.query(
-        `SELECT s.id AS sucursalId, s.nombre AS sucursalNombre
-       FROM sucursales s
-      WHERE s.id = ?
-      LIMIT 1`,
-        [sucursalAtencionId],
-      );
-
-      return res.status(201).json({
-        ...resultado,
-        sucursalId: filaSucursal?.sucursalId ?? sucursalAtencionId,
-        sucursalNombre: filaSucursal?.sucursalNombre ?? null,
-        // opcional: devolver también sucursal base del cliente para UI/reportes
-        sucursalBaseClienteId: Number(filaCliente.sucursal_id) || null,
-      });
+      return res.status(201).json(resultado);
+    } else {
+      return res.status(400).json({ message: "Tipo de registro no válido." });
     }
-
-    return res.status(400).json({ message: "Tipo de registro no válido." });
   } catch (error) {
     await conexion.rollback();
 
+    // Si subiste archivo y falló algo → eliminar en S3 para no dejar basura
     if (claveS3) {
       try {
         await s3.send(
@@ -347,10 +228,8 @@ export const createRegistro = async (req, res) => {
       }
     }
 
-    console.error("Error al crear el registro:", error);
-    return res
-      .status(500)
-      .json({ message: "Error interno al crear el registro" });
+    console.error("Error al crear el gasto:", error);
+    return res.status(500).json({ message: "Error interno al crear el gasto" });
   } finally {
     conexion.release();
   }
@@ -375,9 +254,6 @@ const crearGasto = async (datos, conn) => {
     tasa_cambio = null,
   } = datos;
 
-  if (!sucursal_id) {
-    throw new Error("El gasto requiere sucursal_id (no puede ser null).");
-  }
   // Normalizar números
   const subtotalNum = Number(subtotal) || 0;
   const porcentajeIvaNum = Number(porcentaje_iva) || 0;
@@ -454,9 +330,8 @@ const crearGasto = async (datos, conn) => {
   ]);
 
   // Limpiar caches relacionados con gastos/registro
-  // registros.controller.js (dentro de crearGasto / donde limpias cache)
   for (const k of cacheMemoria.keys()) {
-    if (k.startsWith("gastos_") || k.startsWith("datosRegistro_v1_")) {
+    if (k.startsWith("gastos_") || k === "datosRegistro_v1") {
       cacheMemoria.del(k);
     }
   }
@@ -510,8 +385,7 @@ export const crearCotizacionDesdeRegistro = async (datos) => {
   try {
     await conexion.beginTransaction();
 
-    // 1) Si no viene sucursal_id, por compatibilidad lo tomamos del cliente (modo antiguo)
-    //    OJO: con la nueva lógica, createRegistro SIEMPRE debe enviarlo como sucursalAtencion.
+    // 1) Validar/obtener sucursal si no viene
     if (
       !sucursal_id ||
       sucursal_id === "null" ||
@@ -522,18 +396,14 @@ export const crearCotizacionDesdeRegistro = async (datos) => {
         "SELECT sucursal_id FROM clientes WHERE id = ?",
         [cliente_id],
       );
-
       if (cliente.length === 0) {
         throw new Error("Cliente no encontrado para asignar sucursal.");
       }
-
       sucursal_id = cliente[0].sucursal_id;
     }
 
     if (!sucursal_id) {
-      throw new Error(
-        "La cotización requiere sucursal_id (sucursal de atención).",
-      );
+      throw new Error("El cliente no tiene una sucursal asignada.");
     }
 
     // 2) Crear cabecera con importes en 0 (se actualizan al final, ya calculados en backend)

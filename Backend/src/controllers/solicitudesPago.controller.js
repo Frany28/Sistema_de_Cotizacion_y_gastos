@@ -11,7 +11,7 @@ import { GetObjectCommand } from "@aws-sdk/client-s3";
 import puppeteer from "puppeteer-core";
 import chromium from "@sparticuz/chromium";
 import { generarHTMLOrdenPago } from "../../templates/generarHTMLOrdenDePago.js";
-import cacheMemoria from "../utils/cacheMemoria.js";
+
 // 🔹 NUEVOS IMPORTS PARA EL LOGO LOCAL
 import fs from "fs";
 import path from "path";
@@ -756,86 +756,82 @@ async function guardarPdfOrdenPagoPrimerAbono({
   }
 }
 
-/*─────────────────────────────────────────────────────────────
-  Listado de usuarios (filtrado por sucursal)
-─────────────────────────────────────────────────────────────*/
+/* ============================================================
+ * 1. LISTAR SOLICITUDES DE PAGO
+ * ========================================================== */
 export const obtenerSolicitudesPago = async (req, res) => {
+  const page = parseInt(req.query.page, 10) || 1;
+  const limit = parseInt(req.query.limit, 10) || 10;
+  const offset = (page - 1) * limit;
+  const { estado } = req.query;
+  const search = (req.query.search || "").trim();
+
   try {
-    const page = Math.max(1, Number(req.query.page) || 1);
-    const limit = Math.max(1, Number(req.query.limit) || 10);
-    const q = (req.query.q || "").trim();
-    const offset = (page - 1) * limit;
+    let whereSQL = "";
+    const whereParams = [];
 
-    const esAdmin = Number(req.user?.rolId ?? req.user?.rol_id) === 1;
-    const sucursalIdUsuario = Number(
-      req.user?.sucursalId ?? req.user?.sucursal_id,
-    );
-
-    const claveCache = esAdmin
-      ? `solicitudesPago_${page}_${limit}_${q || "all"}_admin`
-      : `solicitudesPago_${page}_${limit}_${q || "all"}_sucursal_${sucursalIdUsuario}`;
-
-    const enCache = cacheMemoria.get(claveCache);
-    if (enCache) return res.json(enCache);
-
-    const where = [];
-    const params = [];
-
-    // ✅ filtro por sucursal (no admin) vía gasto
-    if (!esAdmin) {
-      where.push("g.sucursal_id = ?");
-      params.push(sucursalIdUsuario);
+    if (estado && estado !== "todos") {
+      whereSQL += (whereSQL ? " AND " : " WHERE ") + "sp.estado = ?";
+      whereParams.push(estado);
     }
 
-    // filtro de búsqueda
-    if (q) {
-      where.push(`(
-        sp.codigo LIKE ? OR
-        p.nombre LIKE ?
-      )`);
-      params.push(`%${q}%`, `%${q}%`);
+    if (search) {
+      whereSQL +=
+        (whereSQL ? " AND " : " WHERE ") +
+        `(
+          sp.codigo LIKE ? OR
+          p.nombre LIKE ? OR
+          sp.moneda LIKE ? OR
+          sp.estado LIKE ?
+        )`;
+      whereParams.push(
+        `%${search}%`,
+        `%${search}%`,
+        `%${search}%`,
+        `%${search}%`,
+      );
     }
 
-    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
-
+    // Total
     const [[{ total }]] = await db.query(
-      `
-      SELECT COUNT(*) AS total
-      FROM solicitudes_pago sp
-      LEFT JOIN gastos g ON g.id = sp.gasto_id
-      LEFT JOIN proveedores p ON p.id = g.proveedor_id
-      ${whereSql}
-      `,
-      params,
+      `SELECT COUNT(*) AS total
+         FROM solicitudes_pago sp
+         LEFT JOIN proveedores p ON p.id = sp.proveedor_id
+         ${whereSQL}`,
+      whereParams,
     );
 
+    // Data
     const [solicitudes] = await db.query(
       `
-      SELECT
-        sp.*,
-        g.codigo AS gasto_codigo,
-        g.sucursal_id,
-        s.nombre AS sucursal_nombre,
-        p.nombre AS proveedor_nombre
+      SELECT 
+        sp.id,
+        sp.codigo,
+        sp.gasto_id,
+        sp.usuario_solicita_id,
+        sp.usuario_revisa_id,
+        sp.usuario_aprueba_id,
+        p.nombre AS proveedor_nombre,
+        sp.monto_total    AS monto,
+        sp.monto_pagado   AS pagado,
+        sp.moneda,
+        sp.fecha_solicitud AS fecha,
+        sp.estado
       FROM solicitudes_pago sp
-      LEFT JOIN gastos g ON g.id = sp.gasto_id
-      LEFT JOIN sucursales s ON s.id = g.sucursal_id
-      LEFT JOIN proveedores p ON p.id = g.proveedor_id
-      ${whereSql}
-      ORDER BY sp.id DESC
+      LEFT JOIN proveedores p ON p.id = sp.proveedor_id
+      ${whereSQL}
+      ORDER BY sp.fecha_solicitud DESC
       LIMIT ${limit} OFFSET ${offset}
       `,
-      params,
+      whereParams,
     );
 
-    const respuesta = { data: solicitudes, total, page, limit };
-    cacheMemoria.set(claveCache, respuesta);
-    return res.json(respuesta);
+    return res.json({ solicitudes, total, page, limit });
   } catch (error) {
-    console.error("Error en obtenerSolicitudesPago:", error);
+    console.error("Error al listar solicitudes de pago:", error);
     return res
       .status(500)
-      .json({ message: "Error al obtener solicitudes de pago" });
+      .json({ message: "Error al listar solicitudes de pago" });
   }
 };
 
@@ -846,30 +842,16 @@ export const obtenerSolicitudPagoPorId = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const esAdmin = Number(req.user?.rolId ?? req.user?.rol_id) === 1;
-    const sucursalIdUsuario = Number(
-      req.user?.sucursalId ?? req.user?.sucursal_id,
-    );
-
-    // ✅ cache por sucursal para evitar mezcla entre sucursales
-    const claveCache = esAdmin
-      ? `solicitudPago_${id}_admin`
-      : `solicitudPago_${id}_sucursal_${sucursalIdUsuario}`;
-
-    const enCache = cacheMemoria.get(claveCache);
-    if (enCache) return res.json(enCache);
-
-    // 1) Solicitud + gasto (incluye sucursal del gasto)
+    // 1) Solicitud
     const [[solicitud]] = await db.execute(
       `
       SELECT sp.*,
-             g.codigo      AS gasto_codigo,
-             g.sucursal_id AS sucursal_id_gasto,
-             p.nombre      AS proveedor_nombre,
-             us.nombre     AS usuario_solicita_nombre,
-             ur.nombre     AS usuario_revisa_nombre,
-             up.nombre     AS usuario_aprueba_nombre,
-             b.nombre      AS banco_nombre
+             g.codigo  AS gasto_codigo,
+             p.nombre  AS proveedor_nombre,
+             us.nombre AS usuario_solicita_nombre,
+             ur.nombre AS usuario_revisa_nombre,
+             up.nombre AS usuario_aprueba_nombre,
+             b.nombre  AS banco_nombre
         FROM solicitudes_pago sp
         LEFT JOIN gastos      g  ON g.id  = sp.gasto_id
         LEFT JOIN proveedores p  ON p.id  = sp.proveedor_id
@@ -884,20 +866,6 @@ export const obtenerSolicitudPagoPorId = async (req, res) => {
 
     if (!solicitud) {
       return res.status(404).json({ message: "Solicitud no encontrada" });
-    }
-
-    // ✅ Validación de sucursal (solo lectura; mantiene permisos existentes)
-    if (!esAdmin) {
-      if (!sucursalIdUsuario) {
-        return res
-          .status(403)
-          .json({ message: "Tu usuario no tiene sucursal asignada." });
-      }
-      if (Number(solicitud.sucursal_id_gasto) !== Number(sucursalIdUsuario)) {
-        return res
-          .status(403)
-          .json({ message: "No tienes acceso a esta solicitud." });
-      }
     }
 
     // 2) Firma del usuario (sesión)
@@ -932,32 +900,36 @@ export const obtenerSolicitudPagoPorId = async (req, res) => {
              b.nombre AS banco_nombre,
              pr.monto_pagado,
              pr.moneda,
-             pr.monto_pagado_usd,
              pr.tasa_cambio,
+             pr.monto_pagado_usd,
              pr.fecha_pago,
              pr.ruta_comprobante,
-             pr.observaciones
+             pr.observaciones,
+             pr.created_at
         FROM pagos_realizados pr
         LEFT JOIN usuarios u ON u.id = pr.usuario_id
-        LEFT JOIN bancos b ON b.id = pr.banco_id
+        LEFT JOIN bancos   b ON b.id = pr.banco_id
        WHERE pr.solicitud_pago_id = ?
        ORDER BY pr.fecha_pago DESC, pr.id DESC
       `,
       [id],
     );
 
-    // 6) URL prefirmada por comprobante
+    // 6) Generar URL prefirmada por cada comprobante de abono
     const pagosRealizadosConUrl = await Promise.all(
       pagosRealizados.map(async (pago) => {
         const comprobanteUrl = pago.ruta_comprobante
           ? await generarUrlPrefirmadaLectura(pago.ruta_comprobante, 600)
           : null;
 
-        return { ...pago, comprobante_url: comprobanteUrl };
+        return {
+          ...pago,
+          comprobante_url: comprobanteUrl,
+        };
       }),
     );
 
-    // 7) Totales/saldos en USD
+    // 7) Totales en USD (la fuente de verdad para validar sobrepagos)
     const [[sumas]] = await db.execute(
       `
       SELECT IFNULL(SUM(monto_pagado_usd), 0) AS total_pagado_usd
@@ -971,29 +943,33 @@ export const obtenerSolicitudPagoPorId = async (req, res) => {
     const totalPagadoUsd = parseFloat(sumas.total_pagado_usd) || 0;
     const saldoPendienteUsd = Math.max(montoTotalUsd - totalPagadoUsd, 0);
 
-    // 8) Saldo pendiente en moneda (referencia con tasa guardada en solicitud)
+    // 8) Saldo pendiente “en moneda” (referencia con tasa de la solicitud)
     let saldoPendienteMoneda = saldoPendienteUsd;
+
     if (solicitud.moneda === "VES") {
       const tasaSolicitud = parseFloat(solicitud.tasa_cambio) || 0;
       saldoPendienteMoneda =
         tasaSolicitud > 0 ? saldoPendienteUsd * tasaSolicitud : 0;
     }
 
-    const respuesta = {
-      // ✅ FIX: spread correcto (tu archivo tiene ".solicitud" y rompe):contentReference[oaicite:5]{index=5}
+    return res.json({
       ...solicitud,
       usuario_firma: usuarioFirma,
       bancosDisponibles,
       comprobante_url: comprobanteUrlSolicitud,
+
       pagos_realizados: pagosRealizadosConUrl,
+
+      // ✅ Totales/saldos en USD (fuente de verdad)
       total_pagado_usd: totalPagadoUsd,
       saldo_pendiente_usd: saldoPendienteUsd,
-      monto_pagado_usd: totalPagadoUsd,
-      saldo_pendiente_moneda: saldoPendienteMoneda,
-    };
 
-    cacheMemoria.set(claveCache, respuesta, 120);
-    return res.json(respuesta);
+      // ✅ Compatibilidad: algunos componentes esperan esto como “cabecera”
+      monto_pagado_usd: totalPagadoUsd,
+
+      // ✅ Referencia “en moneda” usando la tasa guardada en solicitud (no es la tasa del día)
+      saldo_pendiente_moneda: saldoPendienteMoneda,
+    });
   } catch (error) {
     console.error("Error al obtener solicitud de pago:", error);
     return res

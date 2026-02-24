@@ -9,97 +9,74 @@ import { obtenerOcrearGrupoFactura } from "../utils/gruposArchivos.js";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 import cacheMemoria from "../utils/cacheMemoria.js";
 
-// gastos.controller.js
+// controllers/gastos.controller.js
 export const getGastos = async (req, res) => {
+  const page = +req.query.page || 1;
+  const limit = +req.query.limit || 5;
+  const offset = (page - 1) * limit;
+  const q = (req.query.search || "").trim();
+
+  const claveCache = `gastos_${page}_${limit}_${q}`;
+  const respuestaEnCache = cacheMemoria.get(claveCache);
+  if (respuestaEnCache) return res.json(respuestaEnCache);
+
   try {
-    const page = Math.max(1, Number(req.query.page) || 1);
-    const limit = Math.max(1, Number(req.query.limit) || 10);
-    const q = (req.query.q || "").trim();
-    const offset = (page - 1) * limit;
-
-    const esAdmin = Number(req.user?.rolId ?? req.user?.rol_id) === 1;
-    const sucursalIdUsuario = Number(
-      req.user?.sucursalId ?? req.user?.sucursal_id,
-    );
-
-    const claveCache = esAdmin
-      ? `gastos_${page}_${limit}_${q || "all"}_admin`
-      : `gastos_${page}_${limit}_${q || "all"}_sucursal_${sucursalIdUsuario}`;
-
-    const enCache = cacheMemoria.get(claveCache);
-    if (enCache) return res.json(enCache);
-
-    // ✅ Armado de WHERE dinámico (sucursal + búsqueda)
-    const where = [];
-    const params = [];
-
-    if (!esAdmin) {
-      where.push("g.sucursal_id = ?");
-      params.push(sucursalIdUsuario);
-    }
-
-    if (q) {
-      where.push(`(
-        g.codigo LIKE ? OR
-        p.nombre LIKE ? OR
-        g.concepto_pago LIKE ?
-      )`);
-      params.push(`%${q}%`, `%${q}%`, `%${q}%`);
-    }
-
-    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
-
-    // 1) TOTAL
+    // 1) TOTAL filtrado
     const [[{ total }]] = await db.query(
-      `
-      SELECT COUNT(*) AS total
-      FROM gastos g
-      LEFT JOIN proveedores p ON p.id = g.proveedor_id
-      ${whereSql}
-      `,
-      params,
+      q
+        ? `SELECT COUNT(*) AS total
+            FROM gastos g
+            LEFT JOIN proveedores p ON p.id = g.proveedor_id
+            WHERE g.codigo        LIKE ? OR
+            p.nombre        LIKE ? OR
+            g.concepto_pago LIKE ?`
+        : `SELECT COUNT(*) AS total FROM gastos`,
+      q ? [`%${q}%`, `%${q}%`, `%${q}%`] : [],
     );
 
-    // 2) LISTA
+    // 2) LISTA paginada filtrada
     const [gastos] = await db.query(
       `
-      SELECT
-        g.id,
-        g.codigo,
+      SELECT g.id,
+      g.codigo,
         g.fecha,
         g.total,
         g.estado,
         g.motivo_rechazo,
-        g.tipo_gasto_id,
-        tg.nombre AS tipo_gasto,
-        p.nombre AS proveedor,
-        s.nombre AS sucursal,
+        g.tipo_gasto_id,                 
+        tg.nombre        AS tipo_gasto,  
+        p.nombre         AS proveedor,
+        s.nombre         AS sucursal,
         g.concepto_pago,
-        g.descripcion,
+        g.descripcion, 
         g.subtotal,
         g.impuesto,
         g.moneda,
-        g.porcentaje_iva,
+        g.porcentaje_iva, 
         g.tasa_cambio,
         g.cotizacion_id,
         g.documento
-      FROM gastos g
-      LEFT JOIN proveedores p ON p.id = g.proveedor_id
-      LEFT JOIN sucursales  s ON s.id = g.sucursal_id
-      LEFT JOIN tipos_gasto tg ON tg.id = g.tipo_gasto_id
-      ${whereSql}
+        FROM gastos g
+        LEFT JOIN proveedores p ON p.id = g.proveedor_id
+        LEFT JOIN sucursales  s ON s.id = g.sucursal_id
+        LEFT JOIN tipos_gasto tg ON tg.id = g.tipo_gasto_id
+      ${
+        q
+          ? `WHERE g.codigo        LIKE ? OR
+            p.nombre        LIKE ? OR
+            g.concepto_pago LIKE ?`
+          : ""
+      }
       ORDER BY g.fecha DESC, g.id DESC
       LIMIT ${limit} OFFSET ${offset}
       `,
-      params,
+      q ? [`%${q}%`, `%${q}%`, `%${q}%`] : [],
     );
-
-    const respuesta = { data: gastos, total, page, limit };
-    cacheMemoria.set(claveCache, respuesta);
-    return res.json(respuesta);
+    cacheMemoria.set(claveCache, { data: gastos, total, page, limit });
+    res.json({ data: gastos, total, page, limit });
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ message: "Error interno" });
+    res.status(500).json({ message: "Error interno" });
   }
 };
 
