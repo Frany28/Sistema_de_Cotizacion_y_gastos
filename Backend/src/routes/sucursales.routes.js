@@ -19,7 +19,7 @@ router.post(
   autenticarUsuario,
   verificarPermiso("crearSucursal"),
   validarSucursal,
-  crearSucursal
+  crearSucursal,
 );
 
 // routes/sucursales.routes.js
@@ -27,24 +27,29 @@ router.get(
   "/",
   autenticarUsuario,
   verificarPermiso("verSucursales"),
-  obtenerSucursales
+  obtenerSucursales,
 );
 
 router.patch(
   "/:id",
   autenticarUsuario,
   verificarPermiso("editarSucursal"),
-  actualizarSucursal
+  actualizarSucursal,
 ); // Actualizar sucursal
 
 router.delete(
   "/:id",
   autenticarUsuario,
   verificarPermiso("eliminarSucursal"),
-  eliminarSucursal
+  eliminarSucursal,
 ); // Eliminar sucursal
 
 // Rutas adicionales
-router.get("/dropdown/list", obtenerSucursalesDropdown); // Para selects/opciones
+router.get(
+  "/dropdown/list",
+  autenticarUsuario,
+  verificarPermiso("verUsuarios"),
+  obtenerSucursalesDropdown,
+);
 
 export default router;

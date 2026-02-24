@@ -35,18 +35,16 @@ export default function ModalAñadirCliente({ onCancel, onSubmit, onSuccess }) {
   useEffect(() => {
     const cargarSucursales = async () => {
       try {
-        const res = await fetch(
-          `${import.meta.env.VITE_API_URL}/sucursales/dropdown/list`,
-          { credentials: "include" }
-        );
-        if (!res.ok) throw new Error(`Status ${res.status}`);
-        const lista = await res.json();
-        setSucursales(lista);
+        const { data } = await api.get("/sucursales/dropdown/list", {
+          withCredentials: true,
+        });
+
+        setSucursales(Array.isArray(data) ? data : []);
       } catch (error) {
-        console.error("Error al cargar sucursales:", error);
+        console.error("Error cargando sucursales:", error);
+        setSucursales([]);
       }
     };
-
     cargarSucursales();
   }, []);
 
@@ -89,71 +87,71 @@ export default function ModalAñadirCliente({ onCancel, onSubmit, onSuccess }) {
     return Object.keys(newErrors).length === 0;
   };
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setServerError("");
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setServerError("");
 
-  if (!validateForm()) return;
+    if (!validateForm()) return;
 
-  const clienteData = {
-    nombre: form.nombre.trim(),
-    email: form.email.trim(),
-    telefono: form.telefono.trim(),
-    direccion: form.direccion.trim(),
-    sucursal_id: form.sucursal_id,
-    identificacion: `${form.tipo_ci}${form.numero_ci}`,
-  };
+    const clienteData = {
+      nombre: form.nombre.trim(),
+      email: form.email.trim(),
+      telefono: form.telefono.trim(),
+      direccion: form.direccion.trim(),
+      sucursal_id: form.sucursal_id,
+      identificacion: `${form.tipo_ci}${form.numero_ci}`,
+    };
 
-  setIsSubmitting(true);
+    setIsSubmitting(true);
 
-  try {
-    const response = await api.post("/clientes", clienteData);
+    try {
+      const response = await api.post("/clientes", clienteData);
 
-    if (response.status === 201) {
-      onSubmit(response.data);
-      onSuccess({
-        titulo: "Cliente añadido",
-        mensaje: "Cliente registrado exitosamente",
-        textoBoton: "Entendido",
-      });
+      if (response.status === 201) {
+        onSubmit(response.data);
+        onSuccess({
+          titulo: "Cliente añadido",
+          mensaje: "Cliente registrado exitosamente",
+          textoBoton: "Entendido",
+        });
 
-      setForm({
-        nombre: "",
-        email: "",
-        telefono: "",
-        direccion: "",
-        sucursal_id: "",
-        tipo_ci: "V",
-        numero_ci: "",
-      });
+        setForm({
+          nombre: "",
+          email: "",
+          telefono: "",
+          direccion: "",
+          sucursal_id: "",
+          tipo_ci: "V",
+          numero_ci: "",
+        });
 
-      onCancel();
-    }
-  } catch (error) {
-    console.error("Error al crear cliente:", error);
-
-    let mensaje = "Error en el servidor";
-
-    if (error.response) {
-      if (error.response.data?.errores?.length > 0) {
-        mensaje = [
-          error.response.data.message || "Error de validación.",
-          ...error.response.data.errores.map((e) => `- ${e}`),
-        ].join("\n");
-      } else if (error.response.data?.message) {
-        mensaje = error.response.data.message;
-      } else {
-        mensaje = "Ocurrió un error desconocido.";
+        onCancel();
       }
-    } else {
-      mensaje = "Error de conexión con el servidor.";
-    }
+    } catch (error) {
+      console.error("Error al crear cliente:", error);
 
-    setServerError(mensaje);
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+      let mensaje = "Error en el servidor";
+
+      if (error.response) {
+        if (error.response.data?.errores?.length > 0) {
+          mensaje = [
+            error.response.data.message || "Error de validación.",
+            ...error.response.data.errores.map((e) => `- ${e}`),
+          ].join("\n");
+        } else if (error.response.data?.message) {
+          mensaje = error.response.data.message;
+        } else {
+          mensaje = "Ocurrió un error desconocido.";
+        }
+      } else {
+        mensaje = "Error de conexión con el servidor.";
+      }
+
+      setServerError(mensaje);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <AnimatePresence>

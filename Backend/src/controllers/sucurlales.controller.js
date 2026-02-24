@@ -14,7 +14,7 @@ export const obtenerSucursales = async (req, res) => {
   try {
     // 2) Total de registros sin paginar
     const [[{ total }]] = await db.query(
-      "SELECT COUNT(*) AS total FROM sucursales"
+      "SELECT COUNT(*) AS total FROM sucursales",
     );
 
     // 3) Datos paginados: inyectamos limit y offset como literales
@@ -22,7 +22,7 @@ export const obtenerSucursales = async (req, res) => {
       `SELECT *
        FROM sucursales
        ORDER BY id DESC
-       LIMIT ${limit} OFFSET ${offset}`
+       LIMIT ${limit} OFFSET ${offset}`,
     );
 
     // 4) Respondemos con el mismo formato que en clientes
@@ -38,7 +38,7 @@ export const obtenerSucursal = async (req, res) => {
   try {
     const [sucursal] = await db.execute(
       "SELECT * FROM sucursales WHERE id = ?",
-      [req.params.id]
+      [req.params.id],
     );
 
     if (sucursal.length === 0) {
@@ -87,7 +87,7 @@ export const crearSucursal = async (req, res) => {
     // Verificar si el código ya existe
     const [existing] = await db.execute(
       "SELECT id FROM sucursales WHERE codigo = ?",
-      [codigo.trim()]
+      [codigo.trim()],
     );
 
     if (existing.length > 0) {
@@ -114,7 +114,7 @@ export const crearSucursal = async (req, res) => {
         responsable?.trim() || null,
         estadoNormalizado,
         usuarioId,
-      ]
+      ],
     );
 
     res.status(201).json({
@@ -166,7 +166,7 @@ export const actualizarSucursal = async (req, res) => {
     "estado",
   ];
   const paresActualizacion = Object.entries(req.body).filter(([k]) =>
-    camposPermitidos.includes(k)
+    camposPermitidos.includes(k),
   );
 
   if (paresActualizacion.length === 0) {
@@ -180,7 +180,7 @@ export const actualizarSucursal = async (req, res) => {
   if (codigoNuevo) {
     const [existente] = await db.execute(
       "SELECT id FROM sucursales WHERE codigo = ? AND id != ?",
-      [codigoNuevo, id]
+      [codigoNuevo, id],
     );
     if (existente.length > 0) {
       return res
@@ -224,7 +224,7 @@ export const eliminarSucursal = async (req, res) => {
   try {
     const [[sucursal]] = await db.execute(
       "SELECT estado FROM sucursales WHERE id = ?",
-      [req.params.id]
+      [req.params.id],
     );
 
     if (!sucursal) {
@@ -239,7 +239,7 @@ export const eliminarSucursal = async (req, res) => {
 
     const [clientesAsociados] = await db.execute(
       "SELECT COUNT(*) AS count FROM clientes WHERE sucursal_id = ?",
-      [req.params.id]
+      [req.params.id],
     );
 
     if (clientesAsociados[0].count > 0) {
@@ -268,12 +268,15 @@ export const eliminarSucursal = async (req, res) => {
 export const obtenerSucursalesDropdown = async (req, res) => {
   try {
     const [sucursales] = await db.execute(
-      "SELECT id, nombre FROM sucursales ORDER BY nombre"
+      `SELECT id, codigo, nombre
+         FROM sucursales
+        WHERE estado = 'activo'
+        ORDER BY nombre`,
     );
 
-    res.json(sucursales);
+    return res.json(sucursales);
   } catch (error) {
     console.error("Error al obtener sucursales para dropdown:", error);
-    res.status(500).json({ message: "Error al obtener las sucursales" });
+    return res.status(500).json({ message: "Error al obtener las sucursales" });
   }
 };
