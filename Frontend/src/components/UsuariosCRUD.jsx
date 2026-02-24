@@ -153,6 +153,23 @@ export default function UsuariosCRUD() {
     ),
   );
 
+  const formatearSucursal = (usuario) => {
+    if (!usuario) return "-";
+
+    // prioridad: si viene codigo + nombre (lo ideal)
+    if (usuario.sucursalCodigo && usuario.sucursalNombre) {
+      return `${usuario.sucursalCodigo} - ${usuario.sucursalNombre}`;
+    }
+
+    // si viene solo nombre
+    if (usuario.sucursalNombre) return usuario.sucursalNombre;
+
+    // si viene solo id (por si acaso)
+    if (usuario.sucursalId) return `Sucursal #${usuario.sucursalId}`;
+
+    return "-";
+  };
+
   const totalPaginas = Math.ceil(filtrados.length / limit);
   const paginados = filtrados.slice((page - 1) * limit, page * limit);
   const formatearFecha = (iso) =>
