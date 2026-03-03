@@ -7,7 +7,10 @@ import db from "../config/database.js";
 import { s3 } from "../utils/s3.js";
 import { obtenerOcrearGrupoFactura } from "../utils/gruposArchivos.js";
 import { PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
-import cacheMemoria from "../utils/cacheMemoria.js";
+import cacheMemoria, {
+  obtenerScopeSucursalCache,
+  invalidarCachePorPrefijos,
+} from "../utils/cacheMemoria.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,7 +18,14 @@ const __dirname = path.dirname(__filename);
 // Obtener datos para formulario de nuevo registro
 export const getDatosRegistro = async (req, res) => {
   try {
-    const key = "datosRegistro_v1";
+    const scopeSucursal = obtenerScopeSucursalCache(req);
+    if (!scopeSucursal) {
+      return res
+        .status(403)
+        .json({ message: "Tu usuario no tiene sucursal asignada." });
+    }
+
+    const key = `datosRegistro_v1_${scopeSucursal}`;
     const hit = cacheMemoria.get(key);
     if (hit) return res.json(hit);
 
@@ -23,16 +33,28 @@ export const getDatosRegistro = async (req, res) => {
       "SELECT id, nombre, precio, porcentaje_iva FROM servicios_productos",
     );
 
-    const [clientes] = await db.query(`
+    const esAdmin = Number(req.user?.rol_id) === 1;
+
+    const filtroSucursalSql =
+      esAdmin && scopeSucursal === "todas" ? "" : "WHERE c.sucursal_id = ?";
+    const paramsSucursal =
+      esAdmin && scopeSucursal === "todas" ? [] : [Number(scopeSucursal)];
+
+    const [clientes] = await db.query(
+      `
       SELECT 
         c.id, c.nombre, c.email, c.telefono, c.direccion, c.identificacion, c.codigo_referencia, 
         s.nombre AS sucursal_nombre
       FROM clientes c
       LEFT JOIN sucursales s ON s.id = c.sucursal_id
+      ${filtroSucursalSql}
       ORDER BY c.id DESC
-    `);
+      `,
+      paramsSucursal,
+    );
 
     const [proveedores] = await db.query("SELECT id, nombre FROM proveedores");
+
     const respuesta = {
       servicios,
       clientes,
@@ -43,11 +65,11 @@ export const getDatosRegistro = async (req, res) => {
       ],
     };
 
-    cacheMemoria.set(key, respuesta, 300); // TTL 5 min
-    res.json(respuesta);
+    cacheMemoria.set(key, respuesta, 300);
+    return res.json(respuesta);
   } catch (error) {
     console.error("Error en getDatosRegistro:", error);
-    res
+    return res
       .status(500)
       .json({ message: "Error al obtener datos para nuevo registro" });
   }
@@ -62,6 +84,18 @@ export const createRegistro = async (req, res) => {
   }
 
   const datos = { ...req.combinedData };
+  const esAdmin = Number(req.user?.rol_id) === 1;
+  const sucursalIdUsuario = Number(req.user?.sucursal_id);
+
+  if (!esAdmin) {
+    if (!sucursalIdUsuario || Number.isNaN(sucursalIdUsuario)) {
+      return res
+        .status(403)
+        .json({ message: "Tu usuario no tiene sucursal asignada." });
+    }
+    // Fuerza sucursal para todo registro creado por usuario normal
+    datos.sucursal_id = sucursalIdUsuario;
+  }
   if (datos.usuario && !datos.creadoPor)
     datos.creadoPor = Number(datos.usuario);
   const tipoNormalizado = (datos.tipo || "").trim().toLowerCase();
@@ -329,12 +363,15 @@ const crearGasto = async (datos, conn) => {
     gastoId,
   ]);
 
-  // Limpiar caches relacionados con gastos/registro
-  for (const k of cacheMemoria.keys()) {
-    if (k.startsWith("gastos_") || k === "datosRegistro_v1") {
-      cacheMemoria.del(k);
-    }
-  }
+  const scopeSucursal =
+    !Number.isNaN(Number(sucursal_id)) && Number(sucursal_id) > 0
+      ? String(Number(sucursal_id))
+      : null;
+
+  invalidarCachePorPrefijos({
+    prefijos: ["gastos_", "datosRegistro_v1_"],
+    scopeSucursal,
+  });
 
   return {
     message: "Gasto creado con éxito",
@@ -385,28 +422,45 @@ export const crearCotizacionDesdeRegistro = async (datos) => {
   try {
     await conexion.beginTransaction();
 
-    // 1) Validar/obtener sucursal si no viene
+    // 1) Traer sucursal del cliente SIEMPRE (evita variable fuera de scope y asegura coherencia)
+    const [clienteRows] = await conexion.query(
+      "SELECT sucursal_id FROM clientes WHERE id = ?",
+      [cliente_id],
+    );
+
+    if (clienteRows.length === 0) {
+      throw new Error("Cliente no encontrado para asignar sucursal.");
+    }
+
+    const sucursalIdCliente = Number(clienteRows[0].sucursal_id);
+
+    if (!sucursalIdCliente || Number.isNaN(sucursalIdCliente)) {
+      throw new Error("El cliente no tiene una sucursal asignada.");
+    }
+
+    // 2) Si no viene sucursal_id en el payload, usar la del cliente
     if (
       !sucursal_id ||
       sucursal_id === "null" ||
       sucursal_id === "" ||
-      sucursal_id === 0
+      Number(sucursal_id) === 0
     ) {
-      const [cliente] = await conexion.query(
-        "SELECT sucursal_id FROM clientes WHERE id = ?",
-        [cliente_id],
-      );
-      if (cliente.length === 0) {
-        throw new Error("Cliente no encontrado para asignar sucursal.");
-      }
-      sucursal_id = cliente[0].sucursal_id;
+      sucursal_id = sucursalIdCliente;
     }
 
-    if (!sucursal_id) {
-      throw new Error("El cliente no tiene una sucursal asignada.");
+    const sucursalIdFinal = Number(sucursal_id);
+
+    // 3) Coherencia: la sucursal de la cotización debe coincidir con la del cliente
+    if (Number.isNaN(sucursalIdFinal) || sucursalIdFinal <= 0) {
+      throw new Error("La sucursal de la cotización es inválida.");
     }
 
-    // 2) Crear cabecera con importes en 0 (se actualizan al final, ya calculados en backend)
+    if (sucursalIdFinal !== sucursalIdCliente) {
+      // Esto también cubre el caso usuario normal (datos.sucursal_id ya viene forzado en createRegistro)
+      throw new Error("El cliente no pertenece a la sucursal seleccionada.");
+    }
+
+    // 4) Crear cabecera con importes en 0 (se actualizan al final)
     let subtotalGlobal = 0;
     let impuestoGlobal = 0;
 
@@ -418,7 +472,7 @@ export const crearCotizacionDesdeRegistro = async (datos) => {
       [
         cliente_id,
         creadoPor,
-        sucursal_id,
+        sucursalIdFinal,
         fecha,
         estado,
         confirmacion_cliente,
@@ -433,14 +487,14 @@ export const crearCotizacionDesdeRegistro = async (datos) => {
 
     const cotizacionId = result.insertId;
 
-    // 3) Generar código
+    // 5) Generar código
     const codigo = `COT-${String(cotizacionId).padStart(4, "0")}`;
     await conexion.query(
       `UPDATE cotizaciones SET codigo_referencia = ? WHERE id = ?`,
       [codigo, cotizacionId],
     );
 
-    // 4) Insertar detalle (SIN validación de stock)
+    // 6) Insertar detalle (SIN validación de stock)
     for (const item of detalle) {
       const {
         servicio_productos_id,
@@ -453,13 +507,13 @@ export const crearCotizacionDesdeRegistro = async (datos) => {
       const precio = Number(precio_unitario);
       const iva = Number(porcentaje_iva);
 
-      if (isNaN(cant) || isNaN(precio) || isNaN(iva)) {
+      if (Number.isNaN(cant) || Number.isNaN(precio) || Number.isNaN(iva)) {
         throw new Error(
           `Error en los valores del detalle para el servicio con ID ${servicio_productos_id}`,
         );
       }
 
-      // ✅ Validación mínima: solo verificamos que exista el servicio/producto.
+      // Validación mínima: verificar que exista el servicio/producto
       const [productoServicio] = await conexion.query(
         `SELECT id FROM servicios_productos WHERE id = ?`,
         [servicio_productos_id],
@@ -469,12 +523,12 @@ export const crearCotizacionDesdeRegistro = async (datos) => {
         throw new Error("Producto o servicio no encontrado");
       }
 
-      const subtotal = cant * precio;
-      const impuesto = subtotal * (iva / 100);
-      const totalItem = subtotal + impuesto;
+      const subtotalLinea = cant * precio;
+      const impuestoLinea = subtotalLinea * (iva / 100);
+      const totalLinea = subtotalLinea + impuestoLinea;
 
-      subtotalGlobal += subtotal;
-      impuestoGlobal += impuesto;
+      subtotalGlobal += subtotalLinea;
+      impuestoGlobal += impuestoLinea;
 
       await conexion.query(
         `INSERT INTO detalle_cotizacion 
@@ -486,14 +540,14 @@ export const crearCotizacionDesdeRegistro = async (datos) => {
           cant,
           precio,
           iva,
-          subtotal,
-          impuesto,
-          totalItem,
+          subtotalLinea,
+          impuestoLinea,
+          totalLinea,
         ],
       );
     }
 
-    // 5) Actualizar totales en cabecera (valores reales)
+    // 7) Actualizar totales en cabecera (valores reales)
     const totalGlobal = subtotalGlobal + impuestoGlobal;
     await conexion.query(
       `UPDATE cotizaciones SET subtotal = ?, impuesto = ?, total = ? WHERE id = ?`,
@@ -502,7 +556,22 @@ export const crearCotizacionDesdeRegistro = async (datos) => {
 
     await conexion.commit();
 
-    // 6) Limpiar cache de servicios/productos (si aplica)
+    const scopeSucursal =
+      !Number.isNaN(sucursalIdFinal) && sucursalIdFinal > 0
+        ? String(sucursalIdFinal)
+        : null;
+
+    invalidarCachePorPrefijos({
+      prefijos: [
+        "cotizaciones_",
+        "cotizacion_",
+        "buscCot_",
+        "datosRegistro_v1_",
+      ],
+      scopeSucursal,
+    });
+
+    // Limpiar cache de servicios/productos (si aplica)
     for (const k of cacheMemoria.keys()) {
       if (k.startsWith("servicios_") || k.startsWith("servicio_")) {
         cacheMemoria.del(k);

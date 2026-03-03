@@ -7,41 +7,74 @@ export const validarRegistro = async (req, res, next) => {
     documento: req.file ? req.file.originalname : null,
   };
 
-  const { tipo } = datosCombinados;
+  const tipo = (datosCombinados.tipo || "").trim().toLowerCase();
 
   if (!tipo || !["cotizacion", "gasto"].includes(tipo)) {
     return res.status(400).json({ message: "Tipo de registro inválido." });
   }
 
+  // Requiere usuario autenticado (para regla sucursal)
+  if (!req.user) {
+    return res.status(401).json({ message: "No autenticado." });
+  }
+
   const errores = [];
 
-  // VALIDACIONES COMUNES A AMBOS TIPOS
+  const esAdmin = Number(req.user?.rol_id) === 1;
+  const sucursalIdUsuario = Number(req.user?.sucursal_id);
 
+  // Si NO es admin, se fuerza sucursal_id al del usuario
+  if (!esAdmin) {
+    if (!sucursalIdUsuario || Number.isNaN(sucursalIdUsuario)) {
+      return res
+        .status(403)
+        .json({ message: "Tu usuario no tiene sucursal asignada." });
+    }
+    datosCombinados.sucursal_id = sucursalIdUsuario;
+  }
+
+  /*───────────────────────────────
+   * VALIDACIONES COMUNES
+   *───────────────────────────────*/
+
+  // Fecha no futura (si viene)
   if (datosCombinados.fecha) {
     const fechaRegistro = new Date(datosCombinados.fecha);
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
-    if (fechaRegistro > hoy) {
+    if (!Number.isNaN(fechaRegistro.getTime()) && fechaRegistro > hoy) {
       errores.push("La fecha no puede ser en el futuro.");
     }
   }
 
+  // Validar sucursal_id (si viene o fue forzada)
   if (datosCombinados.sucursal_id) {
-    const [sucursal] = await db.query(
-      "SELECT id FROM sucursales WHERE id = ?",
-      [datosCombinados.sucursal_id]
-    );
-    if (sucursal.length === 0) {
-      errores.push("La sucursal seleccionada no existe.");
+    const sucursalId = Number(datosCombinados.sucursal_id);
+    if (Number.isNaN(sucursalId)) {
+      errores.push("La sucursal es inválida.");
+    } else {
+      const [sucursal] = await db.query(
+        "SELECT id FROM sucursales WHERE id = ?",
+        [sucursalId],
+      );
+      if (sucursal.length === 0) {
+        errores.push("La sucursal seleccionada no existe.");
+      }
     }
   }
 
+  // Validar creadoPor si viene (si no viene, el controlador lo puede derivar)
   if (datosCombinados.creadoPor) {
-    const [usuario] = await db.query("SELECT id FROM usuarios WHERE id = ?", [
-      datosCombinados.creadoPor,
-    ]);
-    if (usuario.length === 0) {
-      errores.push("El usuario especificado no existe.");
+    const creadoPorId = Number(datosCombinados.creadoPor);
+    if (Number.isNaN(creadoPorId)) {
+      errores.push("El usuario (creadoPor) es inválido.");
+    } else {
+      const [usuario] = await db.query("SELECT id FROM usuarios WHERE id = ?", [
+        creadoPorId,
+      ]);
+      if (usuario.length === 0) {
+        errores.push("El usuario especificado no existe.");
+      }
     }
   }
 
@@ -79,26 +112,6 @@ export const validarRegistro = async (req, res, next) => {
     validarCampoNumericoOpcional(cotizacion_id, "cotizacion_id");
     validarCampoNumericoOpcional(tasa_cambio, "tasa_cambio");
 
-    // Regla especial: si el tipo de gasto es Operativo (id = 1), el proveedor es obligatorio
-    if (tipo_gasto_id && !isNaN(tipo_gasto_id)) {
-      const [[tipoGasto]] = await db.query(
-        "SELECT id, nombre FROM tipos_gasto WHERE id = ?",
-        [tipo_gasto_id]
-      );
-
-      if (!tipoGasto) {
-        errores.push("El tipo de gasto seleccionado no existe.");
-      } else {
-        const esGastoOperativo = tipoGasto.id === 1; // 1 = Operativo en tu tabla
-
-        if (esGastoOperativo && (!proveedor_id || isNaN(proveedor_id))) {
-          errores.push(
-            "El proveedor es obligatorio para los gastos operativos."
-          );
-        }
-      }
-    }
-
     if (!concepto_pago || typeof concepto_pago !== "string") {
       errores.push("El concepto de pago es requerido y debe ser texto.");
     }
@@ -107,11 +120,11 @@ export const validarRegistro = async (req, res, next) => {
       errores.push("El tipo de gasto es requerido y debe ser numérico.");
     }
 
-    if (subtotal == null || isNaN(subtotal) || subtotal <= 0) {
+    if (subtotal == null || isNaN(subtotal) || Number(subtotal) <= 0) {
       errores.push("El subtotal es requerido y debe ser mayor a cero.");
     }
 
-    if (isNaN(porcentaje_iva) || porcentaje_iva < 0) {
+    if (isNaN(porcentaje_iva) || Number(porcentaje_iva) < 0) {
       errores.push("El porcentaje de IVA debe ser un número no negativo.");
     }
 
@@ -124,6 +137,8 @@ export const validarRegistro = async (req, res, next) => {
     }
 
     if (!creadoPor || isNaN(creadoPor)) {
+      // Si tú siempre lo llenas en el controlador con datos.usuario, puedes hacerlo opcional.
+      // Lo dejo como lo tenías, porque tu lógica actual lo usa.
       errores.push("El usuario es requerido y debe ser numérico.");
     }
 
@@ -132,7 +147,7 @@ export const validarRegistro = async (req, res, next) => {
       !["pendiente", "solicitado", "aprobado", "pagado"].includes(estado)
     ) {
       errores.push(
-        "El estado es inválido. Valores permitidos: pendiente, solicitado, aprobado, pagado."
+        "El estado es inválido. Valores permitidos: pendiente, solicitado, aprobado, pagado.",
       );
     }
 
@@ -144,20 +159,36 @@ export const validarRegistro = async (req, res, next) => {
       errores.push("La tasa de cambio es requerida para la moneda VES.");
     }
 
-    // VALIDACIONES DE ARCHIVO
+    // Regla especial: si el tipo de gasto es Operativo (id = 1), el proveedor es obligatorio
+    if (tipo_gasto_id && !isNaN(tipo_gasto_id)) {
+      const [[tipoGasto]] = await db.query(
+        "SELECT id, nombre FROM tipos_gasto WHERE id = ?",
+        [tipo_gasto_id],
+      );
 
-    if (!req.file) {
-      errores.push("El comprobante es obligatorio para gastos.");
-    } else {
+      if (!tipoGasto) {
+        errores.push("El tipo de gasto seleccionado no existe.");
+      } else {
+        const esGastoOperativo = Number(tipoGasto.id) === 1;
+
+        if (esGastoOperativo && (!proveedor_id || isNaN(proveedor_id))) {
+          errores.push(
+            "El proveedor es obligatorio para los gastos operativos.",
+          );
+        }
+      }
+    }
+
+    // ARCHIVO: NO obligatorio (para coincidir con tu controlador). Se valida solo si viene.
+    if (req.file) {
       const extensionArchivo = path
         .extname(req.file.originalname)
         .toLowerCase();
-
       const extensionesPermitidas = [".pdf", ".png", ".jpg", ".jpeg", ".webp"];
 
       if (!extensionesPermitidas.includes(extensionArchivo)) {
         errores.push(
-          "Extensión de archivo no permitida. Solo se admiten PDF o imágenes (png, jpg, webp)."
+          "Extensión de archivo no permitida. Solo se admiten PDF o imágenes (png, jpg, webp).",
         );
       }
 
@@ -166,53 +197,65 @@ export const validarRegistro = async (req, res, next) => {
       }
 
       const [archivoExistente] = await db.query(
-        `SELECT id FROM archivos WHERE nombreOriginal = ?`,
-        [req.file.originalname]
+        `SELECT id FROM archivos WHERE nombreOriginal = ? LIMIT 1`,
+        [req.file.originalname],
       );
 
       if (archivoExistente.length > 0) {
         errores.push(
-          `El archivo ${req.file.originalname} ya existe registrado en la base de datos.`
+          `El archivo ${req.file.originalname} ya existe registrado en la base de datos.`,
         );
       }
     }
 
-    // VALIDAR EXISTENCIA DE PROVEEDOR SI VIENE INFORMADO
+    // Validar proveedor si viene
     if (proveedor_id) {
       const [proveedor] = await db.query(
-        `SELECT id FROM proveedores WHERE id = ?`,
-        [proveedor_id]
+        "SELECT id FROM proveedores WHERE id = ?",
+        [proveedor_id],
       );
       if (proveedor.length === 0) {
         errores.push("El proveedor seleccionado no existe.");
       }
     }
 
-    // VALIDAR EXISTENCIA DE COTIZACIÓN SI VIENE INFORMADA
+    // Validar cotizacion si viene (y opcionalmente que sea de la misma sucursal si no admin)
     if (cotizacion_id) {
-      const [cotizacion] = await db.query(
-        `SELECT id FROM cotizaciones WHERE id = ?`,
-        [cotizacion_id]
-      );
-      if (cotizacion.length === 0) {
-        errores.push("La cotización seleccionada no existe.");
+      const cotizacionIdNum = Number(cotizacion_id);
+      if (Number.isNaN(cotizacionIdNum)) {
+        errores.push("La cotización seleccionada es inválida.");
+      } else {
+        const whereSucursalSql = !esAdmin ? " AND sucursal_id = ?" : "";
+        const paramsSucursal = !esAdmin ? [sucursalIdUsuario] : [];
+
+        const [cotizacion] = await db.query(
+          `SELECT id FROM cotizaciones WHERE id = ? ${whereSucursalSql} LIMIT 1`,
+          [cotizacionIdNum, ...paramsSucursal],
+        );
+
+        if (cotizacion.length === 0) {
+          errores.push(
+            "La cotización seleccionada no existe o no pertenece a tu sucursal.",
+          );
+        }
       }
     }
 
-    // VALIDAR DUPLICIDAD DE GASTO
+    // Duplicidad de gasto (mantengo tu lógica)
     const [gastoDuplicado] = await db.query(
       `SELECT id FROM gastos
          WHERE proveedor_id = ?
            AND concepto_pago = ?
            AND subtotal = ?
            AND fecha = ?
-           AND sucursal_id = ?`,
-      [proveedor_id || null, concepto_pago, subtotal, fecha, sucursal_id]
+           AND sucursal_id = ?
+         LIMIT 1`,
+      [proveedor_id || null, concepto_pago, subtotal, fecha, sucursal_id],
     );
 
     if (gastoDuplicado.length > 0) {
       errores.push(
-        "Ya existe un gasto registrado con estos datos. Verifica antes de continuar."
+        "Ya existe un gasto registrado con estos datos. Verifica antes de continuar.",
       );
     }
   }
@@ -221,16 +264,38 @@ export const validarRegistro = async (req, res, next) => {
    * VALIDACIONES PARA COTIZACIÓN
    *───────────────────────────────*/
   if (tipo === "cotizacion") {
-    const { cliente_id, fecha, total } = datosCombinados;
+    const { cliente_id, fecha, detalle } = datosCombinados;
 
     if (!cliente_id || isNaN(cliente_id)) {
       errores.push("El cliente es obligatorio y debe ser numérico.");
     } else {
-      const [cliente] = await db.query(`SELECT id FROM clientes WHERE id = ?`, [
-        cliente_id,
-      ]);
-      if (cliente.length === 0) {
+      // Traer sucursal del cliente para validar coherencia
+      const [clienteRows] = await db.query(
+        "SELECT id, sucursal_id FROM clientes WHERE id = ? LIMIT 1",
+        [cliente_id],
+      );
+
+      if (clienteRows.length === 0) {
         errores.push("El cliente seleccionado no existe.");
+      } else {
+        const sucursalIdCliente = Number(clienteRows[0].sucursal_id);
+        const sucursalIdRegistro = Number(datosCombinados.sucursal_id);
+
+        if (!sucursalIdCliente || Number.isNaN(sucursalIdCliente)) {
+          errores.push("El cliente no tiene sucursal asignada.");
+        } else {
+          // Sucursal del registro debe coincidir con la del cliente
+          if (sucursalIdRegistro && sucursalIdRegistro !== sucursalIdCliente) {
+            errores.push(
+              "La sucursal seleccionada no coincide con la sucursal del cliente.",
+            );
+          }
+
+          // Si no admin, cliente debe ser de su sucursal (ya forzada)
+          if (!esAdmin && sucursalIdRegistro !== sucursalIdCliente) {
+            errores.push("El cliente no pertenece a tu sucursal.");
+          }
+        }
       }
     }
 
@@ -238,22 +303,49 @@ export const validarRegistro = async (req, res, next) => {
       errores.push("La fecha de la cotización es inválida.");
     }
 
-    if (total == null || isNaN(total) || total <= 0) {
-      errores.push("El total es obligatorio y debe ser mayor a cero.");
+    // NO validar total (backend lo calcula). Validar detalle mínimo.
+    if (!Array.isArray(detalle) || detalle.length === 0) {
+      errores.push("El detalle de la cotización es obligatorio.");
+    } else {
+      for (let i = 0; i < detalle.length; i++) {
+        const item = detalle[i];
+        const servicioProductosId = Number(item?.servicio_productos_id);
+        const cantidad = Number(item?.cantidad);
+        const precioUnitario = Number(item?.precio_unitario);
+        const porcentajeIva =
+          item?.porcentaje_iva === undefined
+            ? 16
+            : Number(item?.porcentaje_iva);
+
+        if (!servicioProductosId || Number.isNaN(servicioProductosId)) {
+          errores.push(`Detalle[${i}]: servicio_productos_id inválido.`);
+          continue;
+        }
+        if (!Number.isFinite(cantidad) || cantidad <= 0) {
+          errores.push(`Detalle[${i}]: cantidad inválida.`);
+        }
+        if (!Number.isFinite(precioUnitario) || precioUnitario <= 0) {
+          errores.push(`Detalle[${i}]: precio_unitario inválido.`);
+        }
+        if (!Number.isFinite(porcentajeIva) || porcentajeIva < 0) {
+          errores.push(`Detalle[${i}]: porcentaje_iva inválido.`);
+        }
+      }
     }
 
-    // VALIDAR DUPLICIDAD DE COTIZACIÓN
+    // Duplicidad de cotización: dejo suave (solo por cliente y fecha).
+    // Si esto te genera falsos positivos, se elimina.
     const [cotizacionDuplicada] = await db.query(
       `SELECT id FROM cotizaciones
          WHERE cliente_id = ?
            AND fecha = ?
-           AND total = ?`,
-      [cliente_id || null, fecha, total]
+         LIMIT 1`,
+      [cliente_id, fecha],
     );
 
     if (cotizacionDuplicada.length > 0) {
       errores.push(
-        "Ya existe una cotización registrada para este cliente en la misma fecha y con el mismo total."
+        "Ya existe una cotización registrada para este cliente en la misma fecha.",
       );
     }
   }
@@ -267,5 +359,5 @@ export const validarRegistro = async (req, res, next) => {
   }
 
   req.combinedData = datosCombinados;
-  next();
+  return next();
 };

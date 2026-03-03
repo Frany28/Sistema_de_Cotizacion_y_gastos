@@ -3,7 +3,10 @@ import db from "../config/database.js";
 import path from "path";
 import puppeteer from "puppeteer-core";
 import chromium from "@sparticuz/chromium";
-import cacheMemoria from "../utils/cacheMemoria.js";
+import cacheMemoria, {
+  obtenerScopeSucursalCache,
+  invalidarCachePorPrefijos,
+} from "../utils/cacheMemoria.js";
 import { generarHTMLCotizacion } from "../../templates/generarHTMLCotizacion.js";
 import fs from "fs";
 import { fileURLToPath } from "url";
@@ -31,7 +34,6 @@ try {
 // Obtener todas las cotizaciones con detalle
 
 export const getCotizaciones = async (req, res) => {
-  // 1) Parámetros de paginación
   const page = Number.isNaN(Number(req.query.page))
     ? 1
     : Number(req.query.page);
@@ -40,33 +42,48 @@ export const getCotizaciones = async (req, res) => {
     : Number(req.query.limit);
   const offset = (page - 1) * limit;
 
-  // 2) Parámetro de búsqueda (opcional)
   const q = (req.query.search || "").trim();
 
-  const claveCache = `cotizaciones_${page}_${limit}_${q}`;
+  const scopeSucursal = obtenerScopeSucursalCache(req);
+  if (!scopeSucursal) {
+    return res
+      .status(403)
+      .json({ message: "Tu usuario no tiene sucursal asignada." });
+  }
+
+  const claveCache = `cotizaciones_${scopeSucursal}_${page}_${limit}_${q}`;
   const enCache = cacheMemoria.get(claveCache);
   if (enCache) return res.json(enCache);
 
   try {
-    // 3) Total de registros (filtrado si hay búsqueda)
     let total;
+
+    const esAdmin = Number(req.user?.rol_id) === 1;
+    const filtroSucursalSql =
+      esAdmin && scopeSucursal === "todas" ? "" : " AND c.sucursal_id = ?";
+    const paramsSucursal =
+      esAdmin && scopeSucursal === "todas" ? [] : [Number(scopeSucursal)];
+
     if (q) {
       const [[{ total: count }]] = await db.query(
         `SELECT COUNT(*) AS total
            FROM cotizaciones c
            JOIN clientes cli ON c.cliente_id = cli.id
-          WHERE c.codigo_referencia LIKE ? OR cli.nombre LIKE ?`,
-        [`%${q}%`, `%${q}%`],
+          WHERE (c.codigo_referencia LIKE ? OR cli.nombre LIKE ?)
+          ${filtroSucursalSql}`,
+        [`%${q}%`, `%${q}%`, ...paramsSucursal],
       );
       total = count;
     } else {
       const [[{ total: count }]] = await db.query(
-        `SELECT COUNT(*) AS total FROM cotizaciones`,
+        `SELECT COUNT(*) AS total
+           FROM cotizaciones c
+          WHERE 1=1 ${filtroSucursalSql}`,
+        [...paramsSucursal],
       );
       total = count;
     }
 
-    // 4) Listado paginado y (opcional) filtrado
     let cotizaciones;
     if (q) {
       [cotizaciones] = await db.query(
@@ -89,11 +106,12 @@ export const getCotizaciones = async (req, res) => {
           FROM cotizaciones c
           JOIN clientes cli ON c.cliente_id = cli.id
           LEFT JOIN sucursales s ON c.sucursal_id = s.id
-         WHERE c.codigo_referencia LIKE ? OR cli.nombre LIKE ?
+         WHERE (c.codigo_referencia LIKE ? OR cli.nombre LIKE ?)
+         ${filtroSucursalSql}
          ORDER BY c.fecha DESC
          LIMIT ${limit} OFFSET ${offset}
         `,
-        [`%${q}%`, `%${q}%`],
+        [`%${q}%`, `%${q}%`, ...paramsSucursal],
       );
     } else {
       [cotizaciones] = await db.query(
@@ -116,15 +134,15 @@ export const getCotizaciones = async (req, res) => {
           FROM cotizaciones c
           JOIN clientes cli ON c.cliente_id = cli.id
           LEFT JOIN sucursales s ON c.sucursal_id = s.id
+         WHERE 1=1 ${filtroSucursalSql}
          ORDER BY c.fecha DESC
          LIMIT ${limit} OFFSET ${offset}
         `,
+        [...paramsSucursal],
       );
     }
 
     cacheMemoria.set(claveCache, { cotizaciones, total, page, limit });
-
-    // 5) Enviar respuesta
     return res.json({ cotizaciones, total, page, limit });
   } catch (error) {
     console.error("Error al obtener cotizaciones:", error);
@@ -135,12 +153,25 @@ export const getCotizaciones = async (req, res) => {
 // controllers/cotizaciones.controller.js
 export const getCotizacionById = async (req, res) => {
   const { id } = req.params;
-  const claveCache = `cotizacion_${id}`;
+
+  const scopeSucursal = obtenerScopeSucursalCache(req);
+  if (!scopeSucursal) {
+    return res
+      .status(403)
+      .json({ message: "Tu usuario no tiene sucursal asignada." });
+  }
+
+  const claveCache = `cotizacion_${scopeSucursal}_${id}`;
   const enCache = cacheMemoria.get(claveCache);
   if (enCache) return res.json(enCache);
 
   try {
-    // 1) Cabecera: agregamos los campos que faltaban
+    const esAdmin = Number(req.user?.rol_id) === 1;
+    const whereSucursal =
+      esAdmin && scopeSucursal === "todas" ? "" : " AND c.sucursal_id = ?";
+    const paramsSucursal =
+      esAdmin && scopeSucursal === "todas" ? [] : [Number(scopeSucursal)];
+
     const [[cot]] = await db.query(
       `SELECT
          c.id,
@@ -167,14 +198,14 @@ export const getCotizacionById = async (req, res) => {
        FROM cotizaciones c
        JOIN clientes cli ON c.cliente_id = cli.id
        LEFT JOIN sucursales s ON c.sucursal_id = s.id
-      LEFT JOIN usuarios u   ON u.id = c.creadoPor
-       WHERE c.id = ?`,
-      [id],
+       LEFT JOIN usuarios u   ON u.id = c.creadoPor
+       WHERE c.id = ? ${whereSucursal}`,
+      [id, ...paramsSucursal],
     );
+
     if (!cot)
       return res.status(404).json({ message: "No existe esa cotización" });
 
-    // 2) Detalle: ahora traemos también dc.id y dc.servicio_productos_id
     const [detalle] = await db.query(
       `SELECT
          dc.id,
@@ -193,7 +224,6 @@ export const getCotizacionById = async (req, res) => {
       [id],
     );
 
-    // 3) Ajustes de tipos si los necesitas…
     cot.subtotal = Number(cot.subtotal);
     cot.impuesto = Number(cot.impuesto);
     cot.total = Number(cot.total);
@@ -212,14 +242,35 @@ export const actualizarEstadoCotizacion = async (req, res) => {
   const { id } = req.params;
   const { estado, motivo_rechazo } = req.body;
 
+  // 0) Validar sucursal (admin ve todo; usuario solo su sucursal)
+  const scopeSucursal = obtenerScopeSucursalCache(req);
+  if (!scopeSucursal) {
+    return res
+      .status(403)
+      .json({ message: "Tu usuario no tiene sucursal asignada." });
+  }
+
+  const esAdmin = Number(req.user?.rol_id) === 1;
+
+  // 1) Verificar existencia/estado y obtener sucursal_id (para cache)
+  const whereSucursalSql =
+    esAdmin && scopeSucursal === "todas" ? "" : " AND sucursal_id = ?";
+  const paramsSucursal =
+    esAdmin && scopeSucursal === "todas" ? [] : [Number(scopeSucursal)];
+
   const [estadoRow] = await db.query(
-    "SELECT estado FROM cotizaciones WHERE id = ?",
-    [id],
+    `SELECT estado, sucursal_id FROM cotizaciones WHERE id = ? ${whereSucursalSql} LIMIT 1`,
+    [id, ...paramsSucursal],
   );
+
   if (!estadoRow.length) {
     return res.status(404).json({ message: "Cotización no encontrada" });
   }
-  if (estadoRow[0].estado === "aprobada") {
+
+  const estadoActual = estadoRow[0].estado;
+  const sucursalIdCotizacion = Number(estadoRow[0].sucursal_id);
+
+  if (estadoActual === "aprobada") {
     return res.status(403).json({
       message: "No se puede cambiar el estado de una cotización aprobada",
     });
@@ -236,32 +287,38 @@ export const actualizarEstadoCotizacion = async (req, res) => {
   }
 
   try {
+    // 2) Actualizar estado (respetando sucursal si aplica)
     const [result] = await db.query(
       `UPDATE cotizaciones
           SET estado = ?,
               motivo_rechazo = ?
-        WHERE id = ?`,
-      [estado, estado === "rechazada" ? motivo_rechazo.trim() : null, id],
+        WHERE id = ? ${whereSucursalSql}`,
+      [
+        estado,
+        estado === "rechazada" ? motivo_rechazo.trim() : null,
+        id,
+        ...paramsSucursal,
+      ],
     );
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: "Cotización no encontrada" });
     }
 
+    // 3) Si se aprueba => generar CxC y limpiar cache
     if (estado === "aprobada") {
       const [cotizacionData] = await db.query(
-        `SELECT cliente_id, total FROM cotizaciones WHERE id = ?`,
+        `SELECT cliente_id, total FROM cotizaciones WHERE id = ? LIMIT 1`,
         [id],
       );
 
       if (cotizacionData.length > 0) {
         const cot = cotizacionData[0];
 
-        // Primero insertar la cuenta por cobrar
         const [insertResult] = await db.query(
           `INSERT INTO cuentas_por_cobrar 
-          (codigo, cliente_id, cotizacion_id, monto, descripcion, estado, fecha_emision, fecha_vencimiento)
-              VALUES (?, ?, ?, ?, ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 15 DAY))`,
+            (codigo, cliente_id, cotizacion_id, monto, descripcion, estado, fecha_emision, fecha_vencimiento)
+           VALUES (?, ?, ?, ?, ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 15 DAY))`,
           [
             "",
             cot.cliente_id,
@@ -279,18 +336,26 @@ export const actualizarEstadoCotizacion = async (req, res) => {
           `UPDATE cuentas_por_cobrar SET codigo = ? WHERE id = ?`,
           [codigoGenerado, nuevoId],
         );
-
-        cacheMemoria.del(`cotizacion_${id}`);
-        for (const k of cacheMemoria.keys()) {
-          if (k.startsWith("cotizaciones_")) cacheMemoria.del(k);
-        }
       }
+
+      // ✅ invalidación de cache correcta (por sucursal de la cotización)
+      const scopeInvalidar =
+        !Number.isNaN(sucursalIdCotizacion) && sucursalIdCotizacion > 0
+          ? String(sucursalIdCotizacion)
+          : null;
+
+      invalidarCachePorPrefijos({
+        prefijos: ["cotizaciones_", "cotizacion_", "buscCot_"],
+        scopeSucursal: scopeInvalidar,
+      });
     }
 
-    res.json({ message: "Estado de cotización actualizado correctamente" });
+    return res.json({
+      message: "Estado de cotización actualizado correctamente",
+    });
   } catch (error) {
     console.error("Error al actualizar estado:", error);
-    res
+    return res
       .status(500)
       .json({ message: "Error al actualizar el estado de la cotización" });
   }
@@ -298,25 +363,42 @@ export const actualizarEstadoCotizacion = async (req, res) => {
 
 export const buscarCotizaciones = async (req, res) => {
   const q = (req.query.q || "").trim();
-  const clave = `buscCot_${q}`;
+
+  const scopeSucursal = obtenerScopeSucursalCache(req);
+  if (!scopeSucursal) {
+    return res
+      .status(403)
+      .json({ message: "Tu usuario no tiene sucursal asignada." });
+  }
+
+  const clave = `buscCot_${scopeSucursal}_${q}`;
   const hit = cacheMemoria.get(clave);
   if (hit) return res.json(hit);
+
+  const esAdmin = Number(req.user?.rol_id) === 1;
+  const filtroSucursalSql =
+    esAdmin && scopeSucursal === "todas" ? "" : " AND c.sucursal_id = ?";
+  const paramsSucursal =
+    esAdmin && scopeSucursal === "todas" ? [] : [Number(scopeSucursal)];
 
   const [rows] = await db.query(
     `
       SELECT c.id,
-             c.codigo_referencia   AS codigo,
-             cli.nombre            AS cliente,
+             c.codigo_referencia AS codigo,
+             cli.nombre          AS cliente,
              c.total
       FROM cotizaciones c
       JOIN clientes cli ON cli.id = c.cliente_id
-      WHERE c.codigo_referencia LIKE ? OR cli.nombre LIKE ?
-      ORDER BY c.id DESC LIMIT 20`,
-    [`%${q}%`, `%${q}%`],
+      WHERE (c.codigo_referencia LIKE ? OR cli.nombre LIKE ?)
+      ${filtroSucursalSql}
+      ORDER BY c.id DESC
+      LIMIT 20
+    `,
+    [`%${q}%`, `%${q}%`, ...paramsSucursal],
   );
 
   cacheMemoria.set(clave, rows, 120);
-  res.json(rows);
+  return res.json(rows);
 };
 
 // En cotizaciones.controller.js
@@ -337,21 +419,40 @@ export const editarCotizacion = async (req, res) => {
     detalle = [],
   } = req.body;
 
+  // Validar sucursal (admin ve todo; usuario solo su sucursal)
+  const scopeSucursal = obtenerScopeSucursalCache(req);
+  if (!scopeSucursal) {
+    return res
+      .status(403)
+      .json({ message: "Tu usuario no tiene sucursal asignada." });
+  }
+
+  const esAdmin = Number(req.user?.rol_id) === 1;
+
   const conn = await db.getConnection();
 
   try {
     await conn.beginTransaction();
 
-    // 1) Validar estado actual
+    // 1) Validar estado actual + obtener sucursal anterior
+    const whereSucursalSql =
+      esAdmin && scopeSucursal === "todas" ? "" : " AND sucursal_id = ?";
+    const paramsSucursal =
+      esAdmin && scopeSucursal === "todas" ? [] : [Number(scopeSucursal)];
+
     const [rowsEstado] = await conn.query(
-      `SELECT estado FROM cotizaciones WHERE id = ?`,
-      [id],
+      `SELECT estado, sucursal_id FROM cotizaciones WHERE id = ? ${whereSucursalSql} LIMIT 1`,
+      [id, ...paramsSucursal],
     );
+
     if (rowsEstado.length === 0) {
       await conn.rollback();
       return res.status(404).json({ message: "Cotización no encontrada." });
     }
+
     const estadoActual = rowsEstado[0].estado;
+    const sucursalIdAnterior = Number(rowsEstado[0].sucursal_id);
+
     if (!["pendiente", "rechazada"].includes(estadoActual)) {
       await conn.rollback();
       return res.status(403).json({
@@ -360,8 +461,9 @@ export const editarCotizacion = async (req, res) => {
       });
     }
 
-    // 2) Actualizar cabecera (IMPORTANTE: usar fechaActualizacion, no updated_at)
+    // 2) Actualizar cabecera
     const confirmacionClienteVal = confirmacion_cliente ? 1 : 0;
+
     await conn.query(
       `UPDATE cotizaciones
           SET cliente_id           = ?,
@@ -375,7 +477,7 @@ export const editarCotizacion = async (req, res) => {
               observaciones        = ?,
               estado               = 'pendiente',
               fechaActualizacion   = NOW()
-        WHERE id = ?`,
+        WHERE id = ? ${whereSucursalSql}`,
       [
         cliente_id,
         sucursal_id,
@@ -387,6 +489,7 @@ export const editarCotizacion = async (req, res) => {
         confirmacionClienteVal,
         observaciones,
         id,
+        ...paramsSucursal,
       ],
     );
 
@@ -404,14 +507,12 @@ export const editarCotizacion = async (req, res) => {
     const lineasAActualizar = [];
     const lineasAInsertar = [];
 
-    // a) Eliminar: ids viejos que no estén en el arreglo nuevo
     detalleOldRows.forEach(({ id: oldId }) => {
       if (!detalle.some((n) => n.id === oldId)) {
         idsAEliminar.push(oldId);
       }
     });
 
-    // b) Clasificar inserciones/actualizaciones
     detalle.forEach((item) => {
       if (item.id) {
         const viejo = viejoPorId.get(item.id);
@@ -435,7 +536,7 @@ export const editarCotizacion = async (req, res) => {
       ]);
     }
 
-    // 6) Ejecutar actualizaciones (recalcula importes por línea)
+    // 6) Actualizaciones
     for (const {
       id: lineaId,
       servicio_productos_id,
@@ -450,6 +551,7 @@ export const editarCotizacion = async (req, res) => {
       );
       const sub = cant * precio;
       const imp = sub * (iva / 100);
+
       await conn.query(
         `UPDATE detalle_cotizacion
             SET servicio_productos_id = ?,
@@ -473,7 +575,7 @@ export const editarCotizacion = async (req, res) => {
       );
     }
 
-    // 7) Ejecutar inserciones (recalcula importes por línea)
+    // 7) Inserciones
     for (const {
       servicio_productos_id,
       cantidad,
@@ -485,6 +587,7 @@ export const editarCotizacion = async (req, res) => {
       const iva = Number(porcentaje_iva);
       const sub = cant * precio;
       const imp = sub * (iva / 100);
+
       await conn.query(
         `INSERT INTO detalle_cotizacion
            (cotizacion_id, servicio_productos_id, cantidad, precio_unitario, porcentaje_iva, subtotal, impuesto, total)
@@ -493,7 +596,7 @@ export const editarCotizacion = async (req, res) => {
       );
     }
 
-    // 8) Recalcular totales desde BD (fiable y consistente)
+    // 8) Recalcular totales desde BD
     const [[totales]] = await conn.query(
       `SELECT 
          IFNULL(SUM(subtotal), 0) AS subtotal,
@@ -513,16 +616,35 @@ export const editarCotizacion = async (req, res) => {
               impuesto = ?, 
               total    = ?,
               fechaActualizacion = NOW()
-        WHERE id = ?`,
-      [subtotalCalc, impuestoCalc, totalCalc, id],
+        WHERE id = ? ${whereSucursalSql}`,
+      [subtotalCalc, impuestoCalc, totalCalc, id, ...paramsSucursal],
     );
 
     await conn.commit();
 
-    // 9) Limpiar caches relacionadas
-    cacheMemoria.del(`cotizacion_${id}`);
-    for (const k of cacheMemoria.keys()) {
-      if (k.startsWith("cotizaciones_")) cacheMemoria.del(k);
+    // 9) ✅ Limpiar caches (correcto por sucursal)
+    const sucursalIdNueva = Number(sucursal_id);
+
+    const scopesAInvalidar = new Set();
+
+    if (!Number.isNaN(sucursalIdAnterior) && sucursalIdAnterior > 0) {
+      scopesAInvalidar.add(String(sucursalIdAnterior));
+    }
+    if (!Number.isNaN(sucursalIdNueva) && sucursalIdNueva > 0) {
+      scopesAInvalidar.add(String(sucursalIdNueva));
+    }
+
+    if (scopesAInvalidar.size === 0) {
+      invalidarCachePorPrefijos({
+        prefijos: ["cotizaciones_", "cotizacion_", "buscCot_"],
+      });
+    } else {
+      for (const scopeSucursalItem of scopesAInvalidar) {
+        invalidarCachePorPrefijos({
+          prefijos: ["cotizaciones_", "cotizacion_", "buscCot_"],
+          scopeSucursal: scopeSucursalItem,
+        });
+      }
     }
 
     return res.json({
@@ -542,39 +664,64 @@ export const editarCotizacion = async (req, res) => {
 export const deleteCotizacion = async (req, res) => {
   const { id } = req.params;
 
+  // Validar sucursal (admin ve todo; usuario solo su sucursal)
+  const scopeSucursal = obtenerScopeSucursalCache(req);
+  if (!scopeSucursal) {
+    return res
+      .status(403)
+      .json({ message: "Tu usuario no tiene sucursal asignada." });
+  }
+
+  const esAdmin = Number(req.user?.rol_id) === 1;
+  const whereSucursalSql =
+    esAdmin && scopeSucursal === "todas" ? "" : " AND sucursal_id = ?";
+  const paramsSucursal =
+    esAdmin && scopeSucursal === "todas" ? [] : [Number(scopeSucursal)];
+
   try {
-    // 1) Verificar si existe y cuál es su estado
+    // 1) Verificar si existe y cuál es su estado + sucursal_id
     const [rows] = await db.query(
-      "SELECT estado FROM cotizaciones WHERE id = ?",
-      [id],
+      `SELECT estado, sucursal_id FROM cotizaciones WHERE id = ? ${whereSucursalSql} LIMIT 1`,
+      [id, ...paramsSucursal],
     );
+
     if (rows.length === 0) {
       return res.status(404).json({ message: "Cotización no encontrada" });
     }
+
     if (rows[0].estado === "aprobada") {
       return res
         .status(403)
         .json({ message: "No puede eliminar una cotización aprobada" });
     }
 
+    const sucursalIdCotizacion = Number(rows[0].sucursal_id);
+
     // 2) Eliminar detalles primero
     await db.query("DELETE FROM detalle_cotizacion WHERE cotizacion_id = ?", [
       id,
     ]);
 
-    // 3) Luego eliminar la cotización
-    const [result] = await db.query("DELETE FROM cotizaciones WHERE id = ?", [
-      id,
-    ]);
+    // 3) Eliminar la cotización (respetando sucursal si aplica)
+    const [result] = await db.query(
+      `DELETE FROM cotizaciones WHERE id = ? ${whereSucursalSql}`,
+      [id, ...paramsSucursal],
+    );
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: "Cotización no encontrada" });
     }
 
-    cacheMemoria.del(`cotizacion_${id}`);
-    for (const k of cacheMemoria.keys()) {
-      if (k.startsWith("cotizaciones_")) cacheMemoria.del(k);
-    }
+    // ✅ invalidación de cache correcta
+    const scopeInvalidar =
+      !Number.isNaN(sucursalIdCotizacion) && sucursalIdCotizacion > 0
+        ? String(sucursalIdCotizacion)
+        : null;
+
+    invalidarCachePorPrefijos({
+      prefijos: ["cotizaciones_", "cotizacion_", "buscCot_"],
+      scopeSucursal: scopeInvalidar,
+    });
 
     return res.json({ message: "Cotización eliminada exitosamente" });
   } catch (error) {
