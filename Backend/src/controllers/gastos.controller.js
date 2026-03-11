@@ -869,6 +869,7 @@ export const actualizarEstadoGasto = async (req, res) => {
           `
           SELECT
             creadoPor      AS usuario_solicita_id,
+            sucursal_id,
             proveedor_id,
             concepto_pago,
             total          AS monto_total,
@@ -881,17 +882,14 @@ export const actualizarEstadoGasto = async (req, res) => {
           [id],
         );
 
-        const [[{ maxId }]] = await db.query(
-          "SELECT MAX(id) AS maxId FROM solicitudes_pago",
-        );
-        const nextId = (maxId || 0) + 1;
-        const codigo = `SP-${String(nextId).padStart(5, "0")}`;
+        const codigoTemporal = `SP-TMP-${Date.now()}-${id}`;
 
-        await db.query(
+        const [resultadoInsercion] = await db.query(
           `
           INSERT INTO solicitudes_pago (
             codigo,
             gasto_id,
+            sucursal_id,
             usuario_solicita_id,
             usuario_revisa_id,
             proveedor_id,
@@ -905,13 +903,14 @@ export const actualizarEstadoGasto = async (req, res) => {
             moneda,
             tasa_cambio
           )
-          VALUES (?,?,?,?,?,?,?,?,?,NOW(),NOW(),NOW(),?,?)
+          VALUES (?,?,?,?,?,?,?,?,?,?,NOW(),NOW(),NOW(),?,?)
           `,
           [
-            codigo,
+            codigoTemporal,
             id,
+            gasto.sucursal_id,
             gasto.usuario_solicita_id,
-            req.session.usuario.id,
+            req.user?.id ?? null,
             gasto.proveedor_id,
             gasto.concepto_pago,
             gasto.monto_total,
@@ -921,6 +920,27 @@ export const actualizarEstadoGasto = async (req, res) => {
             gasto.tasa_cambio,
           ],
         );
+
+        const solicitudPagoId = resultadoInsercion.insertId;
+        const codigoFinal = `SP-${String(solicitudPagoId).padStart(5, "0")}`;
+
+        await db.query(
+          "UPDATE solicitudes_pago SET codigo = ? WHERE id = ?",
+          [codigoFinal, solicitudPagoId],
+        );
+
+        invalidarCachePorPrefijos({
+          prefijos: [
+            "solicitudesPago_",
+            "solicitudPago_",
+            "ordenesPagoSolicitud_",
+          ],
+          scopeSucursal:
+            !Number.isNaN(Number(gasto.sucursal_id)) &&
+            Number(gasto.sucursal_id) > 0
+              ? String(Number(gasto.sucursal_id))
+              : null,
+        });
       }
     }
 
