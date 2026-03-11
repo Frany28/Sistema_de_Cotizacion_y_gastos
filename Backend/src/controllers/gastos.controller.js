@@ -14,12 +14,13 @@ import cacheMemoria, {
 
 // controllers/gastos.controller.js
 export const getGastos = async (req, res) => {
-  const page = Number.isNaN(Number(req.query.page))
-    ? 1
-    : Number(req.query.page);
-  const limit = Number.isNaN(Number(req.query.limit))
-    ? 5
-    : Number(req.query.limit);
+  const pageRaw = Number(req.query.page);
+  const limitRaw = Number(req.query.limit);
+  const page = Number.isInteger(pageRaw) && pageRaw > 0 ? pageRaw : 1;
+  const limit =
+    Number.isInteger(limitRaw) && limitRaw > 0
+      ? Math.min(limitRaw, 100)
+      : 5;
   const offset = (page - 1) * limit;
   const q = (req.query.search || "").trim();
 
@@ -162,44 +163,51 @@ export const getGastos = async (req, res) => {
 };
 
 export const obtenerUrlComprobante = async (req, res) => {
-  const { id } = req.params;
+  try {
+    const { id } = req.params;
 
-  const scopeSucursal = obtenerScopeSucursalCache(req);
-  if (!scopeSucursal) {
+    const scopeSucursal = obtenerScopeSucursalCache(req);
+    if (!scopeSucursal) {
+      return res
+        .status(403)
+        .json({ message: "Tu usuario no tiene sucursal asignada." });
+    }
+
+    const esAdmin = Number(req.user?.rol_id) === 1;
+    const whereSucursalSql =
+      esAdmin && scopeSucursal === "todas" ? "" : " AND sucursal_id = ?";
+    const paramsSucursal =
+      esAdmin && scopeSucursal === "todas" ? [] : [Number(scopeSucursal)];
+
+    const claveCache = `gastoComprobante_${scopeSucursal}_${id}`;
+    const enCache = cacheMemoria.get(claveCache);
+    if (enCache) return res.json(enCache);
+
+    const [[fila]] = await db.query(
+      `SELECT documento AS keyS3
+         FROM gastos
+        WHERE id = ? ${whereSucursalSql}
+        LIMIT 1`,
+      [id, ...paramsSucursal],
+    );
+
+    if (!fila || !fila.keyS3) {
+      return res
+        .status(404)
+        .json({ message: "Este gasto no tiene un comprobante adjunto" });
+    }
+
+    const url = await generarUrlPrefirmadaLectura(fila.keyS3, 300);
+    const respuesta = { url };
+
+    cacheMemoria.set(claveCache, respuesta);
+    return res.json(respuesta);
+  } catch (error) {
+    console.error("Error al obtener URL de comprobante:", error);
     return res
-      .status(403)
-      .json({ message: "Tu usuario no tiene sucursal asignada." });
+      .status(500)
+      .json({ message: "Error al obtener el comprobante del gasto." });
   }
-
-  const esAdmin = Number(req.user?.rol_id) === 1;
-  const whereSucursalSql =
-    esAdmin && scopeSucursal === "todas" ? "" : " AND sucursal_id = ?";
-  const paramsSucursal =
-    esAdmin && scopeSucursal === "todas" ? [] : [Number(scopeSucursal)];
-
-  const claveCache = `gastoComprobante_${scopeSucursal}_${id}`;
-  const enCache = cacheMemoria.get(claveCache);
-  if (enCache) return res.json(enCache);
-
-  const [[fila]] = await db.query(
-    `SELECT documento AS keyS3
-       FROM gastos
-      WHERE id = ? ${whereSucursalSql}
-      LIMIT 1`,
-    [id, ...paramsSucursal],
-  );
-
-  if (!fila || !fila.keyS3) {
-    return res
-      .status(404)
-      .json({ message: "Este gasto no tiene un comprobante adjunto" });
-  }
-
-  const url = await generarUrlPrefirmadaLectura(fila.keyS3, 300);
-  const respuesta = { url };
-
-  cacheMemoria.set(claveCache, respuesta);
-  return res.json(respuesta);
 };
 
 // ──────────────────────────────────────────────────────────────
