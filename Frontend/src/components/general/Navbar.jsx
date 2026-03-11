@@ -12,6 +12,7 @@ function Navbar() {
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [puedeVerUsuarios, setPuedeVerUsuarios] = useState(false);
+  const [puedeVerGestorEventos, setPuedeVerGestorEventos] = useState(false);
   const dropdownRef = useRef();
   const mobileMenuRef = useRef();
 
@@ -28,8 +29,6 @@ function Navbar() {
     const porSlug = rolSlug === "admin" || rolSlug === "supervisor";
     return Boolean(porId || porSlug);
   };
-
-  const puedeVerGestorEventos = esAdminOSupervisor();
 
   const toggleDropdown = (dropdownName) => {
     setOpenDropdown(openDropdown === dropdownName ? null : dropdownName);
@@ -80,12 +79,22 @@ function Navbar() {
   useEffect(() => {
     let activo = true;
 
-    const cargarPermisoUsuarios = async () => {
-      const tienePermiso = await verificarPermisoFront("verUsuarios");
-      if (activo) setPuedeVerUsuarios(tienePermiso);
+    const cargarPermisosNavbar = async () => {
+      const [tienePermisoUsuarios, tienePermisoGestorEventos] =
+        await Promise.all([
+          verificarPermisoFront("verUsuarios"),
+          verificarPermisoFront("verEventosArchivos"),
+        ]);
+
+      if (!activo) return;
+
+      setPuedeVerUsuarios(tienePermisoUsuarios);
+      setPuedeVerGestorEventos(
+        esAdminOSupervisor() && tienePermisoGestorEventos
+      );
     };
 
-    cargarPermisoUsuarios();
+    cargarPermisosNavbar();
     return () => {
       activo = false;
     };
