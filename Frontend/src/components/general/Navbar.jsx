@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import { LogOut, User } from "lucide-react";
 import imagenEmpresa from "../../Styles/img/Point Technology.png";
+import { verificarPermisoFront } from "../../../utils/verificarPermisoFront";
 
 function Navbar() {
   const location = useLocation();
@@ -10,6 +11,7 @@ function Navbar() {
   const [openDropdown, setOpenDropdown] = useState(null);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [puedeVerUsuarios, setPuedeVerUsuarios] = useState(false);
   const dropdownRef = useRef();
   const mobileMenuRef = useRef();
 
@@ -75,6 +77,20 @@ function Navbar() {
     };
   }, []);
 
+  useEffect(() => {
+    let activo = true;
+
+    const cargarPermisoUsuarios = async () => {
+      const tienePermiso = await verificarPermisoFront("verUsuarios");
+      if (activo) setPuedeVerUsuarios(tienePermiso);
+    };
+
+    cargarPermisoUsuarios();
+    return () => {
+      activo = false;
+    };
+  }, []);
+
   const navItems = [
     { path: "/Dashboard", label: "Principal", type: "link" },
     {
@@ -89,7 +105,9 @@ function Navbar() {
         { path: "/administracion/proveedores", label: "Proveedores" },
         { path: "/administracion/bancos", label: "Bancos" },
         { path: "/administracion/sucursales", label: "Sucursales" },
-        { path: "/administracion/usuarios", label: "Usuarios" },
+        ...(puedeVerUsuarios
+          ? [{ path: "/administracion/usuarios", label: "Usuarios" }]
+          : []),
       ],
     },
     {
