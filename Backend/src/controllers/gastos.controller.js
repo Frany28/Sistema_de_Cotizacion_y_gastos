@@ -210,9 +210,9 @@ export const obtenerUrlComprobante = async (req, res) => {
   }
 };
 
-// ──────────────────────────────────────────────────────────────
-// FUNCIÓN 1: updateGasto (solo cambios relacionados a eventos)
-// ──────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// FUNCIÃ“N 1: updateGasto (solo cambios relacionados a eventos)
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const updateGasto = async (req, res) => {
   const { id } = req.params;
   let claveS3Nueva = null;
@@ -261,7 +261,6 @@ export const updateGasto = async (req, res) => {
       subtotal,
       porcentaje_iva,
       fecha,
-      sucursal_id,
       cotizacion_id,
       moneda,
       tasa_cambio,
@@ -269,10 +268,8 @@ export const updateGasto = async (req, res) => {
       motivo_rechazo,
     } = req.body;
 
-    // 2) Forzar sucursal para no-admin (no puede “mover” gastos)
-    const sucursalIdFinal = esAdmin
-      ? Number(sucursal_id)
-      : Number(scopeSucursal);
+    // 2) Forzar sucursal para no-admin (no puede â€œmoverâ€ gastos)
+    const sucursalIdFinal = Number(gastoExistente.sucursal_id);
 
     const subtotalNum = parseFloat(subtotal);
     const ivaNum = parseFloat(porcentaje_iva);
@@ -300,19 +297,20 @@ export const updateGasto = async (req, res) => {
         .json({ message: "Debes indicar el motivo del rechazo." });
     }
 
-    const tasaCambioFinal =
-      moneda === "VES"
-        ? isNaN(parseFloat(tasa_cambio))
-          ? (await conexion.rollback(),
-            res
-              .status(400)
-              .json({ message: "Tasa de cambio inválida para VES." }))
-          : tasa_cambio
-        : null;
-
+    let tasaCambioFinal = null;
+    if (moneda === "VES") {
+      const tasaCambioNumerica = parseFloat(tasa_cambio);
+      if (Number.isNaN(tasaCambioNumerica)) {
+        await conexion.rollback();
+        return res
+          .status(400)
+          .json({ message: "Tasa de cambio invalida para VES." });
+      }
+      tasaCambioFinal = tasaCambioNumerica;
+    }
     const documentoNuevo = req.file ? req.file.key : undefined;
 
-    // 3) Update cabecera (respetando sucursal por WHERE + forzando sucursal_id)
+    // 3) Update cabecera (respetando sucursal por WHERE y preservando sucursal_id)
     await conexion.query(
       `
       UPDATE gastos SET 
@@ -400,7 +398,7 @@ export const updateGasto = async (req, res) => {
               req.ip || null,
               req.get("user-agent") || null,
               JSON.stringify({
-                motivo: "Sustitución de la factura al editar gasto",
+                motivo: "SustituciÃ³n de la factura al editar gasto",
                 nuevaRuta: rutaPapelera,
               }),
             ],
@@ -494,7 +492,7 @@ export const updateGasto = async (req, res) => {
 
     await conexion.commit();
 
-    // 5) ✅ invalidar cache por sucursal real del gasto (antes vs después)
+    // 5) âœ… invalidar cache por sucursal real del gasto (antes vs despuÃ©s)
     const sucursalIdAnterior = Number(gastoExistente.sucursal_id);
     const sucursalIdNueva = Number(sucursalIdFinal);
 
@@ -557,9 +555,9 @@ export const updateGasto = async (req, res) => {
   }
 };
 
-// ──────────────────────────────────────────────────────────────
-// FUNCIÓN 2: deleteGasto (solo cambio de acción a eliminacionArchivo)
-// ──────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// FUNCIÃ“N 2: deleteGasto (solo cambio de acciÃ³n a eliminacionArchivo)
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const deleteGasto = async (req, res) => {
   const { id } = req.params;
   const conexion = await db.getConnection();
@@ -638,7 +636,7 @@ export const deleteGasto = async (req, res) => {
             req.ip || null,
             req.get("user-agent") || null,
             JSON.stringify({
-              motivo: "Eliminación del gasto",
+              motivo: "EliminaciÃ³n del gasto",
               nuevaRuta: nuevaClave,
             }),
           ],
@@ -731,7 +729,7 @@ export const getGastoById = async (req, res) => {
       ? await generarUrlPrefirmadaLectura(gasto.documento)
       : null;
 
-    // Opciones (también restringidas):
+    // Opciones (tambiÃ©n restringidas):
     const [tiposGasto] = await db.query("SELECT id, nombre FROM tipos_gasto");
 
     const [proveedores] = await db.query(
@@ -819,7 +817,7 @@ export const actualizarEstadoGasto = async (req, res) => {
     const paramsSucursal =
       esAdmin && scopeSucursal === "todas" ? [] : [Number(scopeSucursal)];
 
-    // 1) Verificar que exista y obtener sucursal_id real (para invalidación)
+    // 1) Verificar que exista y obtener sucursal_id real (para invalidaciÃ³n)
     const [[gastoRow]] = await db.query(
       `SELECT id, sucursal_id
          FROM gastos
